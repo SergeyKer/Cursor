@@ -17,13 +17,12 @@ export type EngvoFooterView = {
 
 /** Shared / audience-split call status copy for footer and chat bootstrap. */
 export const ENGVO_STATUS_CONNECTING = 'Набираем Engvo…'
+export const ENGVO_STATUS_IN_CALL = 'В эфире.'
 export const ENGVO_STATUS_SPEAKING = 'Engvo говорит…'
 export const ENGVO_STATUS_ENDED = 'Звонок завершён'
 
 export const ENGVO_STATUS_IDLE_ADULT = 'Нажмите зелёную трубку'
 export const ENGVO_STATUS_IDLE_CHILD = 'Нажми зелёную трубку'
-export const ENGVO_STATUS_LISTENING_ADULT = 'Слушаю вас…'
-export const ENGVO_STATUS_LISTENING_CHILD = 'Слушаю тебя…'
 export const ENGVO_STATUS_ERROR_ADULT = 'Связь подвела. Попробуйте снова.'
 export const ENGVO_STATUS_ERROR_CHILD = 'Связь подвела. Попробуй снова.'
 
@@ -33,10 +32,6 @@ function isChildAudience(audience: Audience | undefined): boolean {
 
 export function getEngvoIdleStatusText(audience: Audience = 'adult'): string {
   return isChildAudience(audience) ? ENGVO_STATUS_IDLE_CHILD : ENGVO_STATUS_IDLE_ADULT
-}
-
-export function getEngvoListeningStatusText(audience: Audience = 'adult'): string {
-  return isChildAudience(audience) ? ENGVO_STATUS_LISTENING_CHILD : ENGVO_STATUS_LISTENING_ADULT
 }
 
 export function getEngvoErrorStatusText(audience: Audience = 'adult'): string {
@@ -60,16 +55,13 @@ export function hasEngvoDialingServiceLineInThread(messages: readonly ChatMessag
 
 /**
  * Текст полоски ожидания в чате до первого ответа ассистента в ленте.
- * Согласован с футером: набор / слушаю / говорит.
+ * Только набор / ответ ИИ — без «Слушаю…» (оно не должно попадать в ленту).
  */
 export function getEngvoBootstrapServiceIndicatorText(
   phase: EngvoCallPhase,
-  audience: Audience = 'adult'
+  _audience: Audience = 'adult'
 ): string | null {
   if (phase === 'connecting') return ENGVO_STATUS_CONNECTING
-  if (phase === 'listening' || phase === 'userFinalizing') {
-    return getEngvoListeningStatusText(audience)
-  }
   if (phase === 'assistantPending' || phase === 'assistantSpeaking') {
     return ENGVO_STATUS_SPEAKING
   }
@@ -92,11 +84,13 @@ export function getEngvoFooterView(params: {
   if (params.phase === 'connecting') {
     return { text: ENGVO_STATUS_CONNECTING, tone: 'thinking' }
   }
-  if (params.phase === 'listening' || params.phase === 'userFinalizing') {
-    return { text: getEngvoListeningStatusText(audience), tone: 'neutral' }
-  }
-  if (params.phase === 'assistantPending' || params.phase === 'assistantSpeaking') {
-    return { text: ENGVO_STATUS_SPEAKING, tone: 'thinking' }
+  if (
+    params.phase === 'listening' ||
+    params.phase === 'userFinalizing' ||
+    params.phase === 'assistantPending' ||
+    params.phase === 'assistantSpeaking'
+  ) {
+    return { text: ENGVO_STATUS_IN_CALL, tone: 'neutral' }
   }
   if (params.phase === 'ended') {
     return { text: ENGVO_STATUS_ENDED, tone: 'neutral' }

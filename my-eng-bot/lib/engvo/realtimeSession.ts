@@ -4,6 +4,7 @@ import {
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   ENGVO_XAI_MODEL,
   ENGVO_XAI_PCM_SAMPLE_RATE,
+  ENGVO_XAI_SERVER_VAD_TURN_DETECTION,
   type EngvoRealtimeVoice,
   type EngvoXaiCallVoice,
 } from '@/lib/engvo/constants'
@@ -122,7 +123,7 @@ export function buildEngvoXaiClientSessionUpdate(params: {
             model: 'grok-transcribe',
             language_hint: 'ru',
           },
-          turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
+          turn_detection: { ...ENGVO_XAI_SERVER_VAD_TURN_DETECTION },
         },
         output: {
           format: { ...ENGVO_XAI_PCM_FORMAT },

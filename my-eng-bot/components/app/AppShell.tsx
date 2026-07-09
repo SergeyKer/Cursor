@@ -210,9 +210,12 @@ import {
   ENGVO_DEFAULT_PROVIDER,
   ENGVO_DEFAULT_VOICE,
   ENGVO_INACTIVITY_HANGUP_MS,
+  ENGVO_MAX_CALL_DURATION_MS,
   ENGVO_REALTIME_MODEL,
   ENGVO_INTERRUPT_DEBOUNCE_MS,
-  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
+  ENGVO_XAI_FORCE_COMMIT_AFTER_SPEECH_STOPPED_MS,
+  ENGVO_XAI_FORCE_COMMIT_MAX_UTTERANCE_MS,
+  ENGVO_XAI_USER_COALESCE_WINDOW_MS,
   ENGVO_XAI_DEFAULT_VOICE,
   ENGVO_XAI_MODEL,
   clampEngvoRealtimeSpeed,
@@ -243,6 +246,7 @@ import {
   updateLastEngvoUserMessage,
 } from '@/lib/engvo/callMessageOrder'
 import { isPartialUserTranscriptStatus } from '@/lib/engvo/userTranscriptStatus'
+import { shouldCoalesceEngvoUserTranscript } from '@/lib/engvo/userTranscriptCoalesce'
 import {
   buildEngvoClientSessionUpdate,
   buildEngvoXaiClientSessionUpdate,
@@ -1062,6 +1066,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const engvoInterruptDebounceTimeoutRef = React.useRef<number | null>(null)
   const engvoInterruptDebounceStateRef = React.useRef(createEngvoInterruptDebounceState())
   const engvoInactivityTimeoutRef = React.useRef<number | null>(null)
+  const engvoMaxCallDurationTimeoutRef = React.useRef<number | null>(null)
+  const engvoForceCommitTimeoutRef = React.useRef<number | null>(null)
+  const engvoForceCommitArmedRef = React.useRef(false)
+  const engvoLastMeaningfulActivityAtRef = React.useRef<number>(0)
+  const engvoLastFinalUserAtRef = React.useRef<number>(0)
+  const engvoLastUserCoalescedAtRef = React.useRef<number>(0)
+  const engvoGotAssistantForCurrentUserTurnRef = React.useRef(false)
   /** Снимок истории для передачи в новую Realtime-сессию после разрыва звонка; опустошается в `session.created`. */
   const engvoRealtimeReplayItemsRef = React.useRef<EngvoRealtimeReplayItem[] | null>(null)
   const resetStructuredLessonSessionRef = React.useRef<((options?: { keepLessonMenuContext?: boolean }) => void) | null>(null)
@@ -1343,12 +1354,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (text: string, responseId?: string | null) => {
       const cleanText = guardEngvoAssistantContent(cleanNewlines(text))
       if (!cleanText) return
-      if (responseId) {
-        if (engvoCommittedResponseIdsRef.current.has(responseId)) return
-        engvoCommittedResponseIdsRef.current.add(responseId)
+      const id = responseId ?? engvoAssistantResponseIdRef.current
+      if (id) {
+        if (engvoCommittedResponseIdsRef.current.has(id)) return
+        engvoCommittedResponseIdsRef.current.add(id)
       }
 
       markEngvoAssistantAheadOfPendingUserTranscript()
+      engvoLastMeaningfulActivityAtRef.current = Date.now()
+      engvoGotAssistantForCurrentUserTurnRef.current = true
       setMessages((prev) => {
         const withoutDial = prev.filter((m) => !m.engvoServiceLine)
         const streamingIndex = engvoStreamingAssistantIndexRef.current
@@ -1361,10 +1375,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               content: cleanText,
               engvoServiceLine: undefined,
             }
-            if (responseId) {
-              const pending = engvoPendingTranslationByResponseIdRef.current.get(responseId)
+            if (id) {
+              const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
               if (pending) {
-                engvoPendingTranslationByResponseIdRef.current.delete(responseId)
+                engvoPendingTranslationByResponseIdRef.current.delete(id)
                 patched = {
                   ...patched,
                   translation: pending.translation,
@@ -1377,22 +1391,23 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           }
         }
         const last = withoutDial[withoutDial.length - 1]
-        const lastTrimmed = last?.content.trim() ?? ''
+        const lastNormalized = normalizeForEchoCompare(last?.content ?? '')
+        const nextNormalized = normalizeForEchoCompare(cleanText)
         if (
           last?.role === 'assistant' &&
           last.engvoLocalWelcome !== true &&
           !last.engvoServiceLine &&
-          lastTrimmed !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT &&
-          lastTrimmed === cleanText.trim()
+          last.content.trim() !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT &&
+          lastNormalized === nextNormalized
         ) {
           return withoutDial
         }
         const assistantMsg: ChatMessage = { role: 'assistant', content: cleanText }
         const nextMessages = [...withoutDial, assistantMsg]
-        if (responseId) {
-          const pending = engvoPendingTranslationByResponseIdRef.current.get(responseId)
+        if (id) {
+          const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
           if (pending) {
-            engvoPendingTranslationByResponseIdRef.current.delete(responseId)
+            engvoPendingTranslationByResponseIdRef.current.delete(id)
             const idx = findAssistantIndexByTranslationText(nextMessages, nextMessages.length - 1, cleanText)
             if (nextMessages[idx]?.role === 'assistant') {
               const patched = [...nextMessages]
@@ -1423,8 +1438,25 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [])
 
   const clearEngvoInactivityTimeout = useCallback(() => {
-    clearEngvoTimeout(engvoInactivityTimeoutRef)
+    const timeoutId = engvoInactivityTimeoutRef.current
+    if (timeoutId !== null) {
+      window.clearInterval(timeoutId)
+      window.clearTimeout(timeoutId)
+      engvoInactivityTimeoutRef.current = null
+    }
+  }, [])
+
+  const clearEngvoMaxCallDurationTimeout = useCallback(() => {
+    clearEngvoTimeout(engvoMaxCallDurationTimeoutRef)
   }, [clearEngvoTimeout])
+
+  const clearEngvoForceCommitTimeout = useCallback(() => {
+    clearEngvoTimeout(engvoForceCommitTimeoutRef)
+  }, [clearEngvoTimeout])
+
+  const markEngvoMeaningfulActivity = useCallback(() => {
+    engvoLastMeaningfulActivityAtRef.current = Date.now()
+  }, [])
 
   const appendEngvoCallFinishedMessage = useCallback(() => {
     setMessages((prev) => {
@@ -1484,6 +1516,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const cleanupEngvoRuntime = useCallback(
     (options?: { markIgnoredCurrent?: boolean }) => {
       clearEngvoInactivityTimeout()
+      clearEngvoMaxCallDurationTimeout()
+      clearEngvoForceCommitTimeout()
+      engvoForceCommitArmedRef.current = false
+      engvoLastMeaningfulActivityAtRef.current = 0
+      engvoLastFinalUserAtRef.current = 0
+      engvoLastUserCoalescedAtRef.current = 0
+      engvoGotAssistantForCurrentUserTurnRef.current = false
       stopEngvoPlayback(options?.markIgnoredCurrent ?? true)
 
       clearEngvoTimeout(engvoPcConnectTimeoutRef)
@@ -1584,7 +1623,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setEngvoCallTranslationPrefetchText(null)
       setLoadingEngvoCallTranslationIndex(null)
     },
-    [clearEngvoInactivityTimeout, clearEngvoSessionUpdateRetry, clearEngvoTimeout, stopEngvoPlayback]
+    [
+      clearEngvoForceCommitTimeout,
+      clearEngvoInactivityTimeout,
+      clearEngvoMaxCallDurationTimeout,
+      clearEngvoSessionUpdateRetry,
+      clearEngvoTimeout,
+      stopEngvoPlayback,
+    ]
   )
 
   React.useEffect(() => {
@@ -1643,6 +1689,27 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       return false
     }
   }, [])
+
+  const scheduleEngvoForceCommit = useCallback(
+    (delayMs: number) => {
+      if (engvoActiveProviderRef.current !== 'xai') return
+      if (engvoForceCommitArmedRef.current) return
+      clearEngvoForceCommitTimeout()
+      engvoForceCommitTimeoutRef.current = window.setTimeout(() => {
+        engvoForceCommitTimeoutRef.current = null
+        if (engvoActiveProviderRef.current !== 'xai') return
+        if (engvoForceCommitArmedRef.current) return
+        const hasActiveAssistant = hasActiveEngvoAssistantResponse({
+          responseId: engvoAssistantResponseIdRef.current,
+          responseDone: engvoAssistantResponseDoneRef.current,
+        })
+        if (hasActiveAssistant) return
+        engvoForceCommitArmedRef.current = true
+        sendEngvoRealtimeEvent({ type: 'input_audio_buffer.commit' })
+      }, delayMs)
+    },
+    [clearEngvoForceCommitTimeout, sendEngvoRealtimeEvent]
+  )
 
   const updateEngvoRealtimeSession = useCallback(
     (payload: {
@@ -1890,6 +1957,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           hasActiveAssistantResponse,
         })
         clearEngvoTimeout(engvoInterruptDebounceTimeoutRef)
+        engvoForceCommitArmedRef.current = false
+        scheduleEngvoForceCommit(ENGVO_XAI_FORCE_COMMIT_MAX_UTTERANCE_MS)
         if (debounceInterrupt) {
           markEngvoInterruptDebouncePending(engvoInterruptDebounceStateRef.current)
           engvoInterruptDebounceTimeoutRef.current = window.setTimeout(() => {
@@ -1911,6 +1980,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (cancelEngvoPendingInterrupt(engvoInterruptDebounceStateRef.current)) {
           return
         }
+        scheduleEngvoForceCommit(ENGVO_XAI_FORCE_COMMIT_AFTER_SPEECH_STOPPED_MS)
         setEngvoCallPhase('userFinalizing')
         return
       }
@@ -1927,6 +1997,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         )
         if (parsed.type === 'input_audio_buffer.committed' && typeof parsed.item_id === 'string') {
           engvoPendingUserItemIdRef.current = parsed.item_id
+          clearEngvoForceCommitTimeout()
+          engvoForceCommitArmedRef.current = true
           const hasActiveAssistantResponseOnCommit = hasActiveEngvoAssistantResponse({
             responseId: engvoAssistantResponseIdRef.current,
             responseDone: engvoAssistantResponseDoneRef.current,
@@ -2010,18 +2082,44 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           engvoCommittedUserItemIdsRef.current.add(itemId)
           setEngvoCallPhase('userFinalizing')
           if (transcript) {
-            setMessages((prev) => {
-              const insertBeforeAssistant = shouldInsertEngvoUserBeforeAssistant({
-                assistantCommittedBeforeUser:
-                  engvoAssistantCommittedBeforeUserItemIdsRef.current.has(itemId),
+            const now = Date.now()
+            const isXai = engvoActiveProviderRef.current === 'xai'
+            const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+            const shouldCoalesce =
+              isXai &&
+              shouldCoalesceEngvoUserTranscript({
+                previousUserText: lastUser?.content ?? null,
+                nextUserText: transcript,
+                elapsedMsSincePreviousUser: now - engvoLastFinalUserAtRef.current,
+                windowMs: ENGVO_XAI_USER_COALESCE_WINDOW_MS,
               })
-              engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)
+            if (shouldCoalesce) {
+              engvoLastUserCoalescedAtRef.current = now
+              engvoLastFinalUserAtRef.current = now
+              markEngvoMeaningfulActivity()
+              setMessages((prev) => updateLastEngvoUserMessage(prev, transcript))
               if (engvoPendingUserItemIdRef.current === itemId) {
                 engvoPendingUserItemIdRef.current = null
               }
-              return insertEngvoUserMessage(prev, transcript, insertBeforeAssistant)
-            })
-            bumpEngvoGoal()
+              engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)
+            } else {
+              engvoLastFinalUserAtRef.current = now
+              engvoLastUserCoalescedAtRef.current = 0
+              engvoGotAssistantForCurrentUserTurnRef.current = false
+              markEngvoMeaningfulActivity()
+              setMessages((prev) => {
+                const insertBeforeAssistant = shouldInsertEngvoUserBeforeAssistant({
+                  assistantCommittedBeforeUser:
+                    engvoAssistantCommittedBeforeUserItemIdsRef.current.has(itemId),
+                })
+                engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)
+                if (engvoPendingUserItemIdRef.current === itemId) {
+                  engvoPendingUserItemIdRef.current = null
+                }
+                return insertEngvoUserMessage(prev, transcript, insertBeforeAssistant)
+              })
+              bumpEngvoGoal()
+            }
           }
           setEngvoCallPhase('assistantPending')
         }
@@ -2030,6 +2128,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       if (parsed.type === 'response.created') {
         clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
+        clearEngvoForceCommitTimeout()
+        engvoForceCommitArmedRef.current = true
+        const coalescedRecently =
+          engvoLastUserCoalescedAtRef.current > 0 &&
+          Date.now() - engvoLastUserCoalescedAtRef.current < ENGVO_XAI_USER_COALESCE_WINDOW_MS
+        // Cancel only a *second* response after coalesce (active or already committed for this turn).
+        if (
+          coalescedRecently &&
+          responseId &&
+          responseId !== engvoAssistantResponseIdRef.current &&
+          (hasActiveAssistantTurn || engvoGotAssistantForCurrentUserTurnRef.current)
+        ) {
+          engvoIgnoredResponseIdsRef.current.add(responseId)
+          sendEngvoRealtimeEvent({ type: 'response.cancel' })
+          return
+        }
         if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) {
           engvoIgnoredResponseIdsRef.current.add(responseId)
           return
@@ -2068,11 +2182,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           prefetchEngvoCallTranslationRef.current(cleanFinalText, responseId)
           clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
           engvoResponseDoneFallbackTimeoutRef.current = window.setTimeout(() => {
+            const id = responseId ?? engvoAssistantResponseIdRef.current
+            if (id && engvoCommittedResponseIdsRef.current.has(id)) return
             if (engvoAssistantResponseDoneRef.current) return
             const fallbackText = engvoFinalAssistantTextRef.current || cleanFinalText
             if (!fallbackText.trim()) return
             engvoAssistantResponseDoneRef.current = true
-            commitEngvoAssistantText(fallbackText, responseId)
+            commitEngvoAssistantText(fallbackText, id)
           }, ENGVO_RESPONSE_DONE_FALLBACK_MS)
         }
         return
@@ -2098,11 +2214,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           prefetchEngvoCallTranslationRef.current(finalTranscript, responseId)
           clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
           engvoResponseDoneFallbackTimeoutRef.current = window.setTimeout(() => {
+            const id = responseId ?? engvoAssistantResponseIdRef.current
+            if (id && engvoCommittedResponseIdsRef.current.has(id)) return
             if (engvoAssistantResponseDoneRef.current) return
             const fallbackText = engvoFinalAssistantTextRef.current || finalTranscript
             if (!fallbackText.trim()) return
             engvoAssistantResponseDoneRef.current = true
-            commitEngvoAssistantText(fallbackText, responseId)
+            commitEngvoAssistantText(fallbackText, id)
           }, ENGVO_RESPONSE_DONE_FALLBACK_MS)
         }
         return
@@ -2128,7 +2246,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
     },
     [
+      clearEngvoForceCommitTimeout,
       clearEngvoTimeout,
+      markEngvoMeaningfulActivity,
+      scheduleEngvoForceCommit,
       sendEngvoRealtimeEvent,
       commitEngvoAssistantText,
       engvoCefrLevel,
@@ -2520,24 +2641,57 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   useEffect(() => {
     if (engvoCallPhase === 'listening' && engvoCallStartedAt === null) {
-      setEngvoCallStartedAt(Date.now())
+      const startedAt = Date.now()
+      setEngvoCallStartedAt(startedAt)
+      markEngvoMeaningfulActivity()
+      clearEngvoMaxCallDurationTimeout()
+      engvoMaxCallDurationTimeoutRef.current = window.setTimeout(() => {
+        engvoMaxCallDurationTimeoutRef.current = null
+        finishEngvoCall()
+      }, ENGVO_MAX_CALL_DURATION_MS)
     }
-  }, [engvoCallPhase, engvoCallStartedAt])
+  }, [
+    clearEngvoMaxCallDurationTimeout,
+    engvoCallPhase,
+    engvoCallStartedAt,
+    finishEngvoCall,
+    markEngvoMeaningfulActivity,
+  ])
 
   useEffect(() => {
-    if (!engvoVoiceMode) {
+    if (!engvoVoiceMode || engvoCallStartedAt === null) {
       clearEngvoInactivityTimeout()
       return
     }
-    if (engvoCallPhase !== 'listening' || engvoUserInterimText.trim()) {
+    if (engvoCallPhase === 'assistantPending' || engvoCallPhase === 'assistantSpeaking') {
       clearEngvoInactivityTimeout()
       return
     }
-    engvoInactivityTimeoutRef.current = window.setTimeout(() => {
-      finishEngvoCall()
-    }, ENGVO_INACTIVITY_HANGUP_MS)
+    if (
+      engvoCallPhase !== 'listening' &&
+      engvoCallPhase !== 'userFinalizing' &&
+      engvoCallPhase !== 'connecting'
+    ) {
+      clearEngvoInactivityTimeout()
+      return
+    }
+    const tick = () => {
+      const last = engvoLastMeaningfulActivityAtRef.current || engvoCallStartedAt
+      if (Date.now() - last >= ENGVO_INACTIVITY_HANGUP_MS) {
+        finishEngvoCall()
+      }
+    }
+    clearEngvoInactivityTimeout()
+    engvoInactivityTimeoutRef.current = window.setInterval(tick, 1_000) as unknown as number
+    tick()
     return clearEngvoInactivityTimeout
-  }, [clearEngvoInactivityTimeout, engvoCallPhase, engvoUserInterimText, engvoVoiceMode, finishEngvoCall])
+  }, [
+    clearEngvoInactivityTimeout,
+    engvoCallPhase,
+    engvoCallStartedAt,
+    engvoVoiceMode,
+    finishEngvoCall,
+  ])
 
   useEffect(() => {
     if (!engvoVoiceMode) {

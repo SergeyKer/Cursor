@@ -78,6 +78,7 @@ describe('buildEngvoXaiClientSessionUpdate', () => {
         input: {
           transcription: { model: string; language_hint: string }
           format: { rate: number }
+          turn_detection: Record<string, unknown>
         }
         output: { voice: string; speed: number; format: { rate: number } }
       }
@@ -87,6 +88,14 @@ describe('buildEngvoXaiClientSessionUpdate', () => {
     expect(session.audio.input.transcription.model).toBe('grok-transcribe')
     expect(session.audio.input.transcription.language_hint).toBe('ru')
     expect(session.audio.input.format.rate).toBe(24_000)
+    expect(session.audio.input.turn_detection).toEqual({
+      type: 'server_vad',
+      threshold: 0.78,
+      prefix_padding_ms: 300,
+      silence_duration_ms: 900,
+      create_response: true,
+      interrupt_response: false,
+    })
     expect(session.audio.output.speed).toBe(0.8)
     expect(session.audio.output.voice).toBe('eve')
     expect(session).not.toHaveProperty('output_modalities')

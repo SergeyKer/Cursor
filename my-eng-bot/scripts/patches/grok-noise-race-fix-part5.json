@@ -1,0 +1,10 @@
+[
+  [
+    "        const coalescedRecently =\n          engvoLastUserCoalescedAtRef.current > 0 &&\n          Date.now() - engvoLastUserCoalescedAtRef.current < ENGVO_XAI_USER_COALESCE_WINDOW_MS\n        if (coalescedRecently && responseId) {\n          engvoIgnoredResponseIdsRef.current.add(responseId)\n          sendEngvoRealtimeEvent({ type: 'response.cancel' })\n          return\n        }",
+    "        const coalescedRecently =\n          engvoLastUserCoalescedAtRef.current > 0 &&\n          Date.now() - engvoLastUserCoalescedAtRef.current < ENGVO_XAI_USER_COALESCE_WINDOW_MS\n        // Cancel only a *second* response after coalesce; never cancel the first response.created.\n        if (\n          coalescedRecently &&\n          responseId &&\n          (hasActiveAssistantTurn || Boolean(engvoAssistantResponseIdRef.current))\n        ) {\n          engvoIgnoredResponseIdsRef.current.add(responseId)\n          sendEngvoRealtimeEvent({ type: 'response.cancel' })\n          return\n        }"
+  ],
+  [
+    "  const clearEngvoInactivityTimeout = useCallback(() => {\n    clearEngvoTimeout(engvoInactivityTimeoutRef)\n  }, [clearEngvoTimeout])",
+    "  const clearEngvoInactivityTimeout = useCallback(() => {\n    const timeoutId = engvoInactivityTimeoutRef.current\n    if (timeoutId !== null) {\n      window.clearInterval(timeoutId)\n      window.clearTimeout(timeoutId)\n      engvoInactivityTimeoutRef.current = null\n    }\n  }, [])"
+  ]
+]

@@ -1,0 +1,22 @@
+[
+  [
+    "  const engvoLastUserCoalescedAtRef = React.useRef<number>(0)\n  /** Снимок истории для передачи в новую Realtime-сессию после разрыва звонка; опустошается в `session.created`. */",
+    "  const engvoLastUserCoalescedAtRef = React.useRef<number>(0)\n  const engvoGotAssistantForCurrentUserTurnRef = React.useRef(false)\n  /** Снимок истории для передачи в новую Realtime-сессию после разрыва звонка; опустошается в `session.created`. */"
+  ],
+  [
+    "      engvoLastMeaningfulActivityAtRef.current = 0\n      engvoLastFinalUserAtRef.current = 0\n      engvoLastUserCoalescedAtRef.current = 0\n      stopEngvoPlayback(options?.markIgnoredCurrent ?? true)",
+    "      engvoLastMeaningfulActivityAtRef.current = 0\n      engvoLastFinalUserAtRef.current = 0\n      engvoLastUserCoalescedAtRef.current = 0\n      engvoGotAssistantForCurrentUserTurnRef.current = false\n      stopEngvoPlayback(options?.markIgnoredCurrent ?? true)"
+  ],
+  [
+    "      engvoLastMeaningfulActivityAtRef.current = Date.now()\n      setMessages((prev) => {",
+    "      engvoLastMeaningfulActivityAtRef.current = Date.now()\n      engvoGotAssistantForCurrentUserTurnRef.current = true\n      setMessages((prev) => {"
+  ],
+  [
+    "            if (shouldCoalesce) {\n              engvoLastUserCoalescedAtRef.current = now\n              engvoLastFinalUserAtRef.current = now\n              markEngvoMeaningfulActivity()\n              setMessages((prev) => updateLastEngvoUserMessage(prev, transcript))\n              if (engvoPendingUserItemIdRef.current === itemId) {\n                engvoPendingUserItemIdRef.current = null\n              }\n              engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)\n            } else {\n              engvoLastFinalUserAtRef.current = now\n              engvoLastUserCoalescedAtRef.current = 0\n              markEngvoMeaningfulActivity()\n              setMessages((prev) => {",
+    "            if (shouldCoalesce) {\n              engvoLastUserCoalescedAtRef.current = now\n              engvoLastFinalUserAtRef.current = now\n              markEngvoMeaningfulActivity()\n              setMessages((prev) => updateLastEngvoUserMessage(prev, transcript))\n              if (engvoPendingUserItemIdRef.current === itemId) {\n                engvoPendingUserItemIdRef.current = null\n              }\n              engvoAssistantCommittedBeforeUserItemIdsRef.current.delete(itemId)\n            } else {\n              engvoLastFinalUserAtRef.current = now\n              engvoLastUserCoalescedAtRef.current = 0\n              engvoGotAssistantForCurrentUserTurnRef.current = false\n              markEngvoMeaningfulActivity()\n              setMessages((prev) => {"
+  ],
+  [
+    "        const coalescedRecently =\n          engvoLastUserCoalescedAtRef.current > 0 &&\n          Date.now() - engvoLastUserCoalescedAtRef.current < ENGVO_XAI_USER_COALESCE_WINDOW_MS\n        // Cancel only a *second* response after coalesce; never cancel the first response.created.\n        if (\n          coalescedRecently &&\n          responseId &&\n          (hasActiveAssistantTurn || Boolean(engvoAssistantResponseIdRef.current))\n        ) {\n          engvoIgnoredResponseIdsRef.current.add(responseId)\n          sendEngvoRealtimeEvent({ type: 'response.cancel' })\n          return\n        }",
+    "        const coalescedRecently =\n          engvoLastUserCoalescedAtRef.current > 0 &&\n          Date.now() - engvoLastUserCoalescedAtRef.current < ENGVO_XAI_USER_COALESCE_WINDOW_MS\n        // Cancel only a *second* response after coalesce (active or already committed for this turn).\n        if (\n          coalescedRecently &&\n          responseId &&\n          responseId !== engvoAssistantResponseIdRef.current &&\n          (hasActiveAssistantTurn || engvoGotAssistantForCurrentUserTurnRef.current)\n        ) {\n          engvoIgnoredResponseIdsRef.current.add(responseId)\n          sendEngvoRealtimeEvent({ type: 'response.cancel' })\n          return\n        }"
+  ]
+]

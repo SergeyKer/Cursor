@@ -12,6 +12,8 @@ export const ENGVO_PROVIDER_STORAGE_KEY = 'myeng-engvo-provider'
 export const ENGVO_LEVEL_STORAGE_KEY = 'myeng-engvo-cefr-level'
 export const ENGVO_SPEECH_SPEED_STORAGE_KEY = 'myeng-engvo-speech-speed-preset'
 export const ENGVO_INACTIVITY_HANGUP_MS = 45_000
+/** Hard cap on live call wall-clock (token burn guard). */
+export const ENGVO_MAX_CALL_DURATION_MS = 5 * 60_000
 
 export const ENGVO_PROVIDERS = ['openai', 'xai'] as const
 export type EngvoProvider = (typeof ENGVO_PROVIDERS)[number]
@@ -192,8 +194,20 @@ export function buildEngvoInputAudioTranscriptionConfig(): {
 /** Порог активации server VAD (0–1): выше - меньше ложных срабатываний на кашель/шум. */
 export const ENGVO_VAD_THRESHOLD = 0.72
 
+/** xAI PCM без WebRTC AEC: чуть выше порог против TV/улицы (silence не удлиняем). */
+export const ENGVO_XAI_VAD_THRESHOLD = 0.78
+
 /** Тишина (мс) перед концом реплики пользователя. */
 export const ENGVO_VAD_SILENCE_DURATION_MS = 900
+
+/** Окно склейки почти одинаковых user-реплик на xAI (мс). */
+export const ENGVO_XAI_USER_COALESCE_WINDOW_MS = 2_500
+
+/** Force commit после speech_stopped, если server VAD завис в шуме (мс). */
+export const ENGVO_XAI_FORCE_COMMIT_AFTER_SPEECH_STOPPED_MS = 2_000
+
+/** Force commit max utterance после speech_started (мс). */
+export const ENGVO_XAI_FORCE_COMMIT_MAX_UTTERANCE_MS = 7_000
 
 /** Задержка перед response.cancel при перебивании озвучки Engvo (мс). */
 export const ENGVO_INTERRUPT_DEBOUNCE_MS = 400
@@ -202,6 +216,16 @@ export const ENGVO_INTERRUPT_DEBOUNCE_MS = 400
 export const ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION = {
   type: 'server_vad' as const,
   threshold: ENGVO_VAD_THRESHOLD,
+  prefix_padding_ms: 300,
+  silence_duration_ms: ENGVO_VAD_SILENCE_DURATION_MS,
+  create_response: true,
+  interrupt_response: false,
+}
+
+/** Server VAD для xAI Voice Agent (шумнее mic path). */
+export const ENGVO_XAI_SERVER_VAD_TURN_DETECTION = {
+  type: 'server_vad' as const,
+  threshold: ENGVO_XAI_VAD_THRESHOLD,
   prefix_padding_ms: 300,
   silence_duration_ms: ENGVO_VAD_SILENCE_DURATION_MS,
   create_response: true,

@@ -2330,7 +2330,7 @@ export default function Chat({
                 )
               })}
               {(messages.length > 0 || isEngvoAssistantPending) &&
-                (isCommunicationFeed ? (
+                (isCommunicationFeed || engvoBootstrapTypingActive ? (
                   canShowTypingIndicator ? (
                     <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
                       <EngvoFeedServiceTypingText text={typingIndicatorText} />
@@ -2340,14 +2340,11 @@ export default function Chat({
                   <TypingIndicator
                     isVisible={canShowTypingIndicator}
                     exitTransitionMs={isEngvoActive ? 0 : undefined}
-                    plainStatus={engvoBootstrapTypingActive}
                     label={typingIndicatorText}
                     title={
-                      engvoBootstrapTypingActive
-                        ? 'Ожидание ответа от Engvo'
-                        : searchingInternet
-                          ? 'Поиск информации в интернете'
-                          : 'Ожидание ответа от ИИ'
+                      searchingInternet
+                        ? 'Поиск информации в интернете'
+                        : 'Ожидание ответа от ИИ'
                     }
                   />
                 ))}
@@ -2415,7 +2412,7 @@ export default function Chat({
                       type="button"
                       onClick={engvo?.onHangUp}
                       disabled={!engvoCallInProgress}
-                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#ef4444] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(239,68,68,0.26)] transition-all duration-200 hover:scale-105 hover:bg-[#dc2626] active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-100 disabled:hover:scale-100 disabled:bg-[#ef4444] disabled:hover:bg-[#ef4444]"
+                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#ef4444] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(239,68,68,0.26)] transition-all duration-200 hover:scale-105 hover:bg-[#dc2626] active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-50 disabled:hover:scale-100"
                       aria-label={sendButtonAriaLabel}
                       title="Положить трубку"
                     >
