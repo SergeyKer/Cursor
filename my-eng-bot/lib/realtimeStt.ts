@@ -1,3 +1,4 @@
+import { isPartialUserTranscriptStatus } from '@/lib/engvo/userTranscriptStatus'
 import { appendVoiceText } from '@/lib/voice/useVoiceComposer'
 
 type RealtimeTranscriptItem = {
@@ -21,12 +22,31 @@ type RealtimeServerEvent =
       type: 'conversation.item.input_audio_transcription.delta'
       item_id?: string
       delta?: string
+      text?: string
+      transcript?: string
+    }
+  | {
+      type: 'conversation.item.input_audio_transcription.updated'
+      item_id?: string
+      delta?: string
+      text?: string
+      transcript?: string
     }
   | {
       type: 'conversation.item.input_audio_transcription.completed'
       item_id?: string
       transcript?: string
+      text?: string
+      status?: string
     }
+
+function pickTranscriptChunk(event: {
+  delta?: string
+  text?: string
+  transcript?: string
+}): string {
+  return (event.delta ?? event.text ?? event.transcript ?? '').trim()
+}
 
 export type RealtimeTranscriptView = {
   finalText: string
@@ -98,32 +118,65 @@ export function reduceRealtimeTranscriptEvent(
   const current = withItem.items[itemId]
 
   if (event.type === 'conversation.item.input_audio_transcription.delta') {
+    const chunk = event.delta ?? event.text ?? event.transcript ?? ''
+    if (!chunk) return withItem
     return {
       ...withItem,
       items: {
         ...withItem.items,
         [itemId]: {
           ...current,
-          deltaText: `${current.deltaText}${event.delta ?? ''}`,
+          deltaText: `${current.deltaText}${chunk}`,
         },
       },
     }
   }
 
-  const completedFromEvent = (event.transcript ?? '').trim()
-  const completedText = completedFromEvent || current.deltaText.trim()
-
-  return {
-    ...withItem,
-    items: {
-      ...withItem.items,
-      [itemId]: {
-        ...current,
-        deltaText: '',
-        completedText,
+  if (event.type === 'conversation.item.input_audio_transcription.updated') {
+    const replaced = pickTranscriptChunk(event)
+    return {
+      ...withItem,
+      items: {
+        ...withItem.items,
+        [itemId]: {
+          ...current,
+          deltaText: replaced,
+        },
       },
-    },
+    }
   }
+
+  if (event.type === 'conversation.item.input_audio_transcription.completed') {
+    const fromEvent = (event.transcript ?? event.text ?? '').trim()
+    if (isPartialUserTranscriptStatus(event.status)) {
+      const interim = fromEvent || current.deltaText.trim()
+      return {
+        ...withItem,
+        items: {
+          ...withItem.items,
+          [itemId]: {
+            ...current,
+            deltaText: interim,
+          },
+        },
+      }
+    }
+
+    const completedText = fromEvent || current.deltaText.trim()
+    return {
+      ...withItem,
+      items: {
+        ...withItem.items,
+        [itemId]: {
+          ...current,
+          deltaText: '',
+          completedText,
+        },
+      },
+    }
+  }
+
+  return withItem
 }
 
 export function getRealtimeTranscriptView(state: RealtimeTranscriptState): RealtimeTranscriptView {

@@ -2,7 +2,10 @@ import {
   buildEngvoInputAudioTranscriptionConfig,
   clampEngvoRealtimeSpeed,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
+  ENGVO_XAI_MODEL,
+  ENGVO_XAI_PCM_SAMPLE_RATE,
   type EngvoRealtimeVoice,
+  type EngvoXaiVoice,
 } from '@/lib/engvo/constants'
 
 function buildEngvoAudioOutput(params: {
@@ -11,7 +14,7 @@ function buildEngvoAudioOutput(params: {
 }): { voice: EngvoRealtimeVoice; speed: number } {
   return {
     voice: params.voice,
-    speed: clampEngvoRealtimeSpeed(params.speed ?? 1),
+    speed: clampEngvoRealtimeSpeed(params.speed ?? 1, 'openai'),
   }
 }
 
@@ -94,3 +97,44 @@ export function buildEngvoClientSessionUpdate(params: {
   assertEngvoRealtimeSessionHasType(session)
   return session as EngvoRealtimeSessionBase & Record<string, unknown>
 }
+
+const ENGVO_XAI_PCM_FORMAT = {
+  type: 'audio/pcm' as const,
+  rate: ENGVO_XAI_PCM_SAMPLE_RATE,
+}
+
+/** xAI Voice Agent `session.update` — PCM 24 kHz, language_hint ru, reasoning none. */
+export function buildEngvoXaiClientSessionUpdate(params: {
+  instructions: string
+  voice: EngvoXaiVoice
+  speed?: number
+}): { type: 'session.update'; session: Record<string, unknown> } {
+  const speed = clampEngvoRealtimeSpeed(params.speed ?? 1, 'xai')
+  return {
+    type: 'session.update',
+    session: {
+      instructions: params.instructions,
+      voice: params.voice,
+      audio: {
+        input: {
+          format: { ...ENGVO_XAI_PCM_FORMAT },
+          transcription: {
+            model: 'grok-transcribe',
+            language_hint: 'ru',
+          },
+          turn_detection: { ...ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION },
+        },
+        output: {
+          format: { ...ENGVO_XAI_PCM_FORMAT },
+          voice: params.voice,
+          speed,
+        },
+      },
+      reasoning: {
+        effort: 'none',
+      },
+    },
+  }
+}
+
+export { ENGVO_XAI_MODEL }

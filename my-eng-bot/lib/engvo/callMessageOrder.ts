@@ -45,3 +45,19 @@ export function insertEngvoUserMessage(
 
   return [...withoutDial.slice(0, -1), userMessage, last]
 }
+
+/** Replace content of the last user bubble (e.g. Grok partial → final transcript). No-op if none. */
+export function updateLastEngvoUserMessage(messages: ChatMessage[], content: string): ChatMessage[] {
+  const trimmed = content.trim()
+  if (!trimmed) return messages
+
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (message?.role !== 'user' || message.engvoServiceLine) continue
+    if (message.content === trimmed) return messages
+    const next = [...messages]
+    next[i] = { ...message, content: trimmed }
+    return next
+  }
+  return messages
+}

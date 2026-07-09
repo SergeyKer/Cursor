@@ -207,17 +207,22 @@ import type { VocabularyFooterView } from '@/types/vocabulary'
 import {
   buildEngvoInputAudioTranscriptionConfig,
   ENGVO_DEFAULT_LEVEL,
+  ENGVO_DEFAULT_PROVIDER,
   ENGVO_DEFAULT_VOICE,
   ENGVO_INACTIVITY_HANGUP_MS,
   ENGVO_REALTIME_MODEL,
   ENGVO_INTERRUPT_DEBOUNCE_MS,
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
+  ENGVO_XAI_DEFAULT_VOICE,
+  ENGVO_XAI_MODEL,
   clampEngvoRealtimeSpeed,
   engvoSpeechSpeedFromPreset,
   getEngvoDefaultSpeechSpeedPreset,
   type EngvoCefrLevel,
+  type EngvoProvider,
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
+  type EngvoXaiVoice,
   ENGVO_CALL_FINISHED_ASSISTANT_TEXT,
   ENGVO_DIALING_ASSISTANT_TEXT,
 } from '@/lib/engvo/constants'
@@ -227,21 +232,38 @@ import {
   buildEngvoFirstTurnResponseInstructions,
 } from '@/lib/engvo/instructions'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
-import { normalizeEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
+import {
+  ENGVO_XAI_WS_USER_MESSAGE,
+  normalizeEngvoRealtimeUserMessage,
+} from '@/lib/engvo/errors'
 import {
   insertEngvoUserMessage,
   shouldCancelEngvoAssistantOnUserAudioCommitted,
   shouldInsertEngvoUserBeforeAssistant,
+  updateLastEngvoUserMessage,
 } from '@/lib/engvo/callMessageOrder'
-import { buildEngvoClientSessionUpdate } from '@/lib/engvo/realtimeSession'
+import { isPartialUserTranscriptStatus } from '@/lib/engvo/userTranscriptStatus'
+import {
+  buildEngvoClientSessionUpdate,
+  buildEngvoXaiClientSessionUpdate,
+} from '@/lib/engvo/realtimeSession'
+import {
+  connectEngvoXaiRealtime,
+  getEngvoStopPlaybackEvents,
+  type EngvoXaiTransport,
+} from '@/lib/engvo/xaiRealtimeTransport'
 import {
   loadEngvoCefrLevel,
+  loadEngvoProvider,
   loadEngvoRealtimeVoice,
   loadEngvoSpeechSpeedPreset,
+  loadEngvoXaiVoice,
   resolveEngvoSpeechSpeedPreset,
   saveEngvoCefrLevel,
+  saveEngvoProvider,
   saveEngvoRealtimeVoice,
   saveEngvoSpeechSpeedPreset,
+  saveEngvoXaiVoice,
 } from '@/lib/engvo/preferences'
 import {
   loadPracticeTtsSpeedDefaultIndex,
@@ -866,7 +888,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
+  const [engvoProvider, setEngvoProvider] = useState<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const [engvoRealtimeVoice, setEngvoRealtimeVoice] = useState<EngvoRealtimeVoice>(ENGVO_DEFAULT_VOICE)
+  const [engvoXaiVoice, setEngvoXaiVoice] = useState<EngvoXaiVoice>(ENGVO_XAI_DEFAULT_VOICE)
+  const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
+  const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)
+  const engvoXaiTokenRef = React.useRef<string | null>(null)
   const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
   const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
     useState<EngvoSpeechSpeedPresetId>('conversational')
@@ -1016,11 +1043,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const prefetchEngvoCallTranslationRef = React.useRef<(text: string, responseId: string | null) => void>(
     () => {}
   )
-  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
+  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)
   const engvoPendingRealtimeSpeedRef = React.useRef<number | null>(null)
-  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
+  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)
   const engvoLastAppliedRealtimeSpeedRef = React.useRef<number | null>(null)
-  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)
+  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)
   const engvoApplyingRealtimeSpeedRef = React.useRef<number | null>(null)
   const engvoSessionUpdateInFlightRef = React.useRef(false)
   const engvoSessionUpdateRetryTimeoutRef = React.useRef<number | null>(null)
@@ -1413,14 +1440,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         resetEngvoAssistantTurn({ markIgnored: true })
       }
       engvoPlaybackPendingCountRef.current = 0
-      const dataChannel = engvoDataChannelRef.current
-      if (hasActiveAssistantResponse && dataChannel?.readyState === 'open') {
-        try {
-          dataChannel.send(JSON.stringify({ type: 'response.cancel' }))
-          dataChannel.send(JSON.stringify({ type: 'output_audio_buffer.clear' }))
-        } catch {
-          // ignore
+      const provider = engvoActiveProviderRef.current
+      const stopEvents = getEngvoStopPlaybackEvents(provider)
+      if (hasActiveAssistantResponse) {
+        for (const event of stopEvents) {
+          if (provider === 'xai') {
+            engvoXaiTransportRef.current?.send(event)
+          } else {
+            const dataChannel = engvoDataChannelRef.current
+            if (dataChannel?.readyState === 'open') {
+              try {
+                dataChannel.send(JSON.stringify(event))
+              } catch {
+                // ignore
+              }
+            }
+          }
         }
+      }
+      if (provider === 'xai') {
+        engvoXaiTransportRef.current?.clearLocalPlayback()
       }
     },
     [resetEngvoAssistantTurn]
@@ -1457,6 +1496,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       const dataChannel = engvoDataChannelRef.current
       const remoteAudioEl = engvoRemoteAudioElRef.current
       const mediaStream = engvoMediaStreamRef.current
+
+      const xaiTransport = engvoXaiTransportRef.current
+      engvoXaiTransportRef.current = null
+      engvoXaiTokenRef.current = null
+      if (xaiTransport) {
+        try {
+          xaiTransport.disconnect()
+        } catch {
+          // ignore
+        }
+      }
 
       engvoPeerConnectionRef.current = null
       engvoDataChannelRef.current = null
@@ -1556,6 +1606,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const sendEngvoRealtimeEvent = useCallback((payload: Record<string, unknown>): boolean => {
+    if (engvoActiveProviderRef.current === 'xai') {
+      return engvoXaiTransportRef.current?.send(payload) ?? false
+    }
     const dataChannel = engvoDataChannelRef.current
     if (!dataChannel || dataChannel.readyState !== 'open') return false
     try {
@@ -1567,22 +1620,39 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [])
 
   const updateEngvoRealtimeSession = useCallback(
-    (payload: { voice?: EngvoRealtimeVoice; level?: EngvoCefrLevel; speed?: number }): boolean => {
+    (payload: {
+      voice?: EngvoRealtimeVoice | EngvoXaiVoice
+      level?: EngvoCefrLevel
+      speed?: number
+    }): boolean => {
+      const provider = engvoActiveProviderRef.current
       const speechSpeed = clampEngvoRealtimeSpeed(
-        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset)
+        payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset),
+        provider
       )
+      const instructions = buildEngvoRealtimeInstructionsClient({
+        audience: settings.audience,
+        level: payload.level ?? engvoCefrLevel,
+        topic: settings.topic,
+        speechSpeed,
+      })
+      if (provider === 'xai') {
+        const voice = (payload.voice as EngvoXaiVoice | undefined) ?? engvoXaiVoice
+        return sendEngvoRealtimeEvent(
+          buildEngvoXaiClientSessionUpdate({
+            instructions,
+            voice,
+            speed: speechSpeed,
+          })
+        )
+      }
       return sendEngvoRealtimeEvent({
         type: 'session.update',
         session: buildEngvoClientSessionUpdate({
           model: ENGVO_REALTIME_MODEL,
-          voice: payload.voice ?? engvoRealtimeVoice,
+          voice: (payload.voice as EngvoRealtimeVoice | undefined) ?? engvoRealtimeVoice,
           speed: speechSpeed,
-          instructions: buildEngvoRealtimeInstructionsClient({
-            audience: settings.audience,
-            level: payload.level ?? engvoCefrLevel,
-            topic: settings.topic,
-            speechSpeed,
-          }),
+          instructions,
           inputAudioTranscription: {
             ...buildEngvoInputAudioTranscriptionConfig(),
             language: 'ru',
@@ -1594,6 +1664,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       engvoCefrLevel,
       engvoRealtimeVoice,
       engvoSpeechSpeedPreset,
+      engvoXaiVoice,
       sendEngvoRealtimeEvent,
       settings.audience,
       settings.topic,
@@ -1822,6 +1893,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       if (
         parsed.type === 'input_audio_buffer.committed' ||
         parsed.type === 'conversation.item.input_audio_transcription.delta' ||
+        parsed.type === 'conversation.item.input_audio_transcription.updated' ||
         parsed.type === 'conversation.item.input_audio_transcription.completed'
       ) {
         engvoTranscriptStateRef.current = reduceRealtimeTranscriptEvent(
@@ -1843,13 +1915,29 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
         if (
           parsed.type === 'conversation.item.input_audio_transcription.completed' &&
-          typeof parsed.item_id === 'string' &&
-          !engvoCommittedUserItemIdsRef.current.has(parsed.item_id)
+          typeof parsed.item_id === 'string'
         ) {
           const itemId = parsed.item_id
+          if (isPartialUserTranscriptStatus((parsed as { status?: unknown }).status)) {
+            const interim =
+              (typeof parsed.transcript === 'string' ? parsed.transcript : '').trim() ||
+              transcriptView.interimText
+            if (interim) setEngvoUserInterimText(interim)
+            return
+          }
+
           const itemFromState = engvoTranscriptStateRef.current.items[itemId]
           const transcript =
             (parsed.transcript ?? '').trim() || itemFromState?.completedText?.trim() || ''
+
+          if (engvoCommittedUserItemIdsRef.current.has(itemId)) {
+            if (transcript) {
+              setEngvoUserInterimText('')
+              setMessages((prev) => updateLastEngvoUserMessage(prev, transcript))
+            }
+            return
+          }
+
           setEngvoUserInterimText('')
           const hasActiveAssistantResponse = hasActiveEngvoAssistantResponse({
             responseId: engvoAssistantResponseIdRef.current,
@@ -2082,9 +2170,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoApplyingRealtimeSpeedRef.current = null
     engvoPendingRealtimeVoiceRef.current = null
     engvoPendingRealtimeSpeedRef.current = null
-    engvoLastAppliedRealtimeVoiceRef.current = engvoRealtimeVoice
+    engvoActiveProviderRef.current = engvoProvider
+    engvoLastAppliedRealtimeVoiceRef.current =
+      engvoProvider === 'xai' ? engvoXaiVoice : engvoRealtimeVoice
     const speechSpeedForCall = engvoSpeechSpeedFromPreset(presetForCall)
-    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(speechSpeedForCall)
+    engvoLastAppliedRealtimeSpeedRef.current = clampEngvoRealtimeSpeed(
+      speechSpeedForCall,
+      engvoProvider
+    )
 
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -2096,6 +2189,89 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
       engvoMediaStreamRef.current = mediaStream
       setEngvoLocalAudioStream(mediaStream)
+
+      if (engvoProvider === 'xai') {
+        const tokenController = new AbortController()
+        const tokenTimeoutId = window.setTimeout(() => tokenController.abort(), ENGVO_SDP_FETCH_TIMEOUT_MS)
+        const tokenResponse = await fetch('/api/realtime-session/xai-token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            audience: settings.audience,
+            topic: settings.topic,
+            voice: engvoXaiVoice,
+            level: engvoCefrLevel,
+            speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai'),
+          }),
+          signal: tokenController.signal,
+        }).finally(() => {
+          window.clearTimeout(tokenTimeoutId)
+        })
+        const tokenData = (await tokenResponse.json().catch(() => ({}))) as {
+          token?: string
+          model?: string
+          error?: string
+          userMessage?: string
+        }
+        if (!tokenResponse.ok || !tokenData.token) {
+          throw new Error(
+            tokenData.userMessage ||
+              normalizeEngvoRealtimeUserMessage(tokenData.error ?? '') ||
+              'Не удалось получить токен Grok.'
+          )
+        }
+        engvoXaiTokenRef.current = tokenData.token
+        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai')
+        const transport = connectEngvoXaiRealtime({
+          token: tokenData.token,
+          model: tokenData.model ?? ENGVO_XAI_MODEL,
+          mediaStream,
+          handlers: {
+            onEvent: (raw) => {
+              void handleEngvoRealtimeMessage(raw)
+            },
+            onOpen: () => {
+              clearEngvoTimeout(engvoPcConnectTimeoutRef)
+              const sent = sendEngvoRealtimeEvent(
+                buildEngvoXaiClientSessionUpdate({
+                  instructions: buildEngvoRealtimeInstructionsClient({
+                    audience: settings.audience,
+                    level: engvoCefrLevel,
+                    topic: settings.topic,
+                    speechSpeed,
+                  }),
+                  voice: engvoXaiVoice,
+                  speed: speechSpeed,
+                })
+              )
+              if (!sent) {
+                setEngvoSessionError('Не удалось отправить параметры Grok-сессии.')
+                return
+              }
+              clearEngvoTimeout(engvoSessionAckTimeoutRef)
+              engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
+                setEngvoSessionError('Grok не подтвердил Realtime-сессию. Проверьте сеть/VPN.')
+              }, ENGVO_SESSION_ACK_TIMEOUT_MS)
+            },
+            onError: () => {
+              setEngvoSessionError(ENGVO_XAI_WS_USER_MESSAGE)
+            },
+            onPlaybackActiveChange: (active) => {
+              setEngvoRemotePlaybackActive(active)
+              if (active) setEngvoCallPhase('assistantSpeaking')
+            },
+            onRemoteStream: (stream) => {
+              setEngvoRemoteAudioStream(stream)
+            },
+          },
+        })
+        engvoXaiTransportRef.current = transport
+        clearEngvoTimeout(engvoPcConnectTimeoutRef)
+        engvoPcConnectTimeoutRef.current = window.setTimeout(() => {
+          setEngvoSessionError(ENGVO_XAI_WS_USER_MESSAGE)
+        }, ENGVO_CONNECTION_TIMEOUT_MS)
+        return
+      }
 
       const peerConnection = new RTCPeerConnection({
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -2166,7 +2342,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       dataChannel.onopen = () => {
         clearEngvoTimeout(engvoDcOpenTimeoutRef)
         console.info('[engvo] dc-open')
-        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall)
+        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai')
         const sent = sendEngvoRealtimeEvent({
           type: 'session.update',
           session: buildEngvoClientSessionUpdate({
@@ -2225,7 +2401,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           topic: settings.topic,
           voice: engvoRealtimeVoice,
           level: engvoCefrLevel,
-          speed: clampEngvoRealtimeSpeed(speechSpeedForCall),
+          speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai'),
         }),
         signal: sdpController.signal,
       }).finally(() => {
@@ -2279,8 +2455,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     cleanupEngvoRuntime,
     engvoCallPhase,
     engvoCefrLevel,
+    engvoProvider,
     engvoRealtimeVoice,
     engvoSpeechSpeedPreset,
+    engvoXaiVoice,
     handleEngvoRealtimeMessage,
     maybeCommitEngvoAssistantMessage,
     sendEngvoRealtimeEvent,
@@ -2321,11 +2499,32 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   }, [engvoVoiceMode])
 
+  const handleEngvoProviderChange = useCallback(
+    (provider: EngvoProvider) => {
+      setEngvoProvider(provider)
+      saveEngvoProvider(provider)
+      // Mid-call provider switch is deferred: prefs only; transport stays until next call.
+    },
+    []
+  )
+
   const handleEngvoVoiceChange = useCallback(
     (voice: EngvoRealtimeVoice) => {
       setEngvoRealtimeVoice(voice)
       saveEngvoRealtimeVoice(voice)
-      if (engvoVoiceMode) {
+      if (engvoVoiceMode && engvoActiveProviderRef.current === 'openai') {
+        engvoPendingRealtimeVoiceRef.current = voice
+        setEngvoSessionUpdateTick((prev) => prev + 1)
+      }
+    },
+    [engvoVoiceMode]
+  )
+
+  const handleEngvoXaiVoiceChange = useCallback(
+    (voice: EngvoXaiVoice) => {
+      setEngvoXaiVoice(voice)
+      saveEngvoXaiVoice(voice)
+      if (engvoVoiceMode && engvoActiveProviderRef.current === 'xai') {
         engvoPendingRealtimeVoiceRef.current = voice
         setEngvoSessionUpdateTick((prev) => prev + 1)
       }
@@ -4623,7 +4822,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         }
         setDialogStarted(false)
         setMenuOpen(false)
+        setEngvoProvider(loadEngvoProvider())
         setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
+        setEngvoXaiVoice(loadEngvoXaiVoice())
         const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)
         setEngvoCefrLevel(loadedEngvoLevel)
         setEngvoSpeechSpeedPreset(
@@ -7155,10 +7356,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onGoHome={goToStartScreen}
                     onAiChatPanelChange={setHomeAiChatPanel}
                     onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
+                    engvoProvider={engvoProvider}
                     engvoRealtimeVoice={engvoRealtimeVoice}
+                    engvoXaiVoice={engvoXaiVoice}
                     engvoCefrLevel={engvoCefrLevel}
                     engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
+                    onEngvoProviderChange={handleEngvoProviderChange}
                     onEngvoVoiceChange={handleEngvoVoiceChange}
+                    onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}
                     onEngvoLevelChange={handleEngvoLevelChange}
                     onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
                     practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
@@ -7582,10 +7787,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onRewardsStateChange={setRewardsState}
         onStartChat={handleStartChatFromMenu}
         onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
+        engvoProvider={engvoProvider}
         engvoRealtimeVoice={engvoRealtimeVoice}
+        engvoXaiVoice={engvoXaiVoice}
         engvoCefrLevel={engvoCefrLevel}
         engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
+        onEngvoProviderChange={handleEngvoProviderChange}
         onEngvoVoiceChange={handleEngvoVoiceChange}
+        onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}
         onEngvoLevelChange={handleEngvoLevelChange}
         onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}

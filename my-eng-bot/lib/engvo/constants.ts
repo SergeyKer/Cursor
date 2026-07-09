@@ -6,9 +6,65 @@ export const ENGVO_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe'
 export const ENGVO_DEFAULT_VOICE = 'marin'
 export const ENGVO_DEFAULT_LEVEL: Extract<LevelId, 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2'> = 'a2'
 export const ENGVO_VOICE_STORAGE_KEY = 'myeng-engvo-realtime-voice'
+export const ENGVO_XAI_VOICE_STORAGE_KEY = 'myeng-engvo-xai-voice'
+export const ENGVO_PROVIDER_STORAGE_KEY = 'myeng-engvo-provider'
 export const ENGVO_LEVEL_STORAGE_KEY = 'myeng-engvo-cefr-level'
 export const ENGVO_SPEECH_SPEED_STORAGE_KEY = 'myeng-engvo-speech-speed-preset'
 export const ENGVO_INACTIVITY_HANGUP_MS = 45_000
+
+export const ENGVO_PROVIDERS = ['openai', 'xai'] as const
+export type EngvoProvider = (typeof ENGVO_PROVIDERS)[number]
+export const ENGVO_DEFAULT_PROVIDER: EngvoProvider = 'openai'
+
+export const ENGVO_XAI_MODEL = 'grok-voice-latest'
+export const ENGVO_XAI_DEFAULT_VOICE = 'carina'
+export const ENGVO_XAI_SPEED_MIN = 0.7
+export const ENGVO_XAI_SPEED_MAX = 1.5
+export const ENGVO_XAI_PCM_SAMPLE_RATE = 24_000
+export const ENGVO_XAI_REALTIME_URL = 'wss://api.x.ai/v1/realtime'
+
+/** Original five Grok voices (Classic). */
+export const ENGVO_XAI_CLASSIC_VOICES = ['ara', 'eve', 'leo', 'rex', 'sal'] as const
+
+/** 21 new flagship Grok voices (New). Verified via GET /v1/tts/voices. */
+export const ENGVO_XAI_NEW_VOICES = [
+  'altair',
+  'atlas',
+  'carina',
+  'castor',
+  'celeste',
+  'cosmo',
+  'helios',
+  'helix',
+  'iris',
+  'kepler',
+  'lumen',
+  'luna',
+  'lux',
+  'naksh',
+  'orion',
+  'perseus',
+  'rigel',
+  'sirius',
+  'ursa',
+  'zagan',
+  'zenith',
+] as const
+
+export const ENGVO_XAI_VOICES = [...ENGVO_XAI_CLASSIC_VOICES, ...ENGVO_XAI_NEW_VOICES] as const
+
+export type EngvoXaiVoice = (typeof ENGVO_XAI_VOICES)[number]
+export type EngvoXaiVoiceSectionId = 'classic' | 'new'
+
+export const ENGVO_XAI_VOICE_SECTIONS = [
+  { id: 'classic' as const, label: 'Classic', voices: ENGVO_XAI_CLASSIC_VOICES },
+  { id: 'new' as const, label: 'New', voices: ENGVO_XAI_NEW_VOICES },
+]
+
+export const ENGVO_PROVIDER_OPTIONS = [
+  { id: 'openai' as const, label: 'ChatGPT' },
+  { id: 'xai' as const, label: 'Grok' },
+]
 
 /** Служебное сообщение в чате после завершения звонка Engvo (без кнопок озвучки/перевода). */
 export const ENGVO_CALL_FINISHED_ASSISTANT_TEXT = 'Call is finished'
@@ -42,14 +98,39 @@ export const ENGVO_REALTIME_VOICES = [
 ] as const
 
 export type EngvoRealtimeVoice = (typeof ENGVO_REALTIME_VOICES)[number]
+export type EngvoCallVoice = EngvoRealtimeVoice | EngvoXaiVoice
 export type EngvoCefrLevel = Extract<LevelId, 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2'>
 
 export const ENGVO_LEVEL_OPTIONS = LEVELS.filter((item): item is { id: EngvoCefrLevel; label: string } =>
   ['a1', 'a2', 'b1', 'b2', 'c1', 'c2'].includes(item.id)
 )
 
+export function isEngvoProvider(value: string): value is EngvoProvider {
+  return (ENGVO_PROVIDERS as readonly string[]).includes(value)
+}
+
 export function isEngvoRealtimeVoice(value: string): value is EngvoRealtimeVoice {
   return (ENGVO_REALTIME_VOICES as readonly string[]).includes(value)
+}
+
+export function isEngvoXaiVoice(value: string): value is EngvoXaiVoice {
+  return (ENGVO_XAI_VOICES as readonly string[]).includes(value)
+}
+
+export function isEngvoVoiceForProvider(provider: EngvoProvider, value: string): boolean {
+  return provider === 'xai' ? isEngvoXaiVoice(value) : isEngvoRealtimeVoice(value)
+}
+
+export function getEngvoDefaultVoice(provider: EngvoProvider): EngvoCallVoice {
+  return provider === 'xai' ? ENGVO_XAI_DEFAULT_VOICE : ENGVO_DEFAULT_VOICE
+}
+
+export function getEngvoVoicesForProvider(provider: EngvoProvider): readonly string[] {
+  return provider === 'xai' ? ENGVO_XAI_VOICES : ENGVO_REALTIME_VOICES
+}
+
+export function getEngvoXaiVoiceSection(voice: EngvoXaiVoice): EngvoXaiVoiceSectionId {
+  return (ENGVO_XAI_CLASSIC_VOICES as readonly string[]).includes(voice) ? 'classic' : 'new'
 }
 
 export function isEngvoCefrLevel(value: string): value is EngvoCefrLevel {
@@ -60,9 +141,16 @@ export function isEngvoSpeechSpeedPreset(value: string): value is EngvoSpeechSpe
   return (ENGVO_SPEECH_SPEED_PRESETS as readonly { id: string }[]).some((p) => p.id === value)
 }
 
-export function clampEngvoRealtimeSpeed(value: number): number {
+export function clampEngvoRealtimeSpeed(value: number, provider: EngvoProvider = 'openai'): number {
   if (!Number.isFinite(value)) return 1
-  return Math.min(ENGVO_REALTIME_SPEED_MAX, Math.max(ENGVO_REALTIME_SPEED_MIN, value))
+  const min = provider === 'xai' ? ENGVO_XAI_SPEED_MIN : ENGVO_REALTIME_SPEED_MIN
+  const max = provider === 'xai' ? ENGVO_XAI_SPEED_MAX : ENGVO_REALTIME_SPEED_MAX
+  return Math.min(max, Math.max(min, value))
+}
+
+/** OpenAI: response.cancel + output_audio_buffer.clear; xAI: cancel only + local PCM clear. */
+export function shouldSendOutputAudioBufferClear(provider: EngvoProvider): boolean {
+  return provider === 'openai'
 }
 
 export function engvoSpeechSpeedFromPreset(id: EngvoSpeechSpeedPresetId): number {

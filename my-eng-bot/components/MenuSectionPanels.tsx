@@ -74,13 +74,20 @@ import type {
 } from '@/types/practice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import {
+  ENGVO_DEFAULT_PROVIDER,
   ENGVO_DEFAULT_VOICE,
   ENGVO_LEVEL_OPTIONS,
+  ENGVO_PROVIDER_OPTIONS,
   ENGVO_REALTIME_VOICES,
   ENGVO_SPEECH_SPEED_PRESETS,
+  ENGVO_XAI_DEFAULT_VOICE,
+  ENGVO_XAI_VOICE_SECTIONS,
   type EngvoCefrLevel,
+  type EngvoProvider,
   type EngvoRealtimeVoice,
   type EngvoSpeechSpeedPresetId,
+  type EngvoXaiVoice,
+  type EngvoXaiVoiceSectionId,
 } from '@/lib/engvo/constants'
 import {
   getPracticeTtsSpeedPreset,
@@ -206,7 +213,7 @@ type SettingsMenuPanel =
   | 'pattern'
   | 'patternPick'
   | 'patternBlend'
-type EngvoPanel = 'summary' | 'audience' | 'topic' | 'voice' | 'level' | 'speed'
+type EngvoPanel = 'summary' | 'provider' | 'audience' | 'topic' | 'voice' | 'voiceSection' | 'level' | 'speed'
 
 const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   summary: 'Настройки',
@@ -220,9 +227,11 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Позвонить',
+  provider: 'Провайдер',
   audience: 'Стиль общения',
   topic: 'Тема',
   voice: 'Голос',
+  voiceSection: 'Голос',
   level: 'Уровень',
   speed: 'Скорость речи',
 }
@@ -423,10 +432,14 @@ export interface MenuSectionPanelsProps {
   onStartHomeChat?: () => void
   onGoHome?: () => void
   onOpenEngvoVoiceChat?: () => void
+  engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
+  engvoXaiVoice?: EngvoXaiVoice
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
+  onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
+  onEngvoXaiVoiceChange?: (voice: EngvoXaiVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
@@ -523,10 +536,14 @@ export default function MenuSectionPanels({
   onStartHomeChat,
   onGoHome,
   onOpenEngvoVoiceChat,
+  engvoProvider = ENGVO_DEFAULT_PROVIDER,
   engvoRealtimeVoice,
+  engvoXaiVoice,
   engvoCefrLevel,
   engvoSpeechSpeedPreset,
+  onEngvoProviderChange,
   onEngvoVoiceChange,
+  onEngvoXaiVoiceChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
   practiceTtsSpeedDefaultIndex = 0,
@@ -562,6 +579,8 @@ export default function MenuSectionPanels({
   const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
   const [settingsPanel, setSettingsPanel] = React.useState<SettingsMenuPanel>('summary')
   const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
+  const [selectedXaiVoiceSectionId, setSelectedXaiVoiceSectionId] =
+    React.useState<EngvoXaiVoiceSectionId>('classic')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   const [lessonProgressMap, setLessonProgressMap] = React.useState(loadLessonProgressMap)
 
@@ -1155,7 +1174,15 @@ export default function MenuSectionPanels({
               : theme === 'glass3'
                 ? 'Glass3'
                 : 'Basic'
-  const engvoVoiceLabel = engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE
+  const engvoProviderLabel =
+    ENGVO_PROVIDER_OPTIONS.find((p) => p.id === engvoProvider)?.label ?? 'ChatGPT'
+  const engvoVoiceLabel =
+    engvoProvider === 'xai'
+      ? engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE
+      : engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE
+  const selectedXaiVoiceSection =
+    ENGVO_XAI_VOICE_SECTIONS.find((s) => s.id === selectedXaiVoiceSectionId) ??
+    ENGVO_XAI_VOICE_SECTIONS[0]
   const engvoLevelLabel =
     ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'
   const engvoSpeechSpeedLabel =
@@ -1274,7 +1301,12 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'engvo' && engvoPanel !== 'summary') {
+      if (engvoPanel === 'voiceSection') {
+        setEngvoPanel('voice')
+        return
+      }
       if (
+        engvoPanel === 'provider' ||
         engvoPanel === 'audience' ||
         engvoPanel === 'topic' ||
         engvoPanel === 'voice' ||
@@ -1299,9 +1331,11 @@ export default function MenuSectionPanels({
         : menuView === 'settings' && settingsPanel !== 'summary'
         ? 'К настройкам'
         : menuView === 'engvo' &&
-            (engvoPanel === 'audience' ||
+            (engvoPanel === 'provider' ||
+              engvoPanel === 'audience' ||
               engvoPanel === 'topic' ||
               engvoPanel === 'voice' ||
+              engvoPanel === 'voiceSection' ||
               engvoPanel === 'level' ||
               engvoPanel === 'speed')
           ? 'К разделу «Позвонить»'
@@ -1805,6 +1839,11 @@ export default function MenuSectionPanels({
               <>
                 <div className={MENU_GROUP_OUTER}>
                   <div className={MENU_GROUP_CLASS}>
+                    <MenuSettingRow
+                      label="Провайдер"
+                      value={engvoProviderLabel}
+                      onClick={() => setEngvoPanel('provider')}
+                    />
                     <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setEngvoPanel('audience')} />
                     <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setEngvoPanel('topic')} />
                     <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
@@ -1824,6 +1863,16 @@ export default function MenuSectionPanels({
                   </div>
                 )}
               </>
+            )}
+            {engvoPanel === 'provider' && (
+              <PickerList
+                options={ENGVO_PROVIDER_OPTIONS.map((p) => ({ id: p.id, label: p.label }))}
+                value={engvoProvider}
+                onSelect={(id) => {
+                  onEngvoProviderChange?.(id as EngvoProvider)
+                  setEngvoPanel('summary')
+                }}
+              />
             )}
             {engvoPanel === 'audience' && (
               <PickerList
@@ -1845,12 +1894,38 @@ export default function MenuSectionPanels({
                 }}
               />
             )}
-            {engvoPanel === 'voice' && (
+            {engvoPanel === 'voice' && engvoProvider === 'xai' && (
+              <div className={MENU_GROUP_OUTER}>
+                <div className={MENU_GROUP_CLASS}>
+                  {ENGVO_XAI_VOICE_SECTIONS.map((section) => (
+                    <MenuNavRow
+                      key={section.id}
+                      label={section.label}
+                      onClick={() => {
+                        setSelectedXaiVoiceSectionId(section.id)
+                        setEngvoPanel('voiceSection')
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            {engvoPanel === 'voice' && engvoProvider !== 'xai' && (
               <PickerList
                 options={ENGVO_REALTIME_VOICES.map((voice) => ({ id: voice, label: voice }))}
                 value={engvoRealtimeVoice ?? ENGVO_DEFAULT_VOICE}
                 onSelect={(id) => {
                   onEngvoVoiceChange?.(id as EngvoRealtimeVoice)
+                  setEngvoPanel('summary')
+                }}
+              />
+            )}
+            {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && selectedXaiVoiceSection && (
+              <PickerList
+                options={selectedXaiVoiceSection.voices.map((voice) => ({ id: voice, label: voice }))}
+                value={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
+                onSelect={(id) => {
+                  onEngvoXaiVoiceChange?.(id as EngvoXaiVoice)
                   setEngvoPanel('summary')
                 }}
               />

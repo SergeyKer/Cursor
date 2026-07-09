@@ -48,7 +48,15 @@ describe('buildEngvoClientSessionUpdate', () => {
       voice: 'marin',
       instructions: 'Hello.',
       inputAudioTranscription: { model: 'gpt-4o-mini-transcribe', language: 'ru' },
-    })
+    }) as unknown as {
+      type: string
+      model: string
+      output_modalities: string[]
+      audio: {
+        output: { voice: string; speed: number }
+        input: { transcription: { model: string; language: string } }
+      }
+    }
     expect(session.type).toBe(ENGVO_REALTIME_SESSION_TYPE)
     expect(session.model).toBe('gpt-realtime-mini')
     expect(session.output_modalities).toEqual(['audio'])
@@ -64,7 +72,7 @@ describe('buildEngvoClientSessionUpdate', () => {
     const session = buildEngvoClientSessionUpdate({
       model: 'gpt-realtime-mini',
       instructions: 'Hello.',
-    })
+    }) as unknown as { type: string; audio: { input: unknown; output?: unknown } }
     expect(session.type).toBe(ENGVO_REALTIME_SESSION_TYPE)
     expect(session.audio.input).toBeDefined()
     expect(session.audio.output).toBeUndefined()
@@ -76,8 +84,23 @@ describe('buildEngvoClientSessionUpdate', () => {
       voice: 'alloy',
       speed: 0.9,
       instructions: 'Hello.',
-    })
+    }) as unknown as { audio: { output: { voice: string; speed: number } } }
     expect(session.audio.output).toEqual({ voice: 'alloy', speed: 0.9 })
+  })
+})
+
+describe('buildEngvoXaiClientSessionUpdate regression vs OpenAI', () => {
+  it('does not break OpenAI builder shape when xAI helper exists', () => {
+    const openai = buildEngvoClientSessionUpdate({
+      model: 'gpt-realtime-mini',
+      voice: 'marin',
+      instructions: 'Hello.',
+    }) as unknown as {
+      output_modalities: string[]
+      audio: { output: { voice: string; speed: number } }
+    }
+    expect(openai.output_modalities).toEqual(['audio'])
+    expect(openai.audio.output).toEqual({ voice: 'marin', speed: 1 })
   })
 })
 

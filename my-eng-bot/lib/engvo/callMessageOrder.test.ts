@@ -5,6 +5,7 @@ import {
   insertEngvoUserMessage,
   shouldCancelEngvoAssistantOnUserAudioCommitted,
   shouldInsertEngvoUserBeforeAssistant,
+  updateLastEngvoUserMessage,
 } from './callMessageOrder'
 
 describe('callMessageOrder', () => {
@@ -56,5 +57,24 @@ describe('callMessageOrder', () => {
       { role: 'assistant', content: ENGVO_CALL_FINISHED_ASSISTANT_TEXT },
       { role: 'user', content: 'me too' },
     ])
+  })
+
+  it('updates the last user bubble when partial transcript is replaced by final', () => {
+    const messages: ChatMessage[] = [
+      { role: 'assistant', content: 'Hello!' },
+      { role: 'user', content: 'Hi.' },
+      { role: 'assistant', content: 'How are you?' },
+    ]
+
+    expect(updateLastEngvoUserMessage(messages, 'Hi there, how are you?')).toEqual([
+      { role: 'assistant', content: 'Hello!' },
+      { role: 'user', content: 'Hi there, how are you?' },
+      { role: 'assistant', content: 'How are you?' },
+    ])
+  })
+
+  it('does not create a user bubble when none exists', () => {
+    const messages: ChatMessage[] = [{ role: 'assistant', content: 'Hello!' }]
+    expect(updateLastEngvoUserMessage(messages, 'Hi')).toEqual(messages)
   })
 })

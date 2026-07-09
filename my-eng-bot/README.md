@@ -30,6 +30,7 @@ npm run dev
 |------------|----------|
 | `OPENROUTER_API_KEY` | Ключ API OpenRouter (используется, когда выбран провайдер OpenRouter) |
 | `OPENAI_API_KEY` | Ключ API OpenAI (используется, когда выбран провайдер OpenAI - GPT‑4o mini) |
+| `XAI_API_KEY` | Ключ xAI для звонка Engvo (Grok Voice). Только серверный, без `NEXT_PUBLIC_`. На Vercel — Env Variables; `HTTPS_PROXY` на проде не задавать |
 
 ## Деплой на Vercel (с нуля)
 

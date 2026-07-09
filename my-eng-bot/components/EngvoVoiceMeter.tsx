@@ -12,7 +12,7 @@ type EngvoVoiceMeterProps = {
   ariaLabel?: string
   /** user - микрофон (AGC сжимает сигнал); assistant - удалённый поток Engvo. */
   role?: EngvoVoiceMeterRole
-  /** Анимация без аудиопотока: wave — связанная волна; semiRandom — независимые столбцы с random targets. */
+  /** Анимация без аудиопотока: wave — как тихий GPT analyser (microMotion); semiRandom — независимые столбцы. */
   idleAnimation?: IdleAnimation
   /** Число столбцов (по умолчанию 9). Меньшее значение — компактный метр для симметричных панелей. */
   barCount?: number
@@ -22,7 +22,10 @@ type EngvoVoiceMeterProps = {
 const DEFAULT_BAR_COUNT = 9
 const BAR_PIXEL_MAX = 22
 const MAX_SCALE = 1
-const IDLE_MAX_SCALE = 0.42
+/** Soft idle ripple (not a tall wandering wave) while waiting for AI audio. */
+const IDLE_MAX_SCALE = 0.2
+/** Shared rest height for AI and user meters so the call strip looks symmetric when idle. */
+const REST_BASELINE_SCALE = 0.08
 const SEMI_RANDOM_MAX_SCALE = 0.68
 const SEMI_RANDOM_ATTACK = 0.42
 const SEMI_RANDOM_RELEASE = 0.18
@@ -71,15 +74,15 @@ const METER_TUNING: Record<
   }
 > = {
   user: {
-    baselineScale: 0.08,
+    baselineScale: REST_BASELINE_SCALE,
     rmsToLevel: 14,
     analyserSmoothing: 0.28,
     levelAttack: 0.52,
     voiceEnvelope: 1,
   },
   assistant: {
-    baselineScale: 0.16,
-    rmsToLevel: 5.6,
+    baselineScale: REST_BASELINE_SCALE,
+    rmsToLevel: 12,
     analyserSmoothing: 0.42,
     levelAttack: 0.42,
     voiceEnvelope: 0.95,
@@ -138,7 +141,6 @@ export default function EngvoVoiceMeter({
   const sourceNodeRef = React.useRef<MediaStreamAudioSourceNode | null>(null)
   const analyserNodeRef = React.useRef<AnalyserNode | null>(null)
   const currentLevelsRef = React.useRef<number[]>(Array(barCount).fill(baselineScale))
-  const idlePhaseRef = React.useRef(0)
   const barEqRef = React.useRef<BarEq[] | null>(null)
 
   React.useEffect(() => {
@@ -230,13 +232,18 @@ export default function EngvoVoiceMeter({
             nextLevels[i] = prev * (1 - blend) + bar.target * blend
           }
         } else {
-          idlePhaseRef.current += 0.16
+          // Match quiet GPT analyser look: tiny per-bar microMotion, no traveling wave.
+          const now = performance.now()
           const center = (barCount - 1) / 2
           for (let i = 0; i < barCount; i += 1) {
             const distance = Math.abs(i - center)
-            const envelope = Math.max(0.3, 1 - distance * 0.2)
-            const pulse = (Math.sin(idlePhaseRef.current + i * 0.45) + 1) * 0.5
-            const target = baselineScale + pulse * (IDLE_MAX_SCALE - baselineScale) * envelope
+            const envelope = clamp(1 - distance * 0.18, 0.32, 1)
+            const microMotion = (Math.sin(now * 0.012 + i * 0.55) + 1) * 0.5
+            const target = clamp(
+              baselineScale + microMotion * 0.03 * envelope,
+              baselineScale,
+              IDLE_MAX_SCALE
+            )
             const prev = currentLevelsRef.current[i] ?? baselineScale
             nextLevels[i] = prev * 0.72 + target * 0.28
           }

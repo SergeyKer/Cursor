@@ -53,6 +53,7 @@ import {
   type EngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
 import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
+import { resolveEngvoMeterFlags } from '@/lib/engvo/meterFlags'
 import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
 import EngvoCallTimer from '@/components/EngvoCallTimer'
 import { EngvoCallTranslationButton } from '@/components/EngvoCallTranslationButton'
@@ -2130,18 +2131,15 @@ export default function Chat({
       engvo?.callPhase ?? 'idle'
     )
   const engvoPhase = engvo?.callPhase ?? 'idle'
-  const isEngvoAssistantTurn = engvoPhase === 'assistantPending' || engvoPhase === 'assistantSpeaking'
-  const isEngvoUserTurn = engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
   const remoteStream = engvo?.remoteAudioStream ?? null
   const remotePlaybackActive = Boolean(engvo?.remoteAssistantPlaybackActive && remoteStream)
-  const aiMeterUseRemote =
-    (isEngvoAssistantTurn && Boolean(remoteStream)) || (isEngvoUserTurn && remotePlaybackActive)
-  const aiMeterStream = aiMeterUseRemote ? remoteStream : null
-  const aiMeterActive = isEngvoAssistantTurn || isEngvoUserTurn
+  const { aiMeterStream, aiMeterActive, userMeterActive } = resolveEngvoMeterFlags({
+    phase: engvoPhase,
+    remoteStream,
+    remotePlaybackActive,
+  })
   const aiMeterFrozen = engvoPhase === 'ended'
   const userMeterStream = engvo?.localAudioStream ?? null
-  const userMeterActive =
-    engvoPhase === 'connecting' || engvoPhase === 'listening' || engvoPhase === 'userFinalizing'
   const userMeterFrozen = engvoPhase === 'ended'
   const engvoTimerRunning =
     engvoPhase === 'listening' ||

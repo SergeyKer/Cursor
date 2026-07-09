@@ -11,7 +11,13 @@ import MenuSectionPanels, {
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
 import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode, ActivePracticeMenuSnapshot } from '@/types/practice'
-import type { EngvoCefrLevel, EngvoRealtimeVoice, EngvoSpeechSpeedPresetId } from '@/lib/engvo/constants'
+import type {
+  EngvoCefrLevel,
+  EngvoProvider,
+  EngvoRealtimeVoice,
+  EngvoSpeechSpeedPresetId,
+  EngvoXaiVoice,
+} from '@/lib/engvo/constants'
 import type { ChatPatternId } from '@/lib/chatPattern'
 import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
 import type { RewardsState } from '@/lib/rewardsState'
@@ -37,10 +43,14 @@ interface SlideOutMenuProps {
   /** Кнопка «Начать …» в «Чат с MyEng» (старт или новый диалог). */
   onStartChat?: () => void
   onOpenEngvoVoiceChat?: () => void
+  engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
+  engvoXaiVoice?: EngvoXaiVoice
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
+  onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
+  onEngvoXaiVoiceChange?: (voice: EngvoXaiVoice) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
   practiceTtsSpeedDefaultIndex?: number
@@ -128,10 +138,14 @@ export default function SlideOutMenu({
   hideButton = false,
   onStartChat,
   onOpenEngvoVoiceChat,
+  engvoProvider,
   engvoRealtimeVoice,
+  engvoXaiVoice,
   engvoCefrLevel,
   engvoSpeechSpeedPreset,
+  onEngvoProviderChange,
   onEngvoVoiceChange,
+  onEngvoXaiVoiceChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
   practiceTtsSpeedDefaultIndex,
@@ -271,10 +285,14 @@ export default function SlideOutMenu({
         className="flex min-h-0 flex-1 flex-col"
         onStartHomeChat={onStartChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
+        engvoProvider={engvoProvider}
         engvoRealtimeVoice={engvoRealtimeVoice}
+        engvoXaiVoice={engvoXaiVoice}
         engvoCefrLevel={engvoCefrLevel}
         engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
+        onEngvoProviderChange={onEngvoProviderChange}
         onEngvoVoiceChange={onEngvoVoiceChange}
+        onEngvoXaiVoiceChange={onEngvoXaiVoiceChange}
         onEngvoLevelChange={onEngvoLevelChange}
         onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
