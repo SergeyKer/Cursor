@@ -3189,14 +3189,14 @@ function MessageBubble({
                   communicationVoiceInputMode,
                 }) && Boolean(onLanguageNoteInfoPress)
               return showLanguageNoteMark ? (
-                <div className="language-note-user-line flex items-end gap-2.5">
-                  <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
-                    {message.content}
-                  </p>
-                  <LanguageNoteInfoMark
-                    onPress={() => onLanguageNoteInfoPress?.(messageIndex)}
-                  />
-                </div>
+                <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
+                  {message.content}
+                  <span className="language-note-info-mark-slot">
+                    <LanguageNoteInfoMark
+                      onPress={() => onLanguageNoteInfoPress?.(messageIndex)}
+                    />
+                  </span>
+                </p>
               ) : (
                 <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
                   {message.content}

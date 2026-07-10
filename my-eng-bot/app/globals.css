@@ -2207,17 +2207,28 @@ html[data-theme='glass3'] {
   animation: typingIndicatorShimmer 1s linear infinite;
 }
 
-/* Flex sibling of user text (items-end): pin to last line, center on line-box. */
+/*
+ * Inline slot after user text: stays on the last wrapped line on mobile WebKit
+ * (flex items-end on a <button> often centers there). Slot height = line-box so
+ * the 18px mark is optically centered like the PC etalon.
+ */
+.language-note-info-mark-slot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 1.45em;
+  margin-left: 0.625rem;
+  vertical-align: bottom;
+}
+
 .language-note-info-mark {
   position: relative;
   z-index: 1;
   display: grid;
-  flex-shrink: 0;
   place-items: center;
   width: 18px;
   height: 18px;
-  /* Center 18px glyph on last line (line-height 1.45 × inherited 15px). */
-  margin: 0 0 calc((1.45em - 18px) / 2);
+  margin: 0;
   padding: 0;
   border: none;
   background: transparent;
