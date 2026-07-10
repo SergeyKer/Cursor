@@ -96,6 +96,15 @@ describe('buildPracticeInstructionCopy', () => {
     expect(copy.secondaryMessage).not.toMatch(/Relaxed/i)
     expect(copy.secondaryMessage!.split('\n')).toHaveLength(2)
   })
+
+  it('uses Челлендж in challenge statsLine', () => {
+    const copy = buildPracticeInstructionCopy({
+      session: baseSession({ mode: 'challenge' }),
+      audience: 'adult',
+    })
+    expect(copy.statsLine).toContain('Челлендж')
+    expect(copy.statsLine).not.toContain('Challenge')
+  })
 })
 
 describe('buildPracticeBriefingBubbles', () => {
@@ -104,6 +113,13 @@ describe('buildPracticeBriefingBubbles', () => {
     expect(bubbles).toHaveLength(1)
     expect(bubbles[0]?.type).toBe('positive')
     expect(bubbles[0]?.content).toMatch(/Это \/ Пора/)
+  })
+
+  it('adds route and formats bubbles for challenge', () => {
+    const bubbles = buildPracticeBriefingBubbles(baseSession({ mode: 'challenge' }), 'child')
+    expect(bubbles.length).toBeGreaterThanOrEqual(3)
+    expect(bubbles.some((b) => b.content.includes('Старт → Поймай смысл'))).toBe(true)
+    expect(bubbles.some((b) => b.content.includes('Форматы меняются'))).toBe(true)
   })
 })
 

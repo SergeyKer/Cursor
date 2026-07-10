@@ -181,8 +181,8 @@ export function buildRoleplayExpectedAnswerCue(
     mode === 'challenge' && stepIndex === CHALLENGE_ROLEPLAY_STEP_INDEX
   if (isChallengeAnchor) {
     return audience === 'child'
-      ? 'Нужна та же фраза, что на прошлых шагах.'
-      : 'Нужна та же фраза, что на предыдущих шагах.'
+      ? 'Сейчас дословно: нужна та же фраза, что на прошлых шагах.'
+      : 'Сейчас дословно: нужна та же фраза, что на предыдущих шагах.'
   }
   return audience === 'child'
     ? 'Ответ - одно полное предложение по шаблону темы, не одним словом.'

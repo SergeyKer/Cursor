@@ -28,7 +28,7 @@ function modeLabel(mode: PracticeSession['mode']): string {
   if (mode === 'reference') return 'Reference'
   if (mode === 'relaxed') return 'Relaxed'
   if (mode === 'balanced') return 'Balanced'
-  return 'Challenge'
+  return 'Челлендж'
 }
 
 export function getPracticeFooterView(

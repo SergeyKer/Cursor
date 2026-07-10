@@ -213,7 +213,7 @@ describe('roleplayPromptEngine', () => {
       lessonId: '1',
       audience: 'adult',
     })
-    expect(label).toContain('Нужна та же фраза, что на предыдущих шагах')
+    expect(label).toContain('Сейчас дословно: нужна та же фраза, что на предыдущих шагах')
   })
 
   it('extracts keywords with blueprint mustInclude', () => {

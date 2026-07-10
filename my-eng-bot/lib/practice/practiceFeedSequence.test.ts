@@ -331,8 +331,10 @@ describe('buildPracticeFeedMessages sequence', () => {
       audience: 'adult',
       feedbackType: 'success',
     })
-    const limitFeedback = messages.filter((m) => m.tone === 'success').at(-1)
+    const limitFeedback = messages.filter((m) => m.tone === 'service').at(-1)
     expect(limitFeedback?.repeatAnswer).toBeUndefined()
+    expect(limitFeedback?.text).toContain('Три раза не вышло')
+    expect(limitFeedback?.text).not.toContain('🟢')
   })
 
   it('voice-shadow shows neutral info label without pedagogical hint', () => {

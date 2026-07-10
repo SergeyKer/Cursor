@@ -28,8 +28,8 @@ const DICTATION_STEP_OPENING = {
 }
 
 const ROLEPLAY_CHALLENGE_OPENING = {
-  adult: 'Ответьте собеседнику - нужна та же фраза, что на предыдущих шагах.',
-  child: 'Ответь собеседнику - нужна та же фраза, что на прошлых шагах.',
+  adult: 'Ответьте собеседнику дословно - нужна та же фраза, что на предыдущих шагах.',
+  child: 'Ответь собеседнику дословно - нужна та же фраза, что на прошлых шагах.',
 }
 
 const CHALLENGE_OPENING: Record<PracticeRouteStageId, { adult: string; child: string }> = {
@@ -127,13 +127,11 @@ export function buildPracticeRouteStepCopy(params: {
   const stageTitle = audience === 'child' ? titles.child : titles.adult
   const dictationOpening = resolveDictationOpening(session, questionIndex, audience)
   const roleplayOpening = resolveRoleplayOpening(session, questionIndex, audience)
-  const body = roleplayOpening ?? dictationOpening
-    ? dictationOpening
-    : audience === 'child'
-      ? CHALLENGE_OPENING[stage.stageId].child
-      : CHALLENGE_OPENING[stage.stageId].adult
+  const stageOpening =
+    audience === 'child' ? CHALLENGE_OPENING[stage.stageId].child : CHALLENGE_OPENING[stage.stageId].adult
+  const body = roleplayOpening ?? dictationOpening ?? stageOpening
   const trap =
-    questionIndex === 10 ? (audience === 'child' ? ' · финальная ловушка' : ' · финальная ловушка') : ''
+    questionIndex === 10 ? ' · контрольная ловушка' : questionIndex === 11 ? ' · финальный вызов' : ''
 
   return {
     stageId: stage.stageId,
@@ -156,9 +154,13 @@ export function buildPracticeFeedOpening(params: {
 
 export function buildChallengeBriefingRouteLine(audience: Audience): string {
   if (audience === 'child') {
-    return 'У тебя 4 мини-раунда: Разогрев → Понимание → Ловушки → Финальный вызов.'
+    return '4 мини-раунда · 12 шагов: Старт → Поймай смысл → Ловушки → Финал'
   }
   return '12 шагов: разогрев → понимание → закрепление → проверка.'
+}
+
+export function buildChallengeBriefingFormatsLine(): string {
+  return 'Форматы меняются: выбор → речь → слух → диалог → свой ответ.'
 }
 
 export { CHALLENGE_ROUTE_STAGES }

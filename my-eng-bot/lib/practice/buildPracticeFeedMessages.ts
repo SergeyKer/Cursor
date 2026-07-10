@@ -54,8 +54,8 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession,
     }
     if (question.type === 'boss-challenge') {
       return audience === 'child'
-        ? 'Скажи по теме своими словами.'
-        : 'Своими словами - проверим, что тема с вами.'
+        ? 'Скажи по теме своими словами по шаблону.'
+        : 'Своими словами по шаблону темы - проверим, что тема с вами.'
     }
     if (question.type === 'roleplay-mini') return 'Ответьте собеседнику по-английски.'
   }
@@ -74,8 +74,8 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession,
   }
   if (question.type === 'boss-challenge') {
     return audience === 'child'
-      ? 'Скажи по теме своими словами.'
-      : 'Своими словами - проверим, что тема с вами.'
+      ? 'Скажи по теме своими словами по шаблону.'
+      : 'Своими словами по шаблону темы - проверим, что тема с вами.'
   }
   if (question.type === 'context-clue') return 'Найдите ответ по контексту.'
   return 'Ответьте самостоятельно.'
@@ -166,13 +166,16 @@ function buildQuestionBubbles(params: {
   return bubbles
 }
 
+function isWrongLimitAdvanceAnswer(answer: PracticeAnswer): boolean {
+  return !answer.isCorrect && answer.feedbackTone === 'success'
+}
+
 function feedbackTextForAnswer(
   answer: PracticeAnswer,
   audience: Audience,
   attemptNumber: number,
   question?: PracticeQuestion
 ): string {
-  const tone = feedbackToneForAnswer(answer)
   const raw =
     answer.feedbackMessage ??
     (answer.isCorrect
@@ -185,6 +188,10 @@ function feedbackTextForAnswer(
           audience,
           question,
         }))
+  if (isWrongLimitAdvanceAnswer(answer)) {
+    return raw
+  }
+  const tone = feedbackToneForAnswer(answer)
   const marker = resolveFeedbackMarker({ tone, attemptNumber })
   return prefixFeedbackMarker(marker, raw)
 }
@@ -200,7 +207,9 @@ function buildAnswerFeedbackMessage(params: {
   attemptNumber: number
   question: PracticeQuestion
 }): PracticeFeedMessage {
-  const tone = feedbackToneForAnswer(params.answer)
+  const displayTone = isWrongLimitAdvanceAnswer(params.answer)
+    ? 'service'
+    : feedbackToneForAnswer(params.answer)
   const repeatAnswer = resolvePracticeRepeatAnswer({
     answer: params.answer,
     attemptNumber: params.attemptNumber,
@@ -217,7 +226,7 @@ function buildAnswerFeedbackMessage(params: {
       params.attemptNumber,
       params.question
     ),
-    tone,
+    tone: displayTone,
     ...(repeatAnswer ? { repeatAnswer } : {}),
   }
 }

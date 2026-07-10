@@ -2,7 +2,7 @@ import type { FlowInfoCardVariant } from '@/lib/lessonMedalRevealCopy'
 import type { Audience } from '@/lib/types'
 import type { Bubble } from '@/types/lesson'
 import type { PracticeMode, PracticeSession } from '@/types/practice'
-import { buildChallengeBriefingRouteLine } from '@/lib/practice/practiceRouteCopy'
+import { buildChallengeBriefingFormatsLine, buildChallengeBriefingRouteLine } from '@/lib/practice/practiceRouteCopy'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 
 export type PracticeInstructionCopy = {
@@ -19,7 +19,7 @@ function modeLabel(mode: PracticeMode): string {
   if (mode === 'reference') return 'Reference'
   if (mode === 'relaxed') return 'Relaxed'
   if (mode === 'balanced') return 'Balanced'
-  return 'Challenge'
+  return 'Челлендж'
 }
 
 function stepCount(session: PracticeSession): number {
@@ -73,6 +73,7 @@ export function buildPracticeBriefingBubbles(session: PracticeSession, audience:
   const bubbles: Bubble[] = [{ type: 'positive', content: intro }]
   if (session.mode === 'challenge') {
     bubbles.push({ type: 'info', content: buildChallengeBriefingRouteLine(audience) })
+    bubbles.push({ type: 'info', content: buildChallengeBriefingFormatsLine() })
   }
   return bubbles
 }

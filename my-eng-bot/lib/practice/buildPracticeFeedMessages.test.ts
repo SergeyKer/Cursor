@@ -153,7 +153,7 @@ describe('buildPracticeFeedMessages - roleplay-mini', () => {
 
     const current = messages.find((message) => message.id === 'practice-question-q9')
     const info = current?.bubbles?.find((bubble) => bubble.type === 'info')?.content ?? ''
-    expect(info).toContain('Нужна та же фраза, что на предыдущих шагах')
+    expect(info).toContain('Сейчас дословно: нужна та же фраза, что на предыдущих шагах')
 
     const task = current?.bubbles?.find((bubble) => bubble.type === 'task')?.content ?? ''
     expect(task).toContain('What should we do now?')
@@ -161,5 +161,58 @@ describe('buildPracticeFeedMessages - roleplay-mini', () => {
     expect(task).toContain('Скажите ответ.')
     expect(task).not.toContain('Ответьте по-английски')
     expect(task).not.toContain('\n')
+  })
+})
+
+describe('buildPracticeFeedMessages - wrong-limit display', () => {
+  it('renders wrong-limit advance without success marker or success tone', () => {
+    const session: PracticeSession = {
+      id: 's-wrong-limit',
+      mode: 'challenge',
+      topic: 'Тема',
+      status: 'active',
+      currentIndex: 0,
+      questions: [
+        {
+          id: 'q0',
+          lessonId: '1',
+          type: 'choice',
+          prompt: 'Ситуация: test',
+          targetAnswer: "It's dark.",
+          options: ["It's dark.", "It's cold."],
+          acceptedAnswers: [],
+          xpBase: 10,
+          difficulty: 1,
+          tolerance: 'soft',
+        },
+      ],
+      answers: [
+        {
+          questionId: 'q0',
+          userAnswer: 'wrong',
+          isCorrect: false,
+          correctAnswer: "It's dark.",
+          xpEarned: 0,
+          timestamp: 1,
+          feedbackMessage: "Три раза не вышло - ничего страшного. Правильно: It's dark.",
+          feedbackTone: 'success',
+        },
+      ],
+      score: 0,
+      xp: 0,
+      streak: 0,
+      instructionAcknowledged: true,
+    }
+
+    const messages = buildPracticeFeedMessages({
+      session,
+      state: 'feedback',
+      audience: 'adult',
+      feedbackType: 'success',
+    })
+    const feedback = messages.find((message) => message.kind === 'status' && message.text?.includes('Три раза'))
+    expect(feedback?.tone).toBe('service')
+    expect(feedback?.text).not.toContain('🟢')
+    expect(feedback?.text).toContain('Три раза не вышло')
   })
 })

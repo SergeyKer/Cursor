@@ -7339,7 +7339,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               ? 'Relaxed'
               : activePracticeSession.mode === 'balanced'
                 ? 'Balanced'
-                : 'Challenge'
+                : 'Челлендж'
         }`
     : lessonPageTitleView
       ? lessonPageTitleView.displayTitle

@@ -27,10 +27,10 @@ interface PracticeFinaleProps {
 }
 
 function nextModeLabel(mode: PracticeMode): string {
-  if (mode === 'reference') return 'Перейти в Challenge'
+  if (mode === 'reference') return 'Перейти в Челлендж'
   if (mode === 'relaxed') return 'Продолжить до Balanced'
-  if (mode === 'balanced') return 'Challenge на 12 заданий'
-  return 'Повторить Challenge'
+  if (mode === 'balanced') return 'Челлендж на 12 заданий'
+  return 'Повторить Челлендж'
 }
 
 export default function PracticeFinale({

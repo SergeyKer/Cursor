@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildPracticeFeedOpening, buildPracticeRouteStepCopy } from '@/lib/practice/practiceRouteCopy'
+import {
+  buildChallengeBriefingRouteLine,
+  buildPracticeFeedOpening,
+  buildPracticeRouteStepCopy,
+} from '@/lib/practice/practiceRouteCopy'
 import type { PracticeSession } from '@/types/practice'
 
 function session(mode: PracticeSession['mode']): PracticeSession {
@@ -77,5 +81,54 @@ describe('practiceRouteCopy', () => {
       previousWasCorrect: null,
     })
     expect(opening).toContain('фразу')
+  })
+
+  it('uses roleplay opening on challenge index 9 for adult without null', () => {
+    const opening = buildPracticeFeedOpening({
+      session: session('challenge'),
+      questionIndex: 9,
+      audience: 'adult',
+      previousWasCorrect: true,
+    })
+    expect(opening).toContain('та же фраза')
+    expect(opening).toContain('дословно')
+    expect(opening).not.toContain('null')
+  })
+
+  it('uses roleplay opening on challenge index 9 for child without null', () => {
+    const opening = buildPracticeFeedOpening({
+      session: session('challenge'),
+      questionIndex: 9,
+      audience: 'child',
+      previousWasCorrect: true,
+    })
+    expect(opening).toContain('та же фраза')
+    expect(opening).toContain('дословно')
+    expect(opening).not.toContain('null')
+  })
+
+  it('marks challenge index 10 as control trap not final', () => {
+    const opening = buildPracticeFeedOpening({
+      session: session('challenge'),
+      questionIndex: 10,
+      audience: 'adult',
+      previousWasCorrect: true,
+    })
+    expect(opening).toContain('контрольная ловушка')
+    expect(opening).not.toContain('финальная')
+  })
+
+  it('marks challenge index 11 as final challenge', () => {
+    const opening = buildPracticeFeedOpening({
+      session: session('challenge'),
+      questionIndex: 11,
+      audience: 'adult',
+      previousWasCorrect: true,
+    })
+    expect(opening).toContain('финальный вызов')
+  })
+
+  it('aligns child briefing route line with stage titles', () => {
+    expect(buildChallengeBriefingRouteLine('child')).toContain('Старт → Поймай смысл → Ловушки → Финал')
   })
 })

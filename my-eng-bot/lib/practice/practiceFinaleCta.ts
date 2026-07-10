@@ -36,8 +36,8 @@ export function getPracticeFinalePrimaryAction(params: {
     if (mode === 'reference') {
       return {
         action: 'challenge',
-        label: 'Перейти в Challenge',
-        hint: 'Challenge даёт больше session XP.',
+        label: 'Перейти в Челлендж',
+        hint: 'Челлендж даёт больше session XP.',
       }
     }
     return {
@@ -50,14 +50,14 @@ export function getPracticeFinalePrimaryAction(params: {
   if (mode === 'challenge') {
     return {
       action: 'repeat',
-      label: 'Повторить Challenge',
+      label: 'Повторить Челлендж',
       hint: 'Повтор даст меньше XP к уровню - это ожидаемо.',
     }
   }
 
   return {
     action: 'challenge',
-    label: mode === 'relaxed' ? 'Продолжить до Balanced' : 'Challenge на 12 заданий',
+    label: mode === 'relaxed' ? 'Продолжить до Balanced' : 'Челлендж на 12 заданий',
     hint: 'Следующий режим даст больше session XP.',
   }
 }
