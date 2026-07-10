@@ -2085,6 +2085,14 @@ html[data-theme='glass3'] {
   /* Neutral chips — denser gray so they read as chips on soft cards. */
   --language-note-topic-bg: #e5e7eb;
   --language-note-topic-border: #9ca3af;
+  /* Card rhythm — keep in sync with .language-note-card rules below. */
+  --language-note-card-pad-x: 0.875rem;
+  --language-note-card-pad-y-top: 0.625rem;
+  --language-note-card-pad-y-bottom: 0.75rem;
+  --language-note-content-indent: 0.75rem;
+  /* Reasons strip — flush to bubble; text column = pad-x + content-indent. */
+  --language-note-reasons-bg: color-mix(in srgb, #94a3b8 9%, #ffffff);
+  --language-note-reasons-border: color-mix(in srgb, #94a3b8 26%, #e2e8f0);
 }
 
 .language-note-card--shared {
@@ -2095,10 +2103,65 @@ html[data-theme='glass3'] {
     0 2px 4px rgba(15, 23, 42, 0.1);
 }
 
+.language-note-card {
+  padding: var(--language-note-card-pad-y-top) var(--language-note-card-pad-x)
+    var(--language-note-card-pad-y-bottom);
+}
+
+.language-note-card__body {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* One content column for message / phrase / chips / alts. */
+.language-note-content {
+  padding-left: var(--language-note-content-indent);
+}
+
 .language-note-topic-chip {
   border-color: var(--language-note-topic-border);
   background: var(--language-note-topic-bg);
   box-shadow: none;
+}
+
+.language-note-reasons {
+  margin-left: calc(-1 * var(--language-note-card-pad-x));
+  margin-right: calc(-1 * var(--language-note-card-pad-x));
+  margin-bottom: calc(-1 * var(--language-note-card-pad-y-bottom));
+  border-radius: 0 0 0.75rem 0.75rem;
+  padding: 0.5rem var(--language-note-card-pad-x) 0.75rem;
+  background: var(--language-note-reasons-bg);
+  border: none;
+  border-top: 1px solid var(--language-note-reasons-border);
+  box-shadow: none;
+  color: color-mix(in srgb, var(--text) 88%, transparent);
+}
+
+.language-note-reasons__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.language-note-reasons__list > li {
+  position: relative;
+  padding-left: var(--language-note-content-indent);
+}
+
+.language-note-reasons__list > li::before {
+  content: '';
+  position: absolute;
+  left: 0.12rem;
+  top: 0.55em;
+  width: 0.35rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--language-note-card-label) 55%, #94a3b8);
 }
 
 .footer-sheet__placeholder {

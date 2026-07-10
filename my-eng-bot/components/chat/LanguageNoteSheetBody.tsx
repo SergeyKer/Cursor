@@ -53,28 +53,30 @@ function NoteSectionCard({
   children: ReactNode
 }) {
   const { surface, label } = toneClasses(tone)
-  const isReview = tone === 'slate'
   return (
     <section
-      className={`chat-section-surface relative block min-w-0 w-full max-w-full rounded-xl border pl-4 pr-3 pt-2 font-sans ${
-        isReview ? 'pb-3' : 'pb-2'
-      } ${surface}`}
+      className={`chat-section-surface language-note-card relative block min-w-0 w-full max-w-full overflow-hidden rounded-xl border font-sans ${surface}`}
       role="note"
     >
       <p className={`${NOTE_LABEL_CLASS} ${label}`}>
         <span aria-hidden>{marker}</span> {title}
       </p>
-      <div className="mt-2 min-w-0 space-y-1.5 font-sans text-[15px] leading-[1.45] text-[var(--text)]">
+      <div className="language-note-card__body min-w-0 font-sans text-[15px] leading-[1.45] text-[var(--text)]">
         {children}
       </div>
     </section>
   )
 }
 
+/** Shared content column — same left edge as reason text (after bullet). */
+const CONTENT_INDENT_CLASS = 'language-note-content'
+
 function HighlightedPhrase({ text, highlights }: { text: string; highlights: string[] }) {
   const segments = highlightCorrected(text, highlights)
   return (
-    <p className="min-w-0 whitespace-pre-wrap break-words font-sans text-[15px] font-normal leading-[1.45] text-[var(--text)]">
+    <p
+      className={`min-w-0 ${CONTENT_INDENT_CLASS} whitespace-pre-wrap break-words font-sans text-[15px] font-normal leading-[1.45] text-[var(--text)]`}
+    >
       {segments.map((seg, i) =>
         seg.bold ? (
           <strong key={i} className="font-bold">
@@ -91,13 +93,15 @@ function HighlightedPhrase({ text, highlights }: { text: string; highlights: str
 function ReasonsList({ reasons }: { reasons: string[] }) {
   if (reasons.length === 0) return null
   return (
-    <ol className="mt-2 list-decimal space-y-0.5 pl-4 font-sans text-[14px] font-normal leading-snug text-[var(--text)]">
-      {reasons.map((reason, i) => (
-        <li key={`${i}-${reason.slice(0, 24)}`} className="min-w-0 break-words">
-          {reason}
-        </li>
-      ))}
-    </ol>
+    <div className="language-note-reasons">
+      <ul className="language-note-reasons__list font-sans text-[14px] font-normal leading-snug">
+        {reasons.map((reason, i) => (
+          <li key={`${i}-${reason.slice(0, 24)}`} className="min-w-0 break-words">
+            {reason}
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
 
@@ -106,7 +110,9 @@ function OriginalMessageCard({ text }: { text: string }) {
   if (!trimmed) return null
   return (
     <NoteSectionCard tone="emerald" marker="💬" title={LANGUAGE_NOTE_COPY.original}>
-      <p className="min-w-0 whitespace-pre-wrap break-words font-sans text-[15px] font-normal leading-[1.45] text-[var(--text)]">
+      <p
+        className={`min-w-0 ${CONTENT_INDENT_CLASS} whitespace-pre-wrap break-words font-sans text-[15px] font-normal leading-[1.45] text-[var(--text)]`}
+      >
         {trimmed}
       </p>
     </NoteSectionCard>
@@ -116,15 +122,15 @@ function OriginalMessageCard({ text }: { text: string }) {
 function SkeletonCard() {
   return (
     <div
-      className="chat-section-surface language-note-card--shared relative overflow-hidden rounded-xl border pl-4 pr-3 py-2"
+      className="chat-section-surface language-note-card language-note-card--shared relative overflow-hidden rounded-xl border"
       aria-hidden
     >
       <span className="typing-indicator-shimmer language-note-skeleton-shimmer" />
       <div className="language-note-skeleton-bar language-note-skeleton-bar--label" />
-      <div className="mt-2 space-y-1.5">
-        <div className="language-note-skeleton-bar language-note-skeleton-bar--w92" />
-        <div className="language-note-skeleton-bar language-note-skeleton-bar--w70" />
-        <div className="language-note-skeleton-bar language-note-skeleton-bar--w55" />
+      <div className="language-note-card__body">
+        <div className={`language-note-skeleton-bar language-note-skeleton-bar--w92 ${CONTENT_INDENT_CLASS}`} />
+        <div className={`language-note-skeleton-bar language-note-skeleton-bar--w70 ${CONTENT_INDENT_CLASS}`} />
+        <div className={`language-note-skeleton-bar language-note-skeleton-bar--w55 ${CONTENT_INDENT_CLASS}`} />
       </div>
     </div>
   )
@@ -151,10 +157,12 @@ export function LanguageNoteSheetError({
   return (
     <div className="space-y-3 font-sans">
       <NoteSectionCard tone="amber" marker="⚠️" title={LANGUAGE_NOTE_COPY.error}>
-        <p className="font-sans text-[15px] font-normal leading-[1.45] text-[var(--text)]">{message}</p>
+        <p className={`${CONTENT_INDENT_CLASS} font-sans text-[15px] font-normal leading-[1.45] text-[var(--text)]`}>
+          {message}
+        </p>
         <button
           type="button"
-          className="mt-1 rounded-lg border border-[var(--chat-section-amber-border)] bg-[var(--chat-assistant-shell)] px-3 py-1.5 font-sans text-sm font-medium text-[var(--text)] touch-manipulation"
+          className={`mt-1 ${CONTENT_INDENT_CLASS} rounded-lg border border-[var(--chat-section-amber-border)] bg-[var(--chat-assistant-shell)] px-3 py-1.5 font-sans text-sm font-medium text-[var(--text)] touch-manipulation`}
           onClick={onRetry}
         >
           {LANGUAGE_NOTE_COPY.retry}
@@ -175,7 +183,7 @@ export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
         </NoteSectionCard>
         {note.reviewTopics.length > 0 ? (
           <NoteSectionCard tone="slate" marker="📖" title={LANGUAGE_NOTE_COPY.review}>
-            <div className="flex flex-col items-start gap-1">
+            <div className={`${CONTENT_INDENT_CLASS} flex flex-col items-start gap-1`}>
               {note.reviewTopics.slice(0, 1).map((topic) => (
                 <TopicChip key={topic.id}>{topic.title}</TopicChip>
               ))}
@@ -214,7 +222,7 @@ export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
           {shortAlternatives.map((alt) => (
             <p
               key={alt}
-              className="min-w-0 break-words font-sans text-[14px] font-normal leading-snug text-[var(--text)]"
+              className={`min-w-0 ${CONTENT_INDENT_CLASS} break-words font-sans text-[14px] font-normal leading-snug text-[var(--text)]`}
             >
               <span className="text-[var(--language-note-card-label)]">
                 {LANGUAGE_NOTE_COPY.betterOr}
@@ -227,7 +235,7 @@ export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
 
       {showReview ? (
         <NoteSectionCard tone="slate" marker="📖" title={LANGUAGE_NOTE_COPY.review}>
-          <div className="flex flex-col items-start gap-1">
+          <div className={`${CONTENT_INDENT_CLASS} flex flex-col items-start gap-1`}>
             {note.reviewTopics.map((topic) => (
               <TopicChip key={topic.id}>{topic.title}</TopicChip>
             ))}
