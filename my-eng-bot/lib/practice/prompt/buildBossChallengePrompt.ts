@@ -1,5 +1,10 @@
 import { pickSuggestedScenario } from '@/lib/practice/buildPracticeDiversity'
-import { mergePromptParts, resolveSituationLine, situationalPromptHasContext } from '@/lib/practice/prompt/promptSourceUtils'
+import {
+  mergePromptParts,
+  normalizePracticeEmDashes,
+  resolveSituationLine,
+  situationalPromptHasContext,
+} from '@/lib/practice/prompt/promptSourceUtils'
 import type { PracticePromptSource } from '@/lib/practice/prompt/promptSourceTypes'
 import { resolveBossActionFrame } from '@/lib/practice/bossChallengeAnswerValidation'
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
@@ -21,10 +26,10 @@ function wrapBareSituation(situation: string, lesson: LessonData): string {
   const core = raw.replace(/[.!?…]+$/u, '')
   // Keep distinctive content in the first clause so situation keys stay unique.
   if (lesson.id === '4' || /\b(i am|i'm|from)\b/i.test(lesson.topic)) {
-    return `Ситуация: на знакомстве — ${core}.`
+    return `Ситуация: на знакомстве - ${core}.`
   }
   if (lesson.id === '2' || /who/i.test(lesson.topic)) {
-    return `Ситуация: разговор о вкусах — ${core}.`
+    return `Ситуация: разговор о вкусах - ${core}.`
   }
   return `Ситуация: ${core}.`
 }
@@ -67,7 +72,7 @@ export function buildBossChallengePrompt(
     lesson,
     targetAnswer: targetAnswer ?? source.exercise.correctAnswer,
   })
-  return mergePromptParts([situation, frame])
+  return normalizePracticeEmDashes(mergePromptParts([situation, frame]))
 }
 
 export function buildEtalonBossChallengePromptForLesson(lesson: LessonData, stepIndex = 0): string | null {
@@ -76,10 +81,14 @@ export function buildEtalonBossChallengePromptForLesson(lesson: LessonData, step
   return buildBossChallengePrompt(source, lesson, stepIndex, source.exercise.correctAnswer)
 }
 
+const ENGLISH_PATTERN_STARTER_RE = /\b(i am|i'm|who|i know what)\b/iu
+
 export function bossChallengePromptHasContext(prompt: string): boolean {
   if (!situationalPromptHasContext(prompt)) return false
   if (EXAM_META_RE.test(prompt)) return false
   if (/Переведите/iu.test(prompt)) return false
+  // No English pattern starters in the task prompt (anchors stay in keywords/validation).
+  if (ENGLISH_PATTERN_STARTER_RE.test(prompt)) return false
   // Must include a concrete action cue (not only situation).
   return (
     /напиш/iu.test(prompt) ||
@@ -90,7 +99,8 @@ export function bossChallengePromptHasContext(prompt: string): boolean {
 }
 
 export const BOSS_CHALLENGE_SYSTEM_RULES = [
-  'For type boss-challenge: prompt = Russian Ситуация:/Тема: + short concrete action frame from lesson pattern (e.g. what to do / I am… / Who…).',
+  'For type boss-challenge: prompt = Russian Ситуация:/Тема: + short concrete Russian action frame (e.g. что пора сделать / о себе по ситуации / спросите по ситуации).',
+  'Never put English pattern starters in prompt (I am…, Who…, I know what…); pattern anchors belong in keywords only.',
   'Never use exam meta: Финальный вызов, примените тему урока, соберите всё, развёрнутый ответ.',
   'Do not put long say/write meta in prompt; UI info label carries soft instruction.',
   'Never use Переведите, interlocutor/Собеседник, Исправьте, ___ gap-fill, or listening instructions.',

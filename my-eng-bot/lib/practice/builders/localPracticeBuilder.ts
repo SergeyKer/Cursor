@@ -22,6 +22,14 @@ import {
 import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeDropdownHint } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import {
+  isDropdownFillPairAligned,
+  resolveAlignedDropdownTarget,
+} from '@/lib/practice/prompt/dropdownFillPairAlign'
+import {
+  buildDropdownFillPrompt,
+  findLessonDropdownFillSourceForPractice,
+} from '@/lib/practice/prompt/buildDropdownFillPrompt'
 import { buildDictationPrompt } from '@/lib/practice/prompt/buildDictationPrompt'
 import {
   buildErrorFixPrompt,
@@ -42,7 +50,7 @@ import {
 } from '@/lib/practice/roleplaySessionContinuity'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { resolveBossPatternAnchors } from '@/lib/practice/bossChallengeAnswerValidation'
-import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
+import { extractSemanticKeywords, normalizePracticeEmDashes, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import {
   resolvePracticeLessonStep,
@@ -309,6 +317,29 @@ function createQuestion(params: {
     if (built) prompt = built
   }
 
+  prompt = normalizePracticeEmDashes(prompt)
+  if (params.type === 'dropdown-fill' && !isDropdownFillPairAligned(prompt, targetAnswer)) {
+    const alignedTarget = resolveAlignedDropdownTarget(prompt, targetAnswer)
+    if (alignedTarget) {
+      targetAnswer = alignedTarget
+      acceptedAnswers = acceptedAnswers.filter(
+        (item) => item.trim().toLowerCase() === alignedTarget.toLowerCase()
+      )
+      if (!acceptedAnswers.includes(alignedTarget)) acceptedAnswers = [alignedTarget]
+    } else {
+      const dropdownSource = findLessonDropdownFillSourceForPractice(params.lesson, params.index)
+      if (dropdownSource) {
+        const etalonTarget = dropdownSource.exercise.correctAnswer.trim()
+        const rebuilt = buildDropdownFillPrompt(dropdownSource, params.lesson, params.index)
+        if (rebuilt && etalonTarget && isDropdownFillPairAligned(rebuilt, etalonTarget)) {
+          prompt = rebuilt
+          targetAnswer = etalonTarget
+          acceptedAnswers = [etalonTarget]
+        }
+      }
+    }
+  }
+
   const roleplayAxis =
     params.type === 'roleplay-mini'
       ? inferRoleplayAxis(targetAnswer, params.lesson, params.variantIndex)
@@ -399,6 +430,10 @@ function createQuestion(params: {
     xpBase: meta.xpBase,
     difficulty: meta.difficulty,
     tolerance: toleranceFor(params.exercise, params.type),
+    requireExactTarget:
+      params.type === 'roleplay-mini' && params.mode === 'challenge' && params.index === 9
+        ? true
+        : undefined,
   }
 }
 

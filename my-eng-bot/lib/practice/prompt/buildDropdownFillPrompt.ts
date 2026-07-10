@@ -73,9 +73,11 @@ export function dropdownFillPromptHasContext(prompt: string): boolean {
 export const DROPDOWN_FILL_SYSTEM_RULES = [
   'For type dropdown-fill: prompt MUST be one line: Выберите слово для пропуска: "{Russian phrase}" - «{English frame with ___}».',
   'Russian phrase MUST explicitly name what maps to targetAnswer (Я из России → Russia).',
+  'targetAnswer is the single word that fills ___ and matches RU + gap object (пить чай / ___ tea → drink, never go/eat/sleep).',
+  'Never pair ___ tea with targetAnswer go/eat/sleep; never pair ___ lunch with drink.',
   'Never stack Ситуация + Переведите + Выберите in one prompt.',
   'targetAnswer is exactly one word matching the gap slot.',
-  'options: 3 single words for closed slots (article, auxiliary); 4 for open lexical slots; ALL same word class as targetAnswer.',
+  'options MUST include targetAnswer; 3 single words for closed slots (article, auxiliary); 4 for open lexical slots; ALL same word class as targetAnswer.',
   'country gap (from ___): distractors = other country names only, never articles.',
   'Never use full-sentence options for dropdown-fill.',
 ] as const

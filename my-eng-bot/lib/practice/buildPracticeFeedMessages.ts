@@ -49,13 +49,13 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession,
     if (question.type === 'word-builder-pro') return 'Соберите фразу: в банке есть грамматические ловушки.'
     if (question.type === 'error-fix') {
       return audience === 'child'
-        ? 'Фраза не подходит к ситуации — скажи или напиши правильно.'
-        : 'Фраза не подходит к ситуации — скажите или напишите правильный вариант.'
+        ? 'Фраза не подходит к ситуации - скажи или напиши правильно.'
+        : 'Фраза не подходит к ситуации - скажите или напишите правильный вариант.'
     }
     if (question.type === 'boss-challenge') {
       return audience === 'child'
         ? 'Скажи по теме своими словами.'
-        : 'Своими словами — проверим, что тема с вами.'
+        : 'Своими словами - проверим, что тема с вами.'
     }
     if (question.type === 'roleplay-mini') return 'Ответьте собеседнику по-английски.'
   }
@@ -75,7 +75,7 @@ function practiceTypeLabel(question: PracticeQuestion, session: PracticeSession,
   if (question.type === 'boss-challenge') {
     return audience === 'child'
       ? 'Скажи по теме своими словами.'
-      : 'Своими словами — проверим, что тема с вами.'
+      : 'Своими словами - проверим, что тема с вами.'
   }
   if (question.type === 'context-clue') return 'Найдите ответ по контексту.'
   return 'Ответьте самостоятельно.'

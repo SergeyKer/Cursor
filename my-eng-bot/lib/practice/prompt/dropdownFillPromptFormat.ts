@@ -127,7 +127,7 @@ export function resolveDropdownRuPhrase(
   return 'Ответьте по заданию'
 }
 
-function extractGapFillParts(prompt: string): { ruPhrase: string; gapFrameEn: string } | null {
+export function extractGapFillParts(prompt: string): { ruPhrase: string; gapFrameEn: string } | null {
   const quotedMatch = prompt.match(/^выберите слово для пропуска:\s*"([^"]+)"\s*[-—]\s*«([^»]+)»\.?$/iu)
   if (quotedMatch?.[1] && quotedMatch?.[2]) {
     return { ruPhrase: quotedMatch[1].trim(), gapFrameEn: quotedMatch[2].trim() }

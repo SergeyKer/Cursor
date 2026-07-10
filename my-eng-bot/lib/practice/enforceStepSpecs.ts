@@ -139,6 +139,7 @@ export function enforceStepSpecs(
           hint: buildRoleplayHint(axis, lesson.id),
           keywords: extractRoleplayKeywords(anchor.targetAnswer, lesson),
           minWords: 2,
+          requireExactTarget: true,
         }
       } else if (!roleplayPromptHasContext(normalized.prompt)) {
         const axis = inferRoleplayAxis(normalized.targetAnswer, lesson)
@@ -147,7 +148,10 @@ export function enforceStepSpecs(
           hint: buildRoleplayHint(axis, lesson.id),
           keywords: extractRoleplayKeywords(normalized.targetAnswer, lesson),
           minWords: 2,
+          requireExactTarget: true,
         }
+      } else {
+        normalized = { ...normalized, requireExactTarget: true }
       }
     }
 

@@ -76,6 +76,7 @@ describe('roleplayPromptEngine', () => {
     expect(scenario.roleIntroRu).toContain('темно')
     expect(scenario.interlocutorEn).toBe('What is it like outside?')
     expect(scenario.interlocutorEn).not.toContain('— Yes,')
+    expect(scenario.interlocutorEn).not.toMatch(/-\s*Yes,/i)
   })
 
   it('RP-V04: yes/no scaffold accepts declarative without Yes prefix', () => {
@@ -83,7 +84,7 @@ describe('roleplayPromptEngine', () => {
     expect(isYesNoScaffoldInterlocutor(scaffold)).toBe(true)
     expect(scaffold).toContain("Yes, It's dark.")
     expect(formatRoleplayTaskBubble(scaffold)).toBe(
-      "Собеседник: «Is it dark outside? — Yes, It's dark.»"
+      "Собеседник: «Is it dark outside? - Yes, It's dark.»"
     )
   })
 
@@ -99,6 +100,7 @@ describe('roleplayPromptEngine', () => {
         const interlocutor = parseInterlocutorFromPrompt(question.prompt)
         expect(interlocutor).toBeTruthy()
         expect(interlocutor).not.toMatch(/—\s*Yes,/i)
+        expect(interlocutor).not.toMatch(/-\s*Yes,/i)
       }
     }
   })

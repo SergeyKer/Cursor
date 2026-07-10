@@ -95,6 +95,7 @@ function buildReferenceDiversityRule(params: {
     parts.push(
       'Gap-fill task: prompt must be Выберите слово для пропуска: "{RU}" - «{English frame with ___}».',
       'Russian phrase must name what maps to targetAnswer; options must be single words of the same class (3 closed / 4 open lexical).',
+      'targetAnswer fills ___ and matches RU + gap object (пить чай / ___ tea → drink, never go/eat/sleep); options MUST include targetAnswer.',
       'Never mix articles into country gaps.'
     )
   } else if (params.referenceExerciseType === 'dictation') {
@@ -105,7 +106,8 @@ function buildReferenceDiversityRule(params: {
     )
   } else if (params.referenceExerciseType === 'listening-select') {
     parts.push(
-      'Put English phrase only in audioText/targetAnswer; Russian situational prompt (Ситуация/Тема) without listening instruction.'
+      'listening-select: Russian situational prompt only (Ситуация:/Тема:); no Прослушайте / Переведите / gap-fill in prompt.',
+      'Put English phrase only in audioText/targetAnswer; exactly 3 options including targetAnswer; leave hint empty.'
     )
   } else if (params.referenceExerciseType === 'roleplay-mini') {
     parts.push(
@@ -125,7 +127,8 @@ function buildReferenceDiversityRule(params: {
     )
   } else if (params.referenceExerciseType === 'boss-challenge') {
     parts.push(
-      'boss-challenge: Russian Ситуация:/Тема: + short concrete action frame from lesson pattern; minWords 4; soft; no exam meta.',
+      'boss-challenge: Russian Ситуация:/Тема: + short concrete Russian action frame; minWords 4; soft; no exam meta.',
+      'Never put English pattern starters in prompt (I am…, Who…, I know what…); anchors belong in keywords only.',
       'Never use Финальный вызов / примените тему / соберите всё / Переведите / Исправьте / Собеседник.',
       'Rotate situations; never reuse identical Russian situation text across scenarios in one reference pass.',
       'keywords = pattern anchors (time to, I am, who…), not full target lexicon; hint empty; no options/audioText.'
@@ -197,7 +200,8 @@ function buildSessionDiversityRule(params: {
   }
   if (params.practiceType === 'boss-challenge') {
     parts.push(
-      'boss-challenge: situational final; Russian Ситуация + concrete action frame; minWords 4; soft; no translate/exam meta.'
+      'boss-challenge: situational final; Russian Ситуация + concrete Russian action frame; minWords 4; soft; no translate/exam meta.',
+      'Never put English pattern starters in prompt (I am…, Who…, I know what…).'
     )
   }
   if (params.lesson.id === '1') {

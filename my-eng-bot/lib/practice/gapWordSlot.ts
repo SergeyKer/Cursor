@@ -15,7 +15,20 @@ export type GapWordSlot =
 const ARTICLES = new Set(['a', 'an', 'the'])
 const AUXILIARIES = new Set(['have', 'has', 'had', 'do', 'does', 'did', 'is', 'are', 'was', 'were', 'am'])
 const PREPOSITIONS = new Set(['for', 'since', 'in', 'at', 'on', 'to', 'from', 'by', 'with'])
-const TIME_TO_VERBS = ['go', 'sleep', 'eat', 'study', 'rest', 'leave', 'wait', 'drink', 'read', 'work', 'walk']
+const TIME_TO_VERBS = [
+  'go',
+  'sleep',
+  'eat',
+  'study',
+  'rest',
+  'leave',
+  'wait',
+  'drink',
+  'read',
+  'work',
+  'walk',
+  'take',
+]
 const STATE_ADJECTIVES = ['cold', 'hot', 'dark', 'late', 'early', 'hungry', 'tired', 'happy', 'calm', 'sad']
 
 /** Country pool aligned with lesson 4 step 7 contrast + common A1 countries. */

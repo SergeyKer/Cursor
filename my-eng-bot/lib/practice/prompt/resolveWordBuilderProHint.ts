@@ -30,10 +30,10 @@ function buildAxisHint(targetAnswer: string, axis: ReturnType<typeof resolvePuzz
     return 'Подсказка: соберите фразу о профессии или роли.'
   }
   if (axis === 'mood') {
-    return `Подсказка: первое слово — ${first}.`
+    return `Подсказка: первое слово - ${first}.`
   }
   if (tokens.length > 4) {
-    return `Подсказка: первое слово — ${first}.`
+    return `Подсказка: первое слово - ${first}.`
   }
   return undefined
 }

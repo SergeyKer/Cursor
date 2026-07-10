@@ -23,10 +23,7 @@ function wordCount(value: string): number {
 }
 
 function isChallengeAnchorQuestion(question: PracticeQuestion): boolean {
-  return (
-    question.type === 'roleplay-mini' &&
-    (question.hint?.includes('Нужна та же фраза') ?? false)
-  )
+  return question.type === 'roleplay-mini' && Boolean(question.requireExactTarget)
 }
 
 function patternChecksForAnswer(targetAnswer: string, lesson: LessonData): RegExp[] {

@@ -23,6 +23,7 @@ import { resolveBossPatternAnchors } from '@/lib/practice/bossChallengeAnswerVal
 import {
   extractSemanticKeywords,
   isTranslateStylePrompt,
+  normalizePracticeEmDashes,
   stripAnswerLeakFromHint,
 } from '@/lib/practice/prompt/promptSourceUtils'
 import {
@@ -48,6 +49,14 @@ import {
   normalizeGapFillPrompt,
   sanitizeDropdownHint,
 } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import {
+  isDropdownFillPairAligned,
+  resolveAlignedDropdownTarget,
+} from '@/lib/practice/prompt/dropdownFillPairAlign'
+import {
+  buildDropdownFillPrompt,
+  findLessonDropdownFillSourceForPractice,
+} from '@/lib/practice/prompt/buildDropdownFillPrompt'
 import { buildWordBuilderProPrompt } from '@/lib/practice/prompt/buildWordBuilderProPrompt'
 import {
   buildRoleplayHint,
@@ -403,8 +412,31 @@ export function normalizeAiPracticeQuestion(
   }
 
   if (!prompt) return null
+  prompt = normalizePracticeEmDashes(prompt)
   if (type === 'dropdown-fill') {
     prompt = normalizeGapFillPrompt(prompt)
+    if (!isDropdownFillPairAligned(prompt, normalizedTargetAnswer)) {
+      const alignedTarget = resolveAlignedDropdownTarget(prompt, normalizedTargetAnswer)
+      if (alignedTarget) {
+        normalizedTargetAnswer = alignedTarget
+        normalizedAcceptedAnswers = normalizedAcceptedAnswers.filter(
+          (item) => item.trim().toLowerCase() === alignedTarget.toLowerCase()
+        )
+      } else {
+        const dropdownSource = findLessonDropdownFillSourceForPractice(scopedLesson, index)
+        if (!dropdownSource) return null
+        const etalonTarget = dropdownSource.exercise.correctAnswer.trim()
+        if (!etalonTarget) return null
+        const rebuilt = buildDropdownFillPrompt(dropdownSource, scopedLesson, index)
+        if (!rebuilt || !isDropdownFillPairAligned(rebuilt, etalonTarget)) return null
+        prompt = rebuilt
+        normalizedTargetAnswer = etalonTarget
+        const etalonAccepted = canonicalAcceptedAnswersForExercise(dropdownSource.exercise)
+        normalizedAcceptedAnswers = etalonAccepted.filter(
+          (item) => item.trim().toLowerCase() !== etalonTarget.toLowerCase()
+        )
+      }
+    }
   }
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
   if (type === 'listening-select' && !listeningSelectPromptHasContext(prompt)) return null
@@ -633,5 +665,6 @@ export function normalizeAiPracticeQuestion(
     xpBase: meta.xpBase,
     difficulty: meta.difficulty,
     tolerance,
+    requireExactTarget: type === 'roleplay-mini' && mode === 'challenge' && index === 9 ? true : undefined,
   }
 }

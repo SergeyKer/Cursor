@@ -53,7 +53,10 @@ export function listeningSelectPromptHasContext(prompt: string): boolean {
 }
 
 export const LISTENING_SELECT_SYSTEM_RULES = [
-  'For type listening-select: prompt is Russian situational context only (Ситуация/Тема); no listening instruction in prompt.',
-  'audioText = targetAnswer; provide exactly 3 options matching granularity of source exercise.',
-  'Never repeat the English target phrase in prompt.',
+  'For type listening-select: prompt is Russian situational context only: Ситуация: "{RU}" or Тема: "{RU}".',
+  'Do not include listening/writing instructions in prompt; those appear in the UI info label.',
+  'Never use Переведите, Выберите слово, ___ gap-fill, or Прослушайте in listening-select prompts.',
+  'audioText = targetAnswer (full English phrase); provide exactly 3 options matching granularity of source exercise.',
+  'options MUST include targetAnswer; never repeat the English target phrase in prompt.',
+  'Leave hint empty.',
 ] as const

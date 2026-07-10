@@ -156,6 +156,6 @@ export const ERROR_FIX_SYSTEM_RULES = [
   'Leave hint empty; do not provide options or audioText.',
   'Each scenario needs a unique Russian situation and a matching targetAnswer; do not repeat identical situation text across scenarios in one reference pass.',
   'Lesson 1: weather/distance situations → It\'s + adjective (It\'s dark / It\'s cold); «Пора …» / time situations → It\'s time to + verb. Never mix axes.',
-  'Lesson 1: never use incomplete targetAnswer like "It\'s time." — always It\'s time to + verb.',
+  'Lesson 1: never use incomplete targetAnswer like "It\'s time." - always It\'s time to + verb.',
   'Lesson 1: rotate weather/time/distance; do not default to "темно" / It\'s dark unless it is the only unused scenario.',
 ] as const

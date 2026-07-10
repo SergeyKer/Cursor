@@ -59,4 +59,4 @@ export function buildProviderUserMessage(params: BuildProviderUserMessageParams)
 }
 
 export const PRACTICE_REFERENCE_FALLBACK_NOTICE =
-  'ИИ не вернул валидное задание — запущен локальный эталон для отладки (7 одинаковых шагов).'
+  'ИИ не вернул валидное задание - запущен локальный эталон для отладки (7 одинаковых шагов).'

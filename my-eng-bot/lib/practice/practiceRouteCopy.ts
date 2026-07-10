@@ -28,8 +28,8 @@ const DICTATION_STEP_OPENING = {
 }
 
 const ROLEPLAY_CHALLENGE_OPENING = {
-  adult: 'Ответьте собеседнику — нужна та же фраза, что на предыдущих шагах.',
-  child: 'Ответь собеседнику — нужна та же фраза, что на прошлых шагах.',
+  adult: 'Ответьте собеседнику - нужна та же фраза, что на предыдущих шагах.',
+  child: 'Ответь собеседнику - нужна та же фраза, что на прошлых шагах.',
 }
 
 const CHALLENGE_OPENING: Record<PracticeRouteStageId, { adult: string; child: string }> = {

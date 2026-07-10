@@ -6,6 +6,7 @@ import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { isDictationStylePrompt } from '@/lib/practice/prompt/dictationPromptFormat'
 import { isTranslateStylePrompt } from '@/lib/practice/prompt/promptSourceUtils'
 import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import { isDropdownFillPairAligned } from '@/lib/practice/prompt/dropdownFillPairAlign'
 import {
   errorFixPairIsAligned,
   extractSituationKeyFromErrorFixPrompt,
@@ -82,6 +83,12 @@ describe('reference etalon contract', () => {
               expect(isGapFillStylePrompt(question.prompt)).toBe(true)
               expect((question.prompt.match(/___/g) ?? []).length).toBe(1)
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
+              expect(
+                question.options?.some(
+                  (item) => item.trim().toLowerCase() === question.targetAnswer.trim().toLowerCase()
+                )
+              ).toBe(true)
+              expect(isDropdownFillPairAligned(question.prompt, question.targetAnswer)).toBe(true)
               expect(question.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
             }
             if (referenceType === 'dictation') {
@@ -96,6 +103,11 @@ describe('reference etalon contract', () => {
               expect(question.prompt).not.toContain(question.targetAnswer)
               expect(question.hint).toBeFalsy()
               expect(question.options?.length ?? 0).toBeGreaterThanOrEqual(3)
+              expect(
+                question.options?.some(
+                  (item) => item.trim().toLowerCase() === question.targetAnswer.trim().toLowerCase()
+                )
+              ).toBe(true)
               expect(question.prompt).toMatch(/Ситуация:|Тема:/i)
               expect(question.prompt).not.toMatch(/Прослушайте/i)
             }

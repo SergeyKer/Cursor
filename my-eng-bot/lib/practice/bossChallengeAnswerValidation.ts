@@ -198,17 +198,17 @@ export function resolveBossActionFrame(params: {
   }
   if (family === 'who') {
     if (params.targetAnswer.trim().endsWith('?') || /\bwho\b/i.test(params.targetAnswer)) {
-      return child ? 'Спроси Who… по ситуации.' : 'Спросите Who… по ситуации.'
+      return child ? 'Спроси по ситуации.' : 'Спросите по ситуации.'
     }
     return child ? 'Ответь коротко по ситуации.' : 'Ответьте коротко по ситуации.'
   }
   if (family === 'i-am') {
-    return child ? 'Напиши о себе: I am…' : 'Напишите о себе по ситуации (I am…).'
+    return child ? 'Напиши о себе по ситуации.' : 'Напишите о себе по ситуации.'
   }
   if (family === 'embedded') {
     return child
-      ? 'Напиши фразу с I know what… по ситуации.'
-      : 'Напишите фразу с I know what… по ситуации.'
+      ? 'Напиши, что ты знаешь по ситуации.'
+      : 'Напишите, что вы знаете по ситуации.'
   }
   return child
     ? 'Напиши по-английски своими словами по ситуации.'

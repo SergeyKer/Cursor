@@ -12,7 +12,7 @@ describe('practiceGenerateResponse', () => {
     const notice = composePracticeGenerationNotice({
       fallback: true,
       providerError: 'OpenAI недоступен из вашего региона (403 unsupported_country_region_territory).',
-      fallbackNotice: 'ИИ не вернул валидное задание — запущен локальный эталон для отладки (7 одинаковых шагов).',
+      fallbackNotice: 'ИИ не вернул валидное задание - запущен локальный эталон для отладки (7 одинаковых шагов).',
     })
     expect(notice).toContain('unsupported_country_region_territory')
     expect(notice).toContain('локальный эталон')

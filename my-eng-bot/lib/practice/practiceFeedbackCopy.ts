@@ -1,41 +1,10 @@
 import { getBossPatternHint } from '@/lib/practice/bossChallengeAnswerValidation'
-import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import type { Audience } from '@/lib/types'
 import type { PracticeQuestion } from '@/types/practice'
 
-export function isBossExactNormalizedMatch(
-  userAnswer: string,
-  targetAnswer: string,
-  acceptedAnswers: string[] = []
-): boolean {
-  const normalizedUser = normalizeEnglishForLearnerAnswerMatch(userAnswer, 'translation')
-  if (!normalizedUser) return false
-  const candidates = [targetAnswer, ...acceptedAnswers].map((item) => item.trim()).filter(Boolean)
-  return candidates.some(
-    (candidate) => normalizeEnglishForLearnerAnswerMatch(candidate, 'translation') === normalizedUser
-  )
-}
-
-export function buildBossPrimarySuccessFeedback(params: {
-  audience?: Audience
-  userAnswer: string
-  targetAnswer: string
-  acceptedAnswers?: string[]
-}): string {
-  const etalon = params.targetAnswer.trim()
-  const child = params.audience === 'child'
-  const exact = isBossExactNormalizedMatch(
-    params.userAnswer,
-    params.targetAnswer,
-    params.acceptedAnswers
-  )
-
-  if (exact || !etalon) {
-    return child ? 'Засчитано. Молодец!' : 'Засчитано. Хороший ответ.'
-  }
-
-  return child ? `Засчитано. Вот так правильно: ${etalon}` : `Засчитано. Образец: ${etalon}`
+export function buildBossPrimarySuccessFeedback(params: { audience?: Audience }): string {
+  return params.audience === 'child' ? 'Засчитано. Молодец!' : 'Засчитано. Хороший ответ.'
 }
 
 const PRACTICE_WRONG_LIMIT_ENCOURAGEMENTS_ADULT = [

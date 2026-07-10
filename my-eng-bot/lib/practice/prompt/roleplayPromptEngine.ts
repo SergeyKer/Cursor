@@ -185,8 +185,8 @@ export function buildRoleplayExpectedAnswerCue(
       : 'Нужна та же фраза, что на предыдущих шагах.'
   }
   return audience === 'child'
-    ? 'Ответ — одно полное предложение по шаблону темы, не одним словом.'
-    : 'Ответ — одно полное предложение по шаблону темы, не одним словом.'
+    ? 'Ответ - одно полное предложение по шаблону темы, не одним словом.'
+    : 'Ответ - одно полное предложение по шаблону темы, не одним словом.'
 }
 
 function roleplayTypeLabel(mode: PracticeMode): string {
@@ -508,7 +508,7 @@ export function isInterlocutorQuestionAdequate(params: {
 }
 
 export function isYesNoScaffoldInterlocutor(text: string): boolean {
-  return /—\s*Yes,/i.test(text.trim())
+  return /[—–-]\s*Yes,/i.test(text.trim())
 }
 
 export function buildYesNoScaffoldQuestion(targetAnswer: string, roleIntroRu: string): string {
@@ -520,7 +520,7 @@ export function buildYesNoScaffoldQuestion(targetAnswer: string, roleIntroRu: st
   const itsMatch = /\bit'?s\s+(\w+)/i.exec(normalized)
   const adj = itsMatch?.[1]
   if (!adj) {
-    return `Is that right? — Yes, ${targetWithPeriod}`
+    return `Is that right? - Yes, ${targetWithPeriod}`
   }
 
   const context = introLower.includes('комнат')
@@ -529,7 +529,7 @@ export function buildYesNoScaffoldQuestion(targetAnswer: string, roleIntroRu: st
       ? 'outside'
       : 'outside'
 
-  return `Is it ${adj} ${context}? — Yes, ${targetWithPeriod}`
+  return `Is it ${adj} ${context}? - Yes, ${targetWithPeriod}`
 }
 
 export function resolveInterlocutorQuestionEn(params: {

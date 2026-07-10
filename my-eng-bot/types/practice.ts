@@ -55,6 +55,8 @@ export interface PracticeQuestion {
   hint?: string
   explanation?: string
   correctionPrompt?: string
+  /** Challenge roleplay step 10: accept only exact target (no soft paraphrase). */
+  requireExactTarget?: boolean
   xpBase: number
   difficulty: 1 | 2 | 3 | 4 | 5
   tolerance: PracticeTolerance

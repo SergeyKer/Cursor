@@ -308,12 +308,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
                 : 'Отлично, закрепили. Финал ваш.'
               : 'Отлично, закрепили. Идём дальше.'
             : questionToValidate.type === 'boss-challenge'
-              ? buildBossPrimarySuccessFeedback({
-                  audience,
-                  userAnswer: cleanAnswer,
-                  targetAnswer: questionToValidate.targetAnswer,
-                  acceptedAnswers: questionToValidate.acceptedAnswers,
-                })
+              ? buildBossPrimarySuccessFeedback({ audience })
               : 'Верно. Хороший ответ.'
           : shouldAutoAdvanceAfterWrongLimit
             ? buildPracticeWrongLimitEncouragement({

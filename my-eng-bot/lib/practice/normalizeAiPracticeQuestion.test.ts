@@ -328,6 +328,46 @@ describe('normalizeAiPracticeQuestion', () => {
       )
     ).toBe(true)
   })
+
+  it('realigns dropdown-fill tea gap when AI returns wrong verb (screenshot regression)', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const q = normalizeAiPracticeQuestion(
+      {
+        type: 'dropdown-fill',
+        prompt:
+          'Выберите слово для пропуска: "Холодно, пора пить чай" - «It\'s cold. It is time to ___ tea.».',
+        targetAnswer: 'go',
+        options: ['go', 'sleep', 'eat'],
+      },
+      lesson!,
+      5,
+      { mode: 'challenge', distractorTier: 'semantic-near' }
+    )
+    expect(q).not.toBeNull()
+    expect(q!.targetAnswer.toLowerCase()).toBe('drink')
+    expect(q!.options?.some((item) => item.toLowerCase() === 'drink')).toBe(true)
+    expect(q!.options?.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('sets requireExactTarget for challenge roleplay step 10', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const q = normalizeAiPracticeQuestion(
+      {
+        type: 'roleplay-mini',
+        prompt: 'На улице темно.\nСобеседник: «What is it like outside?»',
+        targetAnswer: "It's dark.",
+      },
+      lesson!,
+      9,
+      { mode: 'challenge' }
+    )
+    expect(q).not.toBeNull()
+    expect(q!.requireExactTarget).toBe(true)
+  })
 })
 
 describe('isChoiceLikePracticeType', () => {

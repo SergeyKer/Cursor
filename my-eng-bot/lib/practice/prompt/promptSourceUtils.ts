@@ -31,12 +31,19 @@ const KEYWORD_STOP_WORDS = new Set([
 ])
 
 export function mergePromptParts(parts: string[]): string {
-  return parts
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim()
+  return normalizePracticeEmDashes(
+    parts
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+  )
+}
+
+/** Длинное/среднее тире → обычный дефис (как в gap-fill и остальном UI практики). */
+export function normalizePracticeEmDashes(text: string): string {
+  return text.replace(/[—–]/gu, '-')
 }
 
 export function isTranslateStylePrompt(prompt: string): boolean {

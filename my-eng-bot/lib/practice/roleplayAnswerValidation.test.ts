@@ -12,7 +12,7 @@ function roleplayQuestion(
   targetAnswer: string,
   lessonId: string,
   prompt?: string,
-  hint?: string
+  options?: { hint?: string; requireExactTarget?: boolean }
 ): PracticeQuestion {
   return {
     id: 'rp-test',
@@ -28,7 +28,8 @@ function roleplayQuestion(
     tolerance: 'soft',
     minWords: 2,
     keywords: extractRoleplayKeywords(targetAnswer, getStructuredLessonById(lessonId)!),
-    hint,
+    hint: options?.hint,
+    requireExactTarget: options?.requireExactTarget,
   }
 }
 
@@ -76,7 +77,7 @@ describe('roleplayAnswerValidation', () => {
 
   it('rejects paraphrase on challenge anchor', () => {
     const lesson = getStructuredLessonById('1')!
-    const question = roleplayQuestion("It's time to go.", '1', undefined, 'Нужна та же фраза, что на предыдущих шагах.')
+    const question = roleplayQuestion("It's time to go.", '1', undefined, { requireExactTarget: true })
     expect(validateRoleplayAnswer("It's time to go now.", question, lesson)).toBe(false)
   })
 })
