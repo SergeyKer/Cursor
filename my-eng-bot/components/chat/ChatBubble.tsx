@@ -92,11 +92,11 @@ export function ChatBubbleFrame({
     <div
       data-message-index={dataMessageIndex}
       data-role={dataRole ?? role}
-      className={`flex ${rowAlignClass}${rowClassName ? ` ${rowClassName}` : ''}`}
+      className={`flex ${rowAlignClass}${isUser ? ' pr-1.5' : ''}${rowClassName ? ` ${rowClassName}` : ''}`}
     >
       <div
         className={`relative flex min-w-0 max-w-[90%] flex-col py-2 text-[15px] leading-[1.45] ${
-          isUser ? 'pl-4 pr-3' : 'px-3'
+          isUser ? 'px-3.5' : 'px-3'
         } ${radiusClass} ${surfaceClass}${className ? ` ${className}` : ''}`}
         style={isUser ? { background: 'var(--chat-user-bubble)', ...style } : style}
         onAnimationEnd={onAnimationEnd}

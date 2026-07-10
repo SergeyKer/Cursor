@@ -2232,6 +2232,8 @@ html[data-theme='glass3'] {
   align-self: flex-end;
   /* Push to bottom even if a WebView mishandles align-items on the row. */
   margin-top: auto;
+  /* Slight nudge toward the edge without hugging the border. */
+  margin-right: -0.125rem;
   height: 1.45em;
 }
 
