@@ -793,6 +793,10 @@ html[data-theme='bubble2'] {
   --bubble-ai-bg: rgba(255, 255, 255, 0.7);
   --bubble-ai-text: var(--bubble2-color-text-primary);
   --bubble-radius: var(--bubble2-radius-xl);
+  /* Keep user/assistant at 20px: xl (28px) only looks tight on short solo bubbles
+     (radius clamps to half-height) and becomes too soft on 2+ line bubbles. */
+  --bubble-radius-assistant: 20px;
+  --bubble-radius-user: 20px;
   --accent-color: rgba(72, 128, 214, 0.95);
   --accent-hover: #3f74cb;
   --accent-text: var(--bubble2-color-button-send-text);
@@ -957,6 +961,8 @@ html[data-theme='glass3'] {
   --bubble-ai-bg: rgba(255, 255, 255, 0.36);
   --bubble-ai-text: rgba(0, 0, 0, 0.85);
   --bubble-radius: var(--glass-radius-xl);
+  --bubble-radius-assistant: var(--glass-radius-xl);
+  --bubble-radius-user: var(--glass-radius-xl);
   --accent-text: #ffffff;
   --text-primary: rgba(0, 0, 0, 0.85);
   --text-secondary: rgba(0, 0, 0, 0.65);
@@ -2208,20 +2214,29 @@ html[data-theme='glass3'] {
 }
 
 /*
- * Anchor mark to the text block (not bubble padding): always bottom-right,
- * same spot for 1+ lines. Absolute avoids mobile WebKit flex-centering a <button>.
- * pr reserves 18px glyph + ~10px air so text never runs under the mark.
+ * Mark stays bottom-right for 1+ lines (same X as single-line).
+ * Flex item is a <span> wrap — not the <button> — because Android/WebKit
+ * often ignores align-items/absolute bottom on button flex children.
  */
 .language-note-user-line {
-  position: relative;
-  padding-right: 1.75rem;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  column-gap: 0.625rem;
+}
+
+.language-note-info-mark-wrap {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  align-self: flex-end;
+  /* Push to bottom even if a WebView mishandles align-items on the row. */
+  margin-top: auto;
+  height: 1.45em;
 }
 
 .language-note-info-mark {
-  position: absolute;
-  right: 0;
-  /* Optical center on last line-box: line-height 1.45 × 15px text, 18px glyph. */
-  bottom: calc((1.45 * 15px - 18px) / 2);
+  position: relative;
   z-index: 1;
   display: grid;
   place-items: center;
