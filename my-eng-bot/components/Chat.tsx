@@ -83,7 +83,7 @@ import { shouldShowLanguageNoteMark } from '@/lib/languageNote/eligibility'
 import TypingIndicator from '@/components/TypingIndicator'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
-import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
+import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
 import {
   chooseFinalSpeechText,
@@ -1397,7 +1397,7 @@ export default function Chat({
               failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
               return
             }
-            const correctedText = applyTypoFixes(data.text.trim())
+            const correctedText = await finalizeVoiceTranscript(data.text.trim())
             if (!correctedText) {
               finishVoiceSession()
               return
@@ -1619,22 +1619,35 @@ export default function Chat({
         if (!resolvedFinalText && retryMixWithSecondaryLocale()) {
           return
         }
-        const correctedFinalText = applyTypoFixes(resolvedFinalText)
-        if (correctedFinalText) {
-          if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
+        void (async () => {
+          if (!resolvedFinalText) {
+            if (timedOut) {
+              failVoiceSoft(
+                '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
+              )
+              return
+            }
             finishVoiceSession()
             return
           }
-          commitVoiceText(correctedFinalText)
-          return
-        }
-        if (timedOut) {
-          failVoiceSoft(
-            '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
-          )
-          return
-        }
-        finishVoiceSession()
+          beginVoiceFinalizing()
+          const correctedFinalText = await finalizeVoiceTranscript(resolvedFinalText)
+          if (correctedFinalText) {
+            if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
+              finishVoiceSession()
+              return
+            }
+            commitVoiceText(correctedFinalText)
+            return
+          }
+          if (timedOut) {
+            failVoiceSoft(
+              '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
+            )
+            return
+          }
+          finishVoiceSession()
+        })()
       }
 
       rec.onerror = (event: Event) => {
@@ -3171,21 +3184,19 @@ function MessageBubble({
                   isEngvoServiceLine: message.engvoServiceLine,
                   callInProgress: Boolean(isEngvoCall && engvoCallInProgress),
                 }) && Boolean(onLanguageNoteInfoPress)
-              return (
-                <>
-                  <p
-                    className={`whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal${
-                      showLanguageNoteMark ? ' pr-7' : ''
-                    }`}
-                  >
+              return showLanguageNoteMark ? (
+                <div className="language-note-user-line flex items-end gap-1.5">
+                  <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
                     {message.content}
                   </p>
-                  {showLanguageNoteMark ? (
-                    <LanguageNoteInfoMark
-                      onPress={() => onLanguageNoteInfoPress?.(messageIndex)}
-                    />
-                  ) : null}
-                </>
+                  <LanguageNoteInfoMark
+                    onPress={() => onLanguageNoteInfoPress?.(messageIndex)}
+                  />
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
+                  {message.content}
+                </p>
               )
             })()}
           </>
