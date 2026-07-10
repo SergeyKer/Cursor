@@ -2208,21 +2208,20 @@ html[data-theme='glass3'] {
 }
 
 /*
- * Inline slot after user text: stays on the last wrapped line on mobile WebKit
- * (flex items-end on a <button> often centers there). Slot height = line-box so
- * the 18px mark is optically centered like the PC etalon.
+ * Anchor mark to the text block (not bubble padding): always bottom-right,
+ * same spot for 1+ lines. Absolute avoids mobile WebKit flex-centering a <button>.
+ * pr reserves 18px glyph + ~10px air so text never runs under the mark.
  */
-.language-note-info-mark-slot {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 1.45em;
-  margin-left: 0.625rem;
-  vertical-align: bottom;
+.language-note-user-line {
+  position: relative;
+  padding-right: 1.75rem;
 }
 
 .language-note-info-mark {
-  position: relative;
+  position: absolute;
+  right: 0;
+  /* Optical center on last line-box: line-height 1.45 × 15px text, 18px glyph. */
+  bottom: calc((1.45 * 15px - 18px) / 2);
   z-index: 1;
   display: grid;
   place-items: center;
