@@ -20,19 +20,39 @@ import type { CommunicationVoiceInputMode } from '@/lib/types'
 const REASON_JUNK_START_RE =
   /^(так\s+звучит|более\s+правильно|есть\s+несколько\s+ошибок|попробуйте|практикуйтесь|неправильно|ошибка\b|use\b|chang)/i
 
-/** Сухой EN-filler и «уроки» про пунктуацию TTS — не показываем ученику. */
+/** Сухой EN-filler и «уроки» про пунктуацию/регистр TTS — не показываем ученику. */
 function isJunkReason(text: string): boolean {
   if (REASON_JUNK_START_RE.test(text)) return true
   if (/\bfor past action\b/i.test(text)) return true
   if (/\bsounds better\b/i.test(text)) return true
   if (/\bperiod after\b/i.test(text)) return true
   if (/\bquestion mark/i.test(text)) return true
+  if (/\bexclamation mark/i.test(text)) return true
   if (/\badded a period\b/i.test(text)) return true
   if (/\badded question mark/i.test(text)) return true
   if (/\bfor clear separation\b/i.test(text)) return true
+  if (/\bcapital\s+letter/i.test(text)) return true
+  if (/\bshould\s+be\s+capitalized/i.test(text)) return true
+  if (/\bstart(?:s|ing)?\s+with\s+a\s+capital/i.test(text)) return true
   if (/знак(а|ов)?\s+препинания/i.test(text)) return true
   if (/добав(ил|ила|или|ьте|лять)?\s+точк/i.test(text)) return true
   if (/добав(ил|ила|или|ьте|лять)?\s+вопросительн/i.test(text)) return true
+  if (/восклицательн/i.test(text)) return true
+  if (/(поставь|нужна|нужен|добавь)\s+запят/i.test(text)) return true
+  if (/(поставь|нужна|нужен)\s+точк/i.test(text)) return true
+  if (/заглавн/i.test(text)) return true
+  if (/с\s+большой\s+букв/i.test(text)) return true
+  if (/с\s+заглавной/i.test(text)) return true
+  return false
+}
+
+function isJunkReviewTopic(topic: LanguageNoteReviewTopic): boolean {
+  const blob = `${topic.id} ${topic.title}`.toLowerCase()
+  if (/заглавн/.test(blob)) return true
+  if (/capital/.test(blob)) return true
+  if (/punctuation/.test(blob)) return true
+  if (/знак(а|ов)?\s+препинания/.test(blob)) return true
+  if (/^знаки$/.test(topic.title.trim().toLowerCase())) return true
   return false
 }
 
@@ -312,7 +332,7 @@ export function parseLanguageNoteResponse(
     : []
   if (!better) betterReasons = []
 
-  let reviewTopics = normalizeTopics(obj.reviewTopics)
+  let reviewTopics = normalizeTopics(obj.reviewTopics).filter((t) => !isJunkReviewTopic(t))
 
   // Только пунктуация/регистр — не урок, а похвала.
   const punctuationOnly =

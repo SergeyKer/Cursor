@@ -253,6 +253,58 @@ ${JSON.stringify({
     expect(note!.correctHighlights).toEqual(['doing'])
   })
 
+  it('drops capitalization and period reasons but keeps real lexical fix', () => {
+    const original = 'did you hear sometime about НЛО'
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original,
+        correct: 'Did you hear about UFOs sometime?',
+        correctHighlights: ['Did', 'UFOs'],
+        correctReasons: [
+          'Сначала нужно с заглавной буквы: Did.',
+          'НЛО на английском — UFO.',
+          'Нужна точка в конце.',
+        ],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [
+          { id: 'capitals', title: 'Заглавные буквы' },
+          { id: 'ufo', title: 'UFO — НЛО' },
+        ],
+        lessonId: null,
+      }),
+      original
+    )
+    expect(note!.status).toBe('needs_fix')
+    expect(note!.correctReasons).toEqual(['НЛО на английском — UFO.'])
+    expect(note!.correctHighlights).toEqual(['UFOs'])
+    expect(note!.reviewTopics).toEqual([{ id: 'ufo', title: 'UFO — НЛО' }])
+  })
+
+  it('drops Russian punctuation-only lesson reasons', () => {
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'I like cats',
+        correct: 'I like cats.',
+        correctHighlights: [],
+        correctReasons: ['Нужна точка в конце.', 'Поставь запятую перед and.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'punctuation', title: 'знаки препинания' }],
+        lessonId: null,
+      }),
+      'I like cats'
+    )
+    expect(note!.status).toBe('already_good')
+    expect(note!.reviewTopics).toEqual([])
+  })
+
   it('forces already_good when only punctuation differs', () => {
     const note = parseLanguageNoteResponse(
       JSON.stringify({

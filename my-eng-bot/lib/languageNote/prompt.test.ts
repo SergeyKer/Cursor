@@ -53,4 +53,17 @@ describe('languageNote prompt modes', () => {
     expect(prompt).toContain('Привет! Как дела сегодня?')
     expect(prompt).not.toContain('Correct-target language: ENGLISH')
   })
+
+  it('STT block forbids capitalization reasons and skim-first slots', () => {
+    const prompt = buildLanguageNoteSystemPrompt('adult', {
+      mode: 'communication',
+      voiceMode: 'en',
+    })
+    expect(prompt).toContain('returns lowercase — that is NOT a learner mistake')
+    expect(prompt).toContain('с заглавной / с большой буквы')
+    expect(prompt).toContain('Do NOT spend a correctReasons slot on capitalization or punctuation')
+    expect(prompt).toContain('Skim-first (messenger tip)')
+    expect(prompt).toContain('NEVER turn that into a learner reason')
+    expect(prompt).toContain('hello how are you what are you do now')
+  })
 })
