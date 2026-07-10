@@ -53,19 +53,28 @@ function normalizeTranscriptText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+/** Case-fold for En/Ru STT merge; length-preserving for these locales. */
+function foldTranscriptCase(text: string): string {
+  return text.toLowerCase()
+}
+
 function isStablePrefixExpansion(base: string, candidate: string): boolean {
   if (!base || !candidate) return false
-  if (candidate === base) return true
-  if (!candidate.startsWith(base)) return false
+  const foldedBase = foldTranscriptCase(base)
+  const foldedCandidate = foldTranscriptCase(candidate)
+  if (foldedCandidate === foldedBase) return true
+  if (!foldedCandidate.startsWith(foldedBase)) return false
   const nextChar = candidate[base.length]
   return nextChar == null || /\s|[,.!?;:)\]}]/.test(nextChar)
 }
 
 /** Longest k where a ends with b's first k chars; conservative to avoid mid-word false joins. */
 function longestSafeSuffixPrefixOverlap(a: string, b: string): number {
+  const foldedA = foldTranscriptCase(a)
+  const foldedB = foldTranscriptCase(b)
   const maxK = Math.min(a.length, b.length)
   for (let k = maxK; k >= 2; k -= 1) {
-    if (a.slice(-k) !== b.slice(0, k)) continue
+    if (foldedA.slice(-k) !== foldedB.slice(0, k)) continue
     if (k < a.length) {
       const charBeforeOverlap = a[a.length - k - 1]
       if (charBeforeOverlap && !/\s/.test(charBeforeOverlap)) continue
@@ -82,6 +91,7 @@ function longestSafeSuffixPrefixOverlap(a: string, b: string): number {
 /**
  * Merges two normalized transcript chunks for display or final accumulation.
  * Callers pass strings already passed through normalizeTranscriptText.
+ * Prefix/overlap checks are case-insensitive; prefer newer segment casing.
  */
 function mergeAdjacentTranscriptSegments(normalizedBase: string, normalizedNext: string): string {
   if (!normalizedNext) return normalizedBase
@@ -89,10 +99,12 @@ function mergeAdjacentTranscriptSegments(normalizedBase: string, normalizedNext:
   if (isStablePrefixExpansion(normalizedBase, normalizedNext)) {
     return normalizedNext
   }
-  if (normalizedBase.startsWith(normalizedNext)) {
-    return normalizedBase
+  const foldedBase = foldTranscriptCase(normalizedBase)
+  const foldedNext = foldTranscriptCase(normalizedNext)
+  if (foldedBase.startsWith(foldedNext)) {
+    return foldedBase === foldedNext ? normalizedNext : normalizedBase
   }
-  if (normalizedNext.startsWith(normalizedBase)) {
+  if (foldedNext.startsWith(foldedBase)) {
     return normalizedNext
   }
   const overlap = longestSafeSuffixPrefixOverlap(normalizedBase, normalizedNext)
@@ -108,10 +120,12 @@ function mergeOnlyOverlappingTranscriptSegments(normalizedBase: string, normaliz
   if (isStablePrefixExpansion(normalizedBase, normalizedNext)) {
     return normalizedNext
   }
-  if (normalizedBase.startsWith(normalizedNext)) {
-    return normalizedBase
+  const foldedBase = foldTranscriptCase(normalizedBase)
+  const foldedNext = foldTranscriptCase(normalizedNext)
+  if (foldedBase.startsWith(foldedNext)) {
+    return foldedBase === foldedNext ? normalizedNext : normalizedBase
   }
-  if (normalizedNext.startsWith(normalizedBase)) {
+  if (foldedNext.startsWith(foldedBase)) {
     return normalizedNext
   }
   const overlap = longestSafeSuffixPrefixOverlap(normalizedBase, normalizedNext)

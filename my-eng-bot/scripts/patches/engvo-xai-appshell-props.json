@@ -1,0 +1,14 @@
+[
+  [
+    "                    engvoRealtimeVoice={engvoRealtimeVoice}\n                    engvoCefrLevel={engvoCefrLevel}\n                    engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n                    onEngvoVoiceChange={handleEngvoVoiceChange}",
+    "                    engvoProvider={engvoProvider}\n                    engvoRealtimeVoice={engvoRealtimeVoice}\n                    engvoXaiVoice={engvoXaiVoice}\n                    engvoCefrLevel={engvoCefrLevel}\n                    engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n                    onEngvoProviderChange={handleEngvoProviderChange}\n                    onEngvoVoiceChange={handleEngvoVoiceChange}\n                    onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}"
+  ],
+  [
+    "        engvoRealtimeVoice={engvoRealtimeVoice}\n        engvoCefrLevel={engvoCefrLevel}\n        engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n        onEngvoVoiceChange={handleEngvoVoiceChange}",
+    "        engvoProvider={engvoProvider}\n        engvoRealtimeVoice={engvoRealtimeVoice}\n        engvoXaiVoice={engvoXaiVoice}\n        engvoCefrLevel={engvoCefrLevel}\n        engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}\n        onEngvoProviderChange={handleEngvoProviderChange}\n        onEngvoVoiceChange={handleEngvoVoiceChange}\n        onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}"
+  ],
+  [
+    "    engvoCallPhase,\n    engvoCefrLevel,\n    engvoRealtimeVoice,\n    engvoSpeechSpeedPreset,\n    handleEngvoRealtimeMessage,",
+    "    engvoCallPhase,\n    engvoCefrLevel,\n    engvoProvider,\n    engvoRealtimeVoice,\n    engvoSpeechSpeedPreset,\n    engvoXaiVoice,\n    handleEngvoRealtimeMessage,"
+  ]
+]

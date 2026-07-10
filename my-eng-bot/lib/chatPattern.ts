@@ -1,4 +1,4 @@
-export const CHAT_PATTERN_IDS = ['none', 'study-doodles', 'cosmos'] as const
+export const CHAT_PATTERN_IDS = ['none', 'study-doodles', 'cosmos', 'animals'] as const
 
 export type ChatPatternId = (typeof CHAT_PATTERN_IDS)[number]
 
@@ -10,11 +10,13 @@ export const CHAT_PATTERN_OPTIONS: ReadonlyArray<{ id: ChatPatternId; name: stri
   { id: 'none', name: 'Нет' },
   { id: 'study-doodles', name: 'Учебные мелочи' },
   { id: 'cosmos', name: 'Космос' },
+  { id: 'animals', name: 'Животные' },
 ]
 
 export const CHAT_PATTERN_ASSET_BY_ID = {
   'study-doodles': '/patterns/study-doodles.png',
   cosmos: '/patterns/cosmos.png',
+  animals: '/patterns/animals.png',
 } as const satisfies Record<Exclude<ChatPatternId, 'none'>, string>
 
 export function isChatPatternId(value: unknown): value is ChatPatternId {

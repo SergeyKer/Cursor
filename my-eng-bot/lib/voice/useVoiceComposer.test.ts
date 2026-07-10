@@ -8,6 +8,7 @@ import {
   initialVoiceComposerState,
   mergeSpeechDisplayText,
   mergeSpeechFinalSegment,
+  stabilizeInterimAcrossTicks,
   voiceComposerReducer,
 } from './useVoiceComposer'
 
@@ -243,5 +244,66 @@ describe('useVoiceComposer helpers', () => {
 
   it('keeps the final text when interim is an unrelated hypothesis', () => {
     expect(chooseFinalSpeechText('hello there', 'what time is it')).toBe('hello there')
+  })
+
+  it('collapses case-only differences instead of cascading My/my', () => {
+    expect(mergeSpeechFinalSegment("Hello Let's talk about My", "Hello Let's talk about my")).toBe(
+      "Hello Let's talk about my"
+    )
+  })
+
+  it('collapses Android-like My/my restart cascade from the screenshot', () => {
+    const event = createSpeechRecognitionEvent([
+      { transcript: "Hello Let's talk about", isFinal: true },
+      { transcript: 'My', isFinal: true },
+      { transcript: "Hello Let's talk about my", isFinal: true },
+      { transcript: "Hello Let's talk about My giorning to Market", isFinal: true },
+    ])
+
+    const { finalText } = extractSpeechRecognitionTranscript(event)
+    expect(finalText).toBe("Hello Let's talk about My giorning to Market")
+    expect(finalText).not.toMatch(/My Hello/i)
+    expect(finalText.toLowerCase().split("hello let's talk about").length - 1).toBe(1)
+  })
+
+  it('collapses case-mismatched final+interim for live preview without cascade', () => {
+    const preview = mergeSpeechDisplayText(
+      "Hello Let's talk about My",
+      "Hello Let's talk about my giorning"
+    )
+    expect(preview).toBe("Hello Let's talk about my giorning")
+    expect(preview).not.toMatch(/My Hello/i)
+    expect(preview.toLowerCase().split("hello let's talk about").length - 1).toBe(1)
+  })
+
+  it('commits case-mismatched longer interim into one phrase', () => {
+    expect(
+      chooseFinalSpeechText(
+        "Hello Let's talk about My",
+        "Hello Let's talk about my giorning to Market"
+      )
+    ).toBe("Hello Let's talk about my giorning to Market")
+  })
+
+  it('still appends independent phrases after casefold merge', () => {
+    expect(mergeSpeechFinalSegment('Good morning', 'how are you')).toBe('Good morning how are you')
+  })
+
+  it('merges overlapping tails case-insensitively', () => {
+    expect(mergeSpeechFinalSegment('New york', 'York City')).toBe('New york City')
+  })
+
+  it('collapses cumulative Russian finals ignoring case', () => {
+    expect(mergeSpeechFinalSegment('Привет как', 'привет как дела')).toBe('привет как дела')
+    expect(mergeSpeechFinalSegment('Привет как', 'привет как дела')).not.toMatch(/Привет как привет/i)
+  })
+
+  it('stabilizes interim across ticks when casing changes mid-phrase', () => {
+    expect(
+      stabilizeInterimAcrossTicks(
+        "Hello Let's talk about My",
+        "Hello Let's talk about my morning"
+      )
+    ).toBe("Hello Let's talk about my morning")
   })
 })

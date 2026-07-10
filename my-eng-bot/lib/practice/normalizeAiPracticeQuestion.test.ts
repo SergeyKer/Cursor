@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import {
+  errorFixPairIsAligned,
+  extractErrorFixBrokenPhrase,
+  extractSituationKeyFromErrorFixPrompt,
+} from '@/lib/practice/prompt/errorFixBrokenPhrase'
 
 describe('normalizeAiPracticeQuestion', () => {
   it('restores choice-like options from the lesson when the model omits them', () => {
@@ -288,6 +293,40 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.keywords).toEqual(['time to'])
     expect(q!.prompt).toMatch(/Ситуация:|Тема:/i)
     expect(q!.prompt).not.toMatch(/Финальный вызов|примените тему|Переведите/iu)
+  })
+
+  it('rebuilds misaligned error-fix to etalon situation and target', () => {
+    const lesson = getStructuredLessonById('1')
+    expect(lesson).not.toBeNull()
+
+    const q = normalizeAiPracticeQuestion(
+      {
+        type: 'error-fix',
+        prompt: 'Ситуация: На улице темно. Исправьте: "Its sleep."',
+        targetAnswer: "It's time.",
+        acceptedAnswers: ["It's time."],
+      },
+      lesson!,
+      10,
+      { mode: 'challenge' }
+    )
+
+    expect(q).not.toBeNull()
+    expect(q!.type).toBe('error-fix')
+    expect(q!.targetAnswer.trim().toLowerCase()).not.toBe("it's time.")
+    expect(q!.targetAnswer).toMatch(/^It's\b/i)
+    expect(q!.acceptedAnswers.some((item) => item === q!.targetAnswer)).toBe(true)
+    expect(q!.prompt).toMatch(/Ситуация:/i)
+    expect(q!.prompt).toMatch(/Исправьте:/i)
+    expect(q!.prompt).not.toMatch(/Its sleep/i)
+    expect(extractErrorFixBrokenPhrase(q!.prompt)).toMatch(/^It's\s+\w+/i)
+    expect(
+      errorFixPairIsAligned(
+        extractSituationKeyFromErrorFixPrompt(q!.prompt),
+        q!.targetAnswer,
+        '1'
+      )
+    ).toBe(true)
   })
 })
 

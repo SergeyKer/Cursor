@@ -1952,9 +1952,9 @@ html[data-theme='glass3'] {
   );
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans', Arial,
     sans-serif;
-  /* Body: soft Engvo blue; head chrome sits one step darker on the same hue. */
-  --footer-sheet-bg: color-mix(in srgb, #5b8ff9 18%, #ffffff);
-  --language-note-sheet-head-bg: color-mix(in srgb, #5b8ff9 34%, #ffffff);
+  /* Body: whisper Engvo blue; head chrome sits one step darker on the same hue. */
+  --footer-sheet-bg: color-mix(in srgb, #5b8ff9 7%, #ffffff);
+  --language-note-sheet-head-bg: color-mix(in srgb, #5b8ff9 14%, #ffffff);
   background: var(--footer-sheet-bg);
 }
 
@@ -2079,7 +2079,7 @@ html[data-theme='glass3'] {
 .footer-sheet__body--language-note {
   padding-left: 26px;
   padding-right: 26px;
-  --language-note-card-bg: color-mix(in srgb, #5b8ff9 6%, #f3f4f6);
+  --language-note-card-bg: color-mix(in srgb, #5b8ff9 10%, #ffffff);
   --language-note-card-border: color-mix(in srgb, #5b8ff9 48%, #cbd5e1);
   --language-note-card-label: #2f5fad;
   /* Neutral chips — denser gray so they read as chips on soft cards. */
@@ -2110,7 +2110,7 @@ html[data-theme='glass3'] {
 .language-note-skeleton-bar {
   height: 0.65rem;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 12%, transparent);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
 }
 
 .language-note-skeleton-bar--label {
@@ -2128,6 +2128,20 @@ html[data-theme='glass3'] {
 
 .language-note-skeleton-bar--w55 {
   width: 55%;
+}
+
+/* Visible fast L→R wave on language-note loading cards (typing shimmer is too faint/slow here). */
+.language-note-skeleton-shimmer {
+  z-index: 1;
+  background: linear-gradient(
+    110deg,
+    transparent 0%,
+    transparent 42%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 58%,
+    transparent 100%
+  );
+  animation: typingIndicatorShimmer 1s linear infinite;
 }
 
 /* Flex sibling of user text (items-end): pin to last line, center on line-box. */
@@ -2161,9 +2175,9 @@ html[data-theme='glass3'] {
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--chat-user-text) 36%, transparent);
-  /* Tint from text token only — safe when --chat-user-bubble is a gradient. */
-  background: color-mix(in srgb, var(--chat-user-text) 14%, transparent);
+  border: 1.5px solid color-mix(in srgb, var(--chat-user-text) 52%, transparent);
+  /* Transparent fill — no grey disc; ring + glyph keep the original control look. */
+  background: transparent;
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -2171,8 +2185,8 @@ html[data-theme='glass3'] {
 
 .language-note-info-mark:hover .language-note-info-mark__glyph,
 .language-note-info-mark:focus-visible .language-note-info-mark__glyph {
-  border-color: color-mix(in srgb, var(--chat-user-text) 56%, transparent);
-  background: color-mix(in srgb, var(--chat-user-text) 22%, transparent);
+  border-color: color-mix(in srgb, var(--chat-user-text) 72%, transparent);
+  background: transparent;
   color: var(--chat-user-text);
 }
 
@@ -2533,6 +2547,10 @@ html[data-chat-pattern='study-doodles'] .chat-feed-wallpaper::before {
 
 html[data-chat-pattern='cosmos'] .chat-feed-wallpaper::before {
   background-image: url('/patterns/cosmos.png');
+}
+
+html[data-chat-pattern='animals'] .chat-feed-wallpaper::before {
+  background-image: url('/patterns/animals.png');
 }
 
 html[data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before {

@@ -24,9 +24,10 @@ import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeDropdownHint } from '@/lib/practice/prompt/dropdownFillPromptFormat'
 import { buildDictationPrompt } from '@/lib/practice/prompt/buildDictationPrompt'
 import {
-  formatErrorFixPrompt,
+  buildErrorFixPrompt,
+  findLessonErrorFixSourceForPractice,
+  resolveErrorFixTargetAnswer,
 } from '@/lib/practice/prompt/buildErrorFixPrompt'
-import { buildBrokenPhraseFromTarget } from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import { buildRoleplayPrompt, roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
 import {
   buildRoleplayHint,
@@ -41,7 +42,7 @@ import {
 } from '@/lib/practice/roleplaySessionContinuity'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { resolveBossPatternAnchors } from '@/lib/practice/bossChallengeAnswerValidation'
-import { extractSemanticKeywords, resolveSituationLine, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
+import { extractSemanticKeywords, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
 import { resolveLessonExerciseVariant } from '@/lib/practice/resolveLessonExerciseVariant'
 import {
   resolvePracticeLessonStep,
@@ -244,18 +245,20 @@ function createQuestion(params: {
   }
 
   if (isErrorFix) {
-    const built = buildReferencePromptFromLesson({
-      lesson: params.lesson,
-      type: 'error-fix',
-      stepIndex: params.index,
-      targetAnswer,
-    })
-    if (built) {
-      prompt = built
-    } else {
-      const broken = buildBrokenPhraseFromTarget(targetAnswer, params.lesson)
-      if (broken) {
-        prompt = formatErrorFixPrompt(resolveSituationLine(params.step, params.lesson, params.index), broken)
+    const source = findLessonErrorFixSourceForPractice(params.lesson, params.index)
+    if (source) {
+      targetAnswer = resolveErrorFixTargetAnswer(source, params.lesson, params.index, targetAnswer)
+      acceptedAnswers = Array.from(
+        new Set([
+          targetAnswer,
+          ...acceptedAnswers.filter(
+            (item) => item.trim().toLowerCase() !== targetAnswer.trim().toLowerCase()
+          ),
+        ])
+      )
+      const built = buildErrorFixPrompt(source, params.lesson, params.index, targetAnswer)
+      if (built) {
+        prompt = built
       }
     }
   }

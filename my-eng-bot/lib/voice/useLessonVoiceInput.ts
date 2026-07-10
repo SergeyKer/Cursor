@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { applyTypoFixes } from '@/lib/voice/applyTypoFixes'
+import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
 import {
   chooseFinalSpeechText,
@@ -251,7 +251,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
               failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
               return
             }
-            const correctedText = applyTypoFixes(data.text.trim())
+            const correctedText = await finalizeVoiceTranscript(data.text.trim())
             if (!correctedText) {
               finishVoiceSession()
               return
@@ -452,22 +452,35 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
           return
         }
         const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
-        const correctedFinalText = applyTypoFixes(resolvedFinalText)
-        if (correctedFinalText) {
-          if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
+        void (async () => {
+          if (!resolvedFinalText) {
+            if (timedOut) {
+              failVoiceSoft(
+                '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
+              )
+              return
+            }
             finishVoiceSession()
             return
           }
-          commitVoiceText(correctedFinalText)
-          return
-        }
-        if (timedOut) {
-          failVoiceSoft(
-            '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
-          )
-          return
-        }
-        finishVoiceSession()
+          beginVoiceFinalizing()
+          const correctedFinalText = await finalizeVoiceTranscript(resolvedFinalText)
+          if (correctedFinalText) {
+            if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
+              finishVoiceSession()
+              return
+            }
+            commitVoiceText(correctedFinalText)
+            return
+          }
+          if (timedOut) {
+            failVoiceSoft(
+              '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]'
+            )
+            return
+          }
+          finishVoiceSession()
+        })()
       }
 
       recognition.onerror = (event: Event) => {

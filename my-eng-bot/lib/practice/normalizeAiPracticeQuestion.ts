@@ -26,10 +26,10 @@ import {
   stripAnswerLeakFromHint,
 } from '@/lib/practice/prompt/promptSourceUtils'
 import {
-  extractErrorFixBrokenPhrase,
-  isErrorFixBrokenValid,
-} from '@/lib/practice/prompt/errorFixBrokenPhrase'
-import { errorFixPromptHasContext } from '@/lib/practice/prompt/buildErrorFixPrompt'
+  buildErrorFixPrompt,
+  findLessonErrorFixSourceForPractice,
+  isErrorFixAiPairValid,
+} from '@/lib/practice/prompt/buildErrorFixPrompt'
 import {
   filterByChoiceGranularity,
   inferChoiceGranularity,
@@ -409,20 +409,33 @@ export function normalizeAiPracticeQuestion(
   if (type === 'choice' && !choicePromptHasContext(prompt)) return null
   if (type === 'listening-select' && !listeningSelectPromptHasContext(prompt)) return null
   if (type === 'error-fix') {
-    const needsRebuild = !errorFixPromptHasContext(prompt)
-    const broken = extractErrorFixBrokenPhrase(prompt)
-    const brokenOk = broken != null && isErrorFixBrokenValid(broken, normalizedTargetAnswer)
-    if (needsRebuild || !brokenOk) {
-      const rebuilt = buildReferencePromptFromLesson({
-        lesson: scopedLesson,
-        type: 'error-fix',
-        stepIndex: mode === 'reference' ? index : index,
-        targetAnswer: normalizedTargetAnswer,
-      })
-      if (!rebuilt || !errorFixPromptHasContext(rebuilt)) return null
-      const rebuiltBroken = extractErrorFixBrokenPhrase(rebuilt)
-      if (!rebuiltBroken || !isErrorFixBrokenValid(rebuiltBroken, normalizedTargetAnswer)) return null
+    const source = findLessonErrorFixSourceForPractice(scopedLesson, index)
+    const pairOk = isErrorFixAiPairValid({
+      prompt,
+      targetAnswer: normalizedTargetAnswer,
+      lessonId: scopedLesson.id,
+    })
+    if (!pairOk) {
+      if (!source) return null
+      const etalonTarget = source.exercise.correctAnswer.trim()
+      if (!etalonTarget) return null
+      const rebuilt = buildErrorFixPrompt(source, scopedLesson, index, etalonTarget)
+      if (
+        !rebuilt ||
+        !isErrorFixAiPairValid({
+          prompt: rebuilt,
+          targetAnswer: etalonTarget,
+          lessonId: scopedLesson.id,
+        })
+      ) {
+        return null
+      }
       prompt = rebuilt
+      normalizedTargetAnswer = etalonTarget
+      const etalonAccepted = canonicalAcceptedAnswersForExercise(source.exercise)
+      normalizedAcceptedAnswers = etalonAccepted.filter(
+        (item) => item.trim().toLowerCase() !== etalonTarget.toLowerCase()
+      )
     }
   }
   if (useReferencePromptBuilder) {

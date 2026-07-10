@@ -28,6 +28,30 @@ ${JSON.stringify({
     expect(note!.correct).toBe('I like riding a bike.')
   })
 
+  it('keeps bilingual reviewTopic titles up to 56 chars', () => {
+    const title = 'I like + -ing — люблю делать что-то интересное'
+    expect(title.length).toBeGreaterThan(40)
+    expect(title.length).toBeLessThanOrEqual(56)
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'I liking fish',
+        correct: 'I like eating fish.',
+        correctHighlights: ['like'],
+        correctReasons: ['После I нужна форма like.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'like-ing', title }],
+        lessonId: null,
+      }),
+      'I liking fish'
+    )
+    expect(note).not.toBeNull()
+    expect(note!.reviewTopics).toEqual([{ id: 'like-ing', title }])
+  })
+
   it('nulls unknown lessonId and drops missing highlights', () => {
     const note = parseLanguageNoteResponse(
       JSON.stringify({
@@ -198,5 +222,154 @@ ${JSON.stringify({
   it('returns null on invalid payload', () => {
     expect(parseLanguageNoteResponse('not json', 'hi')).toBeNull()
     expect(parseLanguageNoteResponse(JSON.stringify({ status: 'needs_fix' }), 'hi')).toBeNull()
+  })
+
+  it('drops dry English and punctuation lesson reasons', () => {
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'Hello How are you What are you do now',
+        correct: 'Hello. How are you? What are you doing now?',
+        correctHighlights: ['doing'],
+        correctReasons: [
+          "Added a period after 'Hello' for clear separation.",
+          "Changed 'do' to 'doing' for correct form.",
+          'Сейчас в процессе — нужна форма -ing: do → doing.',
+          'Added question marks for questions.',
+        ],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'wh-words', title: 'вопросительные слова' }],
+        lessonId: null,
+      }),
+      'Hello How are you What are you do now'
+    )
+    expect(note!.status).toBe('needs_fix')
+    expect(note!.correctReasons).toEqual([
+      'Сейчас в процессе — нужна форма -ing: do → doing.',
+    ])
+    expect(note!.correctHighlights).toEqual(['doing'])
+  })
+
+  it('forces already_good when only punctuation differs', () => {
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'Hello How are you',
+        correct: 'Hello. How are you?',
+        correctHighlights: [],
+        correctReasons: [
+          'Added a period after Hello for clear separation.',
+          'Added question marks for questions.',
+        ],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'punctuation', title: 'знаки' }],
+        lessonId: null,
+      }),
+      'Hello How are you'
+    )
+    expect(note!.status).toBe('already_good')
+    expect(note!.correctReasons).toEqual(['Здорово — мысль ясна, так и оставляем.'])
+    expect(note!.reviewTopics).toEqual([])
+    expect(note!.better).toBeNull()
+  })
+
+  it('keeps needs_fix with soft fallback when word diff remains but reasons were junk', () => {
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'What are you do now',
+        correct: 'What are you doing now?',
+        correctHighlights: [],
+        correctReasons: [
+          "Use 'doing' for present continuous.",
+          'Added question marks for questions.',
+        ],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [],
+        lessonId: null,
+      }),
+      'What are you do now'
+    )
+    expect(note!.status).toBe('needs_fix')
+    expect(note!.correctReasons).toEqual(['Вот аккуратный вариант без сбоев в грамматике.'])
+  })
+
+  it('allows tutor reasons up to 140 characters', () => {
+    const longReason =
+      'Сейчас действие в процессе — поэтому после are нужна форма -ing: do → doing, и так фраза звучит естественно в разговоре.'
+    expect(longReason.length).toBeGreaterThan(110)
+    expect(longReason.length).toBeLessThanOrEqual(140)
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'What are you do now',
+        correct: 'What are you doing now?',
+        correctHighlights: ['doing'],
+        correctReasons: [longReason],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [],
+        lessonId: null,
+      }),
+      'What are you do now'
+    )
+    expect(note!.correctReasons).toEqual([longReason])
+  })
+
+  it('rejects Russian-only correct in En/Mix target', () => {
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'превет как your doings',
+        correct: 'Привет! Как дела?',
+        correctHighlights: [],
+        correctReasons: ['Привет — правильное приветствие на русском.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [],
+        lessonId: null,
+      }),
+      'превет как your doings',
+      { voiceMode: 'mix', correctTarget: 'en' }
+    )
+    expect(note).toBeNull()
+  })
+
+  it('accepts English correct for Mix and stores voiceMode', () => {
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_better',
+        original: 'превет как your doings',
+        correct: 'Hi! How are you doing?',
+        correctHighlights: ['doing'],
+        correctReasons: ['Смысл — приветствие; doings → doing.'],
+        better: 'Hi! How are you?',
+        betterHighlights: [],
+        betterReasons: ['Короче для разговора.'],
+        betterAlternatives: [],
+        reviewTopics: [],
+        lessonId: null,
+      }),
+      'превет как your doings',
+      { voiceMode: 'mix', correctTarget: 'en' }
+    )
+    expect(note).not.toBeNull()
+    expect(note!.correct).toBe('Hi! How are you doing?')
+    expect(note!.better).toBe('Hi! How are you?')
+    expect(note!.voiceMode).toBe('mix')
+    expect(note!.correctTarget).toBe('en')
   })
 })

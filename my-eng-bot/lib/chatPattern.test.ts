@@ -45,6 +45,7 @@ describe('chatPattern', () => {
     expect(isChatPatternId('none')).toBe(true)
     expect(isChatPatternId('study-doodles')).toBe(true)
     expect(isChatPatternId('cosmos')).toBe(true)
+    expect(isChatPatternId('animals')).toBe(true)
     expect(isChatPatternId('unknown')).toBe(false)
   })
 
@@ -52,15 +53,16 @@ describe('chatPattern', () => {
     expect(getChatPatternLabel('none')).toBe('Нет')
     expect(getChatPatternLabel('study-doodles')).toBe('Учебные мелочи')
     expect(getChatPatternLabel('cosmos')).toBe('Космос')
+    expect(getChatPatternLabel('animals')).toBe('Животные')
   })
 
   it('loads and saves pattern preference', () => {
-    const ids: ChatPatternId[] = ['none', 'study-doodles', 'cosmos']
+    const ids: ChatPatternId[] = ['none', 'study-doodles', 'cosmos', 'animals']
     for (const id of ids) {
       saveChatPattern(id)
       expect(loadChatPattern()).toBe(id)
     }
-    expect(localStorage.getItem(CHAT_PATTERN_STORAGE_KEY)).toBe('cosmos')
+    expect(localStorage.getItem(CHAT_PATTERN_STORAGE_KEY)).toBe('animals')
   })
 
   it('falls back to none for invalid stored value', () => {

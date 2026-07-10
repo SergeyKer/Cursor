@@ -1,4 +1,4 @@
-import type { Audience } from '@/lib/types'
+import type { Audience, CommunicationVoiceInputMode } from '@/lib/types'
 import type { LanguageNote, LanguageNoteMode } from '@/lib/languageNote/types'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 
@@ -28,6 +28,7 @@ export type RequestLanguageNoteOptions = {
   openAiChatPreset?: string
   audience: Audience
   mode: LanguageNoteMode
+  communicationVoiceInputMode?: CommunicationVoiceInputMode | null
   recentAssistantText?: string | null
   signal?: AbortSignal
 }
@@ -70,6 +71,7 @@ async function requestLanguageNoteOnce(
         openAiChatPreset: options.openAiChatPreset,
         audience: options.audience,
         mode: options.mode,
+        communicationVoiceInputMode: options.communicationVoiceInputMode ?? null,
         recentAssistantText: options.recentAssistantText ?? null,
       }),
       signal: controller.signal,

@@ -118,6 +118,9 @@ function buildReferenceDiversityRule(params: {
   } else if (params.referenceExerciseType === 'error-fix') {
     parts.push(
       'error-fix: Russian Ситуация:/Тема: + Исправьте: "{broken}."; lexical wrong-word preferred; no options/audioText/hint.',
+      'Each scenario needs a unique Russian situation and matching targetAnswer on the same axis.',
+      'Lesson 1: weather/distance → It\'s + adj; «Пора …» → It\'s time to + verb; never mix axes; never target "It\'s time." alone.',
+      'Broken stays on the same grammar axis as targetAnswer; STT-safe content-word error.',
       'Rotate situations; never reuse identical Russian situation text across scenarios in one reference pass.'
     )
   } else if (params.referenceExerciseType === 'boss-challenge') {
@@ -178,7 +181,8 @@ function buildSessionDiversityRule(params: {
   }
   if (params.practiceType === 'error-fix') {
     parts.push(
-      'error-fix: Ситуация + Исправьте broken phrase; STT-safe lexical error; no options; hint empty; rotate situations.'
+      'error-fix: Ситуация + Исправьте broken phrase; STT-safe lexical error; no options; hint empty; rotate situations.',
+      'Lesson 1: keep situation and targetAnswer on one axis (It\'s + adj vs It\'s time to + verb); never incomplete "It\'s time."'
     )
   }
   if (params.practiceType === 'roleplay-mini') {

@@ -1,0 +1,18 @@
+[
+  [
+    "import {\n  buildEngvoInputAudioTranscriptionConfig,\n  ENGVO_DEFAULT_LEVEL,\n  ENGVO_DEFAULT_VOICE,\n  ENGVO_INACTIVITY_HANGUP_MS,\n  ENGVO_REALTIME_MODEL,\n  ENGVO_INTERRUPT_DEBOUNCE_MS,\n  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,\n  clampEngvoRealtimeSpeed,\n  engvoSpeechSpeedFromPreset,\n  getEngvoDefaultSpeechSpeedPreset,\n  type EngvoCefrLevel,\n  type EngvoRealtimeVoice,\n  type EngvoSpeechSpeedPresetId,\n  ENGVO_CALL_FINISHED_ASSISTANT_TEXT,\n  ENGVO_DIALING_ASSISTANT_TEXT,\n} from '@/lib/engvo/constants'",
+    "import {\n  buildEngvoInputAudioTranscriptionConfig,\n  ENGVO_DEFAULT_LEVEL,\n  ENGVO_DEFAULT_PROVIDER,\n  ENGVO_DEFAULT_VOICE,\n  ENGVO_INACTIVITY_HANGUP_MS,\n  ENGVO_REALTIME_MODEL,\n  ENGVO_INTERRUPT_DEBOUNCE_MS,\n  ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,\n  ENGVO_XAI_DEFAULT_VOICE,\n  ENGVO_XAI_MODEL,\n  clampEngvoRealtimeSpeed,\n  engvoSpeechSpeedFromPreset,\n  getEngvoDefaultSpeechSpeedPreset,\n  type EngvoCefrLevel,\n  type EngvoProvider,\n  type EngvoRealtimeVoice,\n  type EngvoSpeechSpeedPresetId,\n  type EngvoXaiVoice,\n  ENGVO_CALL_FINISHED_ASSISTANT_TEXT,\n  ENGVO_DIALING_ASSISTANT_TEXT,\n} from '@/lib/engvo/constants'"
+  ],
+  [
+    "import { normalizeEngvoRealtimeUserMessage } from '@/lib/engvo/errors'",
+    "import {\n  ENGVO_XAI_WS_USER_MESSAGE,\n  normalizeEngvoRealtimeUserMessage,\n} from '@/lib/engvo/errors'"
+  ],
+  [
+    "import { buildEngvoClientSessionUpdate } from '@/lib/engvo/realtimeSession'",
+    "import {\n  buildEngvoClientSessionUpdate,\n  buildEngvoXaiClientSessionUpdate,\n} from '@/lib/engvo/realtimeSession'\nimport {\n  connectEngvoXaiRealtime,\n  getEngvoStopPlaybackEvents,\n  type EngvoXaiTransport,\n} from '@/lib/engvo/xaiRealtimeTransport'"
+  ],
+  [
+    "import {\n  loadEngvoCefrLevel,\n  loadEngvoRealtimeVoice,\n  loadEngvoSpeechSpeedPreset,\n  resolveEngvoSpeechSpeedPreset,\n  saveEngvoCefrLevel,\n  saveEngvoRealtimeVoice,\n  saveEngvoSpeechSpeedPreset,\n} from '@/lib/engvo/preferences'",
+    "import {\n  loadEngvoCefrLevel,\n  loadEngvoProvider,\n  loadEngvoRealtimeVoice,\n  loadEngvoSpeechSpeedPreset,\n  loadEngvoXaiVoice,\n  resolveEngvoSpeechSpeedPreset,\n  saveEngvoCefrLevel,\n  saveEngvoProvider,\n  saveEngvoRealtimeVoice,\n  saveEngvoSpeechSpeedPreset,\n  saveEngvoXaiVoice,\n} from '@/lib/engvo/preferences'"
+  ]
+]

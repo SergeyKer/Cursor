@@ -48,11 +48,14 @@ const LEGACY_CHAT_PATTERN_TUNING_BY_ID: Record<TunableChatPatternId, readonly Ch
     { tileWidthPx: 190, opacity: 0.06, glassOpacity: 0.04, blendMode: 'multiply' },
   ],
   cosmos: [],
+  animals: [],
 }
 
 export const DEFAULT_CHAT_PATTERN_TUNING_BY_ID: Record<TunableChatPatternId, ChatPatternTuning> = {
   'study-doodles': { ...SHARED_DEFAULT_CHAT_PATTERN_TUNING },
   cosmos: { ...SHARED_DEFAULT_CHAT_PATTERN_TUNING },
+  // Dense animal pattern reads better a bit larger than the shared 230px tile.
+  animals: { ...SHARED_DEFAULT_CHAT_PATTERN_TUNING, tileWidthPx: 300 },
 }
 
 export type ChatPatternTuningMap = Partial<Record<TunableChatPatternId, ChatPatternTuning>>

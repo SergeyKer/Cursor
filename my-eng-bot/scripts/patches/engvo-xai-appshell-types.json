@@ -1,0 +1,18 @@
+[
+  [
+    "  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)",
+    "  const engvoPendingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)"
+  ],
+  [
+    "  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)",
+    "  const engvoLastAppliedRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)"
+  ],
+  [
+    "        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall)\n        const sent = sendEngvoRealtimeEvent({\n          type: 'session.update',\n          session: buildEngvoClientSessionUpdate({\n            model: ENGVO_REALTIME_MODEL,\n            voice: engvoRealtimeVoice,\n            speed: speechSpeed,",
+    "        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai')\n        const sent = sendEngvoRealtimeEvent({\n          type: 'session.update',\n          session: buildEngvoClientSessionUpdate({\n            model: ENGVO_REALTIME_MODEL,\n            voice: engvoRealtimeVoice,\n            speed: speechSpeed,"
+  ],
+  [
+    "          speed: clampEngvoRealtimeSpeed(speechSpeedForCall),\n        }),\n        signal: sdpController.signal,",
+    "          speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai'),\n        }),\n        signal: sdpController.signal,"
+  ]
+]

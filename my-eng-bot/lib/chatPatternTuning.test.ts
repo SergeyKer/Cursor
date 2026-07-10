@@ -65,8 +65,16 @@ describe('chatPatternTuning', () => {
   it('returns shared defaults for all patterns', () => {
     expect(getDefaultChatPatternTuning('study-doodles')).toEqual(SHARED_DEFAULT)
     expect(getDefaultChatPatternTuning('cosmos')).toEqual(SHARED_DEFAULT)
+    expect(getDefaultChatPatternTuning('animals')).toEqual({
+      ...SHARED_DEFAULT,
+      tileWidthPx: 300,
+    })
     expect(DEFAULT_CHAT_PATTERN_TUNING_BY_ID['study-doodles']).toEqual(SHARED_DEFAULT)
     expect(DEFAULT_CHAT_PATTERN_TUNING_BY_ID.cosmos).toEqual(SHARED_DEFAULT)
+    expect(DEFAULT_CHAT_PATTERN_TUNING_BY_ID.animals).toEqual({
+      ...SHARED_DEFAULT,
+      tileWidthPx: 300,
+    })
   })
 
   it('clamps tuning values to allowed ranges', () => {

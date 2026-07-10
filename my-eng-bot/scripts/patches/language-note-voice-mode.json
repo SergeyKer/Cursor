@@ -1,0 +1,14 @@
+[
+  [
+    "      const cached = !options?.forceRefresh ? message.languageNote : undefined\n      if (cached) {\n        abortLanguageNoteRequest()\n        setFooterSheetContext(\n          buildLanguageNoteFooterSheetContext({\n            status: 'ready',\n            messageIndex,\n            originalText,\n            note: cached,\n          })\n        )\n        return\n      }",
+    "      const noteVoiceMode =\n        engvoVoiceMode || settings.mode !== 'communication'\n          ? null\n          : communicationVoiceInputMode\n      const cached = !options?.forceRefresh ? message.languageNote : undefined\n      const cachedMatchesMode =\n        cached &&\n        (cached.voiceMode ?? null) === (noteVoiceMode ?? null)\n      if (cached && cachedMatchesMode) {\n        abortLanguageNoteRequest()\n        setFooterSheetContext(\n          buildLanguageNoteFooterSheetContext({\n            status: 'ready',\n            messageIndex,\n            originalText,\n            note: cached,\n          })\n        )\n        return\n      }"
+  ],
+  [
+    "      const result = await requestLanguageNote({\n        text: originalText,\n        provider: settings.provider === 'openai' ? 'openai' : 'openrouter',\n        openAiChatPreset: settings.openAiChatPreset,\n        audience: settings.audience,\n        mode: engvoVoiceMode ? 'engvo' : 'communication',\n        recentAssistantText,\n        signal: controller.signal,\n      })",
+    "      const result = await requestLanguageNote({\n        text: originalText,\n        provider: settings.provider === 'openai' ? 'openai' : 'openrouter',\n        openAiChatPreset: settings.openAiChatPreset,\n        audience: settings.audience,\n        mode: engvoVoiceMode ? 'engvo' : 'communication',\n        communicationVoiceInputMode: noteVoiceMode,\n        recentAssistantText,\n        signal: controller.signal,\n      })"
+  ],
+  [
+    "    [\n      abortLanguageNoteRequest,\n      engvoCallInProgressForTips,\n      engvoVoiceMode,\n      messages,\n      settings.audience,\n      settings.openAiChatPreset,\n      settings.provider,\n    ]\n  )",
+    "    [\n      abortLanguageNoteRequest,\n      communicationVoiceInputMode,\n      engvoCallInProgressForTips,\n      engvoVoiceMode,\n      messages,\n      settings.audience,\n      settings.mode,\n      settings.openAiChatPreset,\n      settings.provider,\n    ]\n  )"
+  ]
+]

@@ -12,6 +12,7 @@ import { DROPDOWN_FILL_SYSTEM_RULES } from '@/lib/practice/prompt/buildDropdownF
 import { DICTATION_SYSTEM_RULES } from '@/lib/practice/prompt/buildDictationPrompt'
 import { ROLEPLAY_MINI_SYSTEM_RULES } from '@/lib/practice/prompt/buildRoleplayPrompt'
 import { BOSS_CHALLENGE_SYSTEM_RULES } from '@/lib/practice/prompt/buildBossChallengePrompt'
+import { ERROR_FIX_SYSTEM_RULES } from '@/lib/practice/prompt/buildErrorFixPrompt'
 import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
 import {
   buildEtalonPromptForReferenceType,
@@ -180,10 +181,10 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     'Each question must have: type, prompt, targetAnswer, acceptedAnswers, shuffledWords, audioText, keywords, minWords, hint, explanation.',
     'If type is choice, listening-select, or context-clue, you must provide at least 3 English options and include targetAnswer in the options.',
     'For type dropdown-fill: options count is 3 for closed-class slots (articles, pronouns) or 4 for open lexical slots (countries, names); include targetAnswer.',
-    'For type error-fix: prompt must be Russian Ситуация:/Тема: + Исправьте: "{broken}."; no options; no audioText; hint empty; broken must stay wrong after normalize vs targetAnswer.',
     ...DROPDOWN_FILL_SYSTEM_RULES,
     ...DICTATION_SYSTEM_RULES,
     ...ROLEPLAY_MINI_SYSTEM_RULES,
+    ...ERROR_FIX_SYSTEM_RULES,
     ...BOSS_CHALLENGE_SYSTEM_RULES,
     'Never mix single-word options and full-sentence options in one question.',
     'When canonicalSourceExercise is provided, mirror its answerFormat, prompt structure, and exactly 3 options when the lesson step has 3.',

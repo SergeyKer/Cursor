@@ -6,6 +6,11 @@ import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { isDictationStylePrompt } from '@/lib/practice/prompt/dictationPromptFormat'
 import { isTranslateStylePrompt } from '@/lib/practice/prompt/promptSourceUtils'
 import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
+import {
+  errorFixPairIsAligned,
+  extractSituationKeyFromErrorFixPrompt,
+  isErrorFixBrokenValid,
+} from '@/lib/practice/prompt/errorFixBrokenPhrase'
 import { REFERENCE_STEP_MAP_TYPES } from '@/lib/practice/prompt/promptSourceTypes'
 import { resolvePracticeLessonStep } from '@/lib/practice/resolvePracticeLessonStep'
 import { resolveReferenceLessonStep } from '@/lib/practice/resolveReferenceLessonStep'
@@ -101,6 +106,18 @@ describe('reference etalon contract', () => {
               expect(question.options).toBeUndefined()
               expect(question.hint).toBeFalsy()
               expect(question.audioText).toBeFalsy()
+              const brokenMatch = /Исправьте:\s*["«]([^"»]+)["»]/iu.exec(question.prompt)
+              expect(brokenMatch?.[1]).toBeTruthy()
+              expect(isErrorFixBrokenValid(brokenMatch![1]!, question.targetAnswer)).toBe(true)
+              if (lessonId === '1') {
+                expect(
+                  errorFixPairIsAligned(
+                    extractSituationKeyFromErrorFixPrompt(question.prompt),
+                    question.targetAnswer,
+                    lessonId
+                  )
+                ).toBe(true)
+              }
             }
             if (referenceType === 'boss-challenge') {
               expect(question.minWords).toBeGreaterThanOrEqual(4)

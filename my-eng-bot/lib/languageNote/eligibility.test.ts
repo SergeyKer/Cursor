@@ -20,6 +20,13 @@ describe('languageNote eligibility', () => {
     expect(canShowLanguageNoteInfo('haha')).toBe(false)
   })
 
+  it('allows cyrillic phrases in Ru voice mode', () => {
+    expect(canShowLanguageNoteInfo('Как дела сегодня', { voiceMode: 'ru' })).toBe(true)
+    expect(canShowLanguageNoteInfo('привет', { voiceMode: 'ru' })).toBe(false)
+    expect(canShowLanguageNoteInfo('Как дела сегодня', { voiceMode: 'en' })).toBe(false)
+    expect(canShowLanguageNoteInfo('превет как your doings', { voiceMode: 'mix' })).toBe(true)
+  })
+
   it('gates mark by mode and engvo', () => {
     expect(
       shouldShowLanguageNoteMark({
@@ -80,6 +87,22 @@ describe('languageNote eligibility', () => {
         callInProgress: false,
       })
     ).toBe(true)
+    expect(
+      shouldShowLanguageNoteMark({
+        mode: 'communication',
+        engvoVoiceMode: false,
+        content: 'Как дела сегодня вечером',
+        communicationVoiceInputMode: 'ru',
+      })
+    ).toBe(true)
+    expect(
+      shouldShowLanguageNoteMark({
+        mode: 'communication',
+        engvoVoiceMode: false,
+        content: 'Как дела сегодня вечером',
+        communicationVoiceInputMode: 'en',
+      })
+    ).toBe(false)
   })
 
   it('truncates long input to 500 chars', () => {

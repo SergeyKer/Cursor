@@ -7110,8 +7110,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       const originalText = truncateLanguageNoteInput(message.content)
       if (!originalText) return
 
+      const noteVoiceMode =
+        engvoVoiceMode || settings.mode !== 'communication'
+          ? null
+          : communicationVoiceInputMode
       const cached = !options?.forceRefresh ? message.languageNote : undefined
-      if (cached) {
+      const cachedMatchesMode =
+        cached &&
+        (cached.voiceMode ?? null) === (noteVoiceMode ?? null)
+      if (cached && cachedMatchesMode) {
         abortLanguageNoteRequest()
         setFooterSheetContext(
           buildLanguageNoteFooterSheetContext({
@@ -7153,6 +7160,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         openAiChatPreset: settings.openAiChatPreset,
         audience: settings.audience,
         mode: engvoVoiceMode ? 'engvo' : 'communication',
+        communicationVoiceInputMode: noteVoiceMode,
         recentAssistantText,
         signal: controller.signal,
       })
@@ -7192,10 +7200,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     },
     [
       abortLanguageNoteRequest,
+      communicationVoiceInputMode,
       engvoCallInProgressForTips,
       engvoVoiceMode,
       messages,
       settings.audience,
+      settings.mode,
       settings.openAiChatPreset,
       settings.provider,
     ]

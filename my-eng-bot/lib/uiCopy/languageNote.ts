@@ -1,5 +1,6 @@
 export const LANGUAGE_NOTE_COPY = {
   sheetTitle: 'Подсказка',
+  original: 'Сообщение',
   correct: 'Правильно',
   better: 'Лучше сказать',
   betterOr: 'или',

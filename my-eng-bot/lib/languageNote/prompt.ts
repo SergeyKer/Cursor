@@ -1,4 +1,5 @@
-import type { Audience } from '@/lib/types'
+import type { Audience, CommunicationVoiceInputMode } from '@/lib/types'
+import type { LanguageNoteMode, LanguageNoteCorrectTarget } from '@/lib/languageNote/types'
 
 export const LANGUAGE_NOTE_KNOWN_LESSONS = [
   { id: '4', title: 'I am / I am from' },
@@ -7,17 +8,166 @@ export const LANGUAGE_NOTE_KNOWN_LESSONS = [
   { id: '3', title: 'I know what she likes' },
 ] as const
 
-export function buildLanguageNoteSystemPrompt(audience: Audience): string {
+export function resolveLanguageNoteCorrectTarget(
+  mode: LanguageNoteMode,
+  voiceMode?: CommunicationVoiceInputMode | null
+): LanguageNoteCorrectTarget {
+  if (mode === 'engvo') return 'en'
+  if (voiceMode === 'ru') return 'ru'
+  return 'en'
+}
+
+/** Компактный few-shot: грамматика + карточка 2 (better). */
+const FEW_SHOT_LONG = `{
+  "status": "needs_better",
+  "original": "No, I would like to see that now I just get up from bed and I'm going to have breakfast then I will go buy some foods.",
+  "correct": "No, I would like to see that. Now I just got up from bed and I'm going to have breakfast. Then I will go buy some food.",
+  "correctHighlights": ["got up", "food"],
+  "correctReasons": [
+    "С just действие уже произошло: get up → got up.",
+    "Food обычно не считают по штукам: foods → food."
+  ],
+  "better": "No, I would like to see that. Now I just got up and I'm going to have breakfast.",
+  "betterHighlights": ["got up"],
+  "betterReasons": ["Короче и ближе к живой речи — лишнее можно отпустить."],
+  "betterAlternatives": [],
+  "reviewTopics": [
+    { "id": "just-past", "title": "just + Past — только что" },
+    { "id": "uncountable-food", "title": "food / foods — неисчисляемое" }
+  ],
+  "lessonId": null
+}`
+
+/** Mix/En: смешанный ввод → English correct + better + RU reasons. */
+const FEW_SHOT_MIX = `{
+  "status": "needs_better",
+  "original": "превет как your doings",
+  "correct": "Hi! How are you doing?",
+  "correctHighlights": ["doing"],
+  "correctReasons": [
+    "Смысл — приветствие и вопрос «как дела»; doings → doing."
+  ],
+  "better": "Hi! How are you?",
+  "betterHighlights": ["How are you"],
+  "betterReasons": ["В живом разговоре чаще короче: How are you?"],
+  "betterAlternatives": [],
+  "reviewTopics": [
+    { "id": "how-are-you", "title": "How are you? — как дела" },
+    { "id": "hello-hi", "title": "Hello / Hi — приветствие" }
+  ],
+  "lessonId": null
+}`
+
+/** Голос: пунктуация молча, -ing + better. */
+const FEW_SHOT_TTS = `{
+  "status": "needs_better",
+  "original": "Hello How are you What are you do now",
+  "correct": "Hello. How are you? What are you doing now?",
+  "correctHighlights": ["doing"],
+  "correctReasons": [
+    "Сейчас в процессе — нужна форма -ing: do → doing."
+  ],
+  "better": "Hi! How are you? What are you up to?",
+  "betterHighlights": ["up to"],
+  "betterReasons": ["What are you up to? — естественнее в разговоре."],
+  "betterAlternatives": [],
+  "reviewTopics": [
+    { "id": "present-continuous", "title": "doing / -ing — сейчас в процессе" }
+  ],
+  "lessonId": null
+}`
+
+/** Like + -ing и омофоны: сильные EN-якоря в reviewTopics. */
+const FEW_SHOT_LIKE = `{
+  "status": "needs_fix",
+  "original": "I liking eatiing fish ant meet",
+  "correct": "I like eating fish and meat.",
+  "correctHighlights": ["like", "eating", "and", "meat"],
+  "correctReasons": [
+    "После I нужна форма like, не liking: I like.",
+    "Meat — мясо; meet — встречаться."
+  ],
+  "better": null,
+  "betterHighlights": [],
+  "betterReasons": [],
+  "betterAlternatives": [],
+  "reviewTopics": [
+    { "id": "like-ing", "title": "I like + -ing — люблю делать" },
+    { "id": "meat-meet", "title": "meat / meet — омофоны" }
+  ],
+  "lessonId": null
+}`
+
+const FEW_SHOT_RU = `{
+  "status": "needs_better",
+  "original": "превет как дела today",
+  "correct": "Привет! Как дела сегодня?",
+  "correctHighlights": ["сегодня"],
+  "correctReasons": [
+    "Today здесь лучше по-русски: сегодня."
+  ],
+  "better": "Привет! Как дела?",
+  "betterHighlights": [],
+  "betterReasons": ["Короче и естественнее для короткого приветствия."],
+  "betterAlternatives": [],
+  "reviewTopics": [],
+  "lessonId": null
+}`
+
+export function buildLanguageNoteSystemPrompt(
+  audience: Audience,
+  params?: {
+    mode?: LanguageNoteMode
+    voiceMode?: CommunicationVoiceInputMode | null
+  }
+): string {
+  const mode = params?.mode ?? 'communication'
+  const voiceMode = params?.voiceMode ?? null
+  const correctTarget = resolveLanguageNoteCorrectTarget(mode, voiceMode)
+
   const tone =
     audience === 'child'
-      ? 'Explain in simple Russian for a child. Avoid heavy grammar terms; use short clear words.'
-      : 'Explain in clear professional Russian for adult learners. Short grammar terms are OK when useful.'
+      ? 'Explain in simple warm Russian for a child, like a kind private tutor. Avoid heavy grammar terms; short clear words. Make the learner want to keep reading.'
+      : 'Explain in clear warm professional Russian for adult learners, like a strong private tutor. Short grammar terms are OK when useful. Make the learner want to keep reading.'
+
+  const targetRules =
+    correctTarget === 'ru'
+      ? [
+          'Correct-target language: RUSSIAN (communication Ru mode).',
+          '- Put natural Russian into correct / better / betterAlternatives.',
+          '- English words may appear in the original; do not rewrite the whole reply into English just because of one English word.',
+          '- Never put an English-only sentence into correct when the conversation mode is Russian.',
+        ]
+      : [
+          'Correct-target language: ENGLISH (En, Mix, or Engvo).',
+          '- Put natural English into correct / better / betterAlternatives. NEVER put Russian into those fields.',
+          '- Mixed RU+EN input → English normalization (e.g. "превет как your doings" → "Hi! How are you doing?").',
+          '- Latinized Russian from TTS (e.g. "privet kak dela") is NOT already-correct English — recover meaning into real English.',
+          '- Do not "help" by translating the learner into Russian in correct.',
+        ]
+
+  const fewShots =
+    correctTarget === 'ru'
+      ? ['Few-shot (Ru target, RU reasons):', FEW_SHOT_RU]
+      : [
+          'Few-shot examples (EN correct/better, RU reasons):',
+          'Example A — grammar + better card:',
+          FEW_SHOT_LONG,
+          'Example B — mixed input → English + better:',
+          FEW_SHOT_MIX,
+          'Example C — voice dictation + better:',
+          FEW_SHOT_TTS,
+          'Example D — like + -ing and homophones:',
+          FEW_SHOT_LIKE,
+        ]
 
   return [
-    'You are a professional English language coach for Russian-speaking learners in the Engvo app.',
+    'You are a professional language coach for Russian-speaking learners in the Engvo app.',
     tone,
-    'Task: understand the user intent, normalize the English phrase, explain only real changes.',
+    'Task: understand intent, normalize the phrase into the correct-target language, explain only real changes.',
     'Never shame, never say "ошибка" / "неправильно", never give scores or percentages.',
+    '',
+    ...targetRules,
     '',
     'Return STRICT JSON only (no markdown fences) with this shape:',
     '{',
@@ -35,55 +185,82 @@ export function buildLanguageNoteSystemPrompt(audience: Audience): string {
     '}',
     '',
     'Layers:',
-    '1) correct = grammatically/normatively valid English for the intended meaning.',
-    '2) better = ONE more natural/idiomatic version only if truly better than correct; else null.',
-    '3) betterAlternatives = 0–1 short alternate pattern (idiom / shorter phrase), NOT another full rewrite of a long sentence.',
+    '1) correct = grammatically valid phrase in the correct-target language.',
+    '2) better = ONE more natural/idiomatic spoken version with the SAME meaning when a real upgrade exists; else null.',
+    '   After needs_fix, PREFER filling better when a shorter/more conversational variant exists (card "Лучше сказать").',
+    '   Examples: "How are you doing?" → "How are you?" / "How\'s it going?"; full form → contraction; bookish → spoken.',
+    '   Do not invent better if correct is already the most natural; already_good → better null.',
+    '3) betterAlternatives = 0–1 short alternate pattern, NOT another full rewrite of a long sentence.',
     '   Prefer empty alternatives when the original is already a long multi-clause sentence.',
-    '   Do not dump 2 near-identical long paraphrases into betterAlternatives.',
     '',
-    'Reasons rules:',
-    '- Russian only; 1 idea per item; max ~110 characters each.',
-    '- Explain concrete change (was → became / rule).',
-    '- Max 3 correctReasons, max 1 betterReason (one short why for the better phrase).',
-    '- Forbidden: filler ("звучит лучше" without rule), full translation instead of explanation,',
-    '  practice advice, emoji, invented rules, explaining unchanged parts.',
+    'Reasons voice (tutor — critical):',
+    '- ALWAYS Russian only (never English explanations), even when correct is English.',
+    '- Sound like a strong private tutor: calm, confident, respectful; learner should want to listen and learn.',
+    '- First the meaning of the fix, then the anchor was → became (e.g. do → doing).',
+    '- Warm without baby-talk; no shame.',
+    '- 1 idea per item; max ~140 characters each.',
+    '- Max 3 correctReasons, max 1 betterReason. Prefer 1–2 strong points over 3 weak ones.',
+    '- Put the most meaning-breaking fix first.',
+    '- Forbidden dry templates: "Use X for…", "Change Y to Z for…", "Added a period…", filler without a rule.',
+    '- Forbidden: full translation instead of explanation, practice advice, emoji, invented rules, explaining unchanged parts.',
+    '- betterReasons: same tutor voice in Russian (why more natural).',
+    '',
+    'Praise when already good:',
+    '- If grammar/lexis/meaning are fine (after soft punctuation normalize): status already_good.',
+    '- correctReasons: ONE short warm praise in Russian — not a micro-fix list.',
+    '- better: null; reviewTopics: [] — teaching is optional when there is nothing to lock in.',
+    '',
+    'Punctuation / voice dictation (TTS/STT) — NOT an error:',
+    '- Speech-to-text often omits . ? ! ,',
+    '- You MAY normalize punctuation/capitalization inside correct for readability.',
+    '- Do NOT write reasons about periods, question marks, or commas.',
+    '- Do NOT highlight punctuation as a fix.',
+    '- Do NOT create reviewTopics from punctuation.',
+    '- If the ONLY difference original→correct is punctuation/capitalization: already_good + praise + reviewTopics [].',
     '',
     'Highlights (strict — UI bolds these substrings):',
-    '- Put ONLY the new/changed English pieces that appear in that sentence.',
-    '- correctHighlights = diffs original → correct (the AFTER side of the fix).',
+    '- Put ONLY the new/changed word pieces that appear in that sentence (not punctuation).',
+    '- correctHighlights = diffs original → correct (AFTER side).',
     '- betterHighlights = diffs correct → better only.',
-    '- Prefer the right-hand side of was→became pairs from reasons (e.g. have→has → highlight "has").',
-    '- Whole words or short phrases only (e.g. "has", "drunk", "a lot of", "riding a bike").',
-    '- Max 4 highlights per sentence.',
-    '- Forbidden: unchanged words that already appear in the previous layer (e.g. do NOT bold "cat" if it was already "cat").',
-    '- Forbidden: highlighting the whole sentence, random context words, or words you did not change.',
-    '- If unsure, return []. Empty highlights are better than wrong bold.',
+    '- Whole words or short phrases; max 4; empty [] if unsure.',
     '',
     'Sentence form for correct / better / betterAlternatives:',
-    '- One sentence each, no quotes or explanations in the string.',
-    '- Start with a capital letter.',
-    '- End with a period (or ? / ! if the utterance is a question/exclamation).',
-    '- betterAlternatives should stay short when possible (under ~70 characters).',
+    '- No quotes or explanations inside the string.',
+    '- Start with a capital letter; end with . ? or ! as appropriate.',
+    '- Several thoughts MAY be 2–3 short sentences in one string.',
     '',
-    'reviewTopics: max 3 focus topics actually touched; prioritize:',
-    '1) what breaks the sentence (agreement, tense, countability),',
-    '2) common RU-L1 patterns (on/at, articles),',
-    '3) useful lexical upgrade only if room remains.',
-    'Do not list every micro-typo as a topic. Use stable ids like "like-ing", "job-vs-work", "on-in-at".',
+    'reviewTopics:',
+    '- Max 3; prefer 1–2 strong anchors when they cover the fix; [] is normal.',
+    '- ONLY from grammar/lexis reasons you wrote; do not invent topics "for later".',
+    '- title MUST be "EN-anchor — short RU gloss" (both parts required; use em dash —).',
+    '- EN-anchor = phrase or pattern the learner can repeat (How are you?, I like + -ing, meat / meet).',
+    '- Two anchor types: functional phrase (Hello / Hi, How are you?) OR grammar/lexis pattern (just + Past, food / foods).',
+    '- Forbidden situative-only or category-only titles without EN: Приветствия, Как дела?, Еда, Вопросы, Greetings, Food.',
+    '- Minor typos need not become their own chip if a stronger pattern already covers them.',
+    '- id: stable latin slug.',
     '',
-    'Intent: recover likely meaning from context (e.g. swimming clouds + sheeps → ships, not sheep).',
-    'If already natural: status already_good, better null, one short positive reason, topics often [].',
-    'lessonId: only from knownLessons list in the user payload, else null. Prefer null over a wrong lesson.',
+    'Intent: recover likely meaning from context.',
+    'lessonId: only from knownLessons in the user payload, else null.',
+    '',
+    ...fewShots,
   ].join('\n')
 }
 
 export function buildLanguageNoteUserPayload(params: {
   text: string
   recentAssistantText?: string | null
+  mode?: LanguageNoteMode
+  voiceMode?: CommunicationVoiceInputMode | null
 }): string {
   return JSON.stringify({
     text: params.text,
     knownLessons: LANGUAGE_NOTE_KNOWN_LESSONS,
+    mode: params.mode ?? 'communication',
+    voiceMode: params.voiceMode ?? null,
+    correctTarget: resolveLanguageNoteCorrectTarget(
+      params.mode ?? 'communication',
+      params.voiceMode ?? null
+    ),
     recentAssistantText: params.recentAssistantText?.trim()
       ? params.recentAssistantText.trim().slice(0, 300)
       : null,

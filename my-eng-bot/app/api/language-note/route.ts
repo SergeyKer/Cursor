@@ -4,10 +4,12 @@ import { buildProviderUserMessage } from '@/lib/buildProviderUserMessage'
 import {
   buildLanguageNoteSystemPrompt,
   buildLanguageNoteUserPayload,
+  resolveLanguageNoteCorrectTarget,
 } from '@/lib/languageNote/prompt'
 import { parseLanguageNoteResponse } from '@/lib/languageNote/parseLanguageNoteResponse'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
-import type { Audience } from '@/lib/types'
+import type { Audience, CommunicationVoiceInputMode } from '@/lib/types'
+import type { LanguageNoteMode } from '@/lib/languageNote/types'
 
 export const runtime = 'nodejs'
 
@@ -36,6 +38,13 @@ export async function POST(req: NextRequest) {
           ? 'gpt-5.4-mini-low'
           : 'gpt-4o-mini'
     const audience: Audience = body.audience === 'child' ? 'child' : 'adult'
+    const mode: LanguageNoteMode = body.mode === 'engvo' ? 'engvo' : 'communication'
+    const rawVoice = body.communicationVoiceInputMode
+    const communicationVoiceInputMode: CommunicationVoiceInputMode | null =
+      mode === 'communication' && (rawVoice === 'ru' || rawVoice === 'en' || rawVoice === 'mix')
+        ? rawVoice
+        : null
+    const correctTarget = resolveLanguageNoteCorrectTarget(mode, communicationVoiceInputMode)
     const recentAssistantText =
       typeof body.recentAssistantText === 'string' ? body.recentAssistantText : null
 
@@ -44,10 +53,21 @@ export async function POST(req: NextRequest) {
     }
 
     const messages = [
-      { role: 'system', content: buildLanguageNoteSystemPrompt(audience) },
+      {
+        role: 'system',
+        content: buildLanguageNoteSystemPrompt(audience, {
+          mode,
+          voiceMode: communicationVoiceInputMode,
+        }),
+      },
       {
         role: 'user',
-        content: buildLanguageNoteUserPayload({ text, recentAssistantText }),
+        content: buildLanguageNoteUserPayload({
+          text,
+          recentAssistantText,
+          mode,
+          voiceMode: communicationVoiceInputMode,
+        }),
       },
     ]
 
@@ -130,7 +150,10 @@ export async function POST(req: NextRequest) {
     }
     const first = data.choices?.[0]
     const raw = (first?.message?.content ?? first?.text ?? '').trim()
-    const note = parseLanguageNoteResponse(raw, text)
+    const note = parseLanguageNoteResponse(raw, text, {
+      voiceMode: communicationVoiceInputMode,
+      correctTarget,
+    })
 
     if (!note) {
       return NextResponse.json(

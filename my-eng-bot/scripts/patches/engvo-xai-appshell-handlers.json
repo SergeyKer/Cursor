@@ -1,0 +1,10 @@
+[
+  [
+    "  const handleEngvoVoiceChange = useCallback(\n    (voice: EngvoRealtimeVoice) => {\n      setEngvoRealtimeVoice(voice)\n      saveEngvoRealtimeVoice(voice)\n      if (engvoVoiceMode) {\n        engvoPendingRealtimeVoiceRef.current = voice\n        setEngvoSessionUpdateTick((prev) => prev + 1)\n      }\n    },\n    [engvoVoiceMode]\n  )",
+    "  const handleEngvoProviderChange = useCallback(\n    (provider: EngvoProvider) => {\n      setEngvoProvider(provider)\n      saveEngvoProvider(provider)\n      // Mid-call provider switch is deferred: prefs only; transport stays until next call.\n    },\n    []\n  )\n\n  const handleEngvoVoiceChange = useCallback(\n    (voice: EngvoRealtimeVoice) => {\n      setEngvoRealtimeVoice(voice)\n      saveEngvoRealtimeVoice(voice)\n      if (engvoVoiceMode && engvoActiveProviderRef.current === 'openai') {\n        engvoPendingRealtimeVoiceRef.current = voice\n        setEngvoSessionUpdateTick((prev) => prev + 1)\n      }\n    },\n    [engvoVoiceMode]\n  )\n\n  const handleEngvoXaiVoiceChange = useCallback(\n    (voice: EngvoXaiVoice) => {\n      setEngvoXaiVoice(voice)\n      saveEngvoXaiVoice(voice)\n      if (engvoVoiceMode && engvoActiveProviderRef.current === 'xai') {\n        engvoPendingRealtimeVoiceRef.current = voice\n        setEngvoSessionUpdateTick((prev) => prev + 1)\n      }\n    },\n    [engvoVoiceMode]\n  )"
+  ],
+  [
+    "        setEngvoRealtimeVoice(loadEngvoRealtimeVoice())\n        const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)",
+    "        setEngvoProvider(loadEngvoProvider())\n        setEngvoRealtimeVoice(loadEngvoRealtimeVoice())\n        setEngvoXaiVoice(loadEngvoXaiVoice())\n        const loadedEngvoLevel = loadEngvoCefrLevel(mergedSettings.audience)"
+  ]
+]

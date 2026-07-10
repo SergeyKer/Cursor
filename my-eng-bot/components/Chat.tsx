@@ -2237,6 +2237,7 @@ export default function Chat({
                       engvoSlideEnter={feedSlideEnter}
                       isEngvoCall={isEngvoActive}
                       engvoCallInProgress={engvoCallInProgress}
+                      communicationVoiceInputMode={communicationVoiceInputMode}
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
                       onLanguageNoteInfoPress={onLanguageNoteInfoPress}
@@ -2660,6 +2661,7 @@ function MessageBubble({
   engvoSlideEnter = false,
   isEngvoCall = false,
   engvoCallInProgress = false,
+  communicationVoiceInputMode,
   onRequestTranslation,
   isLoadingTranslation,
   onLanguageNoteInfoPress,
@@ -2682,6 +2684,7 @@ function MessageBubble({
   isEngvoCall?: boolean
   /** Live Engvo call (before hang-up) — language-note `?` stays hidden. */
   engvoCallInProgress?: boolean
+  communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
   onLanguageNoteInfoPress?: (index: number) => void
@@ -3183,9 +3186,10 @@ function MessageBubble({
                   content: message.content,
                   isEngvoServiceLine: message.engvoServiceLine,
                   callInProgress: Boolean(isEngvoCall && engvoCallInProgress),
+                  communicationVoiceInputMode,
                 }) && Boolean(onLanguageNoteInfoPress)
               return showLanguageNoteMark ? (
-                <div className="language-note-user-line flex items-end gap-1.5">
+                <div className="language-note-user-line flex items-end gap-3.5">
                   <p className="min-w-0 flex-1 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
                     {message.content}
                   </p>

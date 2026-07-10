@@ -1,0 +1,6 @@
+[
+  [
+    "  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | null>(null)",
+    "  const engvoApplyingRealtimeVoiceRef = React.useRef<EngvoRealtimeVoice | EngvoXaiVoice | null>(null)"
+  ]
+]
