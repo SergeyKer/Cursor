@@ -56,8 +56,10 @@ export function buildLessonPracticeScenarioPrompt(
       return mergeParts([situation, LESSON3_CHOICE_FRAME])
     case 'sentence-surgery':
       return mergeParts([situation, 'Расставьте слова в правильном порядке.'])
-    case 'free-response':
-      return `Переведите на английский: "${scenario.situationRu.replace(/[.!?…]+$/u, '')}."`
+    case 'free-response': {
+      const translateSource = (scenario.translateRu ?? scenario.situationRu).replace(/[.!?…]+$/u, '')
+      return `Переведите на английский: "${translateSource}."`
+    }
     case 'dropdown-fill': {
       const frame = scenario.dropdownFrameEn?.trim()
       if (!frame) return situation
@@ -121,6 +123,13 @@ export function applyLessonPracticeScenario(
     'listening-select',
     'error-fix',
     'boss-challenge',
+    'choice',
+    'context-clue',
+    'sentence-surgery',
+    'free-response',
+    'dropdown-fill',
+    'word-builder-pro',
+    'roleplay-mini',
   ])
   const clearOptionsTypes = new Set([
     'dictation',
@@ -137,6 +146,7 @@ export function applyLessonPracticeScenario(
     : scenario.options?.length
       ? [...scenario.options]
       : question.options
+  // Never surface recipe hints on the question for lesson-3-style scenarios.
   const nextHint = clearHintTypes.has(question.type)
     ? undefined
     : scenario.hint ?? question.hint

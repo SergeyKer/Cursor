@@ -1,20 +1,31 @@
 import { describe, expect, it } from 'vitest'
 import { RELAXED_STEP_SPECS, BALANCED_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
-import { embeddedScenarioRuEnAligned } from '@/lib/practice/embeddedQuestionScenarioAlignment'
+import {
+  embeddedScenarioRuEnAligned,
+  isRecipeAnswerHint,
+  situationRuIsTranslateLeak,
+} from '@/lib/practice/embeddedQuestionScenarioAlignment'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
 import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { isDictationStylePrompt } from '@/lib/practice/prompt/dictationPromptFormat'
 import { isTranslateStylePrompt } from '@/lib/practice/prompt/promptSourceUtils'
 import { isGapFillStylePrompt } from '@/lib/practice/prompt/dropdownFillPromptFormat'
-import {
-  extractErrorFixBrokenPhrase,
-  extractSituationKeyFromErrorFixPrompt,
-} from '@/lib/practice/prompt/errorFixBrokenPhrase'
+import { extractErrorFixBrokenPhrase } from '@/lib/practice/prompt/errorFixBrokenPhrase'
+import { EMBEDDED_QUESTIONS_SESSION_SCENARIOS } from '@/lib/lessons/embeddedQuestionsSessionScenarios'
 
 describe('embedded questions session content', () => {
   const lesson = getStructuredLessonById('3')
   expect(lesson).not.toBeNull()
+
+  it('keeps session scenarios free of recipe hints and translate leaks', () => {
+    for (const scenario of Object.values(EMBEDDED_QUESTIONS_SESSION_SCENARIOS)) {
+      expect(isRecipeAnswerHint(scenario.hint)).toBe(false)
+      expect(situationRuIsTranslateLeak(scenario.situationRu, scenario.targetAnswer, 'choice')).toBe(
+        false
+      )
+    }
+  })
 
   it('builds aligned relaxed session for lesson 3', () => {
     const session = buildLocalPracticeSession({
@@ -31,6 +42,7 @@ describe('embedded questions session content', () => {
     expect(choice.targetAnswer).toBe('I know what she likes.')
     expect(choice.prompt).toMatch(/Ситуация:/i)
     expect(choice.prompt).toMatch(/вложен/i)
+    expect(choice.hint).toBeFalsy()
 
     const situations = session.questions.map((question) => {
       const match = /(?:Ситуация|Тема)\s*:\s*([^.]*)/iu.exec(question.prompt)
@@ -43,7 +55,11 @@ describe('embedded questions session content', () => {
       const situationRu = situationMatch?.[1] ?? ''
       if (situationRu) {
         expect(embeddedScenarioRuEnAligned(situationRu, question.targetAnswer)).toBe(true)
+        expect(situationRuIsTranslateLeak(situationRu, question.targetAnswer, question.type)).toBe(
+          false
+        )
       }
+      expect(isRecipeAnswerHint(question.hint)).toBe(false)
     }
   })
 
@@ -86,6 +102,7 @@ describe('embedded questions session content', () => {
       if (question.type === 'choice' || question.type === 'context-clue') {
         expect(question.options?.every((item) => isCompleteSentence(item))).toBe(true)
       }
+      expect(isRecipeAnswerHint(question.hint)).toBe(false)
     }
   })
 })

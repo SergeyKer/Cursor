@@ -5,18 +5,18 @@ import { CHALLENGE_STEP_SPECS } from '@/lib/practice/engine/stepSpec'
 const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   {
     id: 'l3-likes-she',
-    situationRu: 'Я знаю, что ей нравится.',
+    situationRu: 'Разговор о её вкусах.',
     targetAnswer: 'I know what she likes.',
     options: [
       'I know what she likes.',
       'I know what does she like.',
       'I know what she like.',
     ],
-    hint: 'Во вложенной части: what + she + likes, без does перед she.',
   },
   {
     id: 'l3-dont-know-where-he',
-    situationRu: 'Я не знаю, где он живёт.',
+    situationRu: 'Нужно сказать, что адрес неизвестен.',
+    translateRu: 'Я не знаю, где он живёт.',
     targetAnswer: "I don't know where he lives.",
     options: [
       "I don't know where he lives.",
@@ -26,7 +26,8 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l3-he-likes',
-    situationRu: 'Я знаю, что ему нравится.',
+    situationRu: 'Разговор о его вкусах.',
+    translateRu: 'Я знаю, что ему нравится.',
     targetAnswer: 'I know what he likes.',
     options: [
       'I know what he likes.',
@@ -36,38 +37,37 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l3-tell-she-likes',
-    situationRu: 'Скажи мне, что ей нравится.',
+    situationRu: 'Нужно попросить рассказать о её вкусах.',
+    translateRu: 'Скажи мне, что ей нравится.',
     targetAnswer: 'Tell me what she likes.',
-    hint: 'Tell me + what + she + likes.',
   },
   {
     id: 'l3-dont-know-who',
-    situationRu: 'Я не знаю, кто он.',
+    situationRu: 'Нужно признать, что человек незнаком.',
+    translateRu: 'Я не знаю, кто он.',
     targetAnswer: "I don't know who he is.",
-    hint: 'who + he + is, без инверсии who is he.',
   },
   {
     id: 'l3-know-tea-that',
-    situationRu: 'Я знаю, что ей нравится чай.',
+    situationRu: 'Утверждение о её любимом напитке.',
     targetAnswer: 'that',
     dropdownFrameEn: 'I know ___ she likes tea.',
     options: ['that', 'what', 'who', 'where'],
-    hint: 'that вводит утверждение «она любит чай».',
   },
   {
     id: 'l3-anna-alex-likes-but',
-    situationRu: 'Я знаю, что нравится Анне, но не знаю, что нравится Алексу.',
+    situationRu: 'Две мысли о вкусах Анны и Алекса — свяжите через but.',
     targetAnswer: "I know what Anna likes, but I don't know what Alex likes.",
-    hint: 'Свяжите две мысли через but.',
   },
   {
     id: 'l3-anna-alex-where-but',
-    situationRu: 'Я знаю, где работает Анна, но не знаю, где живёт Алекс.',
+    situationRu: 'Две мысли о работе Анны и доме Алекса — свяжите через but.',
     targetAnswer: "I know where Anna works, but I don't know where Alex lives.",
   },
   {
     id: 'l3-when-lesson',
-    situationRu: 'Скажи, когда начинается урок.',
+    situationRu: 'Нужно спросить о начале урока.',
+    translateRu: 'Скажи, когда начинается урок.',
     targetAnswer: 'Tell me when the lesson starts.',
     options: [
       'Tell me when the lesson starts.',
@@ -81,30 +81,51 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     roleIntroRu: 'Собеседник спрашивает о нём.',
     interlocutorEn: 'Do you know who he is?',
     targetAnswer: "I don't know who he is.",
-    hint: 'who + he + is — вложенный порядок слов.',
   },
   {
     id: 'l3-wants-error',
-    situationRu: 'Я знаю, что ей нужно.',
+    situationRu: 'Фраза о её нужде звучит с ошибкой.',
     targetAnswer: 'I know what she wants.',
     brokenPhrase: 'I know what does she want.',
   },
   {
     id: 'l3-boss-anna-alex',
-    situationRu: 'Скажи, что нравится Анне и где живёт Алекс; свяжи мысли через but.',
+    situationRu: 'Свяжите две мысли о Анне и Алексе через but.',
     targetAnswer: "I know what Anna likes, but I don't know where Alex lives.",
     keywords: ['know', 'what', 'where', 'but'],
     minWords: 8,
   },
   {
+    id: 'l3-boss-she-he-likes',
+    situationRu: 'Свяжите две мысли о её и его вкусах через but.',
+    targetAnswer: "I know what she likes, but I don't know what he likes.",
+    keywords: ['know', 'what', 'but'],
+    minWords: 8,
+  },
+  {
+    id: 'l3-boss-station-lesson',
+    situationRu: 'Свяжите две мысли о станции и уроке через but.',
+    targetAnswer: "I know where the station is, but I don't know when the lesson starts.",
+    keywords: ['know', 'where', 'when', 'but'],
+    minWords: 8,
+  },
+  {
+    id: 'l3-boss-who-where',
+    situationRu: 'Свяжите две мысли о незнакомце и адресе через but.',
+    targetAnswer: "I know who he is, but I don't know where he lives.",
+    keywords: ['know', 'who', 'where', 'but'],
+    minWords: 8,
+  },
+  {
     id: 'l3-tell-where-station',
-    situationRu: 'Скажи мне, где находится станция.',
+    situationRu: 'Нужно спросить дорогу к станции.',
+    translateRu: 'Скажи мне, где находится станция.',
     targetAnswer: 'Tell me where the station is.',
-    hint: 'Tell me + where + the station + is.',
   },
   {
     id: 'l3-know-where-anna',
-    situationRu: 'Я знаю, где работает Анна.',
+    situationRu: 'Речь о месте работы Анны.',
+    translateRu: 'Я знаю, где работает Анна.',
     targetAnswer: 'I know where Anna works.',
     options: [
       'I know where Anna works.',
@@ -114,7 +135,8 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l3-do-you-know-likes',
-    situationRu: 'Ты знаешь, что ей нравится?',
+    situationRu: 'Нужно уточнить, известны ли её вкусы.',
+    translateRu: 'Ты знаешь, что ей нравится?',
     targetAnswer: 'Do you know what she likes?',
     options: [
       'Do you know what she likes?',
@@ -124,7 +146,7 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l3-roleplay-where',
-    situationRu: 'Спрашивают, где он живёт.',
+    situationRu: 'Спрашивают про его адрес.',
     roleIntroRu: 'Собеседник интересуется его адресом.',
     interlocutorEn: 'Do you know where he lives?',
     targetAnswer: "I don't know where he lives.",
@@ -132,13 +154,13 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   {
     id: 'l3-roleplay-likes',
     situationRu: 'Спрашивают о её вкусах.',
-    roleIntroRu: 'Собеседник хочет узнать, что ей нравится.',
+    roleIntroRu: 'Собеседник хочет узнать о её вкусах.',
     interlocutorEn: 'Do you know what she likes?',
     targetAnswer: "I don't know what she likes.",
   },
   {
     id: 'l3-roleplay-anna-works',
-    situationRu: 'Спрашивают, где работает Анна.',
+    situationRu: 'Спрашивают о работе Анны.',
     roleIntroRu: 'Собеседник интересуется её работой.',
     interlocutorEn: 'Do you know where Anna works?',
     targetAnswer: "I don't know where Anna works.",
@@ -160,7 +182,7 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   {
     id: 'l3-roleplay-he-likes',
     situationRu: 'Спрашивают о его вкусах.',
-    roleIntroRu: 'Собеседник хочет узнать, что ему нравится.',
+    roleIntroRu: 'Собеседник хочет узнать о его вкусах.',
     interlocutorEn: 'Do you know what he likes?',
     targetAnswer: "I don't know what he likes.",
   },
@@ -286,10 +308,10 @@ const REFERENCE_EXTRA_IDS: Record<
   'boss-challenge': [
     'l3-anna-alex-likes-but',
     'l3-anna-alex-where-but',
-    'l3-likes-she',
-    'l3-know-where-anna',
-    'l3-when-lesson',
-    'l3-tell-where-station',
+    'l3-boss-anna-alex',
+    'l3-boss-she-he-likes',
+    'l3-boss-station-lesson',
+    'l3-boss-who-where',
   ],
 }
 
@@ -316,34 +338,35 @@ function adaptScenarioForReferenceType(
   type: (typeof CHALLENGE_STEP_SPECS)[number]['type']
 ): LessonPracticeScenario {
   const next = cloneScenario(scenario)
+  next.hint = undefined
 
   if (type === 'dropdown-fill') {
     if (!next.dropdownFrameEn || next.targetAnswer.split(/\s+/).length > 1) {
-      if (/tea/i.test(next.situationRu) || next.targetAnswer === 'that') {
+      if (next.id.includes('tea') || next.targetAnswer === 'that' || /напитк/i.test(next.situationRu)) {
         next.targetAnswer = 'that'
         next.dropdownFrameEn = 'I know ___ she likes tea.'
         next.options = ['that', 'what', 'who', 'where']
-      } else if (/нрав/i.test(next.situationRu) && /she|ей|ей/i.test(next.situationRu + next.targetAnswer)) {
+      } else if (/\bshe likes\b/i.test(next.targetAnswer) || /её вкус/i.test(next.situationRu)) {
         next.targetAnswer = 'likes'
         next.dropdownFrameEn = 'I know what she ___.'
         next.options = ['likes', 'like', 'does']
-      } else if (/нрав/i.test(next.situationRu)) {
+      } else if (/\bhe likes\b/i.test(next.targetAnswer) || /его вкус/i.test(next.situationRu)) {
         next.targetAnswer = 'likes'
         next.dropdownFrameEn = 'I know what he ___.'
         next.options = ['likes', 'like', 'does']
-      } else if (/кто|who/i.test(next.situationRu + next.targetAnswer)) {
+      } else if (/\bwho\b/i.test(next.targetAnswer) || /незнаком/i.test(next.situationRu)) {
         next.targetAnswer = 'is'
         next.dropdownFrameEn = "I don't know who he ___."
         next.options = ['is', 'are', 'does']
-      } else if (/работ|works/i.test(next.situationRu + next.targetAnswer)) {
+      } else if (/\bworks\b/i.test(next.targetAnswer) || /работ/i.test(next.situationRu)) {
         next.targetAnswer = 'works'
         next.dropdownFrameEn = 'I know where Anna ___.'
         next.options = ['works', 'work', 'does']
-      } else if (/начин|starts|урок/i.test(next.situationRu + next.targetAnswer)) {
+      } else if (/\bstarts\b/i.test(next.targetAnswer) || /урок/i.test(next.situationRu)) {
         next.targetAnswer = 'starts'
         next.dropdownFrameEn = 'Tell me when the lesson ___.'
         next.options = ['starts', 'start', 'does']
-      } else if (/станц|station/i.test(next.situationRu + next.targetAnswer)) {
+      } else if (/\bstation\b/i.test(next.targetAnswer) || /станц/i.test(next.situationRu)) {
         next.targetAnswer = 'is'
         next.dropdownFrameEn = 'Tell me where the station ___.'
         next.options = ['is', 'are', 'does']
@@ -353,7 +376,6 @@ function adaptScenarioForReferenceType(
         next.options = ['likes', 'like', 'does']
       }
     }
-    next.hint = undefined
     next.brokenPhrase = undefined
     next.interlocutorEn = undefined
     return next
@@ -361,7 +383,6 @@ function adaptScenarioForReferenceType(
 
   if (type === 'error-fix') {
     next.options = undefined
-    next.hint = undefined
     next.dropdownFrameEn = undefined
     if (!next.brokenPhrase) {
       const target = next.targetAnswer
@@ -387,14 +408,13 @@ function adaptScenarioForReferenceType(
   }
 
   if (type === 'dictation' || type === 'listening-select' || type === 'voice-shadow' || type === 'boss-challenge') {
-    next.hint = undefined
     next.options = type === 'listening-select' ? next.options : undefined
   }
 
   if (type === 'boss-challenge') {
     next.minWords = next.minWords ?? 8
     if (!/\bbut\b/i.test(next.targetAnswer)) {
-      next.situationRu = 'Я знаю, что нравится Анне, но не знаю, где живёт Алекс.'
+      next.situationRu = 'Свяжите две мысли о Анне и Алексе через but.'
       next.targetAnswer = "I know what Anna likes, but I don't know where Alex lives."
       next.keywords = ['know', 'what', 'where', 'but']
       next.minWords = 8
@@ -409,6 +429,25 @@ function adaptScenarioForReferenceType(
         correct.replace(/\b(\w+)s\b/, '$1').replace(/\.$/, '') + '.',
         correct.replace(/\b(what|where|when|who) (\w+)/i, '$1 does $2').replace(/\.$/, '') + '.',
       ]
+    }
+  }
+
+  if (type === 'free-response' && !next.translateRu) {
+    // Keep a literal translate source when only oblique situation exists.
+    if (/\blikes\b/i.test(next.targetAnswer) && /\bshe\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Я знаю, что ей нравится.'
+    } else if (/\blikes\b/i.test(next.targetAnswer) && /\bhe\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Я знаю, что ему нравится.'
+    } else if (/\blives\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Я не знаю, где он живёт.'
+    } else if (/\bwho\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Я не знаю, кто он.'
+    } else if (/\bworks\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Я знаю, где работает Анна.'
+    } else if (/\bstarts\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Скажи, когда начинается урок.'
+    } else if (/\bstation\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Скажи мне, где находится станция.'
     }
   }
 

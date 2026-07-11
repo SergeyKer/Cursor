@@ -9,6 +9,8 @@ import {
   embeddedRoleplayInterlocutorOk,
   embeddedScenarioRuEnAligned,
   embeddedTargetHasBadInversion,
+  isRecipeAnswerHint,
+  situationRuIsTranslateLeak,
 } from '@/lib/practice/embeddedQuestionScenarioAlignment'
 import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt, VOICE_SHADOW_FALLBACK_PROMPT } from '@/lib/practice/buildVoiceShadowPrompt'
 import {
@@ -134,8 +136,10 @@ function isLesson3EmbeddedAiQuestionValid(params: {
   if (embeddedTargetHasBadInversion(params.targetAnswer)) return false
 
   const situationMatch = /(?:Ситуация|Тема)\s*:\s*([^.]*)/iu.exec(params.prompt)
-  if (situationMatch?.[1] && !embeddedScenarioRuEnAligned(situationMatch[1], params.targetAnswer)) {
-    return false
+  if (situationMatch?.[1]) {
+    const situationRu = situationMatch[1].trim()
+    if (!embeddedScenarioRuEnAligned(situationRu, params.targetAnswer)) return false
+    if (situationRuIsTranslateLeak(situationRu, params.targetAnswer, params.type)) return false
   }
 
   if (params.type === 'roleplay-mini') {
@@ -668,27 +672,31 @@ export function normalizeAiPracticeQuestion(
             : typeof source.minWords === 'number' && source.minWords > 0
               ? Math.min(20, source.minWords)
               : undefined,
-    hint:
-      type === 'voice-shadow' ||
-      type === 'dictation' ||
-      type === 'listening-select' ||
-      type === 'error-fix' ||
-      type === 'boss-challenge'
-        ? undefined
-        : type === 'word-builder-pro' && resolved?.exercise
-          ? stripAnswerLeakFromHint(
-              resolveWordBuilderProHint({
-                targetAnswer: normalizedTargetAnswer,
-                lesson: scopedLesson,
-                exercise: resolved.exercise,
-                variantHint: puzzleSlice?.hint ?? normalizedHint,
-                matchedVariant: puzzleSlice?.matchedVariant,
-              }),
-              normalizedTargetAnswer
-            )
-          : type === 'dropdown-fill'
-            ? sanitizeDropdownHint(stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer))
-            : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer),
+    hint: (() => {
+      if (lesson.id === '3') return undefined
+      const raw =
+        type === 'voice-shadow' ||
+        type === 'dictation' ||
+        type === 'listening-select' ||
+        type === 'error-fix' ||
+        type === 'boss-challenge'
+          ? undefined
+          : type === 'word-builder-pro' && resolved?.exercise
+            ? stripAnswerLeakFromHint(
+                resolveWordBuilderProHint({
+                  targetAnswer: normalizedTargetAnswer,
+                  lesson: scopedLesson,
+                  exercise: resolved.exercise,
+                  variantHint: puzzleSlice?.hint ?? normalizedHint,
+                  matchedVariant: puzzleSlice?.matchedVariant,
+                }),
+                normalizedTargetAnswer
+              )
+            : type === 'dropdown-fill'
+              ? sanitizeDropdownHint(stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer))
+              : stripAnswerLeakFromHint(normalizedHint, normalizedTargetAnswer)
+      return isRecipeAnswerHint(raw) ? undefined : raw
+    })(),
     explanation: typeof source.explanation === 'string' ? source.explanation.trim() : undefined,
     correctionPrompt: `Закрепим правильный вариант: ${normalizeEnglishLearnerContractions(normalizedTargetAnswer)}`,
     xpBase: meta.xpBase,

@@ -108,19 +108,9 @@ function practiceInfoLabel(
     })
   }
 
-  const hint =
-    question.type === 'voice-shadow' ||
-    question.type === 'dictation' ||
-    question.type === 'listening-select' ||
-    question.type === 'error-fix'
-      ? ''
-      : normalizeInstruction(question.hint)
-  const base = normalizeInstruction(practiceTypeLabel(question, session, audience))
-  if (!hint) return base
-  const normalizedHint = hint.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
-  const normalizedBase = base.toLowerCase().replace(/[.!?…]/g, '').replace(/\s+/g, ' ').trim()
-  if (normalizedHint === normalizedBase) return base
-  return `${hint} ${base}`
+  // Info bubble = type instruction only. Pedagogical/recipe hints must not appear here
+  // (they previously leaked answers like "Tell me + what + she + likes").
+  return normalizeInstruction(practiceTypeLabel(question, session, audience))
 }
 
 function taskBubbleContent(question: PracticeQuestion, audience: Audience): string {

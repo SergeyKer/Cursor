@@ -228,6 +228,19 @@ describe('roleplayPromptEngine', () => {
     expect(label).toContain('Сейчас дословно: нужна та же фраза, что на предыдущих шагах')
   })
 
+  it('omits grammar recipe from lesson 3 roleplay info', () => {
+    const label = formatRoleplayInfoLabel({
+      axis: 'state',
+      mode: 'challenge',
+      stepIndex: 9,
+      lessonId: '3',
+      audience: 'adult',
+    })
+    expect(label).toMatch(/Ответьте/i)
+    expect(label).not.toMatch(/\+/i)
+    expect(label).not.toMatch(/Tell\/Know/i)
+  })
+
   it('extracts keywords with blueprint mustInclude', () => {
     const lesson = getStructuredLessonById('1')!
     const keywords = extractRoleplayKeywords("It's time to go.", lesson)

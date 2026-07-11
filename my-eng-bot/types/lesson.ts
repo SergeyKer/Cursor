@@ -225,6 +225,8 @@ export interface LessonQualityGate {
 
 export interface LessonPracticeScenarioFields {
   situationRu: string
+  /** Literal Russian phrase for free-response translate tasks only. */
+  translateRu?: string
   targetAnswer: string
   acceptedAnswers?: string[]
   options?: string[]

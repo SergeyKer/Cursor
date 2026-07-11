@@ -219,7 +219,9 @@ function buildSessionDiversityRule(params: {
     parts.push(
       'Embedded questions: declarative order in embedded clauses; reject what does / where does patterns in correct answers.',
       'Challenge step 10 roleplay: interlocutor elicits the same embedded phrase as free-response anchor.',
-      'When practiceScenarioBank is present, use it as the quality template for new scenarios.'
+      'When practiceScenarioBank is present, use it as the quality template for new scenarios.',
+      'situationRu must be oblique (context), not a literal RU translation of targetAnswer (except free-response translateRu).',
+      'hint must be empty: never put grammar recipes like "Tell me + what + she + likes".'
     )
   }
   return parts.join(' ')
