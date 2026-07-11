@@ -71,11 +71,14 @@ function collectReferenceFallbackCandidates(
   referenceExerciseType: PracticeExerciseType
 ): PracticeQuestion[] {
   const profiles = lesson.repeatConfig?.variantProfiles ?? []
-  const candidateCount = REFERENCE_STEP_MAP_TYPES.has(referenceExerciseType)
-    ? 12
-    : Math.max(profiles.length, 1)
+  const referencePool = lesson.repeatConfig?.referenceScenariosByType?.[referenceExerciseType]
+  const candidateCount = referencePool?.length
+    ? Math.max(referencePool.length, 7)
+    : REFERENCE_STEP_MAP_TYPES.has(referenceExerciseType)
+      ? 12
+      : Math.max(profiles.length, 1)
 
-  if (profiles.length === 0 && !REFERENCE_STEP_MAP_TYPES.has(referenceExerciseType)) {
+  if (profiles.length === 0 && !REFERENCE_STEP_MAP_TYPES.has(referenceExerciseType) && !referencePool?.length) {
     return fallbackQuestions(lesson, mode).filter((question) => question.type === referenceExerciseType)
   }
 

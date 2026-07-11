@@ -179,9 +179,9 @@ describe('buildReferenceFallbackQuestion dropdown-fill', () => {
 
     expect(question).not.toBeNull()
     expect(question!.type).toBe('dropdown-fill')
-    expect(question!.targetAnswer).toBe('likes')
+    expect(question!.targetAnswer).toBe('that')
     expect(isGapFillStylePrompt(question!.prompt)).toBe(true)
-    expect(question!.prompt).toMatch(/I know what she ___/i)
+    expect(question!.prompt).toMatch(/I know ___ she likes tea/i)
     expect(question!.prompt).not.toMatch(/I am from/i)
     expect((question!.prompt.match(/___/g) ?? []).length).toBe(1)
   })

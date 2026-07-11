@@ -3,6 +3,7 @@ import { callProviderChat } from '@/lib/callProviderChat'
 import { buildEtalonChoicePromptForLesson, findLessonChoiceStepForPractice } from '@/lib/practice/buildChoicePrompt'
 import { buildPracticeDiversityPayload, lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
 import { buildLocalPracticeSession } from '@/lib/practice/builders/localPracticeBuilder'
+import { collectPracticeScenarioBank } from '@/lib/practice/lessonPracticeScenario'
 import { enforceStepSpecs } from '@/lib/practice/enforceStepSpecs'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { getPracticeStepsForRange } from '@/lib/practice/engine/stepSpec'
@@ -321,6 +322,16 @@ function buildUserPayload(
     mode === 'reference' && referenceExerciseType
       ? buildEtalonPromptForReferenceType(lesson, referenceExerciseType, practiceStepIndex) ?? undefined
       : undefined
+  const practiceScenarioBank =
+    lesson.id === '3'
+      ? collectPracticeScenarioBank({
+          lesson,
+          mode,
+          fromIndex: practiceStepIndex,
+          count: mode === 'reference' ? 7 : count,
+          referenceExerciseType,
+        })
+      : undefined
   return JSON.stringify(
     {
       topic: lesson.topic,
@@ -332,6 +343,7 @@ function buildUserPayload(
       allowedTypes: plan.types,
       steps,
       referenceCanonicalStep,
+      practiceScenarioBank,
       seenKeys: seenKeys.slice(-40),
       referenceExerciseType: mode === 'reference' ? referenceExerciseType : undefined,
       referenceStepIndex: mode === 'reference' ? referenceStepIndex : undefined,

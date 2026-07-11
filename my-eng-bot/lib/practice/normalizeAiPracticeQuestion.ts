@@ -5,6 +5,11 @@ import {
   findLessonChoiceStepForPractice,
 } from '@/lib/practice/buildChoicePrompt'
 import { lessonForPracticeStep } from '@/lib/practice/buildPracticeDiversity'
+import {
+  embeddedRoleplayInterlocutorOk,
+  embeddedScenarioRuEnAligned,
+  embeddedTargetHasBadInversion,
+} from '@/lib/practice/embeddedQuestionScenarioAlignment'
 import { buildVoiceShadowPrompt, sanitizeVoiceShadowPrompt, VOICE_SHADOW_FALLBACK_PROMPT } from '@/lib/practice/buildVoiceShadowPrompt'
 import {
   buildReferencePromptFromLesson,
@@ -62,6 +67,7 @@ import {
   buildRoleplayHint,
   extractRoleplayKeywords,
   inferRoleplayAxis,
+  parseInterlocutorFromPrompt,
   resolveRoleplayTargetAnswer,
 } from '@/lib/practice/prompt/roleplayPromptEngine'
 import { roleplayPromptHasContext } from '@/lib/practice/prompt/buildRoleplayPrompt'
@@ -116,6 +122,28 @@ function isPracticeExerciseType(value: unknown): value is PracticeExerciseType {
 function resolvePracticeType(value: unknown): PracticeExerciseType | null {
   if (value === 'speed-round') return 'error-fix'
   return isPracticeExerciseType(value) ? value : null
+}
+
+function isLesson3EmbeddedAiQuestionValid(params: {
+  lessonId: string
+  type: PracticeExerciseType
+  prompt: string
+  targetAnswer: string
+}): boolean {
+  if (params.lessonId !== '3') return true
+  if (embeddedTargetHasBadInversion(params.targetAnswer)) return false
+
+  const situationMatch = /(?:Ситуация|Тема)\s*:\s*([^.]*)/iu.exec(params.prompt)
+  if (situationMatch?.[1] && !embeddedScenarioRuEnAligned(situationMatch[1], params.targetAnswer)) {
+    return false
+  }
+
+  if (params.type === 'roleplay-mini') {
+    const interlocutor = parseInterlocutorFromPrompt(params.prompt)
+    if (!interlocutor || !embeddedRoleplayInterlocutorOk(interlocutor)) return false
+  }
+
+  return true
 }
 
 export function normalizeAiPracticeQuestion(
@@ -448,6 +476,7 @@ export function normalizeAiPracticeQuestion(
       lessonId: scopedLesson.id,
     })
     if (!pairOk) {
+      if (scopedLesson.id === '3') return null
       if (!source) return null
       const etalonTarget = source.exercise.correctAnswer.trim()
       if (!etalonTarget) return null
@@ -616,7 +645,7 @@ export function normalizeAiPracticeQuestion(
         ? extraWords
         : undefined
 
-  return {
+  const question: PracticeQuestion = {
     id: `ai-practice-${lesson.id}-${index}-${Math.random().toString(36).slice(2, 8)}`,
     lessonId: lesson.id,
     type,
@@ -667,4 +696,17 @@ export function normalizeAiPracticeQuestion(
     tolerance,
     requireExactTarget: type === 'roleplay-mini' && mode === 'challenge' && index === 9 ? true : undefined,
   }
+
+  if (
+    !isLesson3EmbeddedAiQuestionValid({
+      lessonId: lesson.id,
+      type,
+      prompt: question.prompt,
+      targetAnswer: question.targetAnswer,
+    })
+  ) {
+    return null
+  }
+
+  return question
 }

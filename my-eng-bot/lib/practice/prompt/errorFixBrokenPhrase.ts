@@ -1,6 +1,7 @@
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
 import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { inferScenarioCategory } from '@/lib/practice/buildPracticeDiversity'
+import { embeddedErrorFixPairIsAligned } from '@/lib/practice/embeddedQuestionScenarioAlignment'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import type { PracticePromptAxis } from '@/lib/practice/prompt/promptSourceTypes'
 import type { LessonData } from '@/types/lesson'
@@ -81,6 +82,9 @@ export function errorFixPairIsAligned(
   targetAnswer: string,
   lessonId?: string
 ): boolean {
+  if (lessonId === '3') {
+    return embeddedErrorFixPairIsAligned(situationRu, targetAnswer)
+  }
   if (lessonId && lessonId !== '1') return true
   const situationAxis = inferSituationAxis(situationRu)
   if (situationAxis === 'unknown') return true

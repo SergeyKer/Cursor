@@ -149,10 +149,11 @@ function buildReferenceDiversityRule(params: {
     )
   } else if (params.lesson.id === '3') {
     parts.push(
-      'Embedded questions lesson: inside Do you know / Tell me / I know clauses use declarative order (what she likes), never does-inversion (what does she like).',
+      'Embedded questions lesson: inside Do you know / Tell me / I know clauses use declarative order (what she likes), never auxiliary inversion (what does she like).',
       'Roleplay interlocutor must use Do you know / Can you tell me + embedded clause, never direct WH with does (Where does Anna work?).',
       'Contrast distractors: does-inversion, missing -s, wrong word order (likes he).',
-      'Rotate lead phrases: I know, I don\'t know, Tell me, Do you know across scenarios.'
+      'Rotate lead phrases: I know, I don\'t know, Tell me, Do you know across scenarios.',
+      'When practiceScenarioBank is provided, mirror its grammar pattern and field structure but vary wording; do not copy prompts verbatim.'
     )
   } else if (params.sourceSituations.length > 0) {
     parts.push('Use vocabulary and situations from sourceSituations; do not copy the default lesson hook verbatim.')
@@ -217,7 +218,8 @@ function buildSessionDiversityRule(params: {
   if (params.lesson.id === '3') {
     parts.push(
       'Embedded questions: declarative order in embedded clauses; reject what does / where does patterns in correct answers.',
-      'Challenge step 10 roleplay: interlocutor elicits the same embedded phrase as free-response anchor.'
+      'Challenge step 10 roleplay: interlocutor elicits the same embedded phrase as free-response anchor.',
+      'When practiceScenarioBank is present, use it as the quality template for new scenarios.'
     )
   }
   return parts.join(' ')

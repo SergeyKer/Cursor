@@ -223,9 +223,7 @@ export interface LessonQualityGate {
   maxAllowedHardIssues?: number
 }
 
-export interface LessonChallengeAtom {
-  /** 0-based index in challenge route (12 steps). */
-  stepIndex: number
+export interface LessonPracticeScenarioFields {
   situationRu: string
   targetAnswer: string
   acceptedAnswers?: string[]
@@ -241,12 +239,44 @@ export interface LessonChallengeAtom {
   extraWords?: string[]
 }
 
+export interface LessonPracticeScenario extends LessonPracticeScenarioFields {
+  id: string
+}
+
+export interface LessonChallengeAtom extends LessonPracticeScenarioFields {
+  /** 0-based index in challenge route (12 steps). */
+  stepIndex: number
+}
+
+/** Keys match practice exercise types used in reference mode. */
+export type LessonReferenceScenariosByType = Partial<
+  Record<
+    | 'choice'
+    | 'voice-shadow'
+    | 'dropdown-fill'
+    | 'listening-select'
+    | 'sentence-surgery'
+    | 'free-response'
+    | 'word-builder-pro'
+    | 'dictation'
+    | 'roleplay-mini'
+    | 'boss-challenge'
+    | 'error-fix'
+    | 'context-clue',
+    LessonPracticeScenario[]
+  >
+>
+
 export interface LessonRepeatConfig {
   ruleSummary: string
   grammarFocus: string[]
   sourceSituations: string[]
   stepBlueprints: LessonRepeatStepBlueprint[]
   variantProfiles?: LessonRepeatVariantProfile[]
+  /** Golden scenarios keyed by stable id (lesson 3 pilot). */
+  sessionScenarios?: Record<string, LessonPracticeScenario>
+  sessionStepMaps?: Partial<Record<'relaxed' | 'balanced', string[]>>
+  referenceScenariosByType?: LessonReferenceScenariosByType
   /** Fixed challenge atoms for a lesson (optional; lesson 3 pilot). */
   challengeAtoms?: LessonChallengeAtom[]
   antiRepeatWindow?: number

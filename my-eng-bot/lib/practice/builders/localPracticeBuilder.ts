@@ -58,9 +58,8 @@ import {
 } from '@/lib/practice/resolvePracticeLessonStep'
 import { resolvePracticeSentencePuzzleSlice } from '@/lib/practice/resolvePracticeSentencePuzzleSlice'
 import {
-  applyLessonChallengeAtom,
-  getLessonChallengeAtom,
-} from '@/lib/practice/lessonChallengeAtom'
+  applyLessonPracticeScenarioIfConfigured,
+} from '@/lib/practice/lessonPracticeScenario'
 import { tokensFromTargetAnswer } from '@/lib/practice/rebuildPracticeWordTokensFromAnswer'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
 import type {
@@ -547,10 +546,13 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
       priorQuestions: index === 9 && mode === 'challenge' ? questions : undefined,
     })
 
-    const challengeAtom = getLessonChallengeAtom(lesson, index)
-    if (challengeAtom && mode === 'challenge') {
-      question = applyLessonChallengeAtom(question, challengeAtom, lesson)
-    }
+    question = applyLessonPracticeScenarioIfConfigured({
+      question,
+      lesson,
+      mode,
+      stepIndex: index,
+      exerciseType: finalType,
+    })
 
     questions.push(question)
   }
@@ -612,7 +614,7 @@ export function buildSinglePracticeQuestion(params: {
   })
   if (!resolved) return null
   const stepSpec = usesPracticeStepSpec(mode) ? getPracticeStepSpec(mode, index) ?? undefined : undefined
-  return createQuestion({
+  let question = createQuestion({
     lesson,
     step: resolved.step,
     exercise: resolved.exercise,
@@ -622,6 +624,15 @@ export function buildSinglePracticeQuestion(params: {
     variantIndex: resolved.variantIndex,
     stepSpec: stepSpec?.type === params.type ? stepSpec : undefined,
     resolvedStep: resolved,
+  })
+
+  return applyLessonPracticeScenarioIfConfigured({
+    question,
+    lesson: params.lesson,
+    mode,
+    stepIndex: index,
+    exerciseType: params.type,
+    referenceExerciseType: params.referenceExerciseType ?? (mode === 'reference' ? params.type : undefined),
   })
 }
 
