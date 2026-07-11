@@ -7638,7 +7638,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   'calc(var(--app-footer-chrome-height) + clamp(1rem, 2.5vh, 1.75rem))',
               }}
             >
-            {homeMenuView === 'root' && (
+            {homeMenuView === 'root' && featureFlags.homeMascotVisible ? (
               <div className="flex w-full shrink-0 justify-center">
                 <div className="w-1/4 max-w-[5.8125rem] shrink-0">
                   <AppIconFrame
@@ -7650,7 +7650,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   />
                 </div>
               </div>
-            )}
+            ) : null}
             {homeMenuView === 'root' && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
                 <HomeWelcomeBubble text={buildCompactGreeting()} />

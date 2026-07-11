@@ -9,5 +9,7 @@ export const featureFlags = {
   communicationMixVoiceInputV1: process.env.NEXT_PUBLIC_FEATURE_COMMUNICATION_MIX_VOICE_INPUT_V1 !== 'false',
   lessonLocalSilverCapV1: process.env.NEXT_PUBLIC_FEATURE_LESSON_LOCAL_SILVER_CAP_V1 !== 'false',
   languageNoteV1: process.env.NEXT_PUBLIC_FEATURE_LANGUAGE_NOTE_V1 !== 'false',
+  /** Маскот на корневом экране дома (приветствие). По умолчанию скрыт. */
+  homeMascotVisible: process.env.NEXT_PUBLIC_FEATURE_HOME_MASCOT_VISIBLE === 'true',
 } as const
 

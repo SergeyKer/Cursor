@@ -2,6 +2,7 @@
 
 import { AppIconFrame } from '@/components/AppIconFrame'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import { featureFlags } from '@/lib/featureFlags'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
 import {
   PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS,
@@ -38,11 +39,13 @@ export default function StartShell({ bridge, onBridgeChange }: StartShellProps) 
           paddingBottom: 'calc(var(--app-footer-chrome-height) + clamp(1rem, 2.5vh, 1.75rem))',
         }}
       >
-        <div className="flex w-full shrink-0 justify-center">
-          <div className="w-1/4 max-w-[5.8125rem] shrink-0">
-            <AppIconFrame variant="home" src="/engvo-mascot.png" alt="Engvo AI" className="w-full" priority />
+        {featureFlags.homeMascotVisible ? (
+          <div className="flex w-full shrink-0 justify-center">
+            <div className="w-1/4 max-w-[5.8125rem] shrink-0">
+              <AppIconFrame variant="home" src="/engvo-mascot.png" alt="Engvo AI" className="w-full" priority />
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
           <HomeWelcomeBubble text={buildCompactGreeting()} />

@@ -1,0 +1,6 @@
+[
+  [
+    "            {homeMenuView === 'root' && (\n              <div className=\"flex w-full shrink-0 justify-center\">\n                <div className=\"w-1/4 max-w-[5.8125rem] shrink-0\">\n                  <AppIconFrame\n                    variant=\"home\"\n                    src=\"/engvo-mascot.png\"\n                    alt=\"Engvo AI\"\n                    className=\"w-full\"\n                    priority\n                  />\n                </div>\n              </div>\n            )}",
+    "            {homeMenuView === 'root' && featureFlags.homeMascotVisible ? (\n              <div className=\"flex w-full shrink-0 justify-center\">\n                <div className=\"w-1/4 max-w-[5.8125rem] shrink-0\">\n                  <AppIconFrame\n                    variant=\"home\"\n                    src=\"/engvo-mascot.png\"\n                    alt=\"Engvo AI\"\n                    className=\"w-full\"\n                    priority\n                  />\n                </div>\n              </div>\n            ) : null}"
+  ]
+]
