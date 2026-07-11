@@ -78,7 +78,7 @@ export function resolveBossPatternAnchors(params: {
   if (family === 'state') return ["it's"]
   if (family === 'who') return ['who']
   if (family === 'i-am') return ['i am']
-  if (family === 'embedded') return ['know']
+  if (family === 'embedded') return ['know', 'but']
   return []
 }
 
@@ -115,7 +115,13 @@ function validateSeedLessonPattern(userInput: string, targetAnswer: string, less
     if (/\bwhat\s+does\b/i.test(input) || /\bwhere\s+does\b/i.test(input) || /\bwhen\s+does\b/i.test(input)) {
       return false
     }
-    return /\b(i know|tell me|do you know)\b/i.test(input)
+    const hasLead = /\b(i know|tell me|do you know)\b/i.test(input)
+    const hasWh = /\b(what|where|when|who)\b/i.test(input)
+    const hasBut = /\bbut\b/i.test(input)
+    if (/\bbut\b/i.test(targetAnswer.toLowerCase())) {
+      return hasLead && hasWh && hasBut
+    }
+    return hasLead && hasWh
   }
 
   return null

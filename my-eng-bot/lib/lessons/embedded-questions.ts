@@ -1,4 +1,5 @@
 import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
+import { EMBEDDED_QUESTIONS_CHALLENGE_ATOMS } from '@/lib/lessons/embeddedQuestionsChallengeAtoms'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
 import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
@@ -558,12 +559,12 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
       exerciseType: 'sentence_puzzle',
       answerFormat: 'full_sentence',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.step6CorrectAnswer,
+      sourceCorrectAnswer: variant.step5CorrectAnswer,
       sourcePattern: 'word order puzzle for embedded questions',
-      semanticAnchors: [variant.step6CorrectAnswer.toLowerCase()],
+      semanticAnchors: [variant.step5CorrectAnswer.toLowerCase()],
       semanticExpectations: {
         pedagogicalRole: 'apply_in_new_situation',
-        mustInclude: [extractWhWord(variant.step6CorrectAnswer)],
+        mustInclude: [extractWhWord(variant.step5CorrectAnswer)],
         shouldInclude: ['пазл', 'порядок слов'],
         mustAvoid: ['if', 'whether', 'present continuous'],
         hintShouldMention: ['when', 'where', 'what', 'порядок'],
@@ -1166,6 +1167,7 @@ export const embeddedQuestionsLesson: LessonData = {
       'question word subject verb',
     ],
     sourceSituations: Array.from(new Set(embeddedQuestionVariants.flatMap((variant) => variant.sourceSituations))),
+    challengeAtoms: [...EMBEDDED_QUESTIONS_CHALLENGE_ATOMS],
     stepBlueprints: buildEmbeddedQuestionBlueprints(baseVariant),
     variantProfiles: embeddedQuestionVariants.map((variant) => buildEmbeddedQuestionVariantProfile(variant)),
     antiRepeatWindow: 3,

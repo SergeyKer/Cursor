@@ -154,7 +154,12 @@ export function inferRoleplayAxis(
     return 'state'
   }
   if (lessonId === '3') {
-    return variantIndex === 2 ? 'creative' : variantIndex === 1 ? 'action' : 'state'
+    const lower = normalized
+    if (/\bwho\b/.test(lower)) return 'creative'
+    if (/\bwhere\b/.test(lower)) return 'action'
+    if (/\bwhen\b/.test(lower)) return 'creative'
+    if (/\bbut\b/.test(lower)) return 'creative'
+    return 'state'
   }
   if (lessonId === '4') {
     if (/\bfrom\b/.test(normalized)) return 'action'
@@ -415,6 +420,46 @@ function lesson2InterlocutorEn(targetAnswer: string, axis: PracticePromptAxis): 
   return LESSON_INTERLOCUTOR_EN['2']![axis]
 }
 
+function lesson3EmbeddedInterlocutorEn(targetAnswer: string): string {
+  const trimmed = targetAnswer.trim().replace(/[.!?…]+$/u, '')
+  const lower = trimmed.toLowerCase()
+
+  if (/^i don't know\b/i.test(trimmed)) {
+    return `Do you know${trimmed.slice("I don't know".length)}?`
+  }
+  if (/^i do not know\b/i.test(trimmed)) {
+    return `Do you know${trimmed.slice('I do not know'.length)}?`
+  }
+  if (/^i know\b/i.test(trimmed)) {
+    return `Do you know${trimmed.slice('I know'.length)}?`
+  }
+  if (/^tell me\b/i.test(trimmed)) {
+    return `Can you tell me${trimmed.slice('Tell me'.length)}?`
+  }
+  if (/^do you know\b/i.test(trimmed)) {
+    return `${trimmed}?`
+  }
+
+  if (/\bwhere\b/.test(lower)) return 'Do you know where he lives?'
+  if (/\bwho\b/.test(lower)) return 'Do you know who he is?'
+  if (/\bwhen\b/.test(lower)) return 'Do you know when the lesson starts?'
+  return 'Do you know what she likes?'
+}
+
+function isDirectWhInversionQuestion(candidate: string): boolean {
+  return /^(?:what|where|when|who|how)\s+does\b/i.test(candidate.trim())
+}
+
+function isEmbeddedInterlocutorLead(candidate: string): boolean {
+  const lower = candidate.trim().toLowerCase()
+  return (
+    lower.startsWith('do you know') ||
+    lower.startsWith('can you tell me') ||
+    lower.startsWith('tell me') ||
+    lower.startsWith('can you say')
+  )
+}
+
 type Lesson1SceneKey = 'dark' | 'cold' | 'hot' | 'time'
 
 const LESSON1_WH_BY_SCENE: Record<Lesson1SceneKey, string> = {
@@ -456,8 +501,14 @@ export function collectWhQuestionCandidates(params: {
     return [lesson2InterlocutorEn(params.targetAnswer, params.axis)]
   }
 
-  if (lessonId === '3' || lessonId === '4') {
-    const table = LESSON_INTERLOCUTOR_EN[lessonId]!
+  if (lessonId === '3') {
+    const embedded = lesson3EmbeddedInterlocutorEn(params.targetAnswer)
+    const table = LESSON_INTERLOCUTOR_EN['3']!
+    return [embedded, table[params.axis]]
+  }
+
+  if (lessonId === '4') {
+    const table = LESSON_INTERLOCUTOR_EN['4']!
     return [table[params.axis]]
   }
 
@@ -480,6 +531,11 @@ export function isInterlocutorQuestionAdequate(params: {
 }): boolean {
   const candidateLower = params.candidate.trim().toLowerCase()
   if (!candidateLower.includes('?')) return false
+
+  if (params.lessonId === '3') {
+    if (isDirectWhInversionQuestion(params.candidate)) return false
+    return isEmbeddedInterlocutorLead(params.candidate)
+  }
 
   if (params.lessonId !== '1') return true
 

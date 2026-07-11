@@ -43,7 +43,7 @@ function patternChecksForAnswer(targetAnswer: string, lesson: LessonData): RegEx
     return [/\b[a-z]+\b/i, /\b(?:likes?|drinks?|reads?|plays?)\b/i]
   }
   if (lessonId === '3') {
-    return [/\b(tell|know|say|do)\b/i, /\b(what|where|when|how)\b/i]
+    return [/\b(tell|know|say|do)\b/i, /\b(what|where|when|who|how)\b/i]
   }
   if (lessonId === '4') {
     return [/\b(i'?m|i am)\b/i]

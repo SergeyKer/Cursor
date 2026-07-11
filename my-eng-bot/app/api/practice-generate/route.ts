@@ -169,11 +169,22 @@ function normalizeQuestions(
   return questions.slice(0, clampedCount)
 }
 
-function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string {
+const EMBEDDED_LESSON_3_SYSTEM_RULES = [
+  'Lesson 3 embedded questions: embedded clauses use question word + subject + verb (what she likes), never auxiliary inversion (what does she like).',
+  'Roleplay interlocutor for lesson 3: Do you know / Can you tell me + embedded clause; never direct WH with does.',
+  'Boss answers for lesson 3 may require two clauses joined with but when suggestedScenario mentions Anna and Alex.',
+] as const
+
+function buildSystemPrompt(params?: {
+  lessonId?: string
+  referenceExerciseType?: PracticeExerciseType
+}): string {
+  const referenceExerciseType = params?.referenceExerciseType
   const typeRules =
     referenceExerciseType && isReferenceStepMapType(referenceExerciseType)
       ? collectReferencePromptBuilderSystemRules(referenceExerciseType)
       : []
+  const lessonRules = params?.lessonId === '3' ? EMBEDDED_LESSON_3_SYSTEM_RULES : []
 
   return [
     'You generate short English practice exercises for a learner app.',
@@ -208,6 +219,7 @@ function buildSystemPrompt(referenceExerciseType?: PracticeExerciseType): string
     'If suggestedScenario is provided, use it as the situational anchor unless recentPrompts forbid it.',
     'When referenceCanonicalStep options are provided, mirror option structure and grammar pattern but adapt sentences to the new scenario.',
     'If steps array is provided, each question at steps[N].stepIndex must use exactly steps[N].type and steps[N].distractorTier when set.',
+    ...lessonRules,
     ...typeRules,
     'Do not include markdown.',
   ].join('\n')
@@ -478,7 +490,7 @@ export async function POST(req: NextRequest) {
         provider,
         req,
         apiMessages: [
-          { role: 'system', content: buildSystemPrompt(referenceExerciseType) },
+          { role: 'system', content: buildSystemPrompt({ lessonId: lesson.id, referenceExerciseType }) },
           {
             role: 'user',
             content: buildUserPayload(

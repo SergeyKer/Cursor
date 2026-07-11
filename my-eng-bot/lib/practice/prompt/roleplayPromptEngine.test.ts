@@ -105,6 +105,18 @@ describe('roleplayPromptEngine', () => {
     }
   })
 
+  it('lesson 3 interlocutor uses embedded lead, not direct WH inversion', () => {
+    const interlocutor = resolveInterlocutorQuestionEn({
+      lesson: getStructuredLessonById('3')!,
+      axis: 'state',
+      targetAnswer: "I don't know who he is.",
+      roleIntroRu: 'Разговор о человеке.',
+    })
+    expect(interlocutor).toMatch(/Do you know who he is/i)
+    expect(interlocutor).not.toMatch(/Where does/i)
+    expect(interlocutor).not.toMatch(/What does/i)
+  })
+
   it('resolves lesson 4 creative scenario', () => {
     const lesson = getStructuredLessonById('4')!
     const source = findLessonRoleplaySourceForPractice(lesson, 4)

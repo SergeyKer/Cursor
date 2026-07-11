@@ -57,6 +57,10 @@ import {
   type ResolvedPracticeLessonStep,
 } from '@/lib/practice/resolvePracticeLessonStep'
 import { resolvePracticeSentencePuzzleSlice } from '@/lib/practice/resolvePracticeSentencePuzzleSlice'
+import {
+  applyLessonChallengeAtom,
+  getLessonChallengeAtom,
+} from '@/lib/practice/lessonChallengeAtom'
 import { tokensFromTargetAnswer } from '@/lib/practice/rebuildPracticeWordTokensFromAnswer'
 import type { Exercise, LessonData, LessonStep } from '@/types/lesson'
 import type {
@@ -530,20 +534,25 @@ function buildQuestions(lesson: LessonData, mode: PracticeBuildConfig['mode']): 
 
     if (!resolved) continue
 
-    questions.push(
-      createQuestion({
-        lesson: fallbackResolved.scopedLesson,
-        step: resolved.step,
-        exercise: resolved.exercise,
-        type: finalType,
-        index,
-        mode,
-        variantIndex: resolved.variantIndex ?? fallbackResolved.variantIndex,
-        stepSpec,
-        resolvedStep: resolved,
-        priorQuestions: index === 9 && mode === 'challenge' ? questions : undefined,
-      })
-    )
+    let question = createQuestion({
+      lesson: fallbackResolved.scopedLesson,
+      step: resolved.step,
+      exercise: resolved.exercise,
+      type: finalType,
+      index,
+      mode,
+      variantIndex: resolved.variantIndex ?? fallbackResolved.variantIndex,
+      stepSpec,
+      resolvedStep: resolved,
+      priorQuestions: index === 9 && mode === 'challenge' ? questions : undefined,
+    })
+
+    const challengeAtom = getLessonChallengeAtom(lesson, index)
+    if (challengeAtom && mode === 'challenge') {
+      question = applyLessonChallengeAtom(question, challengeAtom, lesson)
+    }
+
+    questions.push(question)
   }
 
   return questions

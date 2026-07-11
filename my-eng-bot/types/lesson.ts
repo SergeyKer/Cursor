@@ -223,12 +223,32 @@ export interface LessonQualityGate {
   maxAllowedHardIssues?: number
 }
 
+export interface LessonChallengeAtom {
+  /** 0-based index in challenge route (12 steps). */
+  stepIndex: number
+  situationRu: string
+  targetAnswer: string
+  acceptedAnswers?: string[]
+  options?: string[]
+  hint?: string
+  brokenPhrase?: string
+  interlocutorEn?: string
+  roleIntroRu?: string
+  keywords?: string[]
+  minWords?: number
+  /** English gap frame for dropdown-fill, e.g. I know ___ she likes tea. */
+  dropdownFrameEn?: string
+  extraWords?: string[]
+}
+
 export interface LessonRepeatConfig {
   ruleSummary: string
   grammarFocus: string[]
   sourceSituations: string[]
   stepBlueprints: LessonRepeatStepBlueprint[]
   variantProfiles?: LessonRepeatVariantProfile[]
+  /** Fixed challenge atoms for a lesson (optional; lesson 3 pilot). */
+  challengeAtoms?: LessonChallengeAtom[]
   antiRepeatWindow?: number
   bannedTerms?: string[]
   qualityGate?: LessonQualityGate
