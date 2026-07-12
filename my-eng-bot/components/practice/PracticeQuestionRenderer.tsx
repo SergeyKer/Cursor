@@ -30,6 +30,7 @@ import {
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 import { needsVoiceComposerWebMetrics } from '@/lib/sttClient'
+import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useMicInviteAnimation } from '@/lib/voice/useMicInviteAnimation'
 import {
@@ -174,6 +175,7 @@ export default function PracticeQuestionRenderer({
   const {
     startRecording: startChoiceVoiceRecording,
     updateTranscript: updateChoiceVoiceTranscript,
+    beginFinalizing: beginChoiceVoiceFinalizing,
     commitVoiceText: commitChoiceVoiceText,
     finishVoiceSession: finishChoiceVoiceSession,
     resetComposer: resetChoiceVoiceComposer,
@@ -182,6 +184,7 @@ export default function PracticeQuestionRenderer({
     displayText: choiceVoiceDisplayText,
     livePreviewText: choiceVoiceLivePreviewText,
     draftBeforeVoiceText: choiceVoiceDraftBefore,
+    voicePhase: choiceVoicePhase,
   } = choiceVoice
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const [selectedOption, setSelectedOption] = useState('')
@@ -194,6 +197,11 @@ export default function PracticeQuestionRenderer({
   }, [question.options, question.targetAnswer, question.type])
   const audioDeckRef = useRef<PracticeAudioDeckHandle | null>(null)
   const isVoiceRepeatPrimaryRef = useRef(false)
+  const voiceSessionGenerationRef = useRef(0)
+  const voicePhaseRef = useRef(choiceVoicePhase)
+  const skipRecognitionCommitRef = useRef(false)
+  const finalizePromiseRef = useRef<Promise<string | null> | null>(null)
+  voicePhaseRef.current = choiceVoicePhase
   const practiceAudioText = question.audioText ?? question.targetAnswer
   const isChoiceVoiceCorrectionComposer = showVoiceCorrectionComposer(
     choiceCorrectionPhase,
@@ -384,7 +392,46 @@ export default function PracticeQuestionRenderer({
     latestInterimTextRef.current = ''
   }, [])
 
+  const bumpVoiceSessionGeneration = useCallback(() => {
+    voiceSessionGenerationRef.current += 1
+  }, [])
+
+  const commitFinalizedPracticeVoice = useCallback(
+    async (rawText: string): Promise<string | null> => {
+      const trimmed = rawText.trim()
+      if (!trimmed) {
+        finishChoiceVoiceSession()
+        return null
+      }
+      const generation = voiceSessionGenerationRef.current
+      beginChoiceVoiceFinalizing('Распознаю речь...')
+      const finalizePromise = (async () => {
+        const corrected = await finalizeVoiceTranscript(trimmed)
+        if (generation !== voiceSessionGenerationRef.current) return null
+        if (!corrected) {
+          finishChoiceVoiceSession()
+          return null
+        }
+        commitChoiceVoiceText(corrected)
+        setDraft(corrected)
+        if (isVoiceRepeatPrimaryRef.current) setTextFallbackUnlocked(true)
+        return corrected
+      })()
+      finalizePromiseRef.current = finalizePromise
+      try {
+        return await finalizePromise
+      } finally {
+        if (finalizePromiseRef.current === finalizePromise) {
+          finalizePromiseRef.current = null
+        }
+      }
+    },
+    [beginChoiceVoiceFinalizing, commitChoiceVoiceText, finishChoiceVoiceSession]
+  )
+
   const hardResetSpeechRecognition = useCallback(() => {
+    bumpVoiceSessionGeneration()
+    skipRecognitionCommitRef.current = false
     clearRecognitionSilenceTimeout()
     recognitionIsStoppingRef.current = false
     resetRecognitionDraftBuffers()
@@ -392,6 +439,7 @@ export default function PracticeQuestionRenderer({
     recognitionRef.current = null
     if (!recognition) {
       setVoiceListening(false)
+      finishChoiceVoiceSession()
       return
     }
     recognition.onstart = null
@@ -405,9 +453,15 @@ export default function PracticeQuestionRenderer({
     }
     setVoiceListening(false)
     finishChoiceVoiceSession()
-  }, [clearRecognitionSilenceTimeout, finishChoiceVoiceSession, resetRecognitionDraftBuffers])
+  }, [
+    bumpVoiceSessionGeneration,
+    clearRecognitionSilenceTimeout,
+    finishChoiceVoiceSession,
+    resetRecognitionDraftBuffers,
+  ])
 
   const stopSpeechRecognition = useCallback(() => {
+    if (voicePhaseRef.current === 'finalizing') return
     clearRecognitionSilenceTimeout()
     const recognition = recognitionRef.current
     if (!recognition || recognitionIsStoppingRef.current) return
@@ -425,6 +479,7 @@ export default function PracticeQuestionRenderer({
 
   const startSpeechRecognition = useCallback(() => {
     if (typeof window === 'undefined' || disabled) return
+    if (voicePhaseRef.current === 'finalizing') return
     const SpeechRecognitionAPI =
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
@@ -433,6 +488,7 @@ export default function PracticeQuestionRenderer({
     hardResetSpeechRecognition()
     recognitionIsStoppingRef.current = false
     resetRecognitionDraftBuffers()
+    skipRecognitionCommitRef.current = false
     startChoiceVoiceRecording()
 
     const recognition = new SpeechRecognitionAPI()
@@ -440,6 +496,29 @@ export default function PracticeQuestionRenderer({
     recognition.continuous = true
     recognition.interimResults = true
     ;(recognition as SpeechRecognition & { maxAlternatives?: number }).maxAlternatives = 1
+    let recognitionCompleteHandled = false
+    const finishRecognitionSession = () => {
+      if (recognitionCompleteHandled) return
+      recognitionCompleteHandled = true
+      const shouldSkipCommit = skipRecognitionCommitRef.current
+      skipRecognitionCommitRef.current = false
+      const resolvedFinalText = chooseFinalSpeechText(
+        latestFinalTextRef.current,
+        latestInterimTextRef.current
+      )
+      if (!shouldSkipCommit) {
+        if (resolvedFinalText) {
+          void commitFinalizedPracticeVoice(resolvedFinalText)
+        } else {
+          finishChoiceVoiceSession()
+        }
+      }
+      resetRecognitionDraftBuffers()
+      if (recognitionRef.current === recognition) {
+        recognitionRef.current = null
+      }
+      setVoiceListening(false)
+    }
     recognition.onstart = () => {
       setVoiceListening(true)
     }
@@ -463,36 +542,12 @@ export default function PracticeQuestionRenderer({
       if (mappedCapability) {
         setVoiceCapability(mappedCapability)
       }
-      const resolvedFinalText = chooseFinalSpeechText(latestFinalTextRef.current, latestInterimTextRef.current)
-      if (resolvedFinalText) {
-        commitChoiceVoiceText(resolvedFinalText)
-        setDraft(resolvedFinalText)
-        if (isVoiceRepeatPrimaryRef.current) setTextFallbackUnlocked(true)
-      } else {
-        finishChoiceVoiceSession()
-      }
-      resetRecognitionDraftBuffers()
-      if (recognitionRef.current === recognition) {
-        recognitionRef.current = null
-      }
-      setVoiceListening(false)
+      finishRecognitionSession()
     }
     recognition.onend = () => {
       clearRecognitionSilenceTimeout()
       recognitionIsStoppingRef.current = false
-      const resolvedFinalText = chooseFinalSpeechText(latestFinalTextRef.current, latestInterimTextRef.current)
-      if (resolvedFinalText) {
-        commitChoiceVoiceText(resolvedFinalText)
-        setDraft(resolvedFinalText)
-        if (isVoiceRepeatPrimaryRef.current) setTextFallbackUnlocked(true)
-      } else {
-        finishChoiceVoiceSession()
-      }
-      resetRecognitionDraftBuffers()
-      if (recognitionRef.current === recognition) {
-        recognitionRef.current = null
-      }
-      setVoiceListening(false)
+      finishRecognitionSession()
     }
     recognitionRef.current = recognition
     try {
@@ -507,8 +562,8 @@ export default function PracticeQuestionRenderer({
   }, [
     BROWSER_SILENCE_MS,
     clearRecognitionSilenceTimeout,
+    commitFinalizedPracticeVoice,
     disabled,
-    commitChoiceVoiceText,
     finishChoiceVoiceSession,
     hardResetSpeechRecognition,
     resetRecognitionDraftBuffers,
@@ -561,22 +616,44 @@ export default function PracticeQuestionRenderer({
   ])
 
   const submitText = () => {
-    const answer = (isVoiceFirstComposer ? choiceComposerText : draft).trim()
-    if (!answer || disabled) return
+    void (async () => {
+      if (disabled) return
 
-    if (voiceListening) {
-      stopSpeechRecognition()
-    } else {
-      clearRecognitionSilenceTimeout()
-    }
-    setChoiceTapHintVisible(false)
-    setFieldTapEngaged(false)
-    setDraft(answer)
-    if (isVoiceFirstComposer) {
-      commitChoiceVoiceText(answer)
-    }
+      setChoiceTapHintVisible(false)
+      setFieldTapEngaged(false)
 
-    onSubmit(answer)
+      if (voiceListening) {
+        const pendingText = chooseFinalSpeechText(
+          latestFinalTextRef.current,
+          latestInterimTextRef.current
+        ).trim()
+        skipRecognitionCommitRef.current = true
+        stopSpeechRecognition()
+        if (!pendingText) {
+          finishChoiceVoiceSession()
+          return
+        }
+        const corrected = await commitFinalizedPracticeVoice(pendingText)
+        if (!corrected) return
+        onSubmit(corrected)
+        return
+      }
+
+      if (finalizePromiseRef.current) {
+        const corrected = await finalizePromiseRef.current
+        if (!corrected) return
+        onSubmit(corrected)
+        return
+      }
+
+      const answer = (isVoiceFirstComposer ? choiceComposerText : draft).trim()
+      if (!answer) return
+      setDraft(answer)
+      if (isVoiceFirstComposer) {
+        commitChoiceVoiceText(answer)
+      }
+      onSubmit(answer)
+    })()
   }
 
   const adjustTextareaHeight = useCallback((textarea: HTMLTextAreaElement | null, maxHeightPx: number) => {
@@ -596,7 +673,10 @@ export default function PracticeQuestionRenderer({
 
   const recognitionSupported = !isVoiceCapabilityBlocked(voiceCapability)
   const micButtonDisabled = disabled || !recognitionSupported
-  const choiceVoiceStatus = choiceCorrectionVoiceStatusMessage({ voiceListening: choiceVoiceActive })
+  const choiceVoiceStatus = choiceCorrectionVoiceStatusMessage({
+    voiceListening: choiceVoiceActive,
+    voicePhase: choiceVoicePhase,
+  })
 
   useEffect(() => {
     if (isVoiceFirstComposer) return
@@ -609,12 +689,19 @@ export default function PracticeQuestionRenderer({
     resetMicAnimation()
     setChoiceTapHintVisible(false)
     setFieldTapEngaged(false)
+    if (choiceVoicePhase === 'finalizing') return
     if (voiceListening) {
       stopSpeechRecognition()
       return
     }
     startSpeechRecognition()
-  }, [resetMicAnimation, startSpeechRecognition, stopSpeechRecognition, voiceListening])
+  }, [
+    choiceVoicePhase,
+    resetMicAnimation,
+    startSpeechRecognition,
+    stopSpeechRecognition,
+    voiceListening,
+  ])
 
   const showChoiceCorrectionTapHint = useCallback(() => {
     if (!isVoiceFirstComposer || !choiceVoiceFrozenDisplay || isTextEditUnlocked) return

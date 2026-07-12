@@ -228,12 +228,12 @@ describe('getPracticeFooterView correction and feedback', () => {
     expectFitsFooter(dynamicText)
   })
 
-  it('keeps success feedback copy when answer was correct', () => {
+  it('uses first-try reaction when answer was correct', () => {
     const { dynamicText } = getPracticeFooterView(baseSession(), 'feedback', {
       audience: 'child',
       isWrongLimitAdvance: false,
     })
-    expect(dynamicText).toBe('Ответ принят. Можно идти дальше.')
+    expect(dynamicText).toBe('С первого раза. Отлично!')
   })
 
   it('uses supportive copy after wrong-limit advance', () => {

@@ -11,6 +11,13 @@ import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { estimateLessonComposerMinHeight } from '@/lib/lessonComposerLayout'
 import { buildPracticeBriefingBubbles } from '@/lib/practice/practiceInstructionCopy'
+import { getPracticeEconomyDayKey } from '@/lib/practice/practiceEconomyRules'
+import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
+import {
+  getPracticeGlobalXpToday,
+  getPracticeTopicProgress,
+} from '@/lib/practice/practiceTopicProgressStorage'
+import { loadLessonProgress } from '@/lib/lessonProgressStorage'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { Audience } from '@/lib/types'
 import type { PracticeSession } from '@/types/practice'
@@ -38,10 +45,24 @@ export default function PracticeBriefingScreen({
     prefersReducedMotion,
   })
   const briefingBubbles = buildPracticeBriefingBubbles(session, audience)
+  const progress = getPracticeTopicProgress(session.lessonId)
+  const thesis = {
+    mode: session.mode,
+    tier: resolvePracticeEconomyTier(loadLessonProgress(session.lessonId)?.medal ?? null),
+    ringCount: progress.ringCount,
+    lastQualifyingDayKey: progress.lastQualifyingDayKey,
+    todayKey: getPracticeEconomyDayKey(),
+    baseBadgeClaimed: Boolean(progress.baseBadgeClaimedAt),
+    pendingPracticeCoins: progress.pendingPracticeCoins ?? 0,
+    pendingCup: Boolean(progress.pendingCup),
+    practiceGlobalXpToday: getPracticeGlobalXpToday(),
+    audience,
+    forgivenessEnabled: true,
+  } as const
   const composerMinHeight = estimateLessonComposerMinHeight({
     panelKind: 'briefing',
-    compact: false,
-    briefingDualCta: false,
+    compact: true,
+    briefingPractice: true,
   })
 
   useEffect(() => {
@@ -86,6 +107,7 @@ export default function PracticeBriefingScreen({
               <PracticeInstructionFlowInfoStep
                 session={session}
                 audience={audience}
+                thesis={thesis}
                 onContinue={onContinue}
                 enterClassName={cardEnterClassName}
                 actionsReady={actionsReady}

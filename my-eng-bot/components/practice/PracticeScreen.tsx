@@ -7,7 +7,7 @@ import LessonStepBubble from '@/components/lesson/LessonStepBubble'
 import PracticeBriefingScreen from '@/components/practice/PracticeBriefingScreen'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
-import { APP_BTN_SECONDARY_LARGE } from '@/lib/homeCtaStyles'
+import { APP_BTN_PRIMARY_LARGE, APP_BTN_SECONDARY_LARGE } from '@/lib/homeCtaStyles'
 import { buildPracticeFeedMessages } from '@/lib/practice/buildPracticeFeedMessages'
 import {
   isPracticeAnswerPanelLocked,
@@ -94,6 +94,12 @@ import {
 import { parseInterlocutorFromPrompt } from '@/lib/practice/prompt/roleplayPromptEngine'
 import { resolveEffectivePracticeTtsSpeedIndex } from '@/lib/practice/practiceTtsPreferences'
 import { speak, stopSpeaking } from '@/lib/speech'
+import { resolvePracticeForgivenessBubbleMode } from '@/lib/practice/practiceCoinForgiveness'
+import { getPracticeCoinForgivenessCopy } from '@/lib/practice/practiceCoinForgivenessCopy'
+import {
+  PRACTICE_FINALE_COMPOSER_RESERVE_PX,
+} from '@/lib/practice/practiceFinaleLayout'
+import type { PracticeGlobalXpReason } from '@/lib/practice/practiceGlobalXpAward'
 
 type PhraseTranslationResult = { translation?: string; error?: string }
 
@@ -110,19 +116,49 @@ interface PracticeScreenProps {
   completionMeta?: {
     tier: 0 | 1 | 2
     globalAmount: number
+    globalReason: PracticeGlobalXpReason | 'legacy_flat_30'
     ringCount: number
+    ringIncremented: boolean
+    canEarnRingToday?: boolean
+    coinsAwarded: number
+    cupAwarded: number
+    pendingPracticeCoins: number
+    pendingCup: boolean
+    baseBadgeAwarded: boolean
+    baseBadgeClaimed: boolean
+    masteryScore: number
+    effectiveMasteryScore: number
+    correctedCount: number
+    plannedLength: number
+    forgivenessUsed: boolean
     gemsPending: boolean
     cupClaimed: boolean
   } | null
+  hasTips?: boolean
+  otherTopicAvailable?: boolean
   onSubmitAnswer: (answer: string) => void
   onRepeat: () => void
   onStartMode: (mode: PracticeMode) => void
   onOpenLesson: () => void
   onBackToPracticeMenu: () => void
+  onOpenTips?: () => void
+  onOtherTopic?: () => void
+  onOpenAiChat?: () => void
   onRetryAfterError?: () => void
   onAcknowledgeInstruction: () => void
   generationBusy?: boolean
   onChoiceCorrectionPhaseChange?: (phase: PracticeChoiceCorrectionPhase) => void
+  forgivenessContext?: {
+    tier: 0 | 1 | 2
+    ringCount: number
+    lastQualifyingDayKey?: string | null
+    todayKey: string
+    coinBalance: number
+  }
+  onRequestCoinForgiveness?: () => boolean
+  onConfirmCoinForgiveness?: () => boolean
+  onCancelCoinForgiveness?: () => void
+  onContinueCoinForgiveness?: () => void
   onRequestPhraseTranslation?: (
     text: string,
     signal: AbortSignal
@@ -185,15 +221,25 @@ export default function PracticeScreen({
   currentQuestion,
   canSubmit,
   completionMeta = null,
+  hasTips = false,
+  otherTopicAvailable = false,
   onSubmitAnswer,
   onRepeat,
   onStartMode,
   onOpenLesson,
   onBackToPracticeMenu,
+  onOpenTips,
+  onOtherTopic,
+  onOpenAiChat,
   onRetryAfterError,
   onAcknowledgeInstruction,
   generationBusy = false,
   onChoiceCorrectionPhaseChange,
+  forgivenessContext,
+  onRequestCoinForgiveness,
+  onConfirmCoinForgiveness,
+  onCancelCoinForgiveness,
+  onContinueCoinForgiveness,
   onRequestPhraseTranslation,
 }: PracticeScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
@@ -729,7 +775,7 @@ export default function PracticeScreen({
   }, [
     isChoiceVoiceCorrectionFlow,
     currentQuestion?.id,
-    currentQuestion?.type,
+    questionType,
     session.answers,
     state,
     resolvedFeedbackType,
@@ -909,12 +955,14 @@ export default function PracticeScreen({
   })
 
   const composerMinHeight =
-    lockedComposerMinHeight ??
-    (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
-      ? choiceComposerMinHeightEstimate
-      : puzzleComposerLayout?.reserveMinHeight && !isPuzzleVisible
-        ? puzzleComposerMinHeightEstimate
-        : undefined)
+    state === 'completed'
+      ? PRACTICE_FINALE_COMPOSER_RESERVE_PX
+      : lockedComposerMinHeight ??
+        (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
+          ? choiceComposerMinHeightEstimate
+          : puzzleComposerLayout?.reserveMinHeight && !isPuzzleVisible
+            ? puzzleComposerMinHeightEstimate
+            : undefined)
 
   const baseAnswerPanelLocked = isPracticeAnswerPanelLocked(
     state,
@@ -1179,6 +1227,17 @@ export default function PracticeScreen({
   ])
 
   useEffect(() => {
+    if (state !== 'completed') return
+    return scheduleScrollPracticeFeedTail(
+      resolvePracticeFeedScrollRequest({
+        prefersReducedMotion,
+        reason: 'feedback',
+        state,
+      })
+    )
+  }, [state, prefersReducedMotion, completionMeta, scheduleScrollPracticeFeedTail])
+
+  useEffect(() => {
     const messagesStack = messagesStackRef.current
     if (!messagesStack || state === 'completed') return
     if (typeof ResizeObserver === 'undefined') return
@@ -1265,6 +1324,60 @@ export default function PracticeScreen({
   ])
 
   useDialogFeedKeyboardScroll(scrollContainerRef, showQuestionComposer)
+
+  const forgivenessMode = forgivenessContext
+    ? resolvePracticeForgivenessBubbleMode({
+        session,
+        state,
+        tier: forgivenessContext.tier,
+        ringCount: forgivenessContext.ringCount,
+        lastQualifyingDayKey: forgivenessContext.lastQualifyingDayKey,
+        todayKey: forgivenessContext.todayKey,
+      })
+    : null
+  const forgivenessCopy = getPracticeCoinForgivenessCopy()
+  const forgivenessConfirmPending = Boolean(session.forgivenessConfirmPending)
+  const forgivenessAppliedAckActive = Boolean(session.forgivenessAppliedAckActive)
+  const forgivenessBalance = forgivenessContext?.coinBalance ?? 0
+  const forgivenessPanel =
+    forgivenessConfirmPending ? (
+      <section className="space-y-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-amber-900">
+        <p className="font-semibold">
+          {forgivenessBalance > 0 ? forgivenessCopy.confirmTitle : forgivenessCopy.zeroBalanceTitle}
+        </p>
+        <p className="text-sm leading-relaxed">
+          {forgivenessBalance > 0
+            ? forgivenessCopy.confirmBody(Math.max(0, forgivenessBalance - 1))
+            : forgivenessCopy.zeroBalanceBody}
+        </p>
+        <button
+          type="button"
+          className={APP_BTN_PRIMARY_LARGE}
+          onClick={() => onConfirmCoinForgiveness?.()}
+        >
+          {forgivenessCopy.confirm}
+        </button>
+        <button
+          type="button"
+          className={APP_BTN_SECONDARY_LARGE}
+          onClick={onCancelCoinForgiveness}
+        >
+          {forgivenessCopy.decline}
+        </button>
+      </section>
+    ) : forgivenessAppliedAckActive ? (
+      <section className="space-y-2 rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-green-800">
+        <p className="font-semibold">{forgivenessCopy.appliedTitle}</p>
+        <p className="text-sm">{forgivenessCopy.appliedBody(forgivenessBalance)}</p>
+        <button
+          type="button"
+          className={APP_BTN_PRIMARY_LARGE}
+          onClick={onContinueCoinForgiveness}
+        >
+          {forgivenessCopy.continueLabel}
+        </button>
+      </section>
+    ) : null
 
   if (state === 'briefing') {
     return (
@@ -1491,6 +1604,22 @@ export default function PracticeScreen({
                             }
                             sayRevealDelayMs={animateSayText ? 0 : undefined}
                           />
+                          {message.id === tailMessageId &&
+                          forgivenessMode &&
+                          !forgivenessConfirmPending &&
+                          !forgivenessAppliedAckActive ? (
+                            <button
+                              type="button"
+                              className={`${APP_BTN_SECONDARY_LARGE} mt-2`}
+                              disabled={forgivenessMode !== 'active'}
+                              aria-label={forgivenessCopy.buttonAriaLabel}
+                              onClick={() => onRequestCoinForgiveness?.()}
+                            >
+                              {forgivenessMode === 'exhausted'
+                                ? forgivenessCopy.exhaustedLabel
+                                : forgivenessCopy.buttonLabel}
+                            </button>
+                          ) : null}
                         </ChatBubbleFrame>
                       )
                     }
@@ -1532,15 +1661,35 @@ export default function PracticeScreen({
               {state === 'completed' ? (
                 <PracticeFinale
                   session={session}
+                  completionReady={Boolean(completionMeta)}
                   tier={completionMeta?.tier}
                   globalAmount={completionMeta?.globalAmount}
+                  globalReason={completionMeta?.globalReason}
                   ringCount={completionMeta?.ringCount}
+                  ringIncremented={completionMeta?.ringIncremented}
+                  canEarnRingToday={completionMeta?.canEarnRingToday}
+                  coinsAwarded={completionMeta?.coinsAwarded}
+                  cupAwarded={completionMeta?.cupAwarded}
+                  pendingPracticeCoins={completionMeta?.pendingPracticeCoins}
+                  pendingCup={completionMeta?.pendingCup}
+                  baseBadgeAwarded={completionMeta?.baseBadgeAwarded}
+                  baseBadgeClaimed={completionMeta?.baseBadgeClaimed}
+                  masteryScore={completionMeta?.masteryScore}
+                  effectiveMasteryScore={completionMeta?.effectiveMasteryScore}
+                  correctedCount={completionMeta?.correctedCount}
+                  plannedLength={completionMeta?.plannedLength}
+                  forgivenessUsed={completionMeta?.forgivenessUsed}
                   gemsPending={completionMeta?.gemsPending}
                   cupClaimed={completionMeta?.cupClaimed}
+                  hasTips={hasTips}
+                  otherTopicAvailable={otherTopicAvailable}
                   onRepeat={onRepeat}
                   onChallenge={() => onStartMode(nextMode(session.mode))}
                   onOpenLesson={onOpenLesson}
                   onBackToPracticeMenu={onBackToPracticeMenu}
+                  onOpenTips={onOpenTips}
+                  onOtherTopic={onOtherTopic}
+                  onOpenAiChat={onOpenAiChat}
                   busy={generationBusy}
                 />
               ) : state === 'error' ? (
@@ -1565,8 +1714,24 @@ export default function PracticeScreen({
                     В меню практики
                   </button>
                 </div>
+              ) : forgivenessPanel ? (
+                forgivenessPanel
               ) : showQuestionComposer ? (
-                <PracticeQuestionRenderer
+                <div className="space-y-2">
+                  {forgivenessMode && state === 'active' ? (
+                    <button
+                      type="button"
+                      className={APP_BTN_SECONDARY_LARGE}
+                      disabled={forgivenessMode !== 'active'}
+                      aria-label={forgivenessCopy.buttonAriaLabel}
+                      onClick={() => onRequestCoinForgiveness?.()}
+                    >
+                      {forgivenessMode === 'exhausted'
+                        ? forgivenessCopy.exhaustedLabel
+                        : forgivenessCopy.buttonLabel}
+                    </button>
+                  ) : null}
+                  <PracticeQuestionRenderer
                   question={currentQuestion}
                   voiceId={voiceId}
                   ttsSpeedIndex={effectiveTtsSpeedIndex}
@@ -1596,7 +1761,8 @@ export default function PracticeScreen({
                   choiceChipsVisible={isChoiceChipsVisible}
                   puzzlePanelVisible={isPuzzleVisible}
                   wrongChoiceText={wrongChoiceHighlight}
-                />
+                  />
+                </div>
               ) : null}
             </DialogComposerStack>
           </div>

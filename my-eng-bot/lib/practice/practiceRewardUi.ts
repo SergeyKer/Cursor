@@ -10,6 +10,7 @@ export type PracticeRewardUi = {
   globalReason: PracticeGlobalXpResult['reason'] | 'legacy_flat_30' | 'tier0_session_only'
   ringCount: number
   ringIncremented: boolean
+  coinsAwarded: number
   gemsAwarded: number
   cupAwarded: number
   tier: PracticeEconomyTier
@@ -25,11 +26,22 @@ export function buildPracticeRewardTopLine(params: {
   tier: PracticeEconomyTier
   ringCount: number
   ringIncremented: boolean
+  coinsAwarded: number
   gemsAwarded: number
   cupAwarded: number
   audience: 'adult' | 'child'
 }): string {
-  const { sessionXp, globalAmount, tier, ringCount, ringIncremented, gemsAwarded, cupAwarded, audience } = params
+  const {
+    sessionXp,
+    globalAmount,
+    tier,
+    ringCount,
+    ringIncremented,
+    coinsAwarded,
+    gemsAwarded,
+    cupAwarded,
+    audience,
+  } = params
   const parts: string[] = []
 
   if (globalAmount > 0) {
@@ -55,13 +67,17 @@ export function buildPracticeRewardTopLine(params: {
     parts.push(audience === 'child' ? `${progress} - ещё ближе!` : `${progress} за тему.`)
   }
 
+  if (coinsAwarded > 0) {
+    parts.push(`+${coinsAwarded} 🪙`)
+  }
+
   if (cupAwarded > 0) {
     parts.push(audience === 'child' ? 'Тема сдана! 🏆' : 'Тема сдана. Кубок 🏆')
   } else if (gemsAwarded > 0) {
     parts.push(audience === 'child' ? `+${gemsAwarded} 💎!` : `+${gemsAwarded} камней.`)
   }
 
-  return parts[0] ?? ''
+  return parts.join(' · ')
 }
 
 export function buildPracticeRewardPopupText(params: {
@@ -100,6 +116,7 @@ export function createPracticeRewardUi(params: {
   tier: PracticeEconomyTier
   progress: PracticeTopicProgress
   ringIncremented: boolean
+  coinsAwarded: number
   gemsAwarded: number
   cupAwarded: number
   audience: 'adult' | 'child'
@@ -110,6 +127,7 @@ export function createPracticeRewardUi(params: {
     tier: params.tier,
     ringCount: params.progress.ringCount,
     ringIncremented: params.ringIncremented,
+    coinsAwarded: params.coinsAwarded,
     gemsAwarded: params.gemsAwarded,
     cupAwarded: params.cupAwarded,
     audience: params.audience,
@@ -128,6 +146,7 @@ export function createPracticeRewardUi(params: {
     globalReason: params.globalReason,
     ringCount: params.progress.ringCount,
     ringIncremented: params.ringIncremented,
+    coinsAwarded: params.coinsAwarded,
     gemsAwarded: params.gemsAwarded,
     cupAwarded: params.cupAwarded,
     tier: params.tier,
@@ -136,6 +155,8 @@ export function createPracticeRewardUi(params: {
     showPopup:
       params.globalAmount > 0 ||
       params.tier === 0 ||
+      params.ringIncremented ||
+      params.coinsAwarded > 0 ||
       params.gemsAwarded > 0 ||
       params.cupAwarded > 0,
     at: Date.now(),

@@ -107,14 +107,14 @@ export function getMyPlanRecommendations(input: MyPlanInput): MyPlanRecommendati
         priority: 3,
         title: `Закрепить: ${topic}`,
         subtitle: 'Практика по теме урока',
-        reasonLine: 'После завершённой теории полезно сделать короткую практику.',
+        reasonLine: 'После урока переходите в Челлендж: 12 заданий на закрепление.',
         action: {
           kind: 'start_practice',
           lessonId: latestTheory.lessonId,
-          mode: 'relaxed',
+          mode: 'challenge',
           entrySource: 'after_lesson',
         },
-        buttonLabel: 'Запустить практику (~5 мин)',
+        buttonLabel: 'Запустить Челлендж (12 заданий)',
         ariaLabel: `Запустить практику по уроку ${topic}`,
       })
     }

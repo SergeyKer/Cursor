@@ -27,6 +27,8 @@ const TEXT_INPUT_COMPOSER_HEIGHT_PX = 88
 const POST_LESSON_COMPOSER_HEIGHT_PX = 240
 const MEDAL_FLOW_COMPOSER_HEIGHT_PX = 180
 const LESSON_BRIEFING_COMPOSER_HEIGHT_PX = 248
+/** Практика: короче урока — stakes без brand/how-to/slogan. */
+export const PRACTICE_BRIEFING_COMPOSER_HEIGHT_PX = 200
 const LESSON_BRIEFING_DUAL_CTA_EXTRA_HEIGHT_PX = 0
 /** Карточка confirm/applied + gap + кнопки или hint. */
 export const LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX = 215
@@ -171,6 +173,8 @@ export function estimateLessonComposerMinHeight(params: {
   containerWidthPx?: number
   compact?: boolean
   briefingDualCta?: boolean
+  /** Компактный брифинг практики (stakes-only, без brand/how-to). */
+  briefingPractice?: boolean
 }): number {
   const stackPadding = params.compact ? 8 : 20
 
@@ -207,9 +211,10 @@ export function estimateLessonComposerMinHeight(params: {
     case 'medal':
       return stackPadding + MEDAL_FLOW_COMPOSER_HEIGHT_PX
     case 'briefing': {
-      const briefingHeight =
-        LESSON_BRIEFING_COMPOSER_HEIGHT_PX +
-        (params.briefingDualCta ? LESSON_BRIEFING_DUAL_CTA_EXTRA_HEIGHT_PX : 0)
+      const briefingHeight = params.briefingPractice
+        ? PRACTICE_BRIEFING_COMPOSER_HEIGHT_PX
+        : LESSON_BRIEFING_COMPOSER_HEIGHT_PX +
+          (params.briefingDualCta ? LESSON_BRIEFING_DUAL_CTA_EXTRA_HEIGHT_PX : 0)
       return stackPadding + briefingHeight
     }
     case 'forgiveness':

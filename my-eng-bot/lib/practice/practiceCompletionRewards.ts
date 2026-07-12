@@ -10,6 +10,7 @@ export type PracticeCompletionReward = {
   globalReason: PracticeGlobalXpResult['reason'] | 'legacy_flat_30'
   ringCount: number
   ringIncremented: boolean
+  coinsAwarded: number
   gemsAwarded: number
   cupAwarded: number
   tier: PracticeEconomyTier
@@ -22,6 +23,7 @@ export function buildPracticeCompletionTicker(params: {
   globalAmount: number
   ringCount: number
   ringIncremented: boolean
+  coinsAwarded: number
   tier: PracticeEconomyTier
   gemsAwarded: number
   cupAwarded: number
@@ -36,6 +38,9 @@ export function buildPracticeCompletionTicker(params: {
   }
   if (params.ringIncremented && params.ringCount > 0) {
     parts.push(formatPracticeProgressText(params.ringCount))
+  }
+  if (params.coinsAwarded > 0) {
+    parts.push(`+${params.coinsAwarded} 🪙`)
   }
   if (params.cupAwarded > 0) {
     parts.push('Тема сдана 🏆')

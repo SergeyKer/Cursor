@@ -2,9 +2,11 @@
 
 ## Правило
 
-**Тема сдана** = золотая медаль 🥇 в профиле урока + **5 практик** по теме (eligible: не `reference`, результат ≥ 50%).
+**Тема сдана** = золотая медаль 🥇 в профиле урока + **5 зачётных Челленджей** по теме (📝): Challenge, **11 из 12 с первой попытки**, медаль урока tier>0, max 1📝/день.
 
-Маркер в UI: **🏆**, в данных: `PracticeTopicProgress.cupClaimed`. Счётчик практик в процессе: **📝 n/5** (`lib/practice/practiceGlyphs.ts`).
+Маркер в UI: **🏆**, в данных: `PracticeTopicProgress.cupClaimed`. Счётчик: **📝 n/5** (`lib/practice/practiceGlyphs.ts`). Новые зачёты **не** выдаются в Лёгкой/Обычной/Эталоне и не за «≥50% any mode».
+
+См. также: [practice-economy-v2.md](./practice-economy-v2.md).
 
 ## Флаг
 

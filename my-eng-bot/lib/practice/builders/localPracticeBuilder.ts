@@ -72,7 +72,7 @@ import type {
   PracticeTolerance,
 } from '@/types/practice'
 
-const PRACTICE_SESSION_VERSION = 1
+const PRACTICE_SESSION_VERSION = 2
 
 function toPracticeLevel(level: LessonData['level']): PracticeLevel {
   if (level === 'A1' || level === 'A2' || level === 'B1' || level === 'B2' || level === 'C1') return level
@@ -583,6 +583,10 @@ function createPracticeSession(config: PracticeBuildConfig, questions: PracticeQ
     targetQuestionCount: config.targetQuestionCount ?? questions.length,
     wrongAttemptsOnCurrentQuestion: 0,
     instructionAcknowledged: false,
+    forgivenessUsedThisRun: false,
+    forgivenessConfirmPending: false,
+    forgivenessAppliedAckActive: false,
+    forgivenessEffectiveBonus: 0,
     generationNotice: config.generationNotice,
   }
 }

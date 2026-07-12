@@ -7,6 +7,7 @@ import { formatComboSegmentText } from '@/lib/gamificationGlyphs'
 import { featureFlags } from '@/lib/featureFlags'
 import { formatPracticeProgressText, formatTopicCupBadgeText } from '@/lib/practice/practiceGlyphs'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
+import { computePracticeMasterySnapshot } from '@/lib/practice/practiceMastery'
 
 export function mapPracticeFlowToFooterState(
   state:
@@ -34,6 +35,7 @@ export function buildPracticeFooterLive(params: {
 }): { lessonSegments: LessonFooterSegment[]; lessonTitle: string } {
   const { session, state, tier, progress, gemsPending } = params
   const total = resolvePracticeTargetQuestionCount(session)
+  const mastery = computePracticeMasterySnapshot(session)
   const current = Math.min(session.currentIndex + 1, Math.max(1, total))
 
   if (state === 'briefing') {
@@ -45,7 +47,7 @@ export function buildPracticeFooterLive(params: {
 
   const goalText =
     state === 'completed'
-      ? `🎯 ${session.score}/${total}`
+      ? `🎯 ${mastery.masteryScore}/${total}`
       : `🎯 ${current}/${total}`
 
   const xpText = session.xp === 0 ? '⭐ 0' : `⭐ +${session.xp}`
@@ -58,7 +60,7 @@ export function buildPracticeFooterLive(params: {
             ? formatTopicCupBadgeText()
             : formatPracticeProgressText(progress.ringCount),
           title: progress.cupClaimed
-            ? 'Тема сдана: золото + 5 практик'
+            ? 'Тема сдана: золото + 5 зачётных Челленджей'
             : 'До кубка: практики при золотой медали',
           medalVisual: {
             mode: 'textOnly',
@@ -67,6 +69,7 @@ export function buildPracticeFooterLive(params: {
               : formatPracticeProgressText(progress.ringCount),
           },
         }
+
       : tier === 2 && featureFlags.practiceGemsV1
         ? {
             kind: 'medal',
@@ -99,12 +102,41 @@ export function buildPracticeFooterLive(params: {
           },
         }
 
+  const modeBadgeSegment: LessonFooterSegment =
+    session.mode === 'challenge'
+      ? ringOrGemSegment
+      : session.mode === 'balanced'
+        ? {
+            kind: 'medal',
+            text: progress.baseBadgeClaimedAt ? '📌 База ✓' : '📌 База',
+            title: progress.baseBadgeClaimedAt
+              ? 'База за тему уже получена'
+              : 'База: 8 из 9 с первой попытки',
+            medalVisual: {
+              mode: 'textOnly',
+              hintText: progress.baseBadgeClaimedAt ? '📌 База ✓' : '📌 База',
+            },
+          }
+        : session.mode === 'relaxed'
+          ? {
+              kind: 'medal',
+              text: '🌱 Разминка',
+              title: 'Лёгкая разминка без зачёта',
+              medalVisual: { mode: 'textOnly', hintText: '🌱 Разминка' },
+            }
+          : {
+              kind: 'medal',
+              text: '⚡ Эталон',
+              title: 'Проверка упражнения',
+              medalVisual: { mode: 'textOnly', hintText: '⚡ Эталон' },
+            }
+
   const comboText = formatComboSegmentText(Math.max(1, session.streak))
 
   const lessonSegments: LessonFooterSegment[] = [
     { kind: 'goal', text: goalText, title: 'Текущее задание' },
     { kind: 'xp', text: xpText, title: 'Очки за сессию (не к уровню)' },
-    ringOrGemSegment,
+    modeBadgeSegment,
     {
       kind: 'combo',
       text: comboText,

@@ -61,7 +61,13 @@ describe('getMyPlanRecommendations', () => {
     const recs = getMyPlanRecommendations(input)
     const practice = recs.find((r) => r.id === 'practice-after-theory')
     expect(practice).toBeTruthy()
-    expect(practice?.action).toMatchObject({ kind: 'start_practice', lessonId: '1', entrySource: 'after_lesson' })
+    expect(practice?.action).toMatchObject({
+      kind: 'start_practice',
+      lessonId: '1',
+      mode: 'challenge',
+      entrySource: 'after_lesson',
+    })
+    expect(practice?.buttonLabel).toContain('12 заданий')
   })
 
   it('если практика уже была после теории, карточка закрепления не показывается', () => {

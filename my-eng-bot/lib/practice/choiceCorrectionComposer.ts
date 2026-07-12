@@ -100,7 +100,9 @@ export function choiceCorrectionPlaceholder(params: {
 
 export function choiceCorrectionVoiceStatusMessage(params: {
   voiceListening: boolean
+  voicePhase?: 'idle' | 'recording' | 'finalizing' | 'error'
 }): string | null {
+  if (params.voicePhase === 'finalizing') return 'Распознаю речь...'
   if (params.voiceListening) return 'Голосовой ввод...'
   return null
 }

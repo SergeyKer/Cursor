@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   CHOICE_CORRECTION_TAP_HINT_WITH_TEXT_EDIT,
   choiceCorrectionPlaceholder,
+  choiceCorrectionVoiceStatusMessage,
   getChoiceCorrectionInputMode,
   getChoiceCorrectionOverlayLine,
   getChoiceCorrectionTapHint,
@@ -148,5 +149,15 @@ describe('choiceCorrectionComposer', () => {
 
   it('returns unavailable when secure context or SpeechRecognition is missing', () => {
     expect(['available', 'unavailable']).toContain(getInitialPracticeVoiceCapability())
+  })
+
+  it('shows finalizing status separately from live listening', () => {
+    expect(choiceCorrectionVoiceStatusMessage({ voiceListening: true, voicePhase: 'finalizing' })).toBe(
+      'Распознаю речь...'
+    )
+    expect(choiceCorrectionVoiceStatusMessage({ voiceListening: true, voicePhase: 'recording' })).toBe(
+      'Голосовой ввод...'
+    )
+    expect(choiceCorrectionVoiceStatusMessage({ voiceListening: false })).toBeNull()
   })
 })

@@ -1,12 +1,12 @@
 import type { PracticeMode } from '@/types/practice'
 import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
+import { PRACTICE_DAILY_GLOBAL_XP_CAP } from '@/lib/practice/practiceEconomyRules'
 
 export type PracticeGlobalXpReason =
   | 'tier0_session_only'
   | 'reference_mode'
-  | 'score_below_50'
-  | 'global_cap_reached'
+  | 'mastery_below_50'
   | 'daily_cap_reached'
   | 'same_fingerprint_repeat'
   | 'return_bonus'
@@ -24,8 +24,6 @@ export type PracticeGlobalXpResult = {
 
 const SLOT_MULTIPLIERS = [1.0, 0.85, 0.7, 0.55, 0.4] as const
 const REPEAT_TIER_MULTIPLIER = 0.25
-const GLOBAL_COMPLETION_CAP = 10
-const DAILY_GLOBAL_XP_CAP = 70
 const RETURN_BONUS_WINDOW_MS = 14 * 24 * 60 * 60 * 1000
 const FINGERPRINT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
 const MAX_LOCAL_FINGERPRINTS_IN_7D = 2
@@ -46,10 +44,6 @@ export function qualityFactor(scorePercent: number): number {
 
 export function computePracticeBaseGlobalXp(sessionXp: number): number {
   return Math.max(8, Math.min(28, Math.round(sessionXp * 0.45)))
-}
-
-export function computeRingBonusXp(avgScorePercent: number): number {
-  return Math.max(28, Math.min(45, Math.round(35 + (avgScorePercent - 70) * 0.5)))
 }
 
 function computeSlotAmount(base: number, slotIndex: number, mode: PracticeMode, scorePercent: number): number {
@@ -81,15 +75,23 @@ function countLocalFingerprintsInWindow(
 export function resolvePracticeGlobalXp(params: {
   tier: PracticeEconomyTier
   mode: PracticeMode
-  sessionXp: number
-  scorePercent: number
+  firstTrySessionXp: number
+  masteryPercent: number
   fingerprint: string
   progress: PracticeTopicProgress
   practiceGlobalXpToday: number
   now?: number
 }): PracticeGlobalXpResult {
   const now = params.now ?? Date.now()
-  const { tier, mode, sessionXp, scorePercent, fingerprint, progress, practiceGlobalXpToday } = params
+  const {
+    tier,
+    mode,
+    firstTrySessionXp,
+    masteryPercent,
+    fingerprint,
+    progress,
+    practiceGlobalXpToday,
+  } = params
 
   if (tier === 0) {
     return { amount: 0, reason: 'tier0_session_only', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
@@ -99,36 +101,35 @@ export function resolvePracticeGlobalXp(params: {
     return { amount: 0, reason: 'reference_mode', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
   }
 
-  if (scorePercent < 50) {
-    return { amount: 0, reason: 'score_below_50', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
+  if (masteryPercent < 50) {
+    return { amount: 0, reason: 'mastery_below_50', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
   }
 
-  if (progress.globalRewardedCompletions >= GLOBAL_COMPLETION_CAP) {
-    return { amount: 0, reason: 'global_cap_reached', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
-  }
-
-  const remainingDaily = DAILY_GLOBAL_XP_CAP - Math.max(0, practiceGlobalXpToday)
+  const remainingDaily = PRACTICE_DAILY_GLOBAL_XP_CAP - Math.max(0, practiceGlobalXpToday)
   if (remainingDaily <= 0) {
     return { amount: 0, reason: 'daily_cap_reached', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
   }
 
-  const base = computePracticeBaseGlobalXp(sessionXp)
-  const alreadyRewardedFingerprint = progress.rewardedFingerprints.includes(fingerprint)
+  const base = computePracticeBaseGlobalXp(firstTrySessionXp)
+  const lane = progress.xpByMode?.[mode]
+  const rewardedFingerprints = lane?.rewardedFingerprints ?? []
+  const slotsFilled = lane?.slotsFilled ?? 0
+  const alreadyRewardedFingerprint = rewardedFingerprints.includes(fingerprint)
   const localCount = countLocalFingerprintsInWindow(progress.localFingerprintsIn7d, fingerprint, now)
   const isNewFingerprint = !alreadyRewardedFingerprint && localCount < MAX_LOCAL_FINGERPRINTS_IN_7D
 
   if (alreadyRewardedFingerprint || localCount >= MAX_LOCAL_FINGERPRINTS_IN_7D) {
-    const repeatAmount = Math.min(computeRepeatAmount(base, mode, scorePercent), remainingDaily)
+    const repeatAmount = Math.min(computeRepeatAmount(base, mode, masteryPercent), remainingDaily)
     if (repeatAmount > 0) {
       return {
         amount: repeatAmount,
         reason: 'repeat_tier',
         slotIndex: null,
         isNewFingerprint: false,
-        ringIncrement: true,
+        ringIncrement: false,
       }
     }
-    return { amount: 0, reason: 'same_fingerprint_repeat', slotIndex: null, isNewFingerprint: false, ringIncrement: true }
+    return { amount: 0, reason: 'same_fingerprint_repeat', slotIndex: null, isNewFingerprint: false, ringIncrement: false }
   }
 
   const daysSinceLast =
@@ -138,43 +139,43 @@ export function resolvePracticeGlobalXp(params: {
     daysSinceLast >= RETURN_BONUS_WINDOW_MS &&
     (!progress.returnAwardUsedAt || now - progress.returnAwardUsedAt > RETURN_BONUS_WINDOW_MS)
 
-  if (returnEligible && progress.consolidationSlotsFilled < SLOT_MULTIPLIERS.length) {
-    const slotIndex = progress.consolidationSlotsFilled
-    const amount = Math.min(computeSlotAmount(base, slotIndex, mode, scorePercent), remainingDaily)
+  if (returnEligible && slotsFilled < SLOT_MULTIPLIERS.length) {
+    const slotIndex = slotsFilled
+    const amount = Math.min(computeSlotAmount(base, slotIndex, mode, masteryPercent), remainingDaily)
     if (amount > 0) {
       return {
         amount,
         reason: 'return_bonus',
         slotIndex,
         isNewFingerprint: true,
-        ringIncrement: true,
+        ringIncrement: false,
       }
     }
   }
 
-  if (isNewFingerprint && progress.consolidationSlotsFilled < SLOT_MULTIPLIERS.length) {
-    const slotIndex = progress.consolidationSlotsFilled
-    const amount = Math.min(computeSlotAmount(base, slotIndex, mode, scorePercent), remainingDaily)
+  if (isNewFingerprint && slotsFilled < SLOT_MULTIPLIERS.length) {
+    const slotIndex = slotsFilled
+    const amount = Math.min(computeSlotAmount(base, slotIndex, mode, masteryPercent), remainingDaily)
     if (amount > 0) {
       return {
         amount,
         reason: 'new_fingerprint_slot',
         slotIndex,
         isNewFingerprint: true,
-        ringIncrement: true,
+        ringIncrement: false,
       }
     }
   }
 
-  if (progress.globalRewardedCompletions >= 5) {
-    const repeatAmount = Math.min(computeRepeatAmount(base, mode, scorePercent), remainingDaily)
+  if (slotsFilled >= SLOT_MULTIPLIERS.length) {
+    const repeatAmount = Math.min(computeRepeatAmount(base, mode, masteryPercent), remainingDaily)
     if (repeatAmount > 0) {
       return {
         amount: repeatAmount,
         reason: 'repeat_tier',
         slotIndex: null,
         isNewFingerprint: false,
-        ringIncrement: true,
+        ringIncrement: false,
       }
     }
   }

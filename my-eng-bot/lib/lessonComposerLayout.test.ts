@@ -7,6 +7,7 @@ import {
   isLessonChoiceChipsPanel,
   PRACTICE_AUDIO_DECK_SHELL_HEIGHT_PX,
   PRACTICE_AUDIO_TO_CHIPS_GAP_PX,
+  PRACTICE_BRIEFING_COMPOSER_HEIGHT_PX,
   resolveLessonComposerPanelKind,
 } from '@/lib/lessonComposerLayout'
 
@@ -123,6 +124,17 @@ describe('estimateLessonComposerMinHeight', () => {
       briefingDualCta: true,
     })
     expect(dual - single).toBe(0)
+  })
+
+  it('uses compact practice briefing height without changing lesson briefing', () => {
+    const lesson = estimateLessonComposerMinHeight({ panelKind: 'briefing', compact: true })
+    const practice = estimateLessonComposerMinHeight({
+      panelKind: 'briefing',
+      compact: true,
+      briefingPractice: true,
+    })
+    expect(practice).toBe(8 + PRACTICE_BRIEFING_COMPOSER_HEIGHT_PX)
+    expect(practice).toBeLessThan(lesson)
   })
 })
 

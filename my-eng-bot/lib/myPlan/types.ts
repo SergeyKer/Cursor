@@ -7,7 +7,7 @@ export type MyPlanAction =
   | {
       kind: 'start_practice'
       lessonId: string
-      mode: 'relaxed' | 'balanced'
+      mode: 'relaxed' | 'balanced' | 'challenge'
       entrySource: PracticeEntrySource
     }
   | { kind: 'quick_practice'; entrySource: 'quick_start' }

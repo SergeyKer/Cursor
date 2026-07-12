@@ -1,8 +1,7 @@
 import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
 import type { PracticeGlobalXpResult } from '@/lib/practice/practiceGlobalXpAward'
-import { computeRingBonusXp } from '@/lib/practice/practiceGlobalXpAward'
-import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
-import { featureFlags } from '@/lib/featureFlags'
+import type { PracticeMode } from '@/types/practice'
+import { PRACTICE_ECONOMY_VERSION, PRACTICE_RING_MAX } from '@/lib/practice/practiceEconomyRules'
 
 function pruneLocalFingerprints(
   entries: PracticeTopicProgress['localFingerprintsIn7d'],
@@ -15,33 +14,41 @@ function pruneLocalFingerprints(
 export function applyPracticeProgressAfterCompletion(params: {
   progress: PracticeTopicProgress
   globalResult: PracticeGlobalXpResult
+  mode: PracticeMode
   fingerprint: string
-  scorePercent: number
+  masteryPercent: number
   sessionId: string
-  economyTier?: PracticeEconomyTier
-  ringBonusXp?: number
+  ringIncrement: boolean
+  qualifyingDayKey: string
   now?: number
 }): PracticeTopicProgress {
   const now = params.now ?? Date.now()
-  const { progress, globalResult, fingerprint, scorePercent, sessionId } = params
+  const { progress, globalResult, mode, fingerprint, masteryPercent, sessionId } = params
+
+  if (progress.lastRewardedSessionId === sessionId) return progress
+
+  const existingLane = progress.xpByMode?.[mode] ?? {
+    slotsFilled: 0,
+    rewardedFingerprints: [],
+    slotScores: [],
+  }
 
   let next: PracticeTopicProgress = {
     ...progress,
+    economyVersion: PRACTICE_ECONOMY_VERSION,
     localFingerprintsIn7d: pruneLocalFingerprints(progress.localFingerprintsIn7d, now),
-    bestScorePercent: Math.max(progress.bestScorePercent, scorePercent),
+    bestScorePercent: Math.max(progress.bestScorePercent, masteryPercent),
     lastPracticeAt: now,
     lastRewardedSessionId: sessionId,
   }
 
-  if (globalResult.ringIncrement && !next.cupClaimed) {
-    const allowAboveFive =
-      params.economyTier === 2 && featureFlags.practiceTopicCupsV1
-    if (allowAboveFive || next.ringCount < 5) {
-      next = {
-        ...next,
-        ringCount: next.ringCount + 1,
-        ringCompleted: next.ringCount + 1 >= 5,
-      }
+  if (params.ringIncrement && next.ringCount < PRACTICE_RING_MAX) {
+    const ringCount = next.ringCount + 1
+    next = {
+      ...next,
+      ringCount,
+      ringCompleted: ringCount >= PRACTICE_RING_MAX,
+      lastQualifyingDayKey: params.qualifyingDayKey,
     }
   }
 
@@ -54,18 +61,33 @@ export function applyPracticeProgressAfterCompletion(params: {
     globalRewardedCompletions: progress.globalRewardedCompletions + 1,
   }
 
-  if (globalResult.isNewFingerprint && !progress.rewardedFingerprints.includes(fingerprint)) {
+  let nextLane = existingLane
+  if (globalResult.isNewFingerprint && !existingLane.rewardedFingerprints.includes(fingerprint)) {
+    nextLane = {
+      ...nextLane,
+      rewardedFingerprints: [...existingLane.rewardedFingerprints, fingerprint],
+    }
     next = {
       ...next,
-      rewardedFingerprints: [...progress.rewardedFingerprints, fingerprint],
+      rewardedFingerprints: progress.rewardedFingerprints.includes(fingerprint)
+        ? progress.rewardedFingerprints
+        : [...progress.rewardedFingerprints, fingerprint],
       localFingerprintsIn7d: [...next.localFingerprintsIn7d, { fingerprint, at: now }],
     }
   }
 
   if (globalResult.slotIndex !== null) {
     const slots = [...progress.slotScores]
+    const laneSlots = [...nextLane.slotScores]
     while (slots.length <= globalResult.slotIndex) slots.push(0)
-    slots[globalResult.slotIndex] = scorePercent
+    while (laneSlots.length <= globalResult.slotIndex) laneSlots.push(0)
+    slots[globalResult.slotIndex] = masteryPercent
+    laneSlots[globalResult.slotIndex] = masteryPercent
+    nextLane = {
+      ...nextLane,
+      slotScores: laneSlots,
+      slotsFilled: Math.max(nextLane.slotsFilled, globalResult.slotIndex + 1),
+    }
     next = {
       ...next,
       slotScores: slots,
@@ -73,23 +95,16 @@ export function applyPracticeProgressAfterCompletion(params: {
     }
   }
 
-  if (globalResult.reason === 'return_bonus') {
-    next = { ...next, returnAwardUsedAt: now }
+  next = {
+    ...next,
+    xpByMode: {
+      ...next.xpByMode,
+      [mode]: nextLane,
+    },
   }
 
-  if (
-    next.ringCount >= 5 &&
-    !progress.ringBonusClaimed &&
-    globalResult.slotIndex === 4
-  ) {
-    const avgScore =
-      next.slotScores.length > 0
-        ? next.slotScores.reduce((sum, s) => sum + s, 0) / next.slotScores.length
-        : scorePercent
-    const bonus = params.ringBonusXp ?? computeRingBonusXp(avgScore)
-    if (bonus > 0) {
-      next = { ...next, ringBonusClaimed: true }
-    }
+  if (globalResult.reason === 'return_bonus') {
+    next = { ...next, returnAwardUsedAt: now }
   }
 
   return next

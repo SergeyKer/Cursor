@@ -1,5 +1,15 @@
+import type { PracticeMode } from '@/types/practice'
+
+export type PracticeXpModeLane = {
+  slotsFilled: number
+  rewardedFingerprints: string[]
+  slotScores: number[]
+}
+
 export type PracticeTopicProgress = {
   lessonId: string
+  economyVersion: number
+  lastQualifyingDayKey: string | null
   /** Счётчик практик (📝) 1–5 за тему (lifetime) */
   ringCount: number
   globalRewardedCompletions: number
@@ -18,11 +28,17 @@ export type PracticeTopicProgress = {
   lastRewardedSessionId?: string
   returnAwardUsedAt?: number
   milestones?: { balanced?: boolean; challenge?: boolean }
+  xpByMode?: Partial<Record<PracticeMode, PracticeXpModeLane>>
+  baseBadgeClaimedAt?: number
+  pendingPracticeCoins?: number
+  pendingCup?: boolean
 }
 
 export function createEmptyPracticeTopicProgress(lessonId: string): PracticeTopicProgress {
   return {
     lessonId,
+    economyVersion: 2,
+    lastQualifyingDayKey: null,
     ringCount: 0,
     globalRewardedCompletions: 0,
     consolidationSlotsFilled: 0,
@@ -36,5 +52,8 @@ export function createEmptyPracticeTopicProgress(lessonId: string): PracticeTopi
     slotScores: [],
     bestScorePercent: 0,
     lastPracticeAt: 0,
+    xpByMode: {},
+    pendingPracticeCoins: 0,
+    pendingCup: false,
   }
 }

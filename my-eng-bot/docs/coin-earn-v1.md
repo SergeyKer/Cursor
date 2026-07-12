@@ -1,8 +1,18 @@
 # Монеты: earn в уроках (v1)
 
-См. также: [coin-error-forgiveness-v1.md](./coin-error-forgiveness-v1.md) (трата на forgiveness).
+См. также: [coin-error-forgiveness-v1.md](./coin-error-forgiveness-v1.md) (трата на forgiveness), [practice-economy-v2.md](./practice-economy-v2.md) (практика).
 
-## Earn
+## Earn (практика v2)
+
+| Источник | Награда | Лимит |
+|----------|---------|-------|
+| Challenge 3-й 📝 | +1 🪙 | `practiceMilestones:{topic}:ring3` |
+| Challenge 5-й 📝 | +2 🪙 (+ кубок при золоте) | `…:ring5` |
+| Без золота урока | pending до входа после gold | не через `lessonGoldClaimed` |
+
+Spend практики: «Не считать ошибку» в Challenge (шаги 5–12), 1🪙, 1× за проход.
+
+## Earn (урок)
 
 | Правило | Значение |
 |---------|----------|

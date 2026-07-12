@@ -169,7 +169,7 @@ export function practiceProgressBadgeTitle(
 ): string {
   const tier = resolvePracticeEconomyTier(medal)
   if (tier === 2 && featureFlags.practiceTopicCupsV1) {
-    if (progress.cupClaimed) return 'Тема сдана: золото + 5 практик'
+    if (progress.cupClaimed) return 'Тема сдана: золото + 5 зачётных Челленджей'
     const left = Math.max(0, 5 - progress.ringCount)
     return left > 0
       ? `До сдачи темы: ${left} практик при золотой медали`
@@ -188,7 +188,7 @@ export function resolveLessonMenuRewardIcons(
   if (!medal) return null
 
   const tier = resolvePracticeEconomyTier(medal)
-  const cupTitle = 'Тема сдана: золото + 5 практик'
+  const cupTitle = 'Тема сдана: золото + 5 зачётных Челленджей'
   const ringTitle = practiceProgressBadgeTitle(progress, medal)
 
   if (featureFlags.practiceTopicCupsV1) {

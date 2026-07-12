@@ -2,16 +2,12 @@ import type { PracticeSession } from '@/types/practice'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import { buildContentFingerprint } from '@/lib/practice/buildContentFingerprint'
 import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
-import {
-  computeRingBonusXp,
-  resolvePracticeGlobalXp,
-} from '@/lib/practice/practiceGlobalXpAward'
+import { resolvePracticeGlobalXp } from '@/lib/practice/practiceGlobalXpAward'
 import { applyPracticeProgressAfterCompletion } from '@/lib/practice/practiceProgressUpdate'
 import { buildPracticeCompletionTicker, isLegacyPracticeEconomy } from '@/lib/practice/practiceCompletionRewards'
 import { createPracticeRewardUi, type PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
 import { featureFlags } from '@/lib/featureFlags'
 import { applyPracticeGemsProgress, resolvePracticeGems } from '@/lib/practice/resolvePracticeGems'
-import { applyTopicCupProgress, resolveTopicCup } from '@/lib/practice/resolveTopicCup'
 import {
   addPracticeGlobalXpToday,
   getPracticeGlobalXpToday,
@@ -19,29 +15,92 @@ import {
   savePracticeTopicProgress,
 } from '@/lib/practice/practiceTopicProgressStorage'
 import type { PracticeCompletionReward } from '@/lib/practice/practiceCompletionRewards'
-
-function computeScorePercent(session: PracticeSession): number {
-  const total = session.questions.length
-  if (total <= 0) return 0
-  return Math.round((session.score / total) * 100)
-}
+import { computePracticeMasterySnapshot } from '@/lib/practice/practiceMastery'
+import {
+  getPracticeEconomyDayKey,
+  isBalancedBasePass,
+  resolvePracticeRingIncrement,
+} from '@/lib/practice/practiceEconomyRules'
+import {
+  resolvePracticeMilestoneOutcome,
+  type PracticeCompletionOutcome,
+} from '@/lib/practice/practiceCompletionOutcome'
 
 export function resolvePracticeCompletion(params: {
   session: PracticeSession
   lessonMedal?: LessonMedalTierOrNull | null
   audience?: 'adult' | 'child'
-}): {
-  reward: PracticeCompletionReward
-  rewardUi: PracticeRewardUi
-  globalXpToAward: number
-  ringBonusXp: number
-} {
+}): PracticeCompletionOutcome {
   const { session, lessonMedal, audience = 'adult' } = params
   const tier = resolvePracticeEconomyTier(lessonMedal)
-  const scorePercent = computeScorePercent(session)
+  const mastery = computePracticeMasterySnapshot(session)
   const fingerprint = buildContentFingerprint(session)
   let progress = getPracticeTopicProgress(session.lessonId)
   const practiceGlobalXpToday = getPracticeGlobalXpToday()
+  const todayKey = getPracticeEconomyDayKey()
+  const forgivenessUsed = Boolean(session.forgivenessUsedThisRun)
+  const effectiveMasteryScore = Math.min(
+    mastery.plannedLength,
+    mastery.masteryScore + (session.forgivenessEffectiveBonus ?? 0)
+  )
+
+  if (progress.lastRewardedSessionId === session.id) {
+    const ticker = buildPracticeCompletionTicker({
+      sessionXp: session.xp,
+      globalAmount: 0,
+      ringCount: progress.ringCount,
+      ringIncremented: false,
+      coinsAwarded: 0,
+      tier,
+      gemsAwarded: 0,
+      cupAwarded: 0,
+    })
+    const reward: PracticeCompletionReward = {
+      sessionXp: session.xp,
+      globalAmount: 0,
+      globalReason: tier === 0 ? 'tier0_session_only' : 'no_eligible_award',
+      ringCount: progress.ringCount,
+      ringIncremented: false,
+      coinsAwarded: 0,
+      gemsAwarded: 0,
+      cupAwarded: 0,
+      tier,
+      ticker,
+      progress,
+    }
+    const rewardUi: PracticeRewardUi = {
+      ...createPracticeRewardUi({
+        sessionId: session.id,
+        sessionXp: session.xp,
+        globalAmount: 0,
+        globalReason: reward.globalReason,
+        tier,
+        progress,
+        ringIncremented: false,
+        coinsAwarded: 0,
+        gemsAwarded: 0,
+        cupAwarded: 0,
+        audience,
+      }),
+      showPopup: false,
+    }
+    return {
+      reward,
+      rewardUi,
+      globalXpToAward: 0,
+      ringBonusXp: 0,
+      activityNeeded: false,
+      coinsAwarded: 0,
+      coinMilestones: [],
+      masteryScore: mastery.masteryScore,
+      effectiveMasteryScore,
+      correctedCount: mastery.correctedCount,
+      plannedLength: mastery.plannedLength,
+      forgivenessUsed,
+      baseBadgeAwarded: false,
+      duplicate: true,
+    }
+  }
 
   if (isLegacyPracticeEconomy()) {
     const globalAmount = 30
@@ -52,6 +111,7 @@ export function resolvePracticeCompletion(params: {
       globalReason: 'legacy_flat_30',
       ringCount: progress.ringCount,
       ringIncremented: false,
+      coinsAwarded: 0,
       gemsAwarded: 0,
       cupAwarded: 0,
       tier,
@@ -66,55 +126,88 @@ export function resolvePracticeCompletion(params: {
       tier,
       progress,
       ringIncremented: false,
+      coinsAwarded: 0,
       gemsAwarded: 0,
       cupAwarded: 0,
       audience,
     })
-    return { reward, rewardUi, globalXpToAward: globalAmount, ringBonusXp: 0 }
+    progress = {
+      ...progress,
+      lastPracticeAt: Date.now(),
+      lastRewardedSessionId: session.id,
+    }
+    savePracticeTopicProgress(progress)
+    reward.progress = progress
+    return {
+      reward,
+      rewardUi,
+      globalXpToAward: globalAmount,
+      ringBonusXp: 0,
+      activityNeeded: true,
+      coinsAwarded: 0,
+      coinMilestones: [],
+      masteryScore: mastery.masteryScore,
+      effectiveMasteryScore,
+      correctedCount: mastery.correctedCount,
+      plannedLength: mastery.plannedLength,
+      forgivenessUsed,
+      baseBadgeAwarded: false,
+      duplicate: false,
+    }
   }
 
   const globalResult = resolvePracticeGlobalXp({
     tier,
     mode: session.mode,
-    sessionXp: session.xp,
-    scorePercent,
+    firstTrySessionXp: mastery.firstTrySessionXp,
+    masteryPercent: mastery.masteryPercent,
     fingerprint,
     progress,
     practiceGlobalXpToday,
   })
 
-  const ringIncremented = globalResult.ringIncrement
-  let ringBonusXp = 0
+  const ringIncremented = resolvePracticeRingIncrement({
+    mode: session.mode,
+    tier,
+    effectiveMasteryScore,
+    plannedLength: mastery.plannedLength,
+    ringCount: progress.ringCount,
+    lastQualifyingDayKey: progress.lastQualifyingDayKey,
+    todayKey,
+  })
+  const previousProgress = progress
 
   progress = applyPracticeProgressAfterCompletion({
     progress,
     globalResult,
+    mode: session.mode,
     fingerprint,
-    scorePercent,
+    masteryPercent: mastery.masteryPercent,
     sessionId: session.id,
-    economyTier: tier,
+    ringIncrement: ringIncremented,
+    qualifyingDayKey: todayKey,
   })
-
-  if (
-    progress.ringCount >= 5 &&
-    !progress.ringBonusClaimed &&
-    globalResult.slotIndex === 4
-  ) {
-    const avgScore =
-      progress.slotScores.length > 0
-        ? progress.slotScores.reduce((sum, s) => sum + s, 0) / progress.slotScores.length
-        : scorePercent
-    ringBonusXp = computeRingBonusXp(avgScore)
-    progress = { ...progress, ringBonusClaimed: true }
+  const baseBadgeAwarded =
+    session.mode === 'balanced' &&
+    tier > 0 &&
+    !previousProgress.baseBadgeClaimedAt &&
+    isBalancedBasePass(mastery.masteryScore, mastery.plannedLength)
+  if (baseBadgeAwarded) {
+    progress = { ...progress, baseBadgeClaimedAt: Date.now() }
   }
 
   let gemsAwarded = 0
-  let cupAwarded = 0
-  if (featureFlags.practiceTopicCupsV1) {
-    const cupResult = resolveTopicCup({ tier, progress, ringIncremented })
-    progress = applyTopicCupProgress(progress, cupResult)
-    cupAwarded = cupResult.awarded
-  } else if (featureFlags.practiceGemsV1) {
+  const milestoneOutcome = resolvePracticeMilestoneOutcome({
+    previousProgress,
+    progress,
+    tier,
+    ringIncremented,
+    cupEnabled: featureFlags.practiceTopicCupsV1,
+  })
+  progress = milestoneOutcome.progress
+  const { coinsAwarded, coinMilestones, cupAwarded } = milestoneOutcome
+
+  if (!featureFlags.practiceTopicCupsV1 && featureFlags.practiceGemsV1) {
     const gemsResult = resolvePracticeGems({ tier, progress, ringIncremented })
     progress = applyPracticeGemsProgress(progress, gemsResult)
     gemsAwarded = gemsResult.awarded
@@ -124,16 +217,14 @@ export function resolvePracticeCompletion(params: {
   if (globalResult.amount > 0) {
     addPracticeGlobalXpToday(globalResult.amount)
   }
-  if (ringBonusXp > 0) {
-    addPracticeGlobalXpToday(ringBonusXp)
-  }
 
-  const globalXpToAward = globalResult.amount + ringBonusXp
+  const globalXpToAward = globalResult.amount
   const ticker = buildPracticeCompletionTicker({
     sessionXp: session.xp,
     globalAmount: globalXpToAward,
     ringCount: progress.ringCount,
     ringIncremented,
+    coinsAwarded,
     tier,
     gemsAwarded,
     cupAwarded,
@@ -145,6 +236,7 @@ export function resolvePracticeCompletion(params: {
     globalReason: globalResult.reason,
     ringCount: progress.ringCount,
     ringIncremented,
+    coinsAwarded,
     gemsAwarded,
     cupAwarded,
     tier,
@@ -160,10 +252,26 @@ export function resolvePracticeCompletion(params: {
     tier,
     progress,
     ringIncremented,
+    coinsAwarded,
     gemsAwarded,
     cupAwarded,
     audience,
   })
 
-  return { reward, rewardUi, globalXpToAward, ringBonusXp }
+  return {
+    reward,
+    rewardUi,
+    globalXpToAward,
+    ringBonusXp: 0,
+    activityNeeded: true,
+    coinsAwarded,
+    coinMilestones,
+    masteryScore: mastery.masteryScore,
+    effectiveMasteryScore,
+    correctedCount: mastery.correctedCount,
+    plannedLength: mastery.plannedLength,
+    forgivenessUsed,
+    baseBadgeAwarded,
+    duplicate: false,
+  }
 }

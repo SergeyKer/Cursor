@@ -23,6 +23,10 @@ import {
 } from '@/lib/practice/practiceSessionProgress'
 import { validatePracticeAnswer, type PracticeAnswerValidationContext } from '@/lib/practice/practiceValidation'
 import { isPracticeChipSelectionType } from '@/lib/practice/practiceCorrectionFamily'
+import {
+  applyPracticeForgivenessToSession,
+  requestPracticeForgiveness,
+} from '@/lib/practice/practiceCoinForgiveness'
 import type {
   PracticeAnswer,
   PracticeBuildConfig,
@@ -67,6 +71,10 @@ export interface PracticeSessionControls {
   completeSession: () => void
   abandonSession: () => void
   acknowledgeInstruction: () => void
+  requestCoinForgiveness: () => boolean
+  cancelCoinForgiveness: () => void
+  applyCoinForgiveness: () => boolean
+  continueAfterCoinForgiveness: () => void
 }
 
 function applyStatus(session: PracticeSession, status: PracticeSessionStatus): PracticeSession {
@@ -109,6 +117,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
   const [state, setState] = useState<PracticeFlowState>('idle')
   const [feedback, setFeedback] = useState<PracticeFeedback | null>(null)
   const [pendingAnswer, setPendingAnswer] = useState<string | null>(null)
+  const sessionRef = useRef<PracticeSession | null>(null)
   const questionStartedAtRef = useRef(Date.now())
   const submittingRef = useRef(false)
   const pendingCorrectionRef = useRef<PracticeQuestion | null>(null)
@@ -134,6 +143,10 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     clearFeedbackAutoAdvance()
     clearCheckingTimer()
   }, [clearFeedbackAutoAdvance, clearCheckingTimer])
+
+  useEffect(() => {
+    sessionRef.current = session
+  }, [session])
 
   useEffect(() => {
     const restored = storage.loadActiveSession()
@@ -249,6 +262,42 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     })
     setState('active')
   }, [storage])
+
+  const requestCoinForgiveness = useCallback(() => {
+    const current = sessionRef.current
+    if (!current || current.status !== 'active') return false
+    const resolved = requestPracticeForgiveness(current)
+    if (!resolved.ok) return false
+    sessionRef.current = resolved.session
+    persistSession(resolved.session)
+    return true
+  }, [persistSession])
+
+  const cancelCoinForgiveness = useCallback(() => {
+    const current = sessionRef.current
+    if (!current?.forgivenessConfirmPending) return
+    const next = { ...current, forgivenessConfirmPending: false }
+    sessionRef.current = next
+    persistSession(next)
+  }, [persistSession])
+
+  const applyCoinForgiveness = useCallback(() => {
+    const current = sessionRef.current
+    if (!current || current.status !== 'active') return false
+    const resolved = applyPracticeForgivenessToSession(current)
+    if (!resolved.ok) return false
+    sessionRef.current = resolved.session
+    persistSession(resolved.session)
+    return true
+  }, [persistSession])
+
+  const continueAfterCoinForgiveness = useCallback(() => {
+    const current = sessionRef.current
+    if (!current?.forgivenessAppliedAckActive) return
+    const next = { ...current, forgivenessAppliedAckActive: false }
+    sessionRef.current = next
+    persistSession(next)
+  }, [persistSession])
 
   const completeSession = useCallback(() => {
     clearTransitionTimers()
@@ -447,5 +496,9 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
     completeSession,
     abandonSession,
     acknowledgeInstruction,
+    requestCoinForgiveness,
+    cancelCoinForgiveness,
+    applyCoinForgiveness,
+    continueAfterCoinForgiveness,
   }
 }

@@ -42,6 +42,7 @@ import {
   type RewardsState,
   spendCoins,
   awardCoins,
+  withDailyActivity,
   isLessonGoldCoinClaimed,
 } from '@/lib/rewardsState'
 import { applyRewardsEvent } from '@/lib/rewardsEvents'
@@ -127,7 +128,7 @@ import { buildLessonMedalRevealCopy } from '@/lib/lessonMedalRevealCopy'
 import { computeCorePercent, resolveMedalFromCoreXp, type LessonMedalTierOrNull } from '@/lib/lessonScore'
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
-import { loadLessonProgress, saveLessonProgress } from '@/lib/lessonProgressStorage'
+import { loadLessonProgress, loadLessonProgressMap, saveLessonProgress } from '@/lib/lessonProgressStorage'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -176,9 +177,16 @@ import { isPracticeWrongLimitAdvance } from '@/lib/practice/practiceFooterCopy'
 import type { PracticeChoiceCorrectionPhase } from '@/lib/practice/practiceChoiceCorrectionPhase'
 import { buildPracticeFooterLive, mapPracticeFlowToFooterState } from '@/lib/practice/practiceFooterLive'
 import { resolvePracticeCompletion } from '@/lib/practice/resolvePracticeCompletion'
+import { resolveCanEarnRingToday } from '@/lib/practice/resolvePostPracticeActions'
+import { pickBestPracticeRewardOpportunity } from '@/lib/practice/pickBestPracticeRewardOpportunity'
+import { buildPracticeFinaleChatSeed } from '@/lib/uiCopy/practiceCopy'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import { resolvePracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
 import type { PracticeRewardUi } from '@/lib/practice/practiceRewardUi'
+import { claimPracticeEntryRewards } from '@/lib/practice/practiceEntryRewards'
+import { spendAndApplyPracticeForgiveness } from '@/lib/practice/practiceCoinForgiveness'
+import { getPracticeCoinForgivenessCopy } from '@/lib/practice/practiceCoinForgivenessCopy'
+import { getPracticeEconomyDayKey } from '@/lib/practice/practiceEconomyRules'
 import { getPracticeModePlan } from '@/lib/practice/engine/sessionPlan'
 import { countWrongChoiceLikeBefore } from '@/lib/practice/engine/stepSpec'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
@@ -952,11 +960,49 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [practiceCompletionMeta, setPracticeCompletionMeta] = React.useState<{
     tier: 0 | 1 | 2
     globalAmount: number
+    globalReason: PracticeRewardUi['globalReason']
     ringCount: number
+    ringIncremented: boolean
+    canEarnRingToday: boolean
+    coinsAwarded: number
+    cupAwarded: number
+    pendingPracticeCoins: number
+    pendingCup: boolean
+    baseBadgeAwarded: boolean
+    baseBadgeClaimed: boolean
+    masteryScore: number
+    effectiveMasteryScore: number
+    correctedCount: number
+    plannedLength: number
+    forgivenessUsed: boolean
     gemsPending: boolean
     cupClaimed: boolean
   } | null>(null)
   const [practiceProgressRevision, setPracticeProgressRevision] = React.useState(0)
+  const handlePracticeConfirmCoinForgiveness = React.useCallback((): boolean => {
+    const copy = getPracticeCoinForgivenessCopy()
+    if (rewardsState.currencies.coins < 1) {
+      setCoinForgivenessHelpOverlay({ title: copy.helpTitle, lines: [copy.helpMessage] })
+      return false
+    }
+    const result = spendAndApplyPracticeForgiveness({
+      rewardsState,
+      apply: practiceSession.applyCoinForgiveness,
+    })
+    if (!result.ok && !result.rolledBack) {
+      setRewardsState(result.state)
+      return false
+    }
+    setRewardsState(
+      applyRewardsEvent(result.state, {
+        type: result.ok ? 'coins_spent' : 'coins_earned',
+        amount: 1,
+        reason: result.ok ? 'practice_error_forgiveness' : 'practice_forgiveness_rollback',
+        ticker: result.ok ? copy.appliedFooter : copy.rollback,
+      })
+    )
+    return result.ok
+  }, [practiceSession.applyCoinForgiveness, rewardsState])
   const finalizeLessonCycle1OnLeave = useCallback(() => {
     const lessonId = activeStructuredLesson?.id ?? activeLearningLessonId
     if (!lessonId || !lessonCycle1ActiveSessionRef.current) return
@@ -4037,6 +4083,47 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const startPracticeFromLesson = useCallback(
     (config: PracticeBuildConfig) => {
+      setPracticeRewardUi(null)
+      setPracticeCompletionMeta(null)
+      const entryTier = resolvePracticeEconomyTier(loadLessonProgress(config.lesson.id)?.medal ?? null)
+      const entryReward = claimPracticeEntryRewards({ lessonId: config.lesson.id, tier: entryTier })
+      if (entryReward.claimed && entryReward.visibleText) {
+        setRewardsState((previous) => {
+          let next = previous
+          for (const milestone of entryReward.coinMilestones) {
+            const awarded = awardCoins(next, milestone.amount, {
+              practiceMilestoneForLedger: milestone.key,
+            })
+            if (awarded.ok) next = awarded.state
+          }
+          return entryReward.coinsAwarded > 0
+            ? applyRewardsEvent(next, {
+                type: 'coins_earned',
+                amount: entryReward.coinsAwarded,
+                reason: 'practice_entry_pending_claim',
+                ticker: entryReward.visibleText ?? undefined,
+              })
+            : next
+        })
+        const progress = getPracticeTopicProgress(config.lesson.id)
+        const at = Date.now()
+        setPracticeRewardUi({
+          id: `practice-entry-${config.lesson.id}-${at}`,
+          sessionXp: 0,
+          globalAmount: 0,
+          globalReason: 'no_eligible_award',
+          ringCount: progress.ringCount,
+          ringIncremented: false,
+          coinsAwarded: entryReward.coinsAwarded,
+          gemsAwarded: 0,
+          cupAwarded: entryReward.cupAwarded,
+          tier: entryTier,
+          topLine: entryReward.visibleText,
+          popupText: entryReward.visibleText,
+          showPopup: true,
+          at,
+        })
+      }
       // Закрытие меню после запуска практики триггерит эффект «снимок настроек при открытии меню»:
       // при расхождении он вызывает restartChatForNewModeFromMenu → abandonPracticeSession и сносит сессию.
       // Сбрасываем снимок: переход в практику - намеренное действие, не «закрыли меню после правок чата».
@@ -4727,6 +4814,69 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [abandonPracticeSession, openLearningLesson]
   )
 
+  const openChatFromPractice = useCallback(
+    (session: PracticeSession) => {
+      setPracticeRewardUi(null)
+      setPracticeCompletionMeta(null)
+      practiceSession.abandonSession()
+      setComposerSessionKey((k) => k + 1)
+      cleanupEngvoRuntime({ markIgnoredCurrent: true })
+      setEngvoVoiceMode(false)
+      setEngvoCallPhase('idle')
+      setEngvoErrorText(null)
+      resetStructuredLessonSession()
+      setSettings((s) => ({
+        ...s,
+        mode: 'communication',
+        topic: 'free_talk',
+      }))
+      setMessages([
+        {
+          role: 'assistant',
+          content: buildPracticeFinaleChatSeed(session.topic),
+        },
+      ])
+      setLoading(false)
+      setSearchingInternet(false)
+      setRetryMessage(null)
+      setDialogStarted(true)
+      setMenuOpen(false)
+    },
+    [cleanupEngvoRuntime, practiceSession, resetStructuredLessonSession]
+  )
+
+  const openTipsFromPractice = useCallback(async () => {
+    const session = practiceSession.session
+    if (!session) return
+    const lessonId =
+      session.source.kind === 'static_lesson' ? session.source.lessonId : session.lessonId
+    if (!getStructuredLessonById(lessonId)?.intro) {
+      openLessonFromPractice(session)
+      return
+    }
+    await openLearningLesson(lessonId, 'a2')
+    setLessonViewStage('tips')
+    setLessonTipsReturnStage('intro')
+  }, [openLearningLesson, openLessonFromPractice, practiceSession.session])
+
+  const openOtherTopicFromPractice = useCallback(() => {
+    const session = practiceSession.session
+    if (!session) return
+    const lessons = Object.values(loadLessonProgressMap()).filter(
+      (row) => row.lessonId !== session.lessonId
+    )
+    const opportunity = pickBestPracticeRewardOpportunity(lessons)
+    if (!opportunity) {
+      void restartPracticeFromExistingSession(session, session.mode, 'ai_generated')
+      return
+    }
+    void openPracticeSession({
+      lessonId: opportunity.lessonId,
+      mode: 'challenge',
+      entrySource: 'menu',
+    })
+  }, [openPracticeSession, practiceSession.session, restartPracticeFromExistingSession])
+
   const handlePostLessonAction = useCallback(
     async (action: PostLessonAction) => {
       if (!activeStructuredLesson || !activeStructuredLessonStep?.postLesson) return
@@ -4740,7 +4890,21 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return
       }
 
-      if (action === 'independent_practice' || action === 'myeng_training') {
+      if (action === 'independent_practice') {
+        try {
+          await openPracticeSession({
+            lessonId: activeStructuredLesson.id,
+            mode: 'challenge',
+            entrySource: 'after_lesson',
+          })
+        } catch {
+          setMenuLessonBgError(APP_SHELL_ERROR_COPY.errorFirstMessage)
+        }
+        setSelectedPostLessonAction(null)
+        return
+      }
+
+      if (action === 'myeng_training') {
         const earned = resolveMedalFromCoreXp(
           activeStructuredLessonCoreXp,
           true,
@@ -4767,7 +4931,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           profileMedal: loadLessonProgress(activeStructuredLesson.id)?.medal ?? null,
         })
         setLessonOverlay({
-          title: action === 'independent_practice' ? 'Практика' : 'Тренировка в Engvo',
+          title: 'Тренировка в Engvo',
           lines: [
             finaleCopy.goalLine ?? 'Практика с генерацией вариантов - по подписке.',
             'Раздел скоро появится.',
@@ -4821,6 +4985,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       isStructuredLessonRepeatRun,
       settings.audience,
       fetchStructuredLessonRuntime,
+      openPracticeSession,
     ]
   )
 
@@ -5329,20 +5494,56 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setPracticeCompletionMeta({
       tier: resolved.reward.tier,
       globalAmount: resolved.reward.globalAmount,
+      globalReason: resolved.reward.globalReason,
       ringCount: resolved.reward.progress.ringCount,
+      ringIncremented: resolved.reward.ringIncremented,
+      canEarnRingToday: resolveCanEarnRingToday({
+        tier: resolved.reward.tier,
+        ringCount: resolved.reward.progress.ringCount,
+        lastQualifyingDayKey: resolved.reward.progress.lastQualifyingDayKey,
+        todayKey: getPracticeEconomyDayKey(),
+      }),
+      coinsAwarded: resolved.coinsAwarded,
+      cupAwarded: resolved.reward.cupAwarded,
+      pendingPracticeCoins: resolved.reward.progress.pendingPracticeCoins ?? 0,
+      pendingCup: Boolean(resolved.reward.progress.pendingCup),
+      baseBadgeAwarded: resolved.baseBadgeAwarded,
+      baseBadgeClaimed: Boolean(resolved.reward.progress.baseBadgeClaimedAt),
+      masteryScore: resolved.masteryScore,
+      effectiveMasteryScore: resolved.effectiveMasteryScore,
+      correctedCount: resolved.correctedCount,
+      plannedLength: resolved.plannedLength,
+      forgivenessUsed: resolved.forgivenessUsed,
       gemsPending: resolved.reward.progress.gemsPending,
       cupClaimed: resolved.reward.progress.cupClaimed,
     })
     setPracticeProgressRevision((n) => n + 1)
 
-    if (resolved.globalXpToAward > 0) {
-      setRewardsState((prev) =>
-        applyRewardsEvent(prev, {
-          type: 'practice_completed',
-          amount: resolved.globalXpToAward,
-          ticker: resolved.reward.ticker,
-        })
-      )
+    if (resolved.activityNeeded || resolved.globalXpToAward > 0 || resolved.coinMilestones.length > 0) {
+      setRewardsState((prev) => {
+        let next = resolved.activityNeeded ? withDailyActivity(prev) : prev
+        if (resolved.globalXpToAward > 0) {
+          next = applyRewardsEvent(next, {
+            type: 'practice_completed',
+            amount: resolved.globalXpToAward,
+            ticker: resolved.reward.ticker,
+          })
+        }
+        for (const milestone of resolved.coinMilestones) {
+          const awarded = awardCoins(next, milestone.amount, {
+            practiceMilestoneForLedger: milestone.key,
+          })
+          if (awarded.ok) {
+            next = applyRewardsEvent(awarded.state, {
+              type: 'coins_earned',
+              amount: milestone.amount,
+              reason: 'practice_milestone',
+              ticker: resolved.reward.ticker,
+            })
+          }
+        }
+        return next
+      })
     }
   }, [storageLoaded, practiceSession.session, settings.audience])
 
@@ -6301,6 +6502,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ? activeLearningLesson?.footer?.staticText ??
         (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
       : null)
+  const practiceForgivenessContext = practiceSession.session
+    ? (() => {
+        const progress = getPracticeTopicProgress(practiceSession.session!.lessonId)
+        const medal = loadLessonProgress(practiceSession.session!.lessonId)?.medal ?? null
+        return {
+          tier: resolvePracticeEconomyTier(medal),
+          ringCount: progress.ringCount,
+          lastQualifyingDayKey: progress.lastQualifyingDayKey,
+          todayKey: getPracticeEconomyDayKey(),
+          coinBalance: rewardsState.currencies.coins,
+        }
+      })()
+    : undefined
   const practiceFooterView = practiceSession.session
     ? getPracticeFooterView(
         practiceSession.session,
@@ -6313,6 +6527,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             practiceSession.state === 'feedback' &&
             isPracticeWrongLimitAdvance(practiceSession.session),
           correctionPhase: choiceCorrectionPhase,
+          coinBalance: rewardsState.currencies.coins,
         }
       )
     : null
@@ -6851,6 +7066,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       streakFooterPreview,
     ]
   )
+  const practiceOverlayRewardTicker =
+    practiceSession.state === 'completed' || practiceSession.state === 'briefing'
+      ? practiceRewardUi?.topLine ?? footerContextRewardTicker
+      : null
   const footerDynamicText = isAccentActive
     ? resolveFooterWithStreakLayer(accentFooterView?.dynamicText ?? null)
     : isVocabularyHubActive
@@ -6861,7 +7080,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : isPracticeActive
     ? resolveFooterWithStreakLayer(
         practiceFooterView?.dynamicText ?? null,
-        practiceRewardUi?.topLine ?? footerContextRewardTicker
+        practiceOverlayRewardTicker
       )
     : isLessonIntroActive
       ? resolveFooterWithStreakLayer(introFooterDynamicText, null, null)
@@ -7886,9 +8105,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   currentQuestion={practiceSession.currentQuestion}
                   canSubmit={practiceSession.canSubmit}
                   completionMeta={practiceCompletionMeta}
+                  hasTips={Boolean(
+                    practiceSession.session &&
+                      getStructuredLessonById(practiceSession.session.lessonId)?.intro
+                  )}
+                  otherTopicAvailable={Boolean(
+                    practiceSession.session &&
+                      pickBestPracticeRewardOpportunity(
+                        Object.values(loadLessonProgressMap()).filter(
+                          (row) => row.lessonId !== practiceSession.session!.lessonId
+                        )
+                      )
+                  )}
                   onSubmitAnswer={practiceSession.submitAnswer}
                   onAcknowledgeInstruction={practiceSession.acknowledgeInstruction}
                   onChoiceCorrectionPhaseChange={setChoiceCorrectionPhase}
+                  forgivenessContext={practiceForgivenessContext}
+                  onRequestCoinForgiveness={practiceSession.requestCoinForgiveness}
+                  onConfirmCoinForgiveness={handlePracticeConfirmCoinForgiveness}
+                  onCancelCoinForgiveness={practiceSession.cancelCoinForgiveness}
+                  onContinueCoinForgiveness={practiceSession.continueAfterCoinForgiveness}
                   onRequestPhraseTranslation={handleRequestPhraseTranslation}
                   onRetryAfterError={() => {
                     if (!practiceSession.session) return
@@ -7913,6 +8149,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onOpenLesson={() => {
                     if (!practiceSession.session) return
                     openLessonFromPractice(practiceSession.session)
+                  }}
+                  onOpenTips={() => {
+                    void openTipsFromPractice()
+                  }}
+                  onOtherTopic={openOtherTopicFromPractice}
+                  onOpenAiChat={() => {
+                    if (!practiceSession.session) return
+                    openChatFromPractice(practiceSession.session)
                   }}
                   onBackToPracticeMenu={() => {
                     setPracticeRewardUi(null)

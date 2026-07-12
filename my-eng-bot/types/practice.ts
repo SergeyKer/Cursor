@@ -112,6 +112,13 @@ export interface PracticeSession {
   wrongAttemptsOnCurrentQuestion?: number
   /** Пользователь прочитал блок инструкций перед первым заданием. */
   instructionAcknowledged?: boolean
+  /** Прощение ошибки в Challenge можно применить один раз за проход. */
+  forgivenessUsedThisRun?: boolean
+  forgivenessConfirmPending?: boolean
+  forgivenessAppliedAckActive?: boolean
+  /** Бонус используется только для зачёта, не меняя raw mastery / XP / COMBO. */
+  forgivenessEffectiveBonus?: 0 | 1
+  forgivenessQuestionId?: string
 }
 
 /** Снимок активной сессии для синхронизации меню практики. */

@@ -1,149 +1,306 @@
 'use client'
 
-import type { PracticeMode, PracticeSession } from '@/types/practice'
+import { useMemo, useState } from 'react'
+import FlowInfoCard from '@/components/FlowInfoCard'
+import type { PracticeSession } from '@/types/practice'
 import type { PracticeEconomyTier } from '@/lib/practice/practiceEconomyTier'
-import { featureFlags } from '@/lib/featureFlags'
-import { getPracticeFinalePrimaryAction } from '@/lib/practice/practiceFinaleCta'
-import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
-import { formatPracticeProgressText } from '@/lib/practice/practiceGlyphs'
+import { computePracticeMasterySnapshot } from '@/lib/practice/practiceMastery'
+import { buildPracticeFinaleSummary } from '@/lib/practice/practiceFinaleCopy'
+import type { PracticeGlobalXpReason } from '@/lib/practice/practiceGlobalXpAward'
 import {
-  APP_BTN_NEUTRAL_WHITE_LARGE,
-  APP_BTN_PRIMARY_LARGE,
-  APP_BTN_SECONDARY_LARGE,
+  POST_LESSON_BLUE_PRIMARY_BUTTON_CLASS,
+  POST_LESSON_NEUTRAL_BUTTON_CLASS,
 } from '@/lib/homeCtaStyles'
+import {
+  PRACTICE_FINALE_GRID_CLASS,
+  PRACTICE_FINALE_MENU_LINK_CLASS,
+  PRACTICE_FINALE_RECOMMEND_CLASS,
+  PRACTICE_FINALE_STACK_CLASS,
+} from '@/lib/practice/practiceFinaleLayout'
+import {
+  resolvePostPracticeActions,
+  sessionHasOpenableLesson,
+  type PostPracticeActionId,
+  type PostPracticeCta,
+} from '@/lib/practice/resolvePostPracticeActions'
+
+export type PracticeFinaleActionHandler = (action: PostPracticeActionId) => void
 
 interface PracticeFinaleProps {
   session: PracticeSession
+  completionReady?: boolean
   tier?: PracticeEconomyTier
   globalAmount?: number
+  globalReason?: PracticeGlobalXpReason | 'legacy_flat_30'
   ringCount?: number
+  ringIncremented?: boolean
+  canEarnRingToday?: boolean
+  coinsAwarded?: number
+  cupAwarded?: number
+  pendingPracticeCoins?: number
+  pendingCup?: boolean
+  baseBadgeAwarded?: boolean
+  baseBadgeClaimed?: boolean
+  masteryScore?: number
+  effectiveMasteryScore?: number
+  correctedCount?: number
+  plannedLength?: number
+  forgivenessUsed?: boolean
   gemsPending?: boolean
   cupClaimed?: boolean
+  hasTips?: boolean
+  otherTopicAvailable?: boolean
+  chatAvailable?: boolean
+  /** Additive legacy handlers — still used as defaults. */
   onRepeat: () => void
   onChallenge: () => void
   onOpenLesson: () => void
   onBackToPracticeMenu: () => void
+  onOpenTips?: () => void
+  onOtherTopic?: () => void
+  onOpenAiChat?: () => void
+  onAction?: PracticeFinaleActionHandler
   busy?: boolean
 }
 
-function nextModeLabel(mode: PracticeMode): string {
-  if (mode === 'reference') return 'Перейти в Челлендж'
-  if (mode === 'relaxed') return 'Продолжить до Balanced'
-  if (mode === 'balanced') return 'Челлендж на 12 заданий'
-  return 'Повторить Челлендж'
+function actionClass(tone: PostPracticeCta['tone'], spanFull: boolean): string {
+  const base =
+    tone === 'neutral' ? POST_LESSON_NEUTRAL_BUTTON_CLASS : POST_LESSON_BLUE_PRIMARY_BUTTON_CLASS
+  return spanFull ? `${base} col-span-2` : base
+}
+
+function PracticeFinaleSkeleton() {
+  return (
+    <div className={PRACTICE_FINALE_STACK_CLASS} aria-busy="true" aria-label="Загрузка результата">
+      <div className="h-[110px] w-full animate-pulse rounded-2xl bg-[var(--chat-section-neutral)]" />
+      <div className="mx-auto h-4 w-3/4 animate-pulse rounded bg-[var(--border)]/40" />
+      <div className={PRACTICE_FINALE_GRID_CLASS}>
+        <div className="h-11 animate-pulse rounded-xl bg-[var(--border)]/35" />
+        <div className="h-11 animate-pulse rounded-xl bg-[var(--border)]/35" />
+        <div className="h-11 animate-pulse rounded-xl bg-[var(--border)]/25" />
+        <div className="h-11 animate-pulse rounded-xl bg-[var(--border)]/25" />
+      </div>
+      <div className="mx-auto h-4 w-24 animate-pulse rounded bg-[var(--border)]/30" />
+    </div>
+  )
 }
 
 export default function PracticeFinale({
   session,
+  completionReady = true,
   tier = 0,
   globalAmount = 0,
+  globalReason = 'no_eligible_award',
   ringCount = 0,
-  gemsPending = false,
+  ringIncremented = false,
+  canEarnRingToday = false,
+  coinsAwarded = 0,
+  cupAwarded = 0,
+  pendingPracticeCoins = 0,
+  pendingCup = false,
+  baseBadgeAwarded = false,
+  baseBadgeClaimed = false,
+  masteryScore,
+  effectiveMasteryScore,
+  correctedCount,
+  plannedLength,
+  forgivenessUsed = false,
   cupClaimed = false,
+  hasTips = false,
+  otherTopicAvailable = false,
+  chatAvailable = true,
   onRepeat,
   onChallenge,
   onOpenLesson,
   onBackToPracticeMenu,
+  onOpenTips,
+  onOtherTopic,
+  onOpenAiChat,
+  onAction,
   busy = false,
 }: PracticeFinaleProps) {
-  const total = Math.max(1, resolvePracticeTargetQuestionCount(session))
-  const percent = Math.round((session.score / total) * 100)
-  const correctedCount = session.answers.filter((answer) => answer.corrected).length
-  const primary = getPracticeFinalePrimaryAction({
+  const [pendingAction, setPendingAction] = useState<PostPracticeActionId | null>(null)
+  const mastery = computePracticeMasterySnapshot(session)
+
+  const resolved = useMemo(() => {
+    if (!completionReady) return null
+    return resolvePostPracticeActions({
+      mode: session.mode,
+      generationSource: session.generationSource ?? 'local',
+      tier,
+      globalAmount,
+      globalReason,
+      ringCount,
+      ringIncremented,
+      canEarnRingToday,
+      cupClaimed,
+      cupAwarded,
+      masteryScore: masteryScore ?? mastery.masteryScore,
+      plannedLength: plannedLength ?? mastery.plannedLength,
+      hasLesson: sessionHasOpenableLesson(session),
+      hasTips,
+      otherTopicAvailable,
+      chatAvailable,
+    })
+  }, [
+    completionReady,
+    session,
     tier,
     globalAmount,
+    globalReason,
     ringCount,
-    mode: session.mode,
-    gemsPending,
-  })
+    ringIncremented,
+    canEarnRingToday,
+    cupClaimed,
+    cupAwarded,
+    masteryScore,
+    plannedLength,
+    mastery.masteryScore,
+    mastery.plannedLength,
+    hasTips,
+    otherTopicAvailable,
+    chatAvailable,
+  ])
 
-  const bossQuestion = session.questions.find((item) => item.type === 'boss-challenge')
-  const bossAnswer = bossQuestion
-    ? session.answers.filter((answer) => answer.questionId === bossQuestion.id).at(-1)
-    : undefined
-  const bossCorrected = Boolean(bossAnswer?.corrected)
-  const bossPassed = Boolean(bossAnswer?.isCorrect)
+  const summary = useMemo(() => {
+    if (!completionReady) return null
+    return buildPracticeFinaleSummary({
+      mode: session.mode,
+      masteryScore: masteryScore ?? mastery.masteryScore,
+      effectiveMasteryScore: effectiveMasteryScore ?? mastery.masteryScore,
+      correctedCount: correctedCount ?? mastery.correctedCount,
+      plannedLength: plannedLength ?? mastery.plannedLength,
+      sessionXp: session.xp,
+      tier,
+      globalAmount,
+      globalReason,
+      ringCount,
+      ringIncremented,
+      coinsAwarded,
+      cupAwarded,
+      pendingPracticeCoins,
+      pendingCup,
+      baseBadgeAwarded,
+      baseBadgeClaimed,
+      forgivenessUsed,
+    })
+  }, [
+    completionReady,
+    session.mode,
+    session.xp,
+    masteryScore,
+    effectiveMasteryScore,
+    correctedCount,
+    plannedLength,
+    mastery,
+    tier,
+    globalAmount,
+    globalReason,
+    ringCount,
+    ringIncremented,
+    coinsAwarded,
+    cupAwarded,
+    pendingPracticeCoins,
+    pendingCup,
+    baseBadgeAwarded,
+    baseBadgeClaimed,
+    forgivenessUsed,
+  ])
 
-  const supportiveText =
-    session.mode === 'challenge' && bossPassed
-      ? bossCorrected
-        ? 'Финал сдан: тему закрепили.'
-        : 'Финал сдан: тему применил сам.'
-      : globalAmount > 0
-        ? `+${globalAmount} XP к уровню за этот проход.`
-        : tier === 0
-          ? `${session.xp} XP за сессию - к уровню не идёт без урока с медалью.`
-          : percent >= 80
-            ? 'Тема держится уверенно. Повтор даст меньше XP к уровню - это нормально.'
-            : correctedCount > 0
-              ? 'Ошибки закрепили правильным вариантом.'
-              : 'Хорошая тренировка. Следующий круг сделает ответы быстрее.'
+  if (!completionReady || !resolved || !summary) {
+    return <PracticeFinaleSkeleton />
+  }
 
-  const handlePrimary = () => {
-    if (primary.action === 'repeat') onRepeat()
-    else if (primary.action === 'challenge') onChallenge()
-    else if (primary.action === 'openLesson') onOpenLesson()
+  const actions = resolved.actions
+  const locked = busy || pendingAction !== null
+
+  const dispatch = (action: PostPracticeActionId) => {
+    if (locked) return
+    setPendingAction(action)
+    if (onAction) {
+      onAction(action)
+      return
+    }
+    if (action === 'generate_variant') onRepeat()
+    else if (action === 'upgrade_mode') onChallenge()
+    else if (action === 'open_lesson') onOpenLesson()
+    else if (action === 'open_tips') (onOpenTips ?? onOpenLesson)()
+    else if (action === 'other_topic') (onOtherTopic ?? onRepeat)()
+    else if (action === 'ai_conversation') (onOpenAiChat ?? onBackToPracticeMenu)()
     else onBackToPracticeMenu()
   }
 
+  const busyLabel =
+    pendingAction === 'generate_variant' || busy
+      ? 'Готовим следующий раунд…'
+      : 'Открываем…'
+
   return (
-    <div className="mx-auto flex w-full max-w-sm flex-col gap-3 py-3">
-      <section className="lesson-enter chat-section-surface glass-surface rounded-2xl border border-green-200/90 bg-green-50/95 px-4 py-3 text-green-800">
-        <p className="text-base font-semibold">Практика завершена</p>
-        <p className="mt-1 text-sm leading-relaxed">
-          {session.score}/{total} верно, {session.xp} XP за сессию. {supportiveText}
-        </p>
-        {ringCount > 0 ? (
-          <p className="mt-1 text-xs text-green-700/90">
-            {featureFlags.practiceTopicCupsV1 && tier === 2
-              ? cupClaimed
-                ? '🏆 Тема сдана'
-                : `${formatPracticeProgressText(ringCount)} за тему`
-              : `${formatPracticeProgressText(ringCount)} за тему${gemsPending ? ' · 💎 ждёт золото' : ''}`}
-          </p>
-        ) : null}
-      </section>
-      <button
-        type="button"
-        onClick={handlePrimary}
-        disabled={busy}
-        className={APP_BTN_PRIMARY_LARGE}
-      >
-        {busy ? 'Генерируем новый вариант...' : primary.label}
-      </button>
-      <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">{primary.hint}</p>
-      {primary.action !== 'repeat' ? (
+    <div
+      className={PRACTICE_FINALE_STACK_CLASS}
+      role="region"
+      aria-label="Результат практики"
+    >
+      <div className="animate-fade-in-up w-full">
+        <FlowInfoCard
+          variant={summary.variant}
+          title={summary.title}
+          firstTryLine={summary.statsLine}
+          statsLine={summary.starsLine}
+          coinLine={summary.specialLine ?? summary.levelLine}
+        />
+      </div>
+
+      {resolved.recommendation ? (
         <button
           type="button"
-          onClick={onRepeat}
-          disabled={busy}
-          className={APP_BTN_SECONDARY_LARGE}
+          disabled={locked}
+          onClick={() => dispatch('ai_conversation')}
+          className={`${PRACTICE_FINALE_RECOMMEND_CLASS} disabled:opacity-60`}
         >
-          Повторить
+          <span className="text-[var(--accent)] underline-offset-2 hover:underline">
+            {resolved.recommendation.label}
+          </span>
         </button>
-      ) : (
-        <button
-          type="button"
-          onClick={onChallenge}
-          disabled={busy}
-          className={APP_BTN_SECONDARY_LARGE}
-        >
-          {nextModeLabel(session.mode)}
-        </button>
-      )}
+      ) : null}
+
+      <div className={PRACTICE_FINALE_GRID_CLASS}>
+        {actions.map((action, index) => {
+          const spanFull = actions.length === 3 && index === 2
+          const isPrimary = action.tone === 'primary'
+          return (
+            <div
+              key={action.id}
+              className={`animate-fade-in-up ${spanFull ? 'col-span-2' : ''}`}
+              style={{ animationDelay: `${index * 80}ms`, animationFillMode: 'both' }}
+            >
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => dispatch(action.id)}
+                className={actionClass(action.tone, false)}
+              >
+                <span className="min-w-0 flex flex-col items-center leading-tight">
+                  <span>
+                    {locked && isPrimary ? busyLabel : action.label}
+                  </span>
+                  {isPrimary && action.hint && !locked ? (
+                    <span className="text-[9px] leading-tight text-white/90 sm:text-[10px]">
+                      {action.hint}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
       <button
         type="button"
-        onClick={onOpenLesson}
-        disabled={busy}
-        className={APP_BTN_NEUTRAL_WHITE_LARGE}
-      >
-        Пройти урок по теме
-      </button>
-      <button
-        type="button"
-        onClick={onBackToPracticeMenu}
-        disabled={busy}
-        className="w-full rounded-xl px-4 py-2 text-center text-sm font-medium text-[var(--text-muted)] disabled:cursor-not-allowed disabled:opacity-60"
+        disabled={locked}
+        onClick={() => dispatch('menu')}
+        className={PRACTICE_FINALE_MENU_LINK_CLASS}
       >
         В меню практики
       </button>

@@ -1,6 +1,6 @@
 import type { PracticeSession } from '@/types/practice'
 
-const PRACTICE_STORAGE_VERSION = 1
+const PRACTICE_STORAGE_VERSION = 2
 const ACTIVE_SESSION_KEY = 'my-eng-bot-practice-active'
 const COMPLETED_SESSIONS_KEY = 'my-eng-bot-practice-completed'
 
@@ -25,14 +25,38 @@ function isSession(value: unknown): value is PracticeSession {
   return Boolean(value && typeof value === 'object' && typeof (value as { id?: unknown }).id === 'string')
 }
 
+export function normalizeStoredPracticeSession(session: PracticeSession): PracticeSession {
+  return {
+    ...session,
+    version: Math.max(2, Number(session.version) || 2),
+    wrongAttemptsOnCurrentQuestion: Math.max(
+      0,
+      Math.floor(Number(session.wrongAttemptsOnCurrentQuestion) || 0)
+    ),
+    instructionAcknowledged: Boolean(session.instructionAcknowledged),
+    forgivenessUsedThisRun: Boolean(session.forgivenessUsedThisRun),
+    forgivenessConfirmPending:
+      !session.forgivenessUsedThisRun && Boolean(session.forgivenessConfirmPending),
+    forgivenessAppliedAckActive: Boolean(session.forgivenessAppliedAckActive),
+    forgivenessEffectiveBonus: session.forgivenessEffectiveBonus === 1 ? 1 : 0,
+    forgivenessQuestionId:
+      typeof session.forgivenessQuestionId === 'string'
+        ? session.forgivenessQuestionId
+        : undefined,
+  }
+}
+
 function readPayload(key: string): StoredPracticePayload | null {
   if (!canUseStorage()) return null
   try {
     const raw = window.localStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw) as Partial<StoredPracticePayload>
-    if (parsed.version !== PRACTICE_STORAGE_VERSION || !isSession(parsed.session)) return null
-    return parsed as StoredPracticePayload
+    if ((parsed.version !== 1 && parsed.version !== PRACTICE_STORAGE_VERSION) || !isSession(parsed.session)) return null
+    return {
+      version: PRACTICE_STORAGE_VERSION,
+      session: normalizeStoredPracticeSession(parsed.session),
+    }
   } catch {
     return null
   }
@@ -83,8 +107,8 @@ export class LocalPracticeStorage implements PracticeStorage {
       const raw = window.localStorage.getItem(COMPLETED_SESSIONS_KEY)
       if (!raw) return []
       const parsed = JSON.parse(raw) as { version?: number; sessions?: unknown }
-      if (parsed.version !== PRACTICE_STORAGE_VERSION || !Array.isArray(parsed.sessions)) return []
-      return parsed.sessions.filter(isSession)
+      if ((parsed.version !== 1 && parsed.version !== PRACTICE_STORAGE_VERSION) || !Array.isArray(parsed.sessions)) return []
+      return parsed.sessions.filter(isSession).map(normalizeStoredPracticeSession)
     } catch {
       return []
     }

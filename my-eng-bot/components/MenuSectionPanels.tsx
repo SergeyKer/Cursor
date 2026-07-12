@@ -644,7 +644,7 @@ export default function MenuSectionPanels({
   const [selectedPracticeLessonId, setSelectedPracticeLessonId] = React.useState<string | null>(defaultPracticeLessonId)
   const [selectedAccentGroupId, setSelectedAccentGroupId] = React.useState<string | null>(null)
   const [selectedAccentSectionId, setSelectedAccentSectionId] = React.useState<string | null>(null)
-  const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('reference')
+  const [selectedPracticeMode, setSelectedPracticeMode] = React.useState<PracticeMode>('balanced')
   const [selectedReferenceExerciseType, setSelectedReferenceExerciseType] = React.useState<PracticeExerciseType>('choice')
   const [customPracticeTopic, setCustomPracticeTopic] = React.useState('')
   const [customPracticeCandidates, setCustomPracticeCandidates] = React.useState<PracticeTopicCandidate[]>([])
@@ -3535,7 +3535,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                     ? 'Золото уже есть - практика закрепит 💎.'
                     : bestPracticeOpportunity.reason === 'gold_ring'
                       ? featureFlags.practiceTopicCupsV1
-                        ? 'Золотая медаль + 5 практик - кубок темы 🏆.'
+                        ? 'Золотая медаль + 5 зачётных Челленджей 11/12 - кубок темы 🏆.'
                         : 'Золотая медаль + практики 📝 - лучший путь к камням.'
                       : 'Практика по пройденному уроку даёт XP к уровню.'}
                 </p>
@@ -3546,12 +3546,12 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                     onClick={() =>
                       void onOpenPracticeSession({
                         lessonId: bestPracticeOpportunity.lessonId,
-                        mode: 'balanced',
+                        mode: 'challenge',
                         entrySource: 'menu',
                       })
                     }
                   >
-                    Открыть практику
+                    Открыть Челлендж
                   </button>
                 ) : null}
               </div>
@@ -3628,7 +3628,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         🏆 тем: {cupStats.cups}/{cupStats.withMedal || 0}
                       </p>
                       <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        Тема сдана 🏆 - золотая медаль в уроке и 5 практик (от 50% в сессии).
+                        Тема сдана 🏆 - золотая медаль в уроке и 5 зачётных Челленджей 11/12.
                       </p>
                     </>
                   ) : null}

@@ -232,7 +232,7 @@ describe('rewardsState', () => {
     expect(createFooterSsrPlaceholderRewardsState().progress.totalXP).toBe(0)
   })
 
-  it('replenishes empty wallet on every load even when migrations are exhausted', () => {
+  it('does not replenish an empty wallet on normal load after migrations', () => {
     const storage = new Map<string, string>()
     storage.set(
       REWARDS_MIGRATIONS_KEY,
@@ -254,7 +254,7 @@ describe('rewardsState', () => {
     state.progress.totalXP = 243
 
     expect(replenishEmptyWalletOnLoad(state).currencies.coins).toBe(STARTER_COINS_BONUS)
-    expect(applyRewardsCoinMigrations(state).currencies.coins).toBe(STARTER_COINS_BONUS)
+    expect(applyRewardsCoinMigrations(state).currencies.coins).toBe(0)
 
     state.currencies.coins = 3
     expect(replenishEmptyWalletOnLoad(state).currencies.coins).toBe(3)

@@ -11,7 +11,7 @@ export type TopicCupBadgeProps = {
 
 export default function TopicCupBadge({
   size = 'sm',
-  title = 'Тема сдана: золото + 5 практик',
+  title = 'Тема сдана: золото + 5 зачётных Челленджей 11/12',
   className = '',
 }: TopicCupBadgeProps) {
   const glyphSizeClass = size === 'md' ? 'text-[1.5rem]' : 'text-[1.375rem]'

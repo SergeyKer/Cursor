@@ -102,9 +102,7 @@ export function replenishEmptyWalletOnLoad(state: RewardsState): RewardsState {
 }
 
 export function applyRewardsCoinMigrations(state: RewardsState): RewardsState {
-  return replenishEmptyWalletOnLoad(
-    applyZeroCoinsTopUpMigration(applyGlobalCoinsGrantMigration(applyStarterCoinsBonusMigration(state)))
-  )
+  return applyZeroCoinsTopUpMigration(applyGlobalCoinsGrantMigration(applyStarterCoinsBonusMigration(state)))
 }
 
 export type ModeGoalId = 'communication' | 'engvo'
@@ -151,10 +149,11 @@ export interface RewardsCurrenciesState {
 
 export interface CoinLedgerState {
   lessonGoldClaimed: Record<string, true>
+  practiceMilestones: Record<string, true>
 }
 
 export function createDefaultCoinLedger(): CoinLedgerState {
-  return { lessonGoldClaimed: {} }
+  return { lessonGoldClaimed: {}, practiceMilestones: {} }
 }
 
 export interface LastRewardState {
@@ -298,14 +297,24 @@ function normalizeCoinLedger(raw: unknown): CoinLedgerState {
   if (!raw || typeof raw !== 'object') return fallback
   const src = raw as Partial<CoinLedgerState>
   const claimedRaw = src.lessonGoldClaimed
-  if (!claimedRaw || typeof claimedRaw !== 'object') return fallback
   const lessonGoldClaimed: Record<string, true> = {}
-  for (const [lessonId, value] of Object.entries(claimedRaw)) {
-    if (typeof lessonId === 'string' && lessonId.trim() && value === true) {
-      lessonGoldClaimed[lessonId] = true
+  if (claimedRaw && typeof claimedRaw === 'object') {
+    for (const [lessonId, value] of Object.entries(claimedRaw)) {
+      if (lessonId.trim() && value === true) {
+        lessonGoldClaimed[lessonId] = true
+      }
     }
   }
-  return { lessonGoldClaimed }
+  const practiceMilestones: Record<string, true> = {}
+  const practiceRaw = src.practiceMilestones
+  if (practiceRaw && typeof practiceRaw === 'object') {
+    for (const [milestoneKey, value] of Object.entries(practiceRaw)) {
+      if (milestoneKey.trim() && value === true) {
+        practiceMilestones[milestoneKey] = true
+      }
+    }
+  }
+  return { ...fallback, lessonGoldClaimed, practiceMilestones }
 }
 
 export function isLessonGoldCoinClaimed(state: RewardsState, lessonId: string): boolean {
@@ -665,6 +674,7 @@ export type AwardCoinsResult = {
 
 export type AwardCoinsOptions = {
   lessonIdForLedger?: string
+  practiceMilestoneForLedger?: string
 }
 
 export function canSpendCoins(state: RewardsState, amount: number): boolean {
@@ -701,6 +711,10 @@ export function awardCoins(
   const current = Math.max(0, Math.floor(Number(state.currencies.coins) || 0))
   const ledger = state.coinLedger ?? createDefaultCoinLedger()
   let nextLedger = ledger
+  const practiceMilestone = options?.practiceMilestoneForLedger?.trim()
+  if (practiceMilestone && ledger.practiceMilestones?.[practiceMilestone]) {
+    return { ok: false, state }
+  }
   const lessonId = options?.lessonIdForLedger?.trim()
   if (lessonId) {
     nextLedger = {
@@ -708,6 +722,15 @@ export function awardCoins(
       lessonGoldClaimed: {
         ...ledger.lessonGoldClaimed,
         [lessonId]: true,
+      },
+    }
+  }
+  if (practiceMilestone) {
+    nextLedger = {
+      ...nextLedger,
+      practiceMilestones: {
+        ...nextLedger.practiceMilestones,
+        [practiceMilestone]: true,
       },
     }
   }

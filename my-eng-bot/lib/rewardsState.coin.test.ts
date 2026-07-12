@@ -29,6 +29,20 @@ describe('coin ledger and balance helpers', () => {
 
   it('createDefaultRewardsState includes empty coin ledger', () => {
     expect(createDefaultRewardsState().coinLedger.lessonGoldClaimed).toEqual({})
+    expect(createDefaultRewardsState().coinLedger.practiceMilestones).toEqual({})
+  })
+
+  it('awards each practice milestone only once', () => {
+    const state = createDefaultRewardsState()
+    state.currencies.coins = 0
+    const first = awardCoins(state, 1, { practiceMilestoneForLedger: 'topic-1:ring3' })
+    const duplicate = awardCoins(first.state, 1, { practiceMilestoneForLedger: 'topic-1:ring3' })
+
+    expect(first.ok).toBe(true)
+    expect(first.state.currencies.coins).toBe(1)
+    expect(first.state.coinLedger.practiceMilestones['topic-1:ring3']).toBe(true)
+    expect(duplicate.ok).toBe(false)
+    expect(duplicate.state.currencies.coins).toBe(1)
   })
 
   it('coins_earned event updates ui without changing balance again', () => {

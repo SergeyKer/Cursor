@@ -11,20 +11,30 @@ export function getPracticeFinalePrimaryAction(params: {
   ringCount: number
   mode: PracticeMode
   gemsPending: boolean
+  masteryScore?: number
+  plannedLength?: number
 }): { action: PracticeFinalePrimaryAction; label: string; hint: string } {
   const { tier, globalAmount, ringCount, mode, gemsPending } = params
 
-  if (tier === 2 && !gemsPending && ringCount < 5) {
+  if (mode === 'challenge' && params.masteryScore === 10 && params.plannedLength === 12) {
+    return {
+      action: 'repeat',
+      label: 'Ещё один Челлендж',
+      hint: 'Почти зачёт: нужна ещё одна с первой попытки.',
+    }
+  }
+
+  if (mode === 'challenge' && tier === 2 && !gemsPending && ringCount < 5) {
     return {
       action: 'repeat',
       label: `Повторить (${formatPracticeProgressText(PRACTICE_RING_MAX)})`,
       hint: featureFlags.practiceTopicCupsV1
-        ? 'Золотая медаль есть - до кубка темы 🏆 осталось 5 практик.'
+        ? 'До кубка нужны 5 зачётных Челленджей 11/12.'
         : 'Золотая медаль есть - закрепите тему для 💎.',
     }
   }
 
-  if (tier === 1 && ringCount < 5) {
+  if (mode === 'challenge' && tier === 1 && ringCount < 5) {
     return {
       action: 'repeat',
       label: `Повторить (${formatPracticeProgressText(ringCount)})`,
@@ -37,13 +47,13 @@ export function getPracticeFinalePrimaryAction(params: {
       return {
         action: 'challenge',
         label: 'Перейти в Челлендж',
-        hint: 'Челлендж даёт больше session XP.',
+        hint: 'Челлендж даёт больше звёзд за проход.',
       }
     }
     return {
       action: 'repeat',
       label: 'Повторить (новый вариант)',
-      hint: 'Session XP начнётся с нуля - это нормально.',
+      hint: 'Звёзды за новый проход начнутся с нуля.',
     }
   }
 
@@ -57,7 +67,7 @@ export function getPracticeFinalePrimaryAction(params: {
 
   return {
     action: 'challenge',
-    label: mode === 'relaxed' ? 'Продолжить до Balanced' : 'Челлендж на 12 заданий',
-    hint: 'Следующий режим даст больше session XP.',
+    label: mode === 'relaxed' ? 'Продолжить до Обычной' : 'Челлендж на 12 заданий',
+    hint: 'Следующий режим даст больше звёзд за проход.',
   }
 }

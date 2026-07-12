@@ -36,4 +36,19 @@ describe('getPracticeFinalePrimaryAction challenge labels', () => {
     })
     expect(result.label).toBe('Челлендж на 12 заданий')
   })
+
+  it('uses a near-miss retry CTA at 10/12', () => {
+    const result = getPracticeFinalePrimaryAction({
+      tier: 2,
+      globalAmount: 32,
+      ringCount: 2,
+      mode: 'challenge',
+      gemsPending: false,
+      masteryScore: 10,
+      plannedLength: 12,
+    })
+    expect(result.action).toBe('repeat')
+    expect(result.label).toBe('Ещё один Челлендж')
+    expect(result.hint).toContain('ещё одна с первой попытки')
+  })
 })

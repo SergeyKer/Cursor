@@ -13,6 +13,7 @@ export type PracticeFooterContext = {
   questionType?: PracticeQuestion['type']
   isWrongLimitAdvance: boolean
   correctionPhase?: PracticeChoiceCorrectionPhase
+  coinBalance?: number
 }
 
 export function buildPracticeCorrectionChipsFooterHint(audience: Audience): string {

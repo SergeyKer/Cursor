@@ -3,6 +3,7 @@ import { formatFooterDynamicLine, FOOTER_DYNAMIC_MAX_LENGTH } from '@/lib/footer
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { buildPracticeFooterLive } from '@/lib/practice/practiceFooterLive'
 import type { PracticeSession } from '@/types/practice'
+import { createEmptyPracticeTopicProgress } from '@/types/practiceTopicProgress'
 
 function baseSession(): PracticeSession {
   return {
@@ -66,17 +67,10 @@ describe('buildPracticeFooterLive progress total', () => {
       session,
       state: 'idle',
       tier: 0,
-      progress: {
-        lessonId: '1',
-        ringCount: 0,
-        slotScores: [],
-        ringBonusClaimed: false,
-        gemsClaimed: false,
-        cupClaimed: false,
-        fingerprints: [],
-      },
+      progress: createEmptyPracticeTopicProgress('1'),
       gemsPending: false,
     })
     expect(lessonSegments[0]?.text).toBe('🎯 1/7')
+    expect(lessonSegments.some((segment) => segment.text.startsWith('📝'))).toBe(false)
   })
 })
