@@ -10,6 +10,7 @@ import {
   PRACTICE_FORGIVENESS_MIN_STEP,
   PRACTICE_RING_MAX,
 } from '@/lib/practice/practiceEconomyRules'
+import { practiceBadgeRankEmoji } from '@/lib/practice/practiceBadges'
 import type { PracticeMode } from '@/types/practice'
 
 export type PracticeBriefingThesisParams = {
@@ -24,6 +25,8 @@ export type PracticeBriefingThesisParams = {
   practiceGlobalXpToday: number
   audience: Audience
   forgivenessEnabled?: boolean
+  lessonId?: string
+  badgeBriefingLine?: string | null
 }
 
 function byAudience(audience: Audience, child: string, adult: string): string {
@@ -105,24 +108,29 @@ function challengeGoalLine(params: PracticeBriefingThesisParams): string {
 
 function balancedGoalLine(params: PracticeBriefingThesisParams): string {
   const { audience } = params
+  const rank1 = practiceBadgeRankEmoji(1)
   if (params.tier === 0) {
     return byAudience(
       audience,
       '📌 Сначала медаль в уроке.',
-      '📌 База откроется после медали урока.'
+      '📌 Цель откроется после медали урока.'
     )
+  }
+  // Practice badge names replace 📌 Base; line already includes rank emoji from builder.
+  if (params.badgeBriefingLine) {
+    return params.badgeBriefingLine
   }
   if (params.baseBadgeClaimed) {
     return byAudience(
       audience,
-      '📌 Значок за эту тему уже есть.',
-      '📌 База за эту тему уже есть.'
+      `${rank1} Значок темы уже открыт — смотри следующую ступень в Прогрессе.`,
+      `${rank1} Значок темы уже открыт — следующая ступень в Прогрессе.`
     )
   }
   return byAudience(
     audience,
-    `📌 Цель: ${BALANCED_BASE_MASTERY} из ${BALANCED_SESSION_LENGTH} сразу правильно.`,
-    `📌 Цель: ${BALANCED_BASE_MASTERY} из ${BALANCED_SESSION_LENGTH} с первой попытки.`
+    `${rank1} Цель: ${BALANCED_BASE_MASTERY} из ${BALANCED_SESSION_LENGTH} сразу правильно.`,
+    `${rank1} Цель: ${BALANCED_BASE_MASTERY} из ${BALANCED_SESSION_LENGTH} с первой попытки.`
   )
 }
 
@@ -150,6 +158,8 @@ export function buildPracticeBriefingThesisLines(
   params: PracticeBriefingThesisParams
 ): string[] {
   const { audience } = params
+  const badgeLine =
+    params.badgeBriefingLine && params.tier > 0 ? params.badgeBriefingLine : null
 
   if (params.mode === 'reference') {
     return [
@@ -159,7 +169,7 @@ export function buildPracticeBriefingThesisLines(
   }
 
   if (params.mode === 'relaxed') {
-    return [
+    const lines = [
       xpLine(params, false),
       params.tier > 0
         ? byAudience(
@@ -173,6 +183,8 @@ export function buildPracticeBriefingThesisLines(
             '🌱 Можно потренироваться — цели здесь нет.'
           ),
     ]
+    if (badgeLine) lines.push(badgeLine)
+    return lines.slice(0, 3)
   }
 
   if (params.mode === 'balanced') {
@@ -180,10 +192,10 @@ export function buildPracticeBriefingThesisLines(
     return [goal, xpLine(params, true)].slice(0, 3)
   }
 
-  // challenge: цель → XP → страховка/блокер
   const goal = challengeGoalLine(params)
   const lines = [goal, xpLine(params, true)]
   const extra = challengeExtraLine(params)
-  if (extra) lines.push(extra)
+  if (badgeLine) lines.push(badgeLine)
+  else if (extra) lines.push(extra)
   return lines.slice(0, 3)
 }

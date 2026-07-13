@@ -28,6 +28,10 @@ export type PracticeCompletionOutcome = {
   plannedLength: number
   forgivenessUsed: boolean
   baseBadgeAwarded: boolean
+  badgeRank: 0 | 1 | 2 | 3
+  previousBadgeRank: 0 | 1 | 2 | 3
+  badgeRankAwarded: 0 | 1 | 2 | 3 | null
+  badgeLine: string
   duplicate: boolean
 }
 

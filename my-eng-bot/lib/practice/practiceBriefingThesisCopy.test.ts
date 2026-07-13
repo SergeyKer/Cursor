@@ -50,8 +50,18 @@ describe('buildPracticeBriefingThesisLines', () => {
 
   it('orders balanced as goal → XP', () => {
     const lines = buildPracticeBriefingThesisLines({ ...base, mode: 'balanced', audience: 'adult' })
-    expect(lines[0]).toBe('📌 Цель: 8 из 9 с первой попытки.')
+    expect(lines[0]).toBe('🔵 Цель: 8 из 9 с первой попытки.')
     expect(lines[1]).toBe('⭐ XP к уровню — если больше половины с первой попытки.')
+  })
+
+  it('prefers explicit badge briefing line on challenge', () => {
+    const lines = buildPracticeBriefingThesisLines({
+      ...base,
+      mode: 'challenge',
+      badgeBriefingLine: 'До 🟡 «Супер-следователь»: 📝 2/5.',
+    })
+    expect(lines[2]).toContain('Супер-следователь')
+    expect(lines.join(' ')).not.toContain('простить')
   })
 
   it('does not promise a second qualifying pass today', () => {

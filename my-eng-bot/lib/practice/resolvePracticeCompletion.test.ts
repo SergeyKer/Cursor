@@ -116,7 +116,7 @@ describe('resolvePracticeCompletion', () => {
     expect(outcome.forgivenessUsed).toBe(true)
   })
 
-  it('claims the balanced Base badge only once at 8/9 mastery', () => {
+  it('claims the practice badge rank 1 only once at 8/9 mastery', () => {
     const storage = new Map<string, string>()
     vi.stubGlobal('window', {
       localStorage: {
@@ -127,6 +127,7 @@ describe('resolvePracticeCompletion', () => {
     const firstSession = completedChallengeSession()
     firstSession.id = 'balanced-1'
     firstSession.mode = 'balanced'
+    firstSession.lessonId = '4'
     firstSession.questions = firstSession.questions.slice(0, 9)
     firstSession.answers = firstSession.answers.slice(0, 8)
     firstSession.targetQuestionCount = 9
@@ -135,12 +136,16 @@ describe('resolvePracticeCompletion', () => {
 
     const first = resolvePracticeCompletion({ session: firstSession, lessonMedal: 'silver' })
     expect(first.baseBadgeAwarded).toBe(true)
+    expect(first.badgeRankAwarded).toBe(1)
+    expect(first.badgeLine).toContain('Начинающий собеседник')
     expect(first.reward.progress.baseBadgeClaimedAt).toBeTypeOf('number')
+    expect(first.reward.progress.badgeRank).toBe(1)
 
     const repeat = resolvePracticeCompletion({
       session: { ...firstSession, id: 'balanced-2' },
       lessonMedal: 'silver',
     })
     expect(repeat.baseBadgeAwarded).toBe(false)
+    expect(repeat.badgeRankAwarded).toBeNull()
   })
 })

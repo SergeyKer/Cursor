@@ -24,6 +24,14 @@ import {
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
+import {
+  countPracticeBadgeStats,
+  listPracticeBadgeShelf,
+  pickNearestPracticeBadgeGoal,
+  practiceBadgeRankEmoji,
+  resolvePracticeBadgeRankFromProgress,
+  PRACTICE_BADGE_DEFINITIONS,
+} from '@/lib/practice/practiceBadges'
 import { resolveLessonCardMedal, type LessonCardMedalDisplay } from '@/lib/lessonFooter'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { aggregateMedals } from '@/lib/lessonScore'
@@ -3618,8 +3626,74 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
               const badgesEarned = Object.values(lessonProgressMap).filter((row) => row.lessonBadgeEarned).length
               const practiceRows = Object.values(lessonProgressMap).filter((row) => row.medal)
               const cupStats = featureFlags.practiceTopicCupsV1 ? countTopicCupStats() : null
+              const practiceBadgeStats = countPracticeBadgeStats(getPracticeTopicProgress)
+              const nearestBadge = pickNearestPracticeBadgeGoal(getPracticeTopicProgress)
+              const practiceBadgeShelf = listPracticeBadgeShelf(getPracticeTopicProgress)
               return (
                 <>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
+                  <p className="text-[13px] font-medium text-[var(--text-muted)]">Бейджи практики</p>
+                  {nearestBadge ? (
+                    <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
+                      {nearestBadge.emoji} {nearestBadge.line}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[13px] text-[var(--text-muted)]">Все ступени собраны.</p>
+                  )}
+                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                    Открыто {practiceBadgeStats.opened}/{practiceBadgeStats.total} · Золото{' '}
+                    {practiceBadgeStats.gold}/{practiceBadgeStats.total}
+                  </p>
+                  <ul className="mt-2 flex flex-wrap gap-2">
+                    {practiceBadgeShelf.map((item) => (
+                      <li
+                        key={item.lessonId}
+                        className="flex min-w-[4.5rem] flex-col items-center rounded-md border border-[var(--border)]/70 bg-[var(--menu-control-bg)] px-2 py-1.5"
+                        title={
+                          item.currentName ??
+                          item.nextName ??
+                          item.topicTitle
+                        }
+                      >
+                        <span
+                          className={`emoji-line text-[1.35rem] leading-none ${
+                            item.rank === 0 ? 'opacity-40 grayscale' : ''
+                          }`}
+                        >
+                          {item.emoji}
+                        </span>
+                        <span className="mt-0.5 text-[11px] font-medium text-[var(--text)]">
+                          {practiceBadgeRankEmoji(item.rank)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <ul className="mt-2 space-y-1.5 text-[12px] text-[var(--text-muted)]">
+                    {PRACTICE_BADGE_DEFINITIONS.map((definition) => {
+                      const progress = getPracticeTopicProgress(definition.lessonId)
+                      const rank = resolvePracticeBadgeRankFromProgress(progress)
+                      const topic = getLessonTopicById(definition.lessonId)?.title ?? definition.lessonId
+                      return (
+                        <li key={`pb-${definition.lessonId}`}>
+                          <p className="font-medium text-[var(--text)]">
+                            {definition.emoji} {topic}
+                          </p>
+                          <p className="mt-0.5">
+                            {definition.ranks.map((name, index) => {
+                              const step = (index + 1) as 1 | 2 | 3
+                              const done = rank >= step
+                              return (
+                                <span key={name} className="mr-2 inline-block">
+                                  {done ? '✓' : '·'} {name}
+                                </span>
+                              )
+                            })}
+                          </p>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
                   <p className="text-[13px] font-medium text-[var(--text-muted)]">Практика по темам</p>
                   {cupStats ? (

@@ -986,6 +986,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     pendingCup: boolean
     baseBadgeAwarded: boolean
     baseBadgeClaimed: boolean
+    badgeLine: string
+    badgeRankAwarded: 0 | 1 | 2 | 3 | null
     masteryScore: number
     effectiveMasteryScore: number
     correctedCount: number
@@ -5544,6 +5546,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       pendingCup: Boolean(resolved.reward.progress.pendingCup),
       baseBadgeAwarded: resolved.baseBadgeAwarded,
       baseBadgeClaimed: Boolean(resolved.reward.progress.baseBadgeClaimedAt),
+      badgeLine: resolved.badgeLine,
+      badgeRankAwarded: resolved.badgeRankAwarded,
       masteryScore: resolved.masteryScore,
       effectiveMasteryScore: resolved.effectiveMasteryScore,
       correctedCount: resolved.correctedCount,

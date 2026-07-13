@@ -18,9 +18,13 @@ import type { PracticeCompletionReward } from '@/lib/practice/practiceCompletion
 import { computePracticeMasterySnapshot } from '@/lib/practice/practiceMastery'
 import {
   getPracticeEconomyDayKey,
-  isBalancedBasePass,
   resolvePracticeRingIncrement,
 } from '@/lib/practice/practiceEconomyRules'
+import {
+  applyPracticeBadgeProgressAfterCompletion,
+  buildPracticeBadgeFinaleLine,
+  type PracticeBadgeRank,
+} from '@/lib/practice/practiceBadges'
 import {
   resolvePracticeMilestoneOutcome,
   type PracticeCompletionOutcome,
@@ -98,6 +102,10 @@ export function resolvePracticeCompletion(params: {
       plannedLength: mastery.plannedLength,
       forgivenessUsed,
       baseBadgeAwarded: false,
+      badgeRank: 0,
+      previousBadgeRank: 0,
+      badgeRankAwarded: null,
+      badgeLine: '',
       duplicate: true,
     }
   }
@@ -152,6 +160,10 @@ export function resolvePracticeCompletion(params: {
       plannedLength: mastery.plannedLength,
       forgivenessUsed,
       baseBadgeAwarded: false,
+      badgeRank: 0,
+      previousBadgeRank: 0,
+      badgeRankAwarded: null,
+      badgeLine: '',
       duplicate: false,
     }
   }
@@ -187,14 +199,6 @@ export function resolvePracticeCompletion(params: {
     ringIncrement: ringIncremented,
     qualifyingDayKey: todayKey,
   })
-  const baseBadgeAwarded =
-    session.mode === 'balanced' &&
-    tier > 0 &&
-    !previousProgress.baseBadgeClaimedAt &&
-    isBalancedBasePass(mastery.masteryScore, mastery.plannedLength)
-  if (baseBadgeAwarded) {
-    progress = { ...progress, baseBadgeClaimedAt: Date.now() }
-  }
 
   let gemsAwarded = 0
   const milestoneOutcome = resolvePracticeMilestoneOutcome({
@@ -212,6 +216,32 @@ export function resolvePracticeCompletion(params: {
     progress = applyPracticeGemsProgress(progress, gemsResult)
     gemsAwarded = gemsResult.awarded
   }
+
+  const badgeResult = applyPracticeBadgeProgressAfterCompletion({
+    progress,
+    mode: session.mode,
+    tier,
+    masteryScore: mastery.masteryScore,
+    effectiveMasteryScore,
+    plannedLength: mastery.plannedLength,
+  })
+  progress = badgeResult.progress
+  const baseBadgeAwarded = badgeResult.rankAwarded === 1
+  const previousBadgeRank = badgeResult.previousRank
+  const newBadgeRank = badgeResult.newRank
+  const badgeRankAwarded = badgeResult.rankAwarded
+  const badgeLine = buildPracticeBadgeFinaleLine({
+    lessonId: session.lessonId,
+    previousRank: previousBadgeRank,
+    newRank: newBadgeRank,
+    rankAwarded: badgeRankAwarded,
+    strongPassThisRun: badgeResult.strongPassThisRun,
+    masteryScore: mastery.masteryScore,
+    plannedLength: mastery.plannedLength,
+    strongPassEasyNormalCount: progress.strongPassEasyNormalCount ?? 0,
+    ringCount: progress.ringCount,
+    mode: session.mode,
+  }).text
 
   savePracticeTopicProgress(progress)
   if (globalResult.amount > 0) {
@@ -272,6 +302,10 @@ export function resolvePracticeCompletion(params: {
     plannedLength: mastery.plannedLength,
     forgivenessUsed,
     baseBadgeAwarded,
+    badgeRank: newBadgeRank as PracticeBadgeRank,
+    previousBadgeRank,
+    badgeRankAwarded,
+    badgeLine,
     duplicate: false,
   }
 }

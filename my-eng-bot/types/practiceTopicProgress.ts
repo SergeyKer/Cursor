@@ -30,6 +30,10 @@ export type PracticeTopicProgress = {
   milestones?: { balanced?: boolean; challenge?: boolean }
   xpByMode?: Partial<Record<PracticeMode, PracticeXpModeLane>>
   baseBadgeClaimedAt?: number
+  /** Ранг practice-бейджа темы: 0 нет, 1–3 ступени. */
+  badgeRank?: 0 | 1 | 2 | 3
+  /** Хорошие проходы в лёгкой + обычной (для ранга 2). */
+  strongPassEasyNormalCount?: number
   pendingPracticeCoins?: number
   pendingCup?: boolean
 }

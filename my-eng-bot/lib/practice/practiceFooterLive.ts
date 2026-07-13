@@ -8,6 +8,12 @@ import { featureFlags } from '@/lib/featureFlags'
 import { formatPracticeProgressText, formatTopicCupBadgeText } from '@/lib/practice/practiceGlyphs'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
 import { computePracticeMasterySnapshot } from '@/lib/practice/practiceMastery'
+import {
+  getPracticeBadgeDefinition,
+  practiceBadgeRankEmoji,
+  practiceBadgeRankName,
+  resolvePracticeBadgeRankFromProgress,
+} from '@/lib/practice/practiceBadges'
 
 export function mapPracticeFlowToFooterState(
   state:
@@ -106,17 +112,31 @@ export function buildPracticeFooterLive(params: {
     session.mode === 'challenge'
       ? ringOrGemSegment
       : session.mode === 'balanced'
-        ? {
-            kind: 'medal',
-            text: progress.baseBadgeClaimedAt ? '📌 База ✓' : '📌 База',
-            title: progress.baseBadgeClaimedAt
-              ? 'База за тему уже получена'
-              : 'База: 8 из 9 с первой попытки',
-            medalVisual: {
-              mode: 'textOnly',
-              hintText: progress.baseBadgeClaimedAt ? '📌 База ✓' : '📌 База',
-            },
-          }
+        ? (() => {
+            const rank = resolvePracticeBadgeRankFromProgress(progress)
+            const definition = getPracticeBadgeDefinition(session.lessonId)
+            const name =
+              rank >= 1 && definition
+                ? practiceBadgeRankName(definition, rank)
+                : null
+            const text =
+              rank >= 1 && definition
+                ? `${definition.emoji} ${practiceBadgeRankEmoji(rank)}`
+                : definition
+                  ? `${definition.emoji} —`
+                  : '—'
+            return {
+              kind: 'medal' as const,
+              text,
+              title: name
+                ? `Бейдж: ${name}`
+                : 'Бейдж темы: 1 хороший проход (6/6, 8/9 или 11/12)',
+              medalVisual: {
+                mode: 'textOnly' as const,
+                hintText: text,
+              },
+            }
+          })()
         : session.mode === 'relaxed'
           ? {
               kind: 'medal',

@@ -2,6 +2,7 @@ import type { PracticeTopicProgress } from '@/types/practiceTopicProgress'
 import { createEmptyPracticeTopicProgress } from '@/types/practiceTopicProgress'
 import type { PracticeMode } from '@/types/practice'
 import { getPracticeEconomyDayKey } from '@/lib/practice/practiceEconomyRules'
+import { resolvePracticeBadgeRankFromProgress } from '@/lib/practice/practiceBadges'
 
 const STORAGE_KEY = 'myeng:practice-topic-progress:v1'
 
@@ -30,7 +31,8 @@ function normalizeProgress(raw: unknown, lessonId: string): PracticeTopicProgres
         : [],
     }
   }
-  return {
+  const rawBadgeRank = Math.floor(Number(record.badgeRank))
+  const normalized: PracticeTopicProgress = {
     ...base,
     ...record,
     lessonId,
@@ -58,8 +60,21 @@ function normalizeProgress(raw: unknown, lessonId: string): PracticeTopicProgres
       typeof record.baseBadgeClaimedAt === 'number' && Number.isFinite(record.baseBadgeClaimedAt)
         ? record.baseBadgeClaimedAt
         : undefined,
+    badgeRank: rawBadgeRank >= 0 && rawBadgeRank <= 3 ? (rawBadgeRank as 0 | 1 | 2 | 3) : undefined,
+    strongPassEasyNormalCount: Math.max(
+      0,
+      Math.floor(Number(record.strongPassEasyNormalCount) || 0)
+    ),
     pendingPracticeCoins: Math.max(0, Math.floor(Number(record.pendingPracticeCoins) || 0)),
     pendingCup: Boolean(record.pendingCup),
+  }
+  const migratedRank = resolvePracticeBadgeRankFromProgress(normalized)
+  return {
+    ...normalized,
+    badgeRank: migratedRank,
+    ...(migratedRank >= 1 && !normalized.baseBadgeClaimedAt
+      ? { baseBadgeClaimedAt: Date.now() }
+      : {}),
   }
 }
 

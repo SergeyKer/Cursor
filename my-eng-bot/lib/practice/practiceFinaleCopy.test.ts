@@ -51,8 +51,19 @@ describe('buildPracticeFinaleSummary', () => {
         plannedLength: 9,
         masteryScore: 8,
         baseBadgeAwarded: true,
+        badgeLine: '🔵 Начинающий собеседник!',
+        badgeRankAwarded: 1,
+      }).badgeLine
+    ).toContain('Начинающий собеседник')
+    expect(
+      buildPracticeFinaleSummary({
+        ...base,
+        mode: 'balanced',
+        plannedLength: 9,
+        masteryScore: 8,
+        baseBadgeAwarded: true,
       }).specialLine
-    ).toContain('База получена')
+    ).toBeUndefined()
   })
 
   it('prioritizes cup, coins and ring over near-miss copy', () => {

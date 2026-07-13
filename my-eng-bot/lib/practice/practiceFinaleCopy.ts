@@ -22,6 +22,9 @@ export type PracticeFinaleSummaryParams = {
   baseBadgeAwarded: boolean
   baseBadgeClaimed: boolean
   forgivenessUsed: boolean
+  /** Practice-badge line for secondaryMessage (explicit, separate from economy). */
+  badgeLine?: string
+  badgeRankAwarded?: 0 | 1 | 2 | 3 | null
 }
 
 export type PracticeFinaleSummary = {
@@ -30,6 +33,7 @@ export type PracticeFinaleSummary = {
   starsLine: string
   levelLine: string
   specialLine?: string
+  badgeLine?: string
   variant: FlowInfoCardVariant
 }
 
@@ -46,16 +50,20 @@ export function resolvePracticeFinaleCardVariant(
     | 'baseBadgeAwarded'
     | 'pendingPracticeCoins'
     | 'pendingCup'
+    | 'badgeRankAwarded'
+    | 'badgeLine'
   >
 ): FlowInfoCardVariant {
   if (
     params.cupAwarded > 0 ||
     params.coinsAwarded > 0 ||
     params.ringIncremented ||
-    params.baseBadgeAwarded
+    params.baseBadgeAwarded ||
+    (params.badgeRankAwarded != null && params.badgeRankAwarded > 0)
   ) {
     return 'praise'
   }
+  if (params.badgeLine && params.badgeLine.includes('не хватило')) return 'info'
   if (params.pendingPracticeCoins > 0 || params.pendingCup) return 'info'
   if (params.tier === 0) return 'info'
   if (params.globalReason === 'mastery_below_50') return 'info'
@@ -85,9 +93,8 @@ function buildLevelLine(params: PracticeFinaleSummaryParams): string {
 function buildSpecialLine(params: PracticeFinaleSummaryParams): string | undefined {
   if (params.mode === 'reference') return '⚡ Упражнение проверено.'
   if (params.mode === 'relaxed') return '🌱 Разминка — зачёта нет.'
+  // 📌 Base replaced by practice-badge names in badgeLine / secondaryMessage.
   if (params.mode === 'balanced') {
-    if (params.baseBadgeAwarded) return '📌 База получена!'
-    if (params.baseBadgeClaimed) return '📌 База уже была.'
     return undefined
   }
 
@@ -112,12 +119,15 @@ export function buildPracticeFinaleSummary(
 ): PracticeFinaleSummary {
   const corrected =
     params.correctedCount > 0 ? ` · поправили ${params.correctedCount}` : ''
+  const specialLine = buildSpecialLine(params)
+  const levelLine = buildLevelLine(params)
   return {
     title: params.mode === 'reference' ? 'Эталон пройден' : 'Практика завершена',
     statsLine: `С первой попытки ${params.masteryScore}/${params.plannedLength}${corrected}`,
     starsLine: `⭐ ${params.sessionXp} звёзд за проход.`,
-    levelLine: buildLevelLine(params),
-    specialLine: buildSpecialLine(params),
+    levelLine,
+    specialLine,
+    badgeLine: params.badgeLine?.trim() || undefined,
     variant: resolvePracticeFinaleCardVariant(params),
   }
 }

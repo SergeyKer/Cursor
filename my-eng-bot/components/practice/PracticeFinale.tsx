@@ -41,6 +41,8 @@ interface PracticeFinaleProps {
   pendingCup?: boolean
   baseBadgeAwarded?: boolean
   baseBadgeClaimed?: boolean
+  badgeLine?: string
+  badgeRankAwarded?: 0 | 1 | 2 | 3 | null
   masteryScore?: number
   effectiveMasteryScore?: number
   correctedCount?: number
@@ -100,6 +102,8 @@ export default function PracticeFinale({
   pendingCup = false,
   baseBadgeAwarded = false,
   baseBadgeClaimed = false,
+  badgeLine = '',
+  badgeRankAwarded = null,
   masteryScore,
   effectiveMasteryScore,
   correctedCount,
@@ -183,6 +187,8 @@ export default function PracticeFinale({
       baseBadgeAwarded,
       baseBadgeClaimed,
       forgivenessUsed,
+      badgeLine,
+      badgeRankAwarded,
     })
   }, [
     completionReady,
@@ -205,6 +211,8 @@ export default function PracticeFinale({
     baseBadgeAwarded,
     baseBadgeClaimed,
     forgivenessUsed,
+    badgeLine,
+    badgeRankAwarded,
   ])
 
   if (!completionReady || !resolved || !summary) {
@@ -248,6 +256,7 @@ export default function PracticeFinale({
           firstTryLine={summary.statsLine}
           statsLine={summary.starsLine}
           coinLine={summary.specialLine ?? summary.levelLine}
+          secondaryMessage={summary.badgeLine}
         />
       </div>
 

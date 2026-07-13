@@ -126,6 +126,8 @@ interface PracticeScreenProps {
     pendingCup: boolean
     baseBadgeAwarded: boolean
     baseBadgeClaimed: boolean
+    badgeLine: string
+    badgeRankAwarded: 0 | 1 | 2 | 3 | null
     masteryScore: number
     effectiveMasteryScore: number
     correctedCount: number
@@ -1674,6 +1676,8 @@ export default function PracticeScreen({
                   pendingCup={completionMeta?.pendingCup}
                   baseBadgeAwarded={completionMeta?.baseBadgeAwarded}
                   baseBadgeClaimed={completionMeta?.baseBadgeClaimed}
+                  badgeLine={completionMeta?.badgeLine}
+                  badgeRankAwarded={completionMeta?.badgeRankAwarded}
                   masteryScore={completionMeta?.masteryScore}
                   effectiveMasteryScore={completionMeta?.effectiveMasteryScore}
                   correctedCount={completionMeta?.correctedCount}

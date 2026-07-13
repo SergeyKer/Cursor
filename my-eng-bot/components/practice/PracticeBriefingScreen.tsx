@@ -17,6 +17,7 @@ import {
   getPracticeGlobalXpToday,
   getPracticeTopicProgress,
 } from '@/lib/practice/practiceTopicProgressStorage'
+import { buildPracticeBadgeBriefingLine } from '@/lib/practice/practiceBadges'
 import { loadLessonProgress } from '@/lib/lessonProgressStorage'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { Audience } from '@/lib/types'
@@ -46,18 +47,24 @@ export default function PracticeBriefingScreen({
   })
   const briefingBubbles = buildPracticeBriefingBubbles(session, audience)
   const progress = getPracticeTopicProgress(session.lessonId)
+  const badgeBriefingLine = buildPracticeBadgeBriefingLine({
+    lessonId: session.lessonId,
+    progress,
+  })
   const thesis = {
     mode: session.mode,
     tier: resolvePracticeEconomyTier(loadLessonProgress(session.lessonId)?.medal ?? null),
     ringCount: progress.ringCount,
     lastQualifyingDayKey: progress.lastQualifyingDayKey,
     todayKey: getPracticeEconomyDayKey(),
-    baseBadgeClaimed: Boolean(progress.baseBadgeClaimedAt),
+    baseBadgeClaimed: Boolean(progress.baseBadgeClaimedAt) || (progress.badgeRank ?? 0) >= 1,
     pendingPracticeCoins: progress.pendingPracticeCoins ?? 0,
     pendingCup: Boolean(progress.pendingCup),
     practiceGlobalXpToday: getPracticeGlobalXpToday(),
     audience,
     forgivenessEnabled: true,
+    lessonId: session.lessonId,
+    badgeBriefingLine,
   } as const
   const composerMinHeight = estimateLessonComposerMinHeight({
     panelKind: 'briefing',
