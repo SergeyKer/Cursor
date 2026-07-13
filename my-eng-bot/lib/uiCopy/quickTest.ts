@@ -9,6 +9,7 @@ export const QUICK_TEST_COPY = {
 
   pickLevelDynamic: 'Выбери уровень',
   pickTopicDynamic: 'Выбери тему',
+  pickAnswerDynamic: 'Выбери ответ',
   pickTopicBubble: 'Выбери тему',
   topicsFooterHint: 'Лёгкие и полезные',
   frozenLevelBubble: 'Этот уровень скоро. Пока попробуй A2.',
@@ -29,6 +30,13 @@ export const QUICK_TEST_COPY = {
   footerCorrect: 'Отлично',
   footerAlmost: 'Почти',
   footerWhy: 'Смотри почему',
+  footerChecking: 'Проверяю…',
+
+  lobbyMessages: [
+    'Привет! Меня зовут Engvo AI.',
+    'Ты здесь наверняка потому что хочешь быстро проверить, как у тебя с английским — без регистрации и длинных уроков.',
+    'Давай вместе пообщаемся и посмотрим, как ты умеешь болтать по-английски. Пройдём короткий тест: выбери уровень и тему — и поехали.',
+  ] as const,
 
   finaleTitlePerfect: 'Без ошибок',
   finaleTitleStrong: 'Сильный результат',
@@ -60,7 +68,11 @@ export const QUICK_TEST_COPY = {
 } as const
 
 export function buildQuickTestGreeting(): string {
-  return ['Hello! My name is Engvo AI.', QUICK_TEST_COPY.greetingLine2].join('\n\n')
+  return QUICK_TEST_COPY.lobbyMessages.join('\n\n')
+}
+
+export function buildQuickTestLobbyMessages(): readonly string[] {
+  return QUICK_TEST_COPY.lobbyMessages
 }
 
 export function buildShareChallengeText(input: {

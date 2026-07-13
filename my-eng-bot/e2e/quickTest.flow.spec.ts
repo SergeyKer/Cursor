@@ -3,13 +3,16 @@ import { expect, test } from '@playwright/test'
 test.describe('Quick test flow', () => {
   test('deep link shows Q1', async ({ page }) => {
     await page.goto('/test/who-likes')
-    await expect(page.getByText(/Who ___ pizza\?|Who/i).first()).toBeVisible()
+    await expect(page.getByText(/Who ___ pizza\?|Who/i).first()).toBeVisible({ timeout: 15000 })
     await expect(page.getByRole('button').filter({ hasText: /likes|like|does/i }).first()).toBeVisible()
   })
 
-  test('lobby shows level chips', async ({ page }) => {
+  test('lobby shows level chips after intro', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.goto('/test')
-    await expect(page.getByRole('button', { name: /A2 - элементарный/i })).toBeVisible()
+    await expect(page.getByRole('button', { name: /A2 - элементарный/i })).toBeVisible({
+      timeout: 15000,
+    })
     await expect(page.getByRole('button', { name: /Не знаю/i })).toBeVisible()
   })
 

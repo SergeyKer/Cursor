@@ -40,4 +40,31 @@ describe('resolvePracticeRetryPolicy', () => {
       shouldAutoAdvanceToNextQuestion: false,
     })
   })
+
+  it('quick_test: first wrong auto-advances without correction', () => {
+    const result = resolvePracticeRetryPolicy({
+      currentWrongAttemptsOnQuestion: 0,
+      isCorrect: false,
+      entrySource: 'quick_test',
+    })
+
+    expect(result).toEqual({
+      nextWrongAttemptsOnCurrentQuestion: 0,
+      shouldEnterCorrection: false,
+      shouldAutoAdvanceToNextQuestion: true,
+    })
+  })
+
+  it('menu path unchanged when entrySource omitted', () => {
+    const result = resolvePracticeRetryPolicy({
+      currentWrongAttemptsOnQuestion: 0,
+      isCorrect: false,
+    })
+
+    expect(result).toEqual({
+      nextWrongAttemptsOnCurrentQuestion: 1,
+      shouldEnterCorrection: true,
+      shouldAutoAdvanceToNextQuestion: false,
+    })
+  })
 })

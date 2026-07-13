@@ -1,3 +1,5 @@
+import type { PracticeEntrySource } from '@/types/practice'
+
 export const PRACTICE_MAX_WRONG_ATTEMPTS = 3
 
 export interface PracticeRetryResolution {
@@ -9,12 +11,22 @@ export interface PracticeRetryResolution {
 export function resolvePracticeRetryPolicy(params: {
   currentWrongAttemptsOnQuestion: number
   isCorrect: boolean
+  /** quick_test: 1 wrong → auto-advance (no correction). */
+  entrySource?: PracticeEntrySource
 }): PracticeRetryResolution {
   if (params.isCorrect) {
     return {
       nextWrongAttemptsOnCurrentQuestion: 0,
       shouldEnterCorrection: false,
       shouldAutoAdvanceToNextQuestion: false,
+    }
+  }
+
+  if (params.entrySource === 'quick_test') {
+    return {
+      nextWrongAttemptsOnCurrentQuestion: 0,
+      shouldEnterCorrection: false,
+      shouldAutoAdvanceToNextQuestion: true,
     }
   }
 

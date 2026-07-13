@@ -223,6 +223,9 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
       const nextSession = config.questions?.length
         ? buildPracticeSessionFromQuestions(config, config.questions)
         : buildLocalPracticeSession(config)
+      if (config.entrySource === 'quick_test') {
+        nextSession.instructionAcknowledged = true
+      }
       pendingCorrectionRef.current = null
       questionStartedAtRef.current = Date.now()
       setFeedback(null)
@@ -346,9 +349,29 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
         const retryResolution = resolvePracticeRetryPolicy({
           currentWrongAttemptsOnQuestion: session.wrongAttemptsOnCurrentQuestion ?? 0,
           isCorrect,
+          entrySource: session.entrySource,
         })
         const shouldAutoAdvanceAfterWrongLimit = !isCorrect && retryResolution.shouldAutoAdvanceToNextQuestion
-        const answerFeedbackTone: 'success' | 'error' = isCorrect || shouldAutoAdvanceAfterWrongLimit ? 'success' : 'error'
+        const isQuickTestWrongLimit =
+          shouldAutoAdvanceAfterWrongLimit && session.entrySource === 'quick_test'
+        const answerFeedbackTone: 'success' | 'error' =
+          isCorrect || (shouldAutoAdvanceAfterWrongLimit && !isQuickTestWrongLimit) ? 'success' : 'error'
+        const wrongLimitMessage = isQuickTestWrongLimit
+          ? (() => {
+              const base = buildPracticeWrongAnswerFeedback({
+                correctAnswer: questionToValidate.targetAnswer,
+                attemptNumber: 1,
+                audience,
+                question: questionToValidate,
+              })
+              const explanation = questionToValidate.explanation?.trim()
+              return explanation ? `${base} ${explanation}` : base
+            })()
+          : buildPracticeWrongLimitEncouragement({
+              correctAnswer: questionToValidate.targetAnswer,
+              audience,
+              seed: `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`,
+            })
         const answerFeedbackMessage = isCorrect
           ? correctionQuestion
             ? questionToValidate.type === 'boss-challenge'
@@ -360,11 +383,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
               ? buildBossPrimarySuccessFeedback({ audience })
               : 'Верно. Хороший ответ.'
           : shouldAutoAdvanceAfterWrongLimit
-            ? buildPracticeWrongLimitEncouragement({
-                correctAnswer: questionToValidate.targetAnswer,
-                audience,
-                seed: `${questionToValidate.id}|${session.answers.length}|${cleanAnswer.toLowerCase()}`,
-              })
+            ? wrongLimitMessage
             : buildPracticeWrongAnswerFeedback({
                 correctAnswer: questionToValidate.targetAnswer,
                 attemptNumber: Math.min(

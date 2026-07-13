@@ -3,6 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 const ROOT = join(process.cwd(), '')
+/** Lib stays free of practice UI orchestration; components/app may mount PracticeScreen. */
 const FORBIDDEN = ['PracticeScreen', 'usePracticeSession', 'PracticeQuestionRenderer']
 
 function walk(dir: string, files: string[] = []): string[] {
@@ -16,15 +17,13 @@ function walk(dir: string, files: string[] = []): string[] {
 }
 
 describe('quickTest isolation', () => {
-  it('does not import practice orchestration', () => {
-    const dirs = [join(ROOT, 'app/test'), join(ROOT, 'components/quickTest'), join(ROOT, 'lib/quickTest')]
+  it('lib/quickTest does not import practice orchestration', () => {
+    const dir = join(ROOT, 'lib/quickTest')
     const offenders: string[] = []
-    for (const dir of dirs) {
-      for (const file of walk(dir)) {
-        const text = readFileSync(file, 'utf8')
-        for (const token of FORBIDDEN) {
-          if (text.includes(token)) offenders.push(`${file} -> ${token}`)
-        }
+    for (const file of walk(dir)) {
+      const text = readFileSync(file, 'utf8')
+      for (const token of FORBIDDEN) {
+        if (text.includes(token)) offenders.push(`${file} -> ${token}`)
       }
     }
     expect(offenders).toEqual([])

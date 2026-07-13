@@ -2056,7 +2056,7 @@ export default function MenuSectionPanels({
                     <MenuNavRow label="Практика" onClick={() => setLessonsPanel('practice')} />
                   )}
                   {featureFlags.quickTestV1 && onOpenQuickTest ? (
-                    <MenuNavRow label="Быстрый тест" onClick={() => onOpenQuickTest()} />
+                    <MenuNavRow label="Быстрый тест" showChevron={false} onClick={() => onOpenQuickTest()} />
                   ) : null}
                   {featureFlags.accentTrainerV1 ? (
                     <MenuNavRow label="Произношение" onClick={() => setLessonsPanel('pronunciation')} />
@@ -4334,10 +4334,12 @@ function MenuNavRow({
   label,
   onClick,
   variant = 'default',
+  showChevron = true,
 }: {
   label: string
   onClick: () => void
   variant?: 'default' | 'primary'
+  showChevron?: boolean
 }) {
   if (variant === 'primary') {
     return (
@@ -4353,7 +4355,11 @@ function MenuNavRow({
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left text-[15px] font-normal leading-normal text-[var(--text)] transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
     >
       <span className={`min-w-0 flex-1 text-left ${MENU_ROW_LABEL_CLASS}`}>{label}</span>
-      <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
+      {showChevron ? (
+        <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
+      ) : (
+        <span className="h-4 w-4 shrink-0" aria-hidden />
+      )}
     </button>
   )
 }

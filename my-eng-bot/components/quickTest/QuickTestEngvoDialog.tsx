@@ -1,7 +1,23 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
+import LessonChoiceChips from '@/components/LessonChoiceChips'
+import DialogComposerStack from '@/components/DialogComposerStack'
+import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
+import { ChatBubbleFrame, getBubblePosition, CHAT_FEED_SERVICE_STATUS_ROW_CLASS } from '@/components/chat/ChatBubble'
+import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
+import { estimateLessonComposerMinHeight } from '@/lib/lessonComposerLayout'
+import {
+  LESSON_SCROLL_VIEWPORT_CLASS,
+  scheduleScrollAfterLayout,
+  scrollLessonFeedTailMessageIntoView,
+  resolveLessonScrollBehavior,
+} from '@/lib/lessonFeedScroll'
+import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import {
   getPopularTopicsForLevel,
   getQuickTestBankBySlug,
@@ -11,13 +27,19 @@ import {
 import { getCompletedVariantIds, selectVariantId } from '@/lib/quickTest/selectVariant'
 import { readProgress } from '@/lib/quickTest/storage'
 import type { QuickTestLevelId } from '@/lib/quickTest/types'
-import { QUICK_TEST_COPY, buildQuickTestGreeting } from '@/lib/uiCopy/quickTest'
-import { splitGreetingIntoBlocks } from '@/lib/homeGreeting'
+import { QUICK_TEST_COPY, buildQuickTestLobbyMessages } from '@/lib/uiCopy/quickTest'
 import { trackQuickTest } from '@/lib/quickTest/analytics'
 
 const LEVELS: QuickTestLevelId[] = ['A1', 'A2', 'B1', 'B2']
+const TYPING_ID = 'lobby-typing'
+const PAUSE_AFTER_ENTER_MS = 900
 
 type LobbyPhase = 'levels' | 'topics'
+
+type FeedMessage =
+  | { id: string; role: 'assistant'; text: string; enter?: boolean }
+  | { id: string; role: 'user'; text: string }
+  | { id: string; role: 'service'; text: string }
 
 type QuickTestEngvoDialogProps = {
   onFooterChange?: (dynamic: string, staticText: string, frozenHint?: boolean) => void
@@ -25,125 +47,275 @@ type QuickTestEngvoDialogProps = {
 
 export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogProps) {
   const router = useRouter()
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const enteredIdsRef = useRef<Set<string>>(new Set())
+  const [feed, setFeed] = useState<FeedMessage[]>([])
+  const [introReady, setIntroReady] = useState(false)
   const [phase, setPhase] = useState<LobbyPhase>('levels')
   const [level, setLevel] = useState<QuickTestLevelId | null>(null)
-  const [extraBubbles, setExtraBubbles] = useState<string[]>([])
+  const introStartedRef = useRef(false)
 
-  const greetingBlocks = useMemo(() => splitGreetingIntoBlocks(buildQuickTestGreeting()), [])
+  const levelLabels = useMemo(() => LEVELS.map((id) => QUICK_TEST_COPY.levelLabels[id]), [])
   const topics = level ? getPopularTopicsForLevel(level) : []
+  const topicLabels = useMemo(() => topics.map((t) => t.title), [topics])
+  const composerMinHeight = useMemo(() => {
+    const levelsH = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: [...levelLabels, QUICK_TEST_COPY.dontKnowChip],
+      compact: true,
+    })
+    const topicsH = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: topicLabels.length > 0 ? topicLabels : levelLabels,
+      compact: true,
+    })
+    return Math.max(levelsH, topicsH)
+  }, [levelLabels, topicLabels])
+
+  const scrollTail = useCallback(() => {
+    scheduleScrollAfterLayout(() => {
+      scrollLessonFeedTailMessageIntoView(
+        scrollContainerRef.current,
+        resolveLessonScrollBehavior({
+          prefersReducedMotion,
+          reason: 'new_message',
+        })
+      )
+    })
+  }, [prefersReducedMotion])
+
+  useEffect(() => {
+    scrollTail()
+  }, [feed.length, scrollTail])
 
   useEffect(() => {
     if (phase === 'levels') {
-      onFooterChange?.(QUICK_TEST_COPY.pickLevelDynamic, QUICK_TEST_COPY.staticLobby, false)
-    } else if (level) {
-      onFooterChange?.(QUICK_TEST_COPY.pickTopicDynamic, `Уровень ${level} | выбери тему`, false)
+      onFooterChange?.(QUICK_TEST_COPY.pickLevelDynamic, '', false)
+    } else {
+      onFooterChange?.(QUICK_TEST_COPY.pickTopicDynamic, '', false)
     }
-  }, [phase, level, onFooterChange])
+  }, [phase, onFooterChange])
 
-  const startTopic = (slug: string) => {
-    const bank = getQuickTestBankBySlug(slug)
-    if (!bank) return
-    const completed = getCompletedVariantIds(readProgress(), bank.lessonId)
-    const variantId = selectVariantId({
-      slug,
-      completedVariantIds: completed,
-      forceDefault: false,
-    })
-    trackQuickTest('page_view', {
-      entrySource: 'test_lobby',
-      slug,
-      lessonId: bank.lessonId,
-      variantId,
-    })
-    router.push(`/test/${slug}?variant=${encodeURIComponent(variantId)}`)
-  }
+  useEffect(() => {
+    if (introStartedRef.current) return
+    introStartedRef.current = true
+    const messages = [...buildQuickTestLobbyMessages()]
+    let cancelled = false
 
-  const onLevel = (id: QuickTestLevelId) => {
-    if (isLevelFrozen(id)) {
-      setExtraBubbles((prev) => [...prev, QUICK_TEST_COPY.frozenLevelBubble])
-      onFooterChange?.('B1 скоро', QUICK_TEST_COPY.staticLobby, true)
-      return
+    const appendAssistant = (id: string, text: string) => {
+      setFeed((prev) => {
+        const withoutTyping = prev.filter((m) => m.id !== TYPING_ID)
+        return [...withoutTyping, { id, role: 'assistant', text, enter: true }]
+      })
     }
-    setLevel(id)
-    setPhase('topics')
-    setExtraBubbles([])
-  }
 
-  const onDontKnow = () => {
+    const showTyping = () => {
+      setFeed((prev) => {
+        if (prev.some((m) => m.id === TYPING_ID)) return prev
+        return [...prev, { id: TYPING_ID, role: 'service', text: ENGVO_TYPING_MESSAGE }]
+      })
+    }
+
+    const run = async () => {
+      if (prefersReducedMotion) {
+        setFeed(
+          messages.map((text, index) => ({
+            id: `lobby-msg-${index + 1}`,
+            role: 'assistant' as const,
+            text,
+          }))
+        )
+        setIntroReady(true)
+        return
+      }
+
+      for (let i = 0; i < messages.length; i += 1) {
+        if (cancelled) return
+        showTyping()
+        await new Promise((r) => setTimeout(r, PAUSE_AFTER_ENTER_MS))
+        if (cancelled) return
+        appendAssistant(`lobby-msg-${i + 1}`, messages[i]!)
+        await new Promise((r) => setTimeout(r, 420 + 200))
+      }
+      if (!cancelled) setIntroReady(true)
+    }
+
+    void run()
+    return () => {
+      cancelled = true
+    }
+  }, [prefersReducedMotion])
+
+  const startTopic = useCallback(
+    (slug: string) => {
+      const bank = getQuickTestBankBySlug(slug)
+      if (!bank) return
+      const completed = getCompletedVariantIds(readProgress(), bank.lessonId)
+      const nextVariantId = selectVariantId({
+        slug,
+        completedVariantIds: completed,
+        forceDefault: false,
+      })
+      trackQuickTest('page_view', {
+        entrySource: 'test_lobby',
+        slug,
+        lessonId: bank.lessonId,
+        variantId: nextVariantId,
+      })
+      router.push(`/test/${slug}?variant=${encodeURIComponent(nextVariantId)}`)
+    },
+    [router]
+  )
+
+  const onLevelChoice = useCallback(
+    (text: string) => {
+      const id = LEVELS.find((levelId) => QUICK_TEST_COPY.levelLabels[levelId] === text)
+      if (!id) return
+      if (isLevelFrozen(id)) {
+        setFeed((prev) => [
+          ...prev,
+          { id: `lobby-frozen-${Date.now()}`, role: 'assistant', text: QUICK_TEST_COPY.frozenLevelBubble, enter: true },
+        ])
+        onFooterChange?.('B1 скоро', '', true)
+        return
+      }
+      setFeed((prev) => [
+        ...prev,
+        { id: `lobby-user-level-${id}`, role: 'user', text },
+        { id: 'lobby-pick-topic', role: 'assistant', text: QUICK_TEST_COPY.pickTopicBubble, enter: true },
+      ])
+      setLevel(id)
+      setPhase('topics')
+    },
+    [onFooterChange]
+  )
+
+  const onTopicChoice = useCallback(
+    (text: string) => {
+      const topic = topics.find((t) => t.title === text)
+      if (!topic) return
+      startTopic(topic.slug)
+    },
+    [startTopic, topics]
+  )
+
+  const onDontKnow = useCallback(() => {
     const slug = resolveRecommendedTopicSlug()
     if (slug) startTopic(slug)
-  }
+  }, [startTopic])
+
+  const assistantEnterClass = useCallback(
+    (id: string, allowEnter?: boolean) => {
+      if (prefersReducedMotion || !allowEnter) return ''
+      if (enteredIdsRef.current.has(id)) return ''
+      enteredIdsRef.current.add(id)
+      return 'lesson-enter'
+    },
+    [prefersReducedMotion]
+  )
+
+  const userEnterClass = useCallback(
+    (id: string) => {
+      if (prefersReducedMotion) return ''
+      if (enteredIdsRef.current.has(id)) return ''
+      enteredIdsRef.current.add(id)
+      return 'lesson-text-soft-enter'
+    },
+    [prefersReducedMotion]
+  )
+
+  const chipsVisible = introReady
+  const choiceOptions =
+    phase === 'levels'
+      ? [...levelLabels, QUICK_TEST_COPY.dontKnowChip]
+      : topicLabels
 
   return (
-    <div className="chat-shell-x mx-auto flex w-full max-w-xl flex-1 flex-col gap-3 px-3 py-4">
-      {greetingBlocks.map((block) => (
-        <div
-          key={block}
-          className="chat-section-surface glass-surface max-w-[92%] self-start rounded-2xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-3 py-2.5 text-[15px] leading-relaxed text-[var(--text)]"
-        >
-          {block}
-        </div>
-      ))}
-
-      {extraBubbles.map((text, index) => (
-        <div
-          key={`${text}-${index}`}
-          className="chat-section-surface glass-surface max-w-[92%] self-start rounded-2xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-3 py-2.5 text-[15px] leading-relaxed text-[var(--text)]"
-        >
-          {text}
-        </div>
-      ))}
-
-      {phase === 'topics' ? (
-        <div className="chat-section-surface glass-surface max-w-[92%] self-start rounded-2xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-3 py-2.5 text-[15px] leading-relaxed text-[var(--text)]">
-          {QUICK_TEST_COPY.pickTopicBubble}
-        </div>
-      ) : null}
-
-      <div className="flex flex-wrap gap-2 pt-1" role="group" aria-label="Выбор">
-        {phase === 'levels'
-          ? LEVELS.map((id) => {
-              const frozen = isLevelFrozen(id)
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => onLevel(id)}
-                  className={`min-h-[44px] rounded-full border px-3.5 py-2 text-[14px] font-medium touch-manipulation ${
-                    frozen
-                      ? 'border-dashed border-black/25 bg-white/30 text-[var(--text)] opacity-70'
-                      : 'border-[var(--chat-section-neutral-border)] bg-white/55 text-[var(--text)]'
-                  }`}
-                >
-                  {QUICK_TEST_COPY.levelLabels[id]}
-                  {frozen ? ` · ${QUICK_TEST_COPY.frozenChipHint}` : ''}
-                </button>
-              )
-            })
-          : null}
-
-        {phase === 'levels' ? (
-          <button
-            type="button"
-            onClick={onDontKnow}
-            className="min-h-[44px] rounded-full border border-[var(--chat-section-neutral-border)] bg-white/55 px-3.5 py-2 text-[14px] font-medium text-[var(--text)] touch-manipulation"
+    <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
+        <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
+          <div
+            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
+            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
           >
-            {QUICK_TEST_COPY.dontKnowChip}
-          </button>
-        ) : null}
-
-        {phase === 'topics'
-          ? topics.map((topic) => (
-              <button
-                key={topic.slug}
-                type="button"
-                onClick={() => startTopic(topic.slug)}
-                className="min-h-[44px] rounded-full border border-[var(--chat-section-neutral-border)] bg-white/55 px-3.5 py-2 text-[14px] font-medium text-[var(--text)] touch-manipulation"
+            <DialogGlassScrollHost>
+              <div
+                ref={scrollContainerRef}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
               >
-                {topic.title}
-              </button>
-            ))
-          : null}
+                {feed.map((message, index) => {
+                  if (message.role === 'service') {
+                    return (
+                      <div key={message.id} dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                        <EngvoFeedServiceTypingText text={message.text} />
+                      </div>
+                    )
+                  }
+                  const previousRole = feed[index - 1]?.role === 'service' ? undefined : feed[index - 1]?.role
+                  const nextRole = feed[index + 1]?.role === 'service' ? undefined : feed[index + 1]?.role
+                  const position = getBubblePosition(
+                    previousRole as 'assistant' | 'user' | undefined,
+                    message.role,
+                    nextRole as 'assistant' | 'user' | undefined
+                  )
+                  return (
+                    <ChatBubbleFrame
+                      key={message.id}
+                      role={message.role}
+                      position={position}
+                      className={
+                        message.role === 'assistant'
+                          ? assistantEnterClass(message.id, message.enter)
+                          : userEnterClass(message.id)
+                      }
+                      rowClassName="mb-2.5"
+                    >
+                      {message.role === 'assistant' ? (
+                        <UnifiedLessonBubble
+                          bubbles={[{ type: 'info', content: message.text }]}
+                          layout="detached"
+                        />
+                      ) : (
+                        <p className="text-[15px] leading-relaxed">{message.text}</p>
+                      )}
+                    </ChatBubbleFrame>
+                  )
+                })}
+              </div>
+            </DialogGlassScrollHost>
+
+            <DialogComposerStack
+              className={CHAT_COMPOSER_STACK_TOP_CLASS}
+              style={{
+                paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+                minHeight: composerMinHeight,
+              }}
+              contentMaxWidthClass="max-w-[22rem]"
+            >
+              <div
+                className={chipsVisible ? '' : 'invisible'}
+                aria-hidden={!chipsVisible}
+                style={{ pointerEvents: chipsVisible ? 'auto' : 'none' }}
+              >
+                <LessonChoiceChips
+                  key={`lobby-${phase}`}
+                  resetKey={`lobby-${phase}`}
+                  choices={choiceOptions}
+                  suppressEnterAnimation={!chipsVisible || prefersReducedMotion}
+                  onChoose={(text) => {
+                    if (phase === 'levels') {
+                      if (text === QUICK_TEST_COPY.dontKnowChip) onDontKnow()
+                      else onLevelChoice(text)
+                      return
+                    }
+                    onTopicChoice(text)
+                  }}
+                />
+              </div>
+            </DialogComposerStack>
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -21,7 +21,13 @@ export type PracticeSkill = 'grammar' | 'vocabulary' | 'listening' | 'speaking' 
 export type PracticeLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 export type PracticeTolerance = 'strict' | 'normalized' | 'soft'
 
-export type PracticeEntrySource = 'menu' | 'quick_start' | 'custom_topic' | 'after_lesson' | 'tutor_after_lesson'
+export type PracticeEntrySource =
+  | 'menu'
+  | 'quick_start'
+  | 'custom_topic'
+  | 'after_lesson'
+  | 'tutor_after_lesson'
+  | 'quick_test'
 export type PracticeGenerationSource = 'local' | 'ai_generated'
 
 export interface PracticeExerciseMetadata {
