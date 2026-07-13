@@ -2,6 +2,12 @@ import { formatTranslateQuestion } from '@/lib/lessonTranslatePrompt'
 import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { INTRODUCING_YOURSELF_CHALLENGE_ATOMS } from '@/lib/lessons/introducingYourselfChallengeAtoms'
+import {
+  INTRODUCING_YOURSELF_REFERENCE_SCENARIOS,
+  INTRODUCING_YOURSELF_SESSION_SCENARIOS,
+  INTRODUCING_YOURSELF_SESSION_STEP_MAPS,
+} from '@/lib/lessons/introducingYourselfSessionScenarios'
 import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type {
@@ -890,6 +896,13 @@ export const introducingYourselfLesson: LessonData = {
     sourceSituations: Array.from(new Set(selfIntroVariants.flatMap((variant) => variant.sourceSituations))),
     stepBlueprints: buildSelfIntroBlueprints(baseSelfIntroVariant),
     variantProfiles: selfIntroVariants.map((variant) => buildSelfIntroVariantProfile(variant)),
+    sessionScenarios: { ...INTRODUCING_YOURSELF_SESSION_SCENARIOS },
+    sessionStepMaps: {
+      relaxed: [...INTRODUCING_YOURSELF_SESSION_STEP_MAPS.relaxed],
+      balanced: [...INTRODUCING_YOURSELF_SESSION_STEP_MAPS.balanced],
+    },
+    referenceScenariosByType: { ...INTRODUCING_YOURSELF_REFERENCE_SCENARIOS },
+    challengeAtoms: [...INTRODUCING_YOURSELF_CHALLENGE_ATOMS],
     antiRepeatWindow: 3,
     bannedTerms: [
       'embedded questions',

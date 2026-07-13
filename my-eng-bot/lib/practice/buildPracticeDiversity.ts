@@ -145,7 +145,16 @@ function buildReferenceDiversityRule(params: {
     parts.push(
       'Rotate across weather, time, and distance contexts for formal it (It\'s + adjective vs It\'s time to + verb).',
       'Do not default to darkness ("темно" / It\'s dark) unless it is the only unused scenario.',
+      'Correct targets: It\'s + adj OR It\'s time to + base verb. time for is distractor-only, never the correct axis.',
       category !== 'general' ? `Current category hint: ${category}.` : ''
+    )
+  } else if (params.lesson.id === '2') {
+    parts.push(
+      'Who questions lesson: subject Who + verb-s/is/are only; never object-Who (Who do / Who does) as correct.',
+      'Roleplay: interlocutor Who…?; targetAnswer = Name + verb-s.',
+      'listening-select: audioText === targetAnswer; prefer declarative contrast (Anna likes tea / Max likes tea).',
+      'Contrast distractors: Who like, What likes, Who does works.',
+      'When practiceScenarioBank is provided, mirror its grammar pattern but vary wording.'
     )
   } else if (params.lesson.id === '3') {
     parts.push(
@@ -154,6 +163,13 @@ function buildReferenceDiversityRule(params: {
       'Contrast distractors: does-inversion, missing -s, wrong word order (likes he).',
       'Rotate lead phrases: I know, I don\'t know, Tell me, Do you know across scenarios.',
       'When practiceScenarioBank is provided, mirror its grammar pattern and field structure but vary wording; do not copy prompts verbatim.'
+    )
+  } else if (params.lesson.id === '4') {
+    parts.push(
+      'Self-intro lesson: I am/I\'m + adjective, from + place, a/an + role.',
+      'a before consonant (student/teacher); an before vowel sound (engineer).',
+      'Reject I from / I am from in as correct answers.',
+      'When practiceScenarioBank is provided, mirror its grammar pattern but vary wording.'
     )
   } else if (params.sourceSituations.length > 0) {
     parts.push('Use vocabulary and situations from sourceSituations; do not copy the default lesson hook verbatim.')
@@ -213,7 +229,17 @@ function buildSessionDiversityRule(params: {
     )
   }
   if (params.lesson.id === '1') {
-    parts.push('Rotate weather, time, and distance; avoid repeating "темно" / It\'s dark in consecutive items.')
+    parts.push(
+      'Rotate weather, time, and distance; avoid repeating "темно" / It\'s dark in consecutive items.',
+      'Correct axis only: It\'s + adj or It\'s time to + verb; time for is error/distractor only.'
+    )
+  }
+  if (params.lesson.id === '2') {
+    parts.push(
+      'Subject Who + verb-s/is/are only; no object-Who correct answers.',
+      'Challenge step 10 roleplay: targetAnswer equals free-response anchor (declarative Name + verb-s).',
+      'When practiceScenarioBank is present, use it as the quality template for new scenarios.'
+    )
   }
   if (params.lesson.id === '3') {
     parts.push(
@@ -222,6 +248,13 @@ function buildSessionDiversityRule(params: {
       'When practiceScenarioBank is present, use it as the quality template for new scenarios.',
       'situationRu must be oblique (context), not a literal RU translation of targetAnswer (except free-response translateRu).',
       'hint must be empty: never put grammar recipes like "Tell me + what + she + likes".'
+    )
+  }
+  if (params.lesson.id === '4') {
+    parts.push(
+      'Self-intro: I am/I\'m, from + place, a/an correctly.',
+      'Challenge step 10 roleplay: targetAnswer equals free-response anchor (from-place phrase).',
+      'When practiceScenarioBank is present, use it as the quality template for new scenarios.'
     )
   }
   return parts.join(' ')

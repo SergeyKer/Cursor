@@ -48,7 +48,7 @@ describe('buildReferenceFallbackQuestion', () => {
     expect(second).not.toBeNull()
     const secondKey = buildPracticeQuestionFingerprintFromQuestion(second!)
     expect(secondKey).not.toBe(seenKey)
-    expect(second!.prompt).toMatch(/холодно/i)
+    expect(second!.prompt).toMatch(/Ситуация:/i)
     expect(second!.prompt).not.toBe(first!.prompt)
   })
 
@@ -144,7 +144,7 @@ describe('buildReferenceFallbackQuestion listening-select', () => {
 })
 
 describe('buildReferenceFallbackQuestion dropdown-fill', () => {
-  it('lesson 4 reference dropdown uses gap-fill prompt and country options', () => {
+  it('lesson 4 reference dropdown uses gap-fill prompt and a/an options', () => {
     const lesson = getStructuredLessonById('4')
     expect(lesson).not.toBeNull()
 
@@ -158,11 +158,12 @@ describe('buildReferenceFallbackQuestion dropdown-fill', () => {
 
     expect(question).not.toBeNull()
     expect(question!.type).toBe('dropdown-fill')
-    expect(question!.targetAnswer).toBe('Russia')
+    expect(question!.targetAnswer).toBe('a')
     expect(isGapFillStylePrompt(question!.prompt)).toBe(true)
     expect(question!.options?.length ?? 0).toBeGreaterThanOrEqual(3)
-    expect(question!.options).toContain('Russia')
-    expect(question!.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+    expect(question!.options).toContain('a')
+    expect(question!.options).toContain('an')
+    expect(question!.prompt).toMatch(/student/i)
   })
 
   it('lesson 3 reference dropdown uses single embedded-question frame', () => {
@@ -179,15 +180,15 @@ describe('buildReferenceFallbackQuestion dropdown-fill', () => {
 
     expect(question).not.toBeNull()
     expect(question!.type).toBe('dropdown-fill')
-    expect(question!.targetAnswer).toBe('that')
+    expect(question!.targetAnswer).toBe('likes')
     expect(isGapFillStylePrompt(question!.prompt)).toBe(true)
-    expect(question!.prompt).toMatch(/I know ___ she likes tea/i)
+    expect(question!.prompt).toMatch(/I know what she ___/i)
     expect(question!.prompt).not.toMatch(/I am from/i)
     expect((question!.prompt.match(/___/g) ?? []).length).toBe(1)
   })
 })
 describe('buildReferenceFallbackQuestion context-clue', () => {
-  it('aligns reference #3 fallback to lesson step 3 gap-fill words', () => {
+  it('aligns reference context-clue fallback to golden sentence options', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()
 
@@ -200,9 +201,8 @@ describe('buildReferenceFallbackQuestion context-clue', () => {
     })
 
     expect(question).not.toBeNull()
-    expect(question!.targetAnswer).toBe('drink')
+    expect(question!.targetAnswer).toBe("It's time to sleep.")
     expect(question!.options).toHaveLength(3)
-    expect(question!.options?.every((item) => !/\s/.test(item.trim()) || item.split(/\s+/).length === 1)).toBe(true)
-    expect(question!.options?.some((item) => /^It's /i.test(item))).toBe(false)
+    expect(question!.options?.every((item) => /^It's /i.test(item))).toBe(true)
   })
 })

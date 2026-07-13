@@ -30,9 +30,9 @@ describe('embeddedQuestionScenarioAlignment', () => {
 
   it('aligns error-fix pairs for lesson 3', () => {
     expect(embeddedErrorFixPairIsAligned('Я знаю, что ей нужно.', 'I know what she wants.')).toBe(true)
-    expect(embeddedErrorFixPairIsAligned('Фраза о её нужде звучит с ошибкой.', 'I know what she wants.')).toBe(
-      true
-    )
+    expect(
+      embeddedErrorFixPairIsAligned('Фраза о том, чего она хочет, звучит с ошибкой.', 'I know what she wants.')
+    ).toBe(true)
     expect(embeddedErrorFixPairIsAligned('Я знаю, что ей нравится.', 'Tell me where Anna works.')).toBe(false)
   })
 

@@ -206,13 +206,11 @@ export function formatRoleplayInfoLabel(params: {
   lessonId: string
   audience: Audience
 }): string {
+  void params.axis
+  void params.lessonId
   const cue = buildRoleplayExpectedAnswerCue(params.mode, params.stepIndex, params.audience)
-  // Lesson 3: do not put grammar recipes in info (they leak embedded-answer shape).
-  if (params.lessonId === '3') {
-    return mergePromptParts([roleplayTypeLabel(params.mode), cue])
-  }
-  const grammarHint = buildRoleplayHint(params.axis, params.lessonId)
-  return mergePromptParts([roleplayTypeLabel(params.mode), grammarHint, cue])
+  // Never put grammar recipes in info (they leak answer shape via "X + Y").
+  return mergePromptParts([roleplayTypeLabel(params.mode), cue])
 }
 
 export const ROLEPLAY_INTERLOCUTOR_PREFIX = 'Собеседник: «'

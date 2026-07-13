@@ -13,7 +13,27 @@ import type {
 } from '@/types/lesson'
 import type { PracticeExerciseType, PracticeMode, PracticeQuestion } from '@/types/practice'
 
-const LESSON3_CHOICE_FRAME = 'Какая фраза звучит правильно во вложенном вопросе?'
+const CHOICE_FRAMES: Record<string, string> = {
+  '1': 'Какая фраза верно описывает состояние или то, что пора делать?',
+  '2': 'Какой Who-вопрос звучит правильно?',
+  '3': 'Какая фраза звучит правильно во вложенном вопросе?',
+  '4': 'Какая фраза верно представляет человека?',
+}
+
+const BOSS_FRAMES: Record<string, string> = {
+  '1': 'Напишите по-английски коротко: какое сейчас состояние и что пора делать.',
+  '2': 'Напишите по-английски один Who-вопрос про человека.',
+  '3': 'Напишите по-английски две связанные мысли через but.',
+  '4': 'Напишите по-английски короткое представление: кто вы и откуда.',
+}
+
+function choiceFrameForLesson(lessonId: string): string {
+  return CHOICE_FRAMES[lessonId] ?? 'Какая фраза звучит правильно?'
+}
+
+function bossFrameForLesson(lessonId: string): string {
+  return BOSS_FRAMES[lessonId] ?? 'Напишите по-английски короткий ответ по теме урока.'
+}
 
 export function formatLessonPracticeSituationLine(situationRu: string): string {
   const trimmed = situationRu.trim().replace(/[.!?…]+$/u, '')
@@ -43,17 +63,18 @@ function shuffleWordTokens(tokens: string[]): string[] {
 export function buildLessonPracticeScenarioPrompt(
   question: PracticeQuestion,
   scenario: LessonPracticeScenarioFields,
-  _lesson: LessonData
+  lesson: LessonData
 ): string {
   const situation = formatLessonPracticeSituationLine(scenario.situationRu)
+  const lessonId = lesson.id
 
   switch (question.type) {
     case 'choice':
-      return mergeParts([situation, LESSON3_CHOICE_FRAME])
+      return mergeParts([situation, choiceFrameForLesson(lessonId)])
     case 'voice-shadow':
       return situation
     case 'context-clue':
-      return mergeParts([situation, LESSON3_CHOICE_FRAME])
+      return mergeParts([situation, choiceFrameForLesson(lessonId)])
     case 'sentence-surgery':
       return mergeParts([situation, 'Расставьте слова в правильном порядке.'])
     case 'free-response': {
@@ -80,12 +101,12 @@ export function buildLessonPracticeScenarioPrompt(
     case 'error-fix': {
       const broken =
         scenario.brokenPhrase?.trim() ||
-        buildBrokenPhraseFromTarget(scenario.targetAnswer, _lesson) ||
+        buildBrokenPhraseFromTarget(scenario.targetAnswer, lesson) ||
         scenario.targetAnswer
       return formatErrorFixPrompt(situation, broken)
     }
     case 'boss-challenge':
-      return mergeParts([situation, 'Напишите по-английски две связанные мысли через but.'])
+      return mergeParts([situation, bossFrameForLesson(lessonId)])
     default:
       return situation
   }

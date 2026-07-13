@@ -89,7 +89,11 @@ describe('reference etalon contract', () => {
                 )
               ).toBe(true)
               expect(isDropdownFillPairAligned(question.prompt, question.targetAnswer)).toBe(true)
-              expect(question.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+              if (lessonId !== '4') {
+                expect(question.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+              } else {
+                expect(question.options?.some((item) => ['a', 'an'].includes(item.toLowerCase()))).toBe(true)
+              }
             }
             if (referenceType === 'dictation') {
               expect(isDictationStylePrompt(question.prompt)).toBe(true)

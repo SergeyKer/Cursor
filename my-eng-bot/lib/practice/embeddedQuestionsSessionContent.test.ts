@@ -96,7 +96,7 @@ describe('embedded questions session content', () => {
 
     const dropdown = session.questions[5]!
     expect(isGapFillStylePrompt(dropdown.prompt)).toBe(true)
-    expect(dropdown.targetAnswer).toBe('that')
+    expect(dropdown.targetAnswer).toBe('likes')
 
     for (const question of session.questions) {
       if (question.type === 'choice' || question.type === 'context-clue') {

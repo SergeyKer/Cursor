@@ -3,7 +3,7 @@ import type { LessonChallengeAtom } from '@/types/lesson'
 export const EMBEDDED_QUESTIONS_CHALLENGE_ATOMS: readonly LessonChallengeAtom[] = [
   {
     stepIndex: 0,
-    situationRu: 'Разговор о её вкусах.',
+    situationRu: 'На вечеринке друг спрашивает, знакомы ли вы с её вкусами.',
     targetAnswer: 'I know what she likes.',
     options: [
       'I know what she likes.',
@@ -13,12 +13,12 @@ export const EMBEDDED_QUESTIONS_CHALLENGE_ATOMS: readonly LessonChallengeAtom[] 
   },
   {
     stepIndex: 1,
-    situationRu: 'Нужно сказать, что адрес неизвестен.',
+    situationRu: 'Нужно сказать вслух, что его адрес вам неизвестен.',
     targetAnswer: "I don't know where he lives.",
   },
   {
     stepIndex: 2,
-    situationRu: 'Разговор о его вкусах.',
+    situationRu: 'В кафе обсуждаете, что ему обычно нравится.',
     targetAnswer: 'I know what he likes.',
     options: [
       'I know what he likes.',
@@ -28,35 +28,35 @@ export const EMBEDDED_QUESTIONS_CHALLENGE_ATOMS: readonly LessonChallengeAtom[] 
   },
   {
     stepIndex: 3,
-    situationRu: 'Нужно попросить рассказать о её вкусах.',
+    situationRu: 'Попросите подругу рассказать о её вкусах.',
     targetAnswer: 'Tell me what she likes.',
   },
   {
     stepIndex: 4,
-    situationRu: 'Нужно признать, что человек незнаком.',
+    situationRu: 'На встрече признаёте, что человека не знаете.',
     translateRu: 'Я не знаю, кто он.',
     targetAnswer: "I don't know who he is.",
   },
   {
     stepIndex: 5,
-    situationRu: 'Утверждение о её любимом напитке.',
-    targetAnswer: 'that',
-    dropdownFrameEn: 'I know ___ she likes tea.',
-    options: ['that', 'what', 'who', 'where'],
+    situationRu: 'Дополните фразу о том, что ей нравится.',
+    targetAnswer: 'likes',
+    dropdownFrameEn: 'I know what she ___.',
+    options: ['likes', 'like', 'does'],
   },
   {
     stepIndex: 6,
-    situationRu: 'Две мысли о вкусах Анны и Алекса — свяжите через but.',
+    situationRu: 'Другу в чате: что знаете про Анну и чего не знаете про Алекса.',
     targetAnswer: "I know what Anna likes, but I don't know what Alex likes.",
   },
   {
     stepIndex: 7,
-    situationRu: 'Две мысли о работе Анны и доме Алекса — свяжите через but.',
-    targetAnswer: "I know where Anna works, but I don't know where Alex lives.",
+    situationRu: 'Диктуете пару мыслей про станцию и начало урока.',
+    targetAnswer: "I know where the station is, but I don't know when the lesson starts.",
   },
   {
     stepIndex: 8,
-    situationRu: 'Нужно спросить о начале урока.',
+    situationRu: 'На остановке нужно уточнить начало урока.',
     targetAnswer: 'Tell me when the lesson starts.',
     options: [
       'Tell me when the lesson starts.',
@@ -66,20 +66,20 @@ export const EMBEDDED_QUESTIONS_CHALLENGE_ATOMS: readonly LessonChallengeAtom[] 
   },
   {
     stepIndex: 9,
-    situationRu: 'Разговор о человеке.',
+    situationRu: 'Собеседник спрашивает, знакомы ли вы с этим человеком.',
     roleIntroRu: 'Собеседник спрашивает о нём.',
     interlocutorEn: 'Do you know who he is?',
     targetAnswer: "I don't know who he is.",
   },
   {
     stepIndex: 10,
-    situationRu: 'Фраза о её нужде звучит с ошибкой.',
+    situationRu: 'Фраза о том, чего она хочет, звучит с ошибкой.',
     targetAnswer: 'I know what she wants.',
     brokenPhrase: 'I know what does she want.',
   },
   {
     stepIndex: 11,
-    situationRu: 'Свяжите две мысли о Анне и Алексе через but.',
+    situationRu: 'Напишите другу: что знаете про Анну и чего не знаете про Алекса.',
     targetAnswer: "I know what Anna likes, but I don't know where Alex lives.",
     keywords: ['know', 'what', 'where', 'but'],
     minWords: 8,

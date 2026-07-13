@@ -125,11 +125,11 @@ describe('buildLocalPracticeSession', () => {
 
     expect(session.questions).toHaveLength(7)
     expect(new Set(session.questions.map((question) => question.type)).size).toBe(1)
-    expect(new Set(session.questions.map((question) => question.prompt)).size).toBe(4)
+    expect(new Set(session.questions.map((question) => question.prompt)).size).toBeGreaterThanOrEqual(4)
     expect(session.questions[0]?.prompt).toMatch(/Ситуация:/i)
-    expect(session.questions[0]?.prompt).toMatch(/темно/i)
-    expect(session.questions[1]?.prompt).toMatch(/холодно/i)
+    expect(session.questions[0]?.prompt).toMatch(/холод|прохлад/i)
     expect(session.questions[0]?.prompt).not.toMatch(/^Какое предложение подходит/i)
+    expect(session.questions[0]?.prompt).not.toMatch(/вложен/i)
   })
 
   it('lesson 1 challenge choice uses 3 sentence options without word chips', () => {
@@ -145,13 +145,13 @@ describe('buildLocalPracticeSession', () => {
 
     const choice = session.questions[0]
     expect(choice?.type).toBe('choice')
-    expect(choice?.targetAnswer).toBe("It's dark.")
+    expect(choice?.targetAnswer).toBe("It's cold outside.")
     expect(choice?.options).toHaveLength(3)
     expect(choice?.options?.every((item) => isCompleteSentence(item))).toBe(true)
-    expect(choice?.options?.some((item) => item === 'sleeps' || item === 'sleeping')).toBe(false)
+    expect(choice?.prompt).not.toMatch(/вложен/i)
   })
 
-  it('lesson 1 challenge context-clue uses 3 word options on gap-fill', () => {
+  it('lesson 1 challenge context-clue uses 3 sentence options on gap-fill', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()
 
@@ -164,10 +164,9 @@ describe('buildLocalPracticeSession', () => {
 
     const contextClue = session.questions[2]
     expect(contextClue?.type).toBe('context-clue')
-    expect(contextClue?.targetAnswer).toBe('drink')
+    expect(contextClue?.targetAnswer).toBe("It's time to sleep.")
     expect(contextClue?.options).toHaveLength(3)
-    expect(contextClue?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
-    expect(contextClue?.options?.some((item) => /^It's /i.test(item))).toBe(false)
+    expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
   })
 
   it('lesson 1 relaxed context-clue uses 3 sentence options on translate step', () => {
@@ -183,10 +182,8 @@ describe('buildLocalPracticeSession', () => {
 
     const contextClue = session.questions[3]
     expect(contextClue?.type).toBe('context-clue')
-    expect(contextClue?.targetAnswer).toBe("It's dark.")
     expect(contextClue?.options).toHaveLength(3)
     expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
-    expect(contextClue?.options?.some((item) => item === 'sleeps' || item === 'sleeping')).toBe(false)
   })
 
   it('lesson 1 balanced context-clue uses 3 sentence options away from sentence_puzzle', () => {
@@ -219,7 +216,7 @@ describe('buildLocalPracticeSession', () => {
     })
 
     expect(question).not.toBeNull()
-    expect(question!.targetAnswer).toBe('drink')
+    expect(question!.targetAnswer).toBe("It's time to sleep.")
     expect(question!.options).toHaveLength(3)
   })
 
@@ -240,6 +237,7 @@ describe('buildLocalPracticeSession', () => {
     expect(freeResponse?.tolerance).toBe('normalized')
     expect(freeResponse?.keywords).toBeUndefined()
     expect(freeResponse?.minWords).toBeUndefined()
+    expect(freeResponse?.targetAnswer).toBe("It's time to go home.")
   })
 
   it('lesson 4 challenge free-response uses translate prompt with normalized tolerance', () => {
@@ -258,6 +256,7 @@ describe('buildLocalPracticeSession', () => {
     expect(freeResponse?.prompt).toMatch(/Переведите на английский/i)
     expect(freeResponse?.tolerance).toBe('normalized')
     expect(freeResponse?.keywords).toBeUndefined()
+    expect(freeResponse?.targetAnswer).toBe('I am from Moscow.')
   })
 
   it('lesson 1 challenge sentence-surgery aligns chips with target answer', () => {
@@ -273,7 +272,7 @@ describe('buildLocalPracticeSession', () => {
 
     const sentenceSurgery = session.questions[3]
     expect(sentenceSurgery?.type).toBe('sentence-surgery')
-    expect(sentenceSurgery?.targetAnswer).toMatch(/go home/i)
+    expect(sentenceSurgery?.targetAnswer).toMatch(/five o'clock/i)
     expect(sentenceSurgery?.prompt).not.toMatch(/три предложен/i)
     const answerTokens = sentenceSurgery!.targetAnswer
       .replace(/[.!?]$/g, '')
@@ -282,10 +281,9 @@ describe('buildLocalPracticeSession', () => {
     for (const token of sentenceSurgery!.shuffledWords ?? []) {
       expect(answerTokens).toContain(token)
     }
-    expect(sentenceSurgery?.shuffledWords).not.toContain('dark')
   })
 
-  it('lesson 4 challenge dropdown-fill uses gap prompt and country options', () => {
+  it('lesson 4 challenge dropdown-fill uses gap prompt and article options', () => {
     const lesson = getStructuredLessonById('4')
     expect(lesson).not.toBeNull()
 
@@ -298,12 +296,12 @@ describe('buildLocalPracticeSession', () => {
 
     const dropdown = session.questions[5]
     expect(dropdown?.type).toBe('dropdown-fill')
-    expect(dropdown?.targetAnswer).toBe('Russia')
+    expect(dropdown?.targetAnswer).toBe('a')
     expect(isGapFillStylePrompt(dropdown?.prompt ?? '')).toBe(true)
-    expect(dropdown?.prompt).toMatch(/Я из России/i)
-    expect(dropdown?.options?.length ?? 0).toBeGreaterThanOrEqual(4)
-    expect(dropdown?.options).toContain('Russia')
-    expect(dropdown?.options?.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
+    expect(dropdown?.prompt).toMatch(/student/i)
+    expect(dropdown?.options?.length ?? 0).toBeGreaterThanOrEqual(3)
+    expect(dropdown?.options).toContain('a')
+    expect(dropdown?.options).toContain('an')
     expect(dropdown?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
   })
 

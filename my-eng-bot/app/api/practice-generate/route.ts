@@ -176,6 +176,42 @@ const EMBEDDED_LESSON_3_SYSTEM_RULES = [
   'Boss answers for lesson 3 may require two clauses joined with but when suggestedScenario mentions Anna and Alex.',
 ] as const
 
+const LESSON_1_SYSTEM_RULES = [
+  'Lesson 1: use It\'s + adjective for state/weather/time, and It\'s time to + base verb for action.',
+  'Never make time for + noun the correct target; for is only a distractor/error pattern (It\'s time for go).',
+  'Reject Its / It cold / time to goes as correct answers.',
+] as const
+
+const LESSON_2_SYSTEM_RULES = [
+  'Lesson 2: subject Who + verb-s/is/are only (Who likes / Who works / Who is).',
+  'Do not generate object-Who (Who do you know / Who does she like) as correct targets.',
+  'Roleplay: interlocutor asks Who…?, learner answers with Name + verb-s (My brother likes tea.).',
+  'listening-select: audioText must equal targetAnswer; use declarative answers, not Who-questions as audio.',
+] as const
+
+const LESSON_4_SYSTEM_RULES = [
+  'Lesson 4: I am/I\'m + adjective, I am/I\'m from + place, a/an + role.',
+  'Use a before consonant (a student) and an before vowel sound (an engineer).',
+  'Reject I from / I am from in as correct answers.',
+] as const
+
+function lessonSystemRules(lessonId?: string): readonly string[] {
+  if (lessonId === '1') return LESSON_1_SYSTEM_RULES
+  if (lessonId === '2') return LESSON_2_SYSTEM_RULES
+  if (lessonId === '3') return EMBEDDED_LESSON_3_SYSTEM_RULES
+  if (lessonId === '4') return LESSON_4_SYSTEM_RULES
+  return []
+}
+
+function lessonHasPracticeScenarioBank(lesson: LessonData): boolean {
+  const repeat = lesson.repeatConfig
+  return Boolean(
+    repeat?.challengeAtoms?.length ||
+      (repeat?.referenceScenariosByType && Object.keys(repeat.referenceScenariosByType).length > 0) ||
+      (repeat?.sessionScenarios && Object.keys(repeat.sessionScenarios).length > 0)
+  )
+}
+
 function buildSystemPrompt(params?: {
   lessonId?: string
   referenceExerciseType?: PracticeExerciseType
@@ -185,7 +221,7 @@ function buildSystemPrompt(params?: {
     referenceExerciseType && isReferenceStepMapType(referenceExerciseType)
       ? collectReferencePromptBuilderSystemRules(referenceExerciseType)
       : []
-  const lessonRules = params?.lessonId === '3' ? EMBEDDED_LESSON_3_SYSTEM_RULES : []
+  const lessonRules = lessonSystemRules(params?.lessonId)
 
   return [
     'You generate short English practice exercises for a learner app.',
@@ -322,16 +358,15 @@ function buildUserPayload(
     mode === 'reference' && referenceExerciseType
       ? buildEtalonPromptForReferenceType(lesson, referenceExerciseType, practiceStepIndex) ?? undefined
       : undefined
-  const practiceScenarioBank =
-    lesson.id === '3'
-      ? collectPracticeScenarioBank({
-          lesson,
-          mode,
-          fromIndex: practiceStepIndex,
-          count: mode === 'reference' ? 7 : count,
-          referenceExerciseType,
-        })
-      : undefined
+  const practiceScenarioBank = lessonHasPracticeScenarioBank(lesson)
+    ? collectPracticeScenarioBank({
+        lesson,
+        mode,
+        fromIndex: practiceStepIndex,
+        count: mode === 'reference' ? 7 : count,
+        referenceExerciseType,
+      })
+    : undefined
   return JSON.stringify(
     {
       topic: lesson.topic,

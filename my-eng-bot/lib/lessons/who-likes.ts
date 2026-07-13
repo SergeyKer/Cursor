@@ -1,6 +1,12 @@
 import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { WHO_LIKES_CHALLENGE_ATOMS } from '@/lib/lessons/whoLikesChallengeAtoms'
+import {
+  WHO_LIKES_REFERENCE_SCENARIOS,
+  WHO_LIKES_SESSION_SCENARIOS,
+  WHO_LIKES_SESSION_STEP_MAPS,
+} from '@/lib/lessons/whoLikesSessionScenarios'
 import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type { LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
@@ -811,6 +817,13 @@ export const whoLikesLesson: LessonData = {
     sourceSituations: Array.from(new Set(whoLikesVariants.flatMap((variant) => variant.sourceSituations))),
     stepBlueprints: buildWhoLikesBlueprints(baseVariant),
     variantProfiles: whoLikesVariants.map((variant) => buildWhoLikesVariantProfile(variant)),
+    sessionScenarios: { ...WHO_LIKES_SESSION_SCENARIOS },
+    sessionStepMaps: {
+      relaxed: [...WHO_LIKES_SESSION_STEP_MAPS.relaxed],
+      balanced: [...WHO_LIKES_SESSION_STEP_MAPS.balanced],
+    },
+    referenceScenariosByType: { ...WHO_LIKES_REFERENCE_SCENARIOS },
+    challengeAtoms: [...WHO_LIKES_CHALLENGE_ATOMS],
     antiRepeatWindow: 3,
     bannedTerms: ['past simple', 'present continuous', 'future', 'conditionals', 'passive'],
     qualityGate: {

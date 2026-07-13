@@ -2,6 +2,12 @@ import { formatTranslateQuestion } from '@/lib/lessonTranslatePrompt'
 import { DEFAULT_POST_LESSON_OPTIONS } from '@/lib/postLessonDefaults'
 import { buildStep6ExamVariants } from '@/lib/lessons/step6Exam'
 import { buildStep7ContrastVariants } from '@/lib/lessons/step7Contrast'
+import { ITS_TIME_TO_CHALLENGE_ATOMS } from '@/lib/lessons/itsTimeToChallengeAtoms'
+import {
+  ITS_TIME_TO_REFERENCE_SCENARIOS,
+  ITS_TIME_TO_SESSION_SCENARIOS,
+  ITS_TIME_TO_SESSION_STEP_MAPS,
+} from '@/lib/lessons/itsTimeToSessionScenarios'
 import { buildPuzzleVariantHintText } from '@/lib/puzzlePanelLayout'
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import type { ExerciseDifficulty, LessonData, LessonFinale, LessonRepeatStepBlueprint, LessonRepeatVariantProfile, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
@@ -831,6 +837,13 @@ export const itsTimeToLesson: LessonData = {
     ),
     stepBlueprints: buildItsTimeBlueprints(baseVariant),
     variantProfiles: itsTimeVariants.map((variant) => buildItsTimeVariantProfile(variant)),
+    sessionScenarios: { ...ITS_TIME_TO_SESSION_SCENARIOS },
+    sessionStepMaps: {
+      relaxed: [...ITS_TIME_TO_SESSION_STEP_MAPS.relaxed],
+      balanced: [...ITS_TIME_TO_SESSION_STEP_MAPS.balanced],
+    },
+    referenceScenariosByType: { ...ITS_TIME_TO_REFERENCE_SCENARIOS },
+    challengeAtoms: [...ITS_TIME_TO_CHALLENGE_ATOMS],
     antiRepeatWindow: 3,
     bannedTerms: ['past simple', 'present continuous', 'future', 'conditionals', 'passive'],
     qualityGate: {

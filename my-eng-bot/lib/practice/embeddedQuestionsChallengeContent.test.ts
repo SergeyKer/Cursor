@@ -53,7 +53,7 @@ describe('embedded questions challenge content', () => {
     ])
     expect(choice.prompt).toMatch(/Ситуация:/i)
     expect(choice.prompt).toMatch(/вложен/i)
-    expect(choice.prompt).toMatch(/вкус/i)
+    expect(choice.prompt).toMatch(/вечеринк|вкус/i)
     expect(choice.hint).toBeFalsy()
 
     const voiceShadow = session.questions[1]!
@@ -76,11 +76,11 @@ describe('embedded questions challenge content', () => {
     expect(freeResponse.prompt).toMatch(/кто он/i)
 
     const dropdown = session.questions[5]!
-    expect(dropdown.targetAnswer).toBe('that')
-    expect(dropdown.options).toEqual(['that', 'what', 'who', 'where'])
+    expect(dropdown.targetAnswer).toBe('likes')
+    expect(dropdown.options).toEqual(['likes', 'like', 'does'])
 
     const dictation = session.questions[7]!
-    expect(dictation.prompt).toMatch(/Анн.*Алекс/i)
+    expect(dictation.prompt).toMatch(/станц|урок/i)
     expect(dictation.targetAnswer).toMatch(/but/i)
     expect(dictation.audioText).toBe(dictation.targetAnswer)
 
@@ -96,7 +96,7 @@ describe('embedded questions challenge content', () => {
     const broken = extractErrorFixBrokenPhrase(errorFix.prompt)
     expect(broken).toMatch(/what does she want/i)
     const situationKey = extractSituationKeyFromErrorFixPrompt(errorFix.prompt)
-    expect(situationKey).toMatch(/нужд/i)
+    expect(situationKey).toMatch(/хочет/i)
 
     const boss = session.questions[11]!
     expect(boss.prompt).toMatch(/but/i)
