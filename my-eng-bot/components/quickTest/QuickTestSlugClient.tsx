@@ -213,6 +213,9 @@ export function QuickTestSlugClient({
         showExit={!showFinale}
         onExit={onExit}
         footerDynamic={footer.dynamic}
+        footerStatic={footer.static}
+        footerTone={footer.tone}
+        footerTypingKey={footer.typingKey}
         progress={footer.progress}
       >
         {showFinale ? (

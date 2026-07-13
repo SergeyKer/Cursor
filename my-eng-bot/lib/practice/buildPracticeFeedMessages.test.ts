@@ -164,6 +164,102 @@ describe('buildPracticeFeedMessages - roleplay-mini', () => {
   })
 })
 
+describe('buildPracticeFeedMessages - quick_test', () => {
+  it('omits route positive bubble; keeps info and task only', () => {
+    const session: PracticeSession = {
+      id: 's-quick-test',
+      mode: 'balanced',
+      topic: 'Who likes pizza',
+      status: 'active',
+      currentIndex: 0,
+      entrySource: 'quick_test',
+      questions: [
+        {
+          id: 'qt-q1',
+          lessonId: '2',
+          type: 'choice',
+          prompt: 'Who ___ pizza?',
+          targetAnswer: 'likes',
+          options: ['likes', 'like', 'liking'],
+          acceptedAnswers: ['likes'],
+          xpBase: 10,
+          difficulty: 2,
+          tolerance: 'normalized',
+        },
+      ],
+      answers: [],
+      score: 0,
+      xp: 0,
+      streak: 0,
+      instructionAcknowledged: true,
+    }
+
+    const messages = buildPracticeFeedMessages({
+      session,
+      state: 'active',
+      audience: 'adult',
+    })
+
+    const current = messages.find((message) => message.id === 'practice-question-qt-q1')
+    expect(current?.bubbles?.map((bubble) => bubble.type)).toEqual(['info', 'task'])
+    expect(current?.bubbles?.find((bubble) => bubble.type === 'info')?.content).toMatch(
+      /^(Начнём|Поехали|Первый вопрос|Стартуем)\. Выберите лучший вариант\.$/
+    )
+    expect(current?.bubbles?.find((bubble) => bubble.type === 'task')?.content).toBe('Who ___ pizza?')
+  })
+
+  it('omits repeatAnswer cue on wrong choice feedback', () => {
+    const session: PracticeSession = {
+      id: 's-quick-test-wrong',
+      mode: 'balanced',
+      topic: 'Who likes pizza',
+      status: 'active',
+      currentIndex: 0,
+      entrySource: 'quick_test',
+      questions: [
+        {
+          id: 'qt-q1',
+          lessonId: '2',
+          type: 'choice',
+          prompt: 'Who ___ pizza?',
+          targetAnswer: 'likes',
+          options: ['likes', 'like', 'liking'],
+          acceptedAnswers: ['likes'],
+          xpBase: 10,
+          difficulty: 2,
+          tolerance: 'normalized',
+        },
+      ],
+      answers: [
+        {
+          questionId: 'qt-q1',
+          userAnswer: 'like',
+          isCorrect: false,
+          correctAnswer: 'likes',
+          xpEarned: 0,
+          timestamp: 1,
+          feedbackMessage: 'Неверно. Правильно: likes',
+          feedbackTone: 'error',
+        },
+      ],
+      score: 0,
+      xp: 0,
+      streak: 0,
+      instructionAcknowledged: true,
+    }
+
+    const messages = buildPracticeFeedMessages({
+      session,
+      state: 'feedback',
+      audience: 'adult',
+      feedbackType: 'error',
+    })
+
+    const feedback = messages.find((message) => message.kind === 'status' && message.tone === 'error')
+    expect(feedback?.repeatAnswer).toBeUndefined()
+  })
+})
+
 describe('buildPracticeFeedMessages - wrong-limit display', () => {
   it('renders wrong-limit advance without success marker or success tone', () => {
     const session: PracticeSession = {

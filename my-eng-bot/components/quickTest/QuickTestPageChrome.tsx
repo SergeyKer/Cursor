@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { AppIconFrame } from '@/components/AppIconFrame'
 import TypingText from '@/components/TypingText'
+import EmojiLeadingStatText from '@/components/EmojiLeadingStatText'
 import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 import {
   applyChatPatternToDocument,
@@ -11,6 +12,8 @@ import {
 } from '@/lib/chatPattern'
 import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
 import { formatFooterDynamicLine } from '@/lib/footerVoice'
+import { resolveFooterPresentation } from '@/lib/footerPresentation'
+import type { FooterVoiceTone } from '@/lib/footerVoice'
 
 const LOGO_SRC = '/engvo-logo-1024-plus5-eqletters.png'
 const QUICK_TEST_PATTERN: ChatPatternId = 'study-doodles'
@@ -21,8 +24,9 @@ type QuickTestPageChromeProps = {
   onExit?: () => void
   children: React.ReactNode
   footerDynamic?: string
-  /** @deprecated bottom half is progress only */
   footerStatic?: string
+  footerTone?: FooterVoiceTone
+  footerTypingKey?: string
   progress?: { current: number; total: number } | null
 }
 
@@ -30,30 +34,37 @@ function QuickTestFooterProgress({
   current,
   total,
   hidden,
+  staticLabel,
 }: {
   current: number
   total: number
   hidden?: boolean
+  staticLabel?: string
 }) {
   const pct = Math.max(0, Math.min(100, Math.round((current / Math.max(1, total)) * 100)))
   return (
     <div
-      className="flex h-full min-h-0 w-full items-center px-3"
+      className="flex h-full min-h-0 w-full items-center gap-2 px-3"
       aria-hidden={hidden ? true : undefined}
       style={hidden ? { visibility: 'hidden' } : undefined}
     >
+      {staticLabel ? (
+        <EmojiLeadingStatText text={staticLabel} className="footer-stat-pair shrink-0" />
+      ) : null}
       <div
-        className="h-1.5 w-full overflow-hidden rounded-full bg-black/10"
+        className="min-w-0 flex-1"
         role="progressbar"
         aria-valuenow={current}
         aria-valuemin={0}
         aria-valuemax={total}
-        aria-label={`Шаг ${current} из ${total}`}
+        aria-label={staticLabel || `Шаг ${current} из ${total}`}
       >
-        <div
-          className="h-full rounded-full bg-[var(--text-accent,#4f8fe8)] transition-[width] duration-300 motion-reduce:transition-none"
-          style={{ width: `${pct}%` }}
-        />
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+          <div
+            className="h-full rounded-full bg-[var(--text-accent,#4f8fe8)] transition-[width] duration-300 motion-reduce:transition-none"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
       </div>
     </div>
   )
@@ -64,6 +75,9 @@ export function QuickTestPageChrome({
   onExit,
   children,
   footerDynamic = '',
+  footerStatic = '',
+  footerTone = 'hint',
+  footerTypingKey,
   progress = null,
 }: QuickTestPageChromeProps) {
   useEffect(() => {
@@ -95,6 +109,14 @@ export function QuickTestPageChrome({
   const progressCurrent = progress?.current ?? 0
   const progressTotal = progress?.total ?? 5
   const topLine = formatFooterDynamicLine(footerDynamic.trim())
+  const bottomLine = footerStatic.trim()
+  const presentation = resolveFooterPresentation({
+    audience: 'adult',
+    tone: footerTone,
+    emphasis: 'none',
+    typingKey: footerTypingKey ?? topLine,
+    text: topLine,
+  })
 
   return (
     <div
@@ -153,16 +175,25 @@ export function QuickTestPageChrome({
         <div className="app-footer-surface h-[var(--app-footer-row-height)] min-h-[var(--app-footer-row-height)] shrink-0 border-t border-[var(--app-footer-border)]">
           <div className="app-footer-body pointer-events-none">
             <div className="app-footer-body__row app-footer-body__row--top">
-              <div className="app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 px-2 sm:px-3">
+              <div
+                className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 px-2 sm:px-3 ${presentation.topLineRowClassName}`}
+              >
                 {topLine ? (
-                  <TypingText
-                    key={topLine}
-                    text={topLine}
-                    speed={18}
-                    singleLine
-                    instant
-                    className="footer-dynamic-line"
-                  />
+                  <>
+                    {presentation.markerKind === 'emoji' && presentation.markerText ? (
+                      <span className={presentation.markerClassName} aria-hidden>
+                        {presentation.markerText}
+                      </span>
+                    ) : null}
+                    <TypingText
+                      key={footerTypingKey ?? topLine}
+                      text={topLine}
+                      speed={presentation.typingSpeed}
+                      singleLine
+                      instant
+                      className={presentation.topLineClassName}
+                    />
+                  </>
                 ) : (
                   <span className="footer-dynamic-line invisible" aria-hidden>
                     &nbsp;
@@ -171,11 +202,14 @@ export function QuickTestPageChrome({
               </div>
             </div>
             <div className="app-footer-body__row app-footer-body__row--bottom">
-              <div className="app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1">
+              <div
+                className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 ${presentation.bottomLineRowClassName}`}
+              >
                 <QuickTestFooterProgress
                   current={progressCurrent}
                   total={progressTotal}
                   hidden={!showProgress}
+                  staticLabel={showProgress ? bottomLine : undefined}
                 />
               </div>
             </div>

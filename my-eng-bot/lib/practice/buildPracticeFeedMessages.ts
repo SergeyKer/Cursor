@@ -17,6 +17,7 @@ import {
   PRACTICE_EXERCISE_TYPE_CATALOG_SIZE,
 } from '@/lib/practice/practiceExerciseTypeCatalog'
 import { buildPracticeFeedOpening } from '@/lib/practice/practiceRouteCopy'
+import { buildQuickTestQuestionInfoLabel } from '@/lib/quickTest/quickTestQuestionInfo'
 import {
   formatRoleplayInfoLabel,
   formatRoleplayTaskDisplay,
@@ -140,12 +141,25 @@ function buildQuestionBubbles(params: {
     audience: params.audience,
     previousWasCorrect: params.previousWasCorrect,
   })
-  const infoLabel = practiceInfoLabel(params.question, params.session, params.audience, params.questionIndex)
+  const baseInfoLabel = practiceInfoLabel(params.question, params.session, params.audience, params.questionIndex)
+  const infoLabel =
+    params.session.entrySource === 'quick_test'
+      ? buildQuickTestQuestionInfoLabel({
+          question: params.question,
+          questionIndex: params.questionIndex,
+          previousWasCorrect: params.previousWasCorrect,
+          audience: params.audience,
+          baseInstruction: baseInfoLabel,
+        })
+      : baseInfoLabel
   const debugPrefix = showDebugQuestionIndex
     ? `шаг ${params.questionIndex + 1} · тип ${getPracticeExerciseTypeCatalogNumber(params.question.type)}/${PRACTICE_EXERCISE_TYPE_CATALOG_SIZE} (${params.question.type})`
     : ''
   const routeContent = debugPrefix ? `${debugPrefix}\n${opening}` : opening
-  const bubbles: Bubble[] = [{ type: 'positive', content: routeContent }]
+  const bubbles: Bubble[] = []
+  if (params.session.entrySource !== 'quick_test') {
+    bubbles.push({ type: 'positive', content: routeContent })
+  }
   if (infoLabel) {
     bubbles.push({ type: 'info', content: infoLabel })
   }
@@ -196,15 +210,19 @@ function buildAnswerFeedbackMessage(params: {
   audience: Audience
   attemptNumber: number
   question: PracticeQuestion
+  entrySource?: PracticeSession['entrySource']
 }): PracticeFeedMessage {
   const displayTone = isWrongLimitAdvanceAnswer(params.answer)
     ? 'service'
     : feedbackToneForAnswer(params.answer)
-  const repeatAnswer = resolvePracticeRepeatAnswer({
-    answer: params.answer,
-    attemptNumber: params.attemptNumber,
-    questionType: params.question.type,
-  })
+  const repeatAnswer =
+    params.entrySource === 'quick_test'
+      ? undefined
+      : resolvePracticeRepeatAnswer({
+          answer: params.answer,
+          attemptNumber: params.attemptNumber,
+          questionType: params.question.type,
+        })
 
   return {
     id: params.id,
@@ -310,6 +328,7 @@ export function buildPracticeFeedMessages(params: {
             audience,
             attemptNumber: answerIndex + 1,
             question,
+            entrySource: session.entrySource,
           })
         )
       })
@@ -339,6 +358,7 @@ export function buildPracticeFeedMessages(params: {
             audience,
             attemptNumber: answerIndex + 1,
             question,
+            entrySource: session.entrySource,
           })
         )
       }

@@ -18,6 +18,7 @@ export const QUICK_TEST_COPY = {
 
   staticLobby: 'Быстрый тест | 5 вопросов',
   stepLabel: (n: number, total: number) => `Шаг ${n} из ${total}`,
+  questionStepLabel: (n: number, total: number) => `🎯 Вопрос ${n} из ${total}`,
   feedbackCorrect: 'Верно',
   feedbackWrong: 'Разберём',
   next: 'Дальше',

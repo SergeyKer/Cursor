@@ -18,6 +18,7 @@ import {
   resolveLessonScrollBehavior,
 } from '@/lib/lessonFeedScroll'
 import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
+import { PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
 import {
   getPopularTopicsForLevel,
   getQuickTestBankBySlug,
@@ -29,10 +30,11 @@ import { readProgress } from '@/lib/quickTest/storage'
 import type { QuickTestLevelId } from '@/lib/quickTest/types'
 import { QUICK_TEST_COPY, buildQuickTestLobbyMessages } from '@/lib/uiCopy/quickTest'
 import { trackQuickTest } from '@/lib/quickTest/analytics'
+import { resolveQuickTestFooter } from '@/lib/quickTest/quickTestFooter'
+import type { QuickTestFooterView } from '@/lib/quickTest/quickTestFooter'
 
 const LEVELS: QuickTestLevelId[] = ['A1', 'A2', 'B1', 'B2']
 const TYPING_ID = 'lobby-typing'
-const PAUSE_AFTER_ENTER_MS = 900
 
 type LobbyPhase = 'levels' | 'topics'
 
@@ -42,7 +44,7 @@ type FeedMessage =
   | { id: string; role: 'service'; text: string }
 
 type QuickTestEngvoDialogProps = {
-  onFooterChange?: (dynamic: string, staticText: string, frozenHint?: boolean) => void
+  onFooterChange?: (footer: QuickTestFooterView) => void
 }
 
 export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogProps) {
@@ -50,7 +52,12 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   const prefersReducedMotion = usePrefersReducedMotion()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const enteredIdsRef = useRef<Set<string>>(new Set())
-  const [feed, setFeed] = useState<FeedMessage[]>([])
+  const [feed, setFeed] = useState<FeedMessage[]>(() => {
+    const first = buildQuickTestLobbyMessages()[0]
+    return first
+      ? [{ id: 'lobby-msg-1', role: 'assistant', text: first, enter: true }]
+      : []
+  })
   const [introReady, setIntroReady] = useState(false)
   const [phase, setPhase] = useState<LobbyPhase>('levels')
   const [level, setLevel] = useState<QuickTestLevelId | null>(null)
@@ -90,11 +97,9 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   }, [feed.length, scrollTail])
 
   useEffect(() => {
-    if (phase === 'levels') {
-      onFooterChange?.(QUICK_TEST_COPY.pickLevelDynamic, '', false)
-    } else {
-      onFooterChange?.(QUICK_TEST_COPY.pickTopicDynamic, '', false)
-    }
+    onFooterChange?.(
+      resolveQuickTestFooter({ phase: phase === 'levels' ? 'lobby-levels' : 'lobby-topics' })
+    )
   }, [phase, onFooterChange])
 
   useEffect(() => {
@@ -130,10 +135,10 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
         return
       }
 
-      for (let i = 0; i < messages.length; i += 1) {
+      for (let i = 1; i < messages.length; i += 1) {
         if (cancelled) return
         showTyping()
-        await new Promise((r) => setTimeout(r, PAUSE_AFTER_ENTER_MS))
+        await new Promise((r) => setTimeout(r, PRACTICE_CHECKING_MS))
         if (cancelled) return
         appendAssistant(`lobby-msg-${i + 1}`, messages[i]!)
         await new Promise((r) => setTimeout(r, 420 + 200))
@@ -144,6 +149,7 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     void run()
     return () => {
       cancelled = true
+      introStartedRef.current = false
     }
   }, [prefersReducedMotion])
 
@@ -177,7 +183,7 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
           ...prev,
           { id: `lobby-frozen-${Date.now()}`, role: 'assistant', text: QUICK_TEST_COPY.frozenLevelBubble, enter: true },
         ])
-        onFooterChange?.('B1 скоро', '', true)
+        onFooterChange?.(resolveQuickTestFooter({ phase: 'lobby-levels', frozenHint: true }))
         return
       }
       setFeed((prev) => [
