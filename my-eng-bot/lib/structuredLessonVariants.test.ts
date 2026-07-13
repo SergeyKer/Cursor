@@ -13,12 +13,14 @@ describe('structuredLessonVariants', () => {
     const lesson = applyStructuredLessonVariant(itsTimeToLesson, variant)
 
     expect(lesson.variantId).toBe('cold-study')
-    expect(lesson.steps[0].exercise?.correctAnswer).toBe("It's cold.")
+    expect(lesson.steps[0].exercise?.correctAnswer).toBe("It's cold. It's time to study.")
     expect(lesson.steps[4].exercise?.type).toBe('sentence_puzzle')
     expect(lesson.steps[5].exercise?.variants).toHaveLength(3)
-    expect(lesson.steps[5].exercise?.correctAnswer).toBe("It's cold.")
+    expect(lesson.steps[5].exercise?.correctAnswer).toBe("It's hot.")
     expect(lesson.steps[6].exercise?.variants).toHaveLength(3)
-    expect(lesson.repeatConfig?.stepBlueprints[0]?.semanticExpectations?.mustInclude).toEqual(['cold'])
+    expect(lesson.repeatConfig?.stepBlueprints[0]?.semanticExpectations?.mustInclude).toEqual(["it's", 'time to'])
+    expect(lesson.repeatConfig?.stepBlueprints[0]?.semanticExpectations?.choiceMode).toBe('sentence_choice')
+    expect(lesson.repeatConfig?.stepBlueprints[1]?.semanticExpectations?.choiceMode).toBe('contrast_gap')
   })
 
   it('avoids recently used variants inside anti-repeat window', () => {
@@ -32,7 +34,7 @@ describe('structuredLessonVariants', () => {
 
     expect(selectedVariantId).toBe('late-cook')
     expect(lesson.variantId).toBe('late-cook')
-    expect(lesson.steps[0].exercise?.correctAnswer).toBe("It's late.")
+    expect(lesson.steps[0].exercise?.correctAnswer).toBe("It's late. It's time to go.")
   })
 
   it('applies embedded question variant profile to steps and blueprints', () => {

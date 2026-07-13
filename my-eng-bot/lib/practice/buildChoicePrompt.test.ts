@@ -40,20 +40,21 @@ describe('buildChoicePrompt', () => {
     expect(first).not.toBe(third)
   })
 
-  it('rotates etalon choice prompt for lesson 2 across profiles', () => {
+  it('keeps Who is that? constant across lesson 2 profiles', () => {
     const lesson = getStructuredLessonById('2')
     expect(lesson).not.toBeNull()
 
     const first = findLessonChoiceStepForPractice(lesson!, 0)
     const second = findLessonChoiceStepForPractice(lesson!, 1)
-    expect(first?.exercise.correctAnswer).not.toBe(second?.exercise.correctAnswer)
+    expect(first?.exercise.correctAnswer).toBe('Who is that?')
+    expect(second?.exercise.correctAnswer).toBe('Who is that?')
   })
 
   it('builds lesson-specific frame for lesson 2 (Who)', () => {
     const lesson = getStructuredLessonById('2')
     expect(lesson).not.toBeNull()
     const prompt = buildEtalonChoicePromptForLesson(lesson!)
-    expect(prompt).toMatch(/Who/i)
+    expect(prompt).toMatch(/вопрос про человека|человек/i)
     expect(choicePromptHasContext(prompt!)).toBe(true)
   })
 

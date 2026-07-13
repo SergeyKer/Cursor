@@ -16,6 +16,12 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     targetAnswer: "It's time to go.",
   },
   {
+    id: 'l1-time-for-dinner',
+    situationRu: 'Все голодны — пора ужина.',
+    targetAnswer: "It's time for dinner.",
+    options: ["It's time for dinner.", "It's time to dinner.", "It's time for go."],
+  },
+  {
     id: 'l1-time-to-sleep',
     situationRu: 'Уже поздно вечером, все хотят спать.',
     targetAnswer: "It's time to sleep.",
@@ -38,6 +44,13 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     situationRu: 'Нужно выбрать предлог перед глаголом.',
     targetAnswer: 'to',
     dropdownFrameEn: "It's time ___ leave.",
+    options: ['to', 'for', 'at'],
+  },
+  {
+    id: 'l1-time-for-gap',
+    situationRu: 'Нужно выбрать предлог перед существительным.',
+    targetAnswer: 'for',
+    dropdownFrameEn: "It's time ___ lunch.",
     options: ['to', 'for', 'at'],
   },
   {
@@ -67,9 +80,15 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l1-error-for-go',
-    situationRu: 'В сообщении ошибка: перепутали действие.',
+    situationRu: 'В сообщении ошибка: предлог перед глаголом.',
     targetAnswer: "It's time to go.",
-    brokenPhrase: "It's time to sleep.",
+    brokenPhrase: "It's time for go.",
+  },
+  {
+    id: 'l1-error-to-dinner',
+    situationRu: 'В сообщении ошибка: предлог перед существительным.',
+    targetAnswer: "It's time for dinner.",
+    brokenPhrase: "It's time to dinner.",
   },
   {
     id: 'l1-boss-late-home',
@@ -95,6 +114,24 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     situationRu: 'Все голодны после прогулки.',
     translateRu: 'Пора есть.',
     targetAnswer: "It's time to eat.",
+  },
+  {
+    id: 'l1-time-for-lunch',
+    situationRu: 'В офисе объявили обеденный перерыв.',
+    translateRu: 'Пора обедать.',
+    targetAnswer: "It's time for lunch.",
+  },
+  {
+    id: 'l1-time-for-a-break',
+    situationRu: 'После часа работы нужен короткий отдых.',
+    translateRu: 'Пора на перерыв.',
+    targetAnswer: "It's time for a break.",
+  },
+  {
+    id: 'l1-time-for-bed',
+    situationRu: 'Дети уже зевают.',
+    targetAnswer: "It's time for bed.",
+    options: ["It's time for bed.", "It's time to bed.", "It's time for go."],
   },
   {
     id: 'l1-time-to-start',
@@ -149,17 +186,17 @@ export const ITS_TIME_TO_SESSION_STEP_MAPS = {
     'l1-cold-outside',
     'l1-time-to-go',
     'l1-five-oclock',
-    'l1-time-to-sleep',
+    'l1-time-for-dinner',
     'l1-go-home',
     'l1-hot-today',
   ],
   balanced: [
     'l1-dark-now',
-    'l1-time-to-eat',
+    'l1-time-for-lunch',
     'l1-nine-oclock',
     'l1-go-home',
     'l1-time-to-sleep',
-    'l1-time-to-gap',
+    'l1-time-for-gap',
     'l1-late-and-go',
     'l1-cold-today',
     'l1-error-for-go',
@@ -167,17 +204,17 @@ export const ITS_TIME_TO_SESSION_STEP_MAPS = {
 } as const
 
 const REFERENCE_EXTRA_IDS: Record<(typeof CHALLENGE_STEP_SPECS)[number]['type'], readonly string[]> = {
-  choice: ['l1-hot-today', 'l1-dark-now', 'l1-late-night', 'l1-time-to-go', 'l1-go-home', 'l1-cold-today'],
-  'voice-shadow': ['l1-time-to-eat', 'l1-time-to-start', 'l1-go-home', 'l1-cold-outside', 'l1-late-night', 'l1-time-to-rest'],
-  'context-clue': ['l1-cold-outside', 'l1-hot-today', 'l1-time-to-go', 'l1-go-home', 'l1-time-to-eat', 'l1-late-night'],
-  'sentence-surgery': ['l1-cold-outside', 'l1-time-to-go', 'l1-go-home', 'l1-nine-oclock', 'l1-time-to-eat', 'l1-late-night'],
-  'free-response': ['l1-time-to-go', 'l1-time-to-eat', 'l1-time-to-start', 'l1-time-to-rest', 'l1-cold-outside', 'l1-late-night'],
-  'dropdown-fill': ['l1-time-to-go', 'l1-go-home', 'l1-time-to-eat', 'l1-time-to-start', 'l1-time-to-sleep', 'l1-time-to-rest'],
-  'word-builder-pro': ['l1-cold-outside', 'l1-time-to-go', 'l1-go-home', 'l1-late-and-go', 'l1-cold-and-home', 'l1-time-to-eat'],
-  dictation: ['l1-cold-outside', 'l1-time-to-go', 'l1-go-home', 'l1-late-and-go', 'l1-cold-and-home', 'l1-nine-oclock'],
-  'listening-select': ['l1-hot-today', 'l1-dark-now', 'l1-late-night', 'l1-cold-outside', 'l1-time-to-go', 'l1-go-home'],
+  choice: ['l1-hot-today', 'l1-dark-now', 'l1-time-for-dinner', 'l1-time-for-bed', 'l1-late-night', 'l1-cold-today'],
+  'voice-shadow': ['l1-time-to-eat', 'l1-time-for-lunch', 'l1-time-for-a-break', 'l1-go-home', 'l1-time-to-rest', 'l1-cold-outside'],
+  'context-clue': ['l1-time-for-bed', 'l1-time-for-lunch', 'l1-hot-today', 'l1-go-home', 'l1-time-to-go', 'l1-late-night'],
+  'sentence-surgery': ['l1-cold-outside', 'l1-time-to-go', 'l1-time-for-lunch', 'l1-nine-oclock', 'l1-go-home', 'l1-late-night'],
+  'free-response': ['l1-time-to-go', 'l1-time-for-lunch', 'l1-time-for-a-break', 'l1-time-to-eat', 'l1-time-to-rest', 'l1-cold-outside'],
+  'dropdown-fill': ['l1-time-for-gap', 'l1-time-to-go', 'l1-go-home', 'l1-time-for-lunch', 'l1-time-to-sleep', 'l1-time-to-rest'],
+  'word-builder-pro': ['l1-cold-outside', 'l1-time-to-go', 'l1-go-home', 'l1-late-and-go', 'l1-cold-and-home', 'l1-time-for-lunch'],
+  dictation: ['l1-cold-outside', 'l1-time-to-go', 'l1-go-home', 'l1-late-and-go', 'l1-time-for-dinner', 'l1-nine-oclock'],
+  'listening-select': ['l1-hot-today', 'l1-dark-now', 'l1-time-for-dinner', 'l1-time-for-bed', 'l1-cold-outside', 'l1-go-home'],
   'roleplay-mini': ['l1-roleplay-go', 'l1-go-home', 'l1-time-to-go', 'l1-time-to-eat', 'l1-late-night', 'l1-cold-outside'],
-  'error-fix': ['l1-error-its', 'l1-time-to-go', 'l1-go-home', 'l1-cold-outside', 'l1-time-to-sleep', 'l1-late-night'],
+  'error-fix': ['l1-error-to-dinner', 'l1-error-for-go', 'l1-error-its', 'l1-time-to-go', 'l1-time-for-dinner', 'l1-go-home'],
   'boss-challenge': ['l1-boss-cold-go', 'l1-cold-and-home', 'l1-late-and-go', 'l1-go-home', 'l1-time-to-go', 'l1-cold-outside'],
 }
 
@@ -205,20 +242,29 @@ function adaptScenarioForReferenceType(
 
   if (type === 'dropdown-fill') {
     if (!next.dropdownFrameEn || next.targetAnswer.split(/\s+/).length > 1) {
-      next.targetAnswer = 'to'
-      next.dropdownFrameEn = "It's time ___ leave."
-      next.options = ['to', 'for', 'at']
-      if (/\bgo home\b/i.test(scenario.targetAnswer)) {
-        next.dropdownFrameEn = "It's time ___ go home."
-      } else if (/\beat\b/i.test(scenario.targetAnswer)) {
-        next.dropdownFrameEn = "It's time ___ eat."
-      } else if (/\bsleep\b/i.test(scenario.targetAnswer)) {
-        next.dropdownFrameEn = "It's time ___ sleep."
-      } else if (/\bstart\b/i.test(scenario.targetAnswer)) {
-        next.dropdownFrameEn = "It's time ___ start."
-      } else if (/\brest\b/i.test(scenario.targetAnswer)) {
-        next.dropdownFrameEn = "It's time ___ rest."
+      if (/\btime for\b/i.test(scenario.targetAnswer) || /\b(lunch|dinner|bed|break)\b/i.test(scenario.targetAnswer)) {
+        next.targetAnswer = 'for'
+        if (/\blunch\b/i.test(scenario.targetAnswer)) next.dropdownFrameEn = "It's time ___ lunch."
+        else if (/\bdinner\b/i.test(scenario.targetAnswer)) next.dropdownFrameEn = "It's time ___ dinner."
+        else if (/\bbed\b/i.test(scenario.targetAnswer)) next.dropdownFrameEn = "It's time ___ bed."
+        else if (/\bbreak\b/i.test(scenario.targetAnswer)) next.dropdownFrameEn = "It's time ___ a break."
+        else next.dropdownFrameEn = "It's time ___ lunch."
+      } else {
+        next.targetAnswer = 'to'
+        next.dropdownFrameEn = "It's time ___ leave."
+        if (/\bgo home\b/i.test(scenario.targetAnswer)) {
+          next.dropdownFrameEn = "It's time ___ go home."
+        } else if (/\beat\b/i.test(scenario.targetAnswer)) {
+          next.dropdownFrameEn = "It's time ___ eat."
+        } else if (/\bsleep\b/i.test(scenario.targetAnswer)) {
+          next.dropdownFrameEn = "It's time ___ sleep."
+        } else if (/\bstart\b/i.test(scenario.targetAnswer)) {
+          next.dropdownFrameEn = "It's time ___ start."
+        } else if (/\brest\b/i.test(scenario.targetAnswer)) {
+          next.dropdownFrameEn = "It's time ___ rest."
+        }
       }
+      next.options = ['to', 'for', 'at']
     }
     next.brokenPhrase = undefined
     next.interlocutorEn = undefined
@@ -230,9 +276,17 @@ function adaptScenarioForReferenceType(
     next.dropdownFrameEn = undefined
     if (!next.brokenPhrase) {
       if (/\btime to go\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bgo\b/i, 'sleep')
+        next.brokenPhrase = next.targetAnswer.replace(/\btime to go\b/i, 'time for go')
+      } else if (/\btime for dinner\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\btime for dinner\b/i, 'time to dinner')
+      } else if (/\btime for lunch\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\btime for lunch\b/i, 'time to lunch')
+      } else if (/\btime for bed\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\btime for bed\b/i, 'time to bed')
+      } else if (/\btime for a break\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\btime for a break\b/i, 'time to a break')
       } else if (/\btime to sleep\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bsleep\b/i, 'go')
+        next.brokenPhrase = next.targetAnswer.replace(/\btime to sleep\b/i, 'time for sleep')
       } else if (/\bcold\b/i.test(next.targetAnswer)) {
         next.brokenPhrase = next.targetAnswer.replace(/\bcold\b/i, 'hot')
       } else if (/\bhot\b/i.test(next.targetAnswer)) {
@@ -242,7 +296,7 @@ function adaptScenarioForReferenceType(
       } else if (/\blate\b/i.test(next.targetAnswer)) {
         next.brokenPhrase = next.targetAnswer.replace(/\blate\b/i, 'dark')
       } else {
-        next.brokenPhrase = "It's time to sleep."
+        next.brokenPhrase = "It's time for go."
         next.targetAnswer = "It's time to go."
       }
     }
@@ -256,7 +310,7 @@ function adaptScenarioForReferenceType(
   if (type === 'boss-challenge') {
     next.minWords = next.minWords ?? 5
     next.keywords = next.keywords ?? ['time to']
-    if (!/\btime to\b/i.test(next.targetAnswer)) {
+    if (!/\btime to\b/i.test(next.targetAnswer) && !/\btime for\b/i.test(next.targetAnswer)) {
       next.targetAnswer = "It's late and it's time to go home."
       next.situationRu = 'Нужно закончить вечер: скажите, что поздно и пора домой.'
       next.keywords = ['time to']
@@ -267,7 +321,17 @@ function adaptScenarioForReferenceType(
   if (type === 'choice' || type === 'context-clue' || type === 'listening-select') {
     if (!next.options?.length) {
       const correct = next.targetAnswer
-      next.options = [correct, correct.replace(/^It's\b/i, 'Its'), correct.replace(/^It's\b/i, 'It')]
+      if (/\btime for\b/i.test(correct)) {
+        next.options = [correct, correct.replace(/\btime for\b/i, 'time to'), "It's time for go."]
+      } else if (/\btime to\b/i.test(correct)) {
+        next.options = [
+          correct,
+          correct.replace(/\btime to\b/i, 'time for'),
+          correct.replace(/^It's\b/i, 'Its'),
+        ]
+      } else {
+        next.options = [correct, correct.replace(/^It's\b/i, 'Its'), correct.replace(/^It's\b/i, 'It')]
+      }
     }
   }
 
@@ -284,6 +348,10 @@ function adaptScenarioForReferenceType(
   if (type === 'free-response' && !next.translateRu) {
     if (/\bgo home\b/i.test(next.targetAnswer)) next.translateRu = 'Пора идти домой.'
     else if (/\btime to go\b/i.test(next.targetAnswer)) next.translateRu = 'Пора идти.'
+    else if (/\btime for lunch\b/i.test(next.targetAnswer)) next.translateRu = 'Пора обедать.'
+    else if (/\btime for dinner\b/i.test(next.targetAnswer)) next.translateRu = 'Пора ужинать.'
+    else if (/\btime for a break\b/i.test(next.targetAnswer)) next.translateRu = 'Пора на перерыв.'
+    else if (/\btime for bed\b/i.test(next.targetAnswer)) next.translateRu = 'Пора спать.'
     else if (/\beat\b/i.test(next.targetAnswer)) next.translateRu = 'Пора есть.'
     else if (/\bstart\b/i.test(next.targetAnswer)) next.translateRu = 'Пора начинать.'
     else if (/\brest\b/i.test(next.targetAnswer)) next.translateRu = 'Пора отдыхать.'

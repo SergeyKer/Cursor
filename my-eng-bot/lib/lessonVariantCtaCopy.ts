@@ -14,11 +14,11 @@ export type LessonVariantDualCtaLabels = {
 
 export type LessonVariantDualCtaLayout = LessonVariantDualCtaLabels & {
 
-  /** «Новый вариант» сверху, тёмно-синий - после броска или медали. */
+  /** «Новый сюжет» сверху, тёмно-синий - после броска или медали. */
 
   emphasizeNewVariant: boolean
 
-  /** «Новый вариант» снизу, disabled - до броска и медали. */
+  /** «Новый сюжет» снизу, disabled - до броска и медали. */
 
   freezeNewVariant: boolean
 
@@ -26,11 +26,15 @@ export type LessonVariantDualCtaLayout = LessonVariantDualCtaLabels & {
 
 
 
-export const LESSON_VARIANT_SECONDARY_LABEL = 'Новый вариант'
+export const LESSON_VARIANT_SECONDARY_LABEL = 'Новый сюжет'
+
+/** Короткая подсказка к CTA, если в UI уже есть слот subtitle. */
+export const LESSON_VARIANT_SECONDARY_HINT = 'Те же правила — новые ситуации'
 
 export const LESSON_VARIANT_PREPARE_LOADING_LABEL = 'Подготавливаем вариант...'
 
 const DUAL_CTA_TWO_LINE_LABELS: Record<string, string> = {
+  'Новый сюжет': 'Новый\nсюжет',
   'Новый вариант': 'Новый\nвариант',
   'Повтор варианта': 'Повтор\nварианта',
   'Начать урок': 'Начать\nурок',

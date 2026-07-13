@@ -177,8 +177,8 @@ const EMBEDDED_LESSON_3_SYSTEM_RULES = [
 ] as const
 
 const LESSON_1_SYSTEM_RULES = [
-  'Lesson 1: use It\'s + adjective for state/weather/time, and It\'s time to + base verb for action.',
-  'Never make time for + noun the correct target; for is only a distractor/error pattern (It\'s time for go).',
+  'Lesson 1: use It\'s + adjective for state/weather/time, It\'s time to + base verb for action, and It\'s time for + noun for events (lunch/dinner/bed/a break).',
+  'Broken/distractor only: time for + verb (It\'s time for go) and time to + noun (It\'s time to dinner). Do not treat ambiguous for sleep as a correct for+noun target.',
   'Reject Its / It cold / time to goes as correct answers.',
 ] as const
 

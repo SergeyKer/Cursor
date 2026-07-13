@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { LessonData } from '@/types/lesson'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import type { GeneratedStepPayload } from '@/lib/structuredLessonFactory'
+import { diversifyCriticalStepAnswers } from '@/lib/testHelpers/diversifyCriticalStepAnswers'
 
 const callProviderChatMock = vi.hoisted(() => vi.fn())
 
@@ -48,6 +49,30 @@ function makeRequest(body: unknown): Request {
 }
 
 function toModelSteps(): GeneratedStepPayload[] {
+  return diversifyCriticalStepAnswers(
+    itsTimeToLesson.steps.map((step) => ({
+      stepNumber: step.stepNumber,
+      bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
+      ...(step.exercise
+        ? {
+            exercise: {
+              question: step.exercise.question,
+              options: step.exercise.options,
+              correctAnswer: step.exercise.correctAnswer,
+              acceptedAnswers: step.exercise.acceptedAnswers,
+              hint: step.exercise.hint,
+              puzzleVariants: step.exercise.puzzleVariants,
+              variants: step.exercise.variants,
+              bonusXp: step.exercise.bonusXp,
+            },
+          }
+        : {}),
+      footerDynamic: step.footerDynamic,
+    }))
+  )
+}
+
+function toVerbatimModelSteps(): GeneratedStepPayload[] {
   return itsTimeToLesson.steps.map((step) => ({
     stepNumber: step.stepNumber,
     bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
@@ -72,6 +97,26 @@ function toModelSteps(): GeneratedStepPayload[] {
 describe('POST /api/structured-lesson-generate', () => {
   beforeEach(() => {
     callProviderChatMock.mockReset()
+  })
+
+  it('rejects verbatim source answers as fallback', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: toVerbatimModelSteps() }),
+    })
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: JSON.stringify({ steps: toVerbatimModelSteps() }),
+    })
+
+    const res = await POST(makeRequest({ lessonId: '1', recentVariantIds: lesson1RecentVariantIds }) as never)
+    const data = (await res.json()) as { generated: boolean; fallback: boolean; lesson?: { generated?: boolean; fallback?: boolean } }
+
+    expect(res.status).toBe(200)
+    expect(data.generated).toBe(false)
+    expect(data.fallback).toBe(true)
+    expect(data.lesson?.generated).toBe(false)
+    expect(data.lesson?.fallback).toBe(true)
   })
 
   it('accepts a semantically valid structured lesson payload', async () => {

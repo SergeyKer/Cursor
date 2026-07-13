@@ -123,13 +123,13 @@ describe('roleplayPromptEngine', () => {
     expect(source).not.toBeNull()
     const scenario = resolveRoleplayScenario({
       lesson,
-      targetAnswer: 'I am a student.',
+      targetAnswer: 'I am from Moscow and I am happy.',
       source: source ?? undefined,
       stepIndex: 4,
       audience: 'adult',
     })
-    expect(scenario.roleIntroRu.toLowerCase()).toMatch(/студент|student/i)
-    expect(scenario.interlocutorEn).toBe('Who are you?')
+    expect(scenario.roleIntroRu.toLowerCase()).toMatch(/москв|счастлив/i)
+    expect(scenario.interlocutorEn).toBe('Where are you from?')
   })
 
   it('resolves lesson 2 declarative target from pair', () => {

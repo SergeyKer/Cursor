@@ -49,6 +49,7 @@ export function buildLessonRouteCacheKey(params: {
   audience: string
   provider: string
   openAiChatPreset: string
+  generationNonce?: string | null
 }): string {
   return [
     params.mode,
@@ -57,6 +58,7 @@ export function buildLessonRouteCacheKey(params: {
     params.audience,
     params.provider,
     params.openAiChatPreset,
+    params.generationNonce?.trim() || 'no-nonce',
   ].join('::')
 }
 

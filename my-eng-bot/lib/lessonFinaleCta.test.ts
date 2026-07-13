@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { buildFinaleOptionHints, resolveFinalePrimaryAction } from '@/lib/lessonFinaleCta'
+import {
+  buildFinaleOptionHints,
+  LESSON_REPEAT_VARIANT_BUSY_LABEL,
+  LESSON_REPEAT_VARIANT_LABEL,
+  resolveFinalePrimaryAction,
+} from '@/lib/lessonFinaleCta'
+
+describe('finale CTA labels', () => {
+  it('uses Новый сюжет copy', () => {
+    expect(LESSON_REPEAT_VARIANT_LABEL).toBe('Новый сюжет')
+    expect(LESSON_REPEAT_VARIANT_BUSY_LABEL).toBe('Генерируем новый сюжет...')
+  })
+})
 
 describe('resolveFinalePrimaryAction', () => {
   it('routes to practice when profile has gold', () => {

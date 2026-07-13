@@ -121,7 +121,7 @@ function buildReferenceDiversityRule(params: {
     parts.push(
       'error-fix: Russian Ситуация:/Тема: + Исправьте: "{broken}."; lexical wrong-word preferred; no options/audioText/hint.',
       'Each scenario needs a unique Russian situation and matching targetAnswer on the same axis.',
-      'Lesson 1: weather/distance → It\'s + adj; «Пора …» → It\'s time to + verb; never mix axes; never target "It\'s time." alone.',
+      'Lesson 1: weather/distance → It\'s + adj; «Пора …» → It\'s time to + verb OR It\'s time for + noun; never mix axes; never target "It\'s time." alone.',
       'Broken stays on the same grammar axis as targetAnswer; STT-safe content-word error.',
       'Rotate situations; never reuse identical Russian situation text across scenarios in one reference pass.'
     )
@@ -143,9 +143,10 @@ function buildReferenceDiversityRule(params: {
   if (params.lesson.id === '1') {
     const category = params.suggestedScenario ? inferScenarioCategory(params.suggestedScenario) : 'general'
     parts.push(
-      'Rotate across weather, time, and distance contexts for formal it (It\'s + adjective vs It\'s time to + verb).',
+      'Rotate across weather, time, and distance contexts for formal it (It\'s + adjective, It\'s time to + verb, It\'s time for + noun).',
       'Do not default to darkness ("темно" / It\'s dark) unless it is the only unused scenario.',
-      'Correct targets: It\'s + adj OR It\'s time to + base verb. time for is distractor-only, never the correct axis.',
+      'Correct targets: It\'s + adj, It\'s time to + base verb, OR It\'s time for + noun (lunch/dinner/bed/a break).',
+      'Broken/distractor only: time for + verb (It\'s time for go) and time to + noun (It\'s time to dinner). Never use ambiguous for sleep as a correct for+noun axis.',
       category !== 'general' ? `Current category hint: ${category}.` : ''
     )
   } else if (params.lesson.id === '2') {
@@ -166,9 +167,11 @@ function buildReferenceDiversityRule(params: {
     )
   } else if (params.lesson.id === '4') {
     parts.push(
-      'Self-intro lesson: I am/I\'m + adjective, from + place, a/an + role.',
+      'Self-intro lesson: I am/I\'m + adjective (mood), from + place, a/an + role.',
       'a before consonant (student/teacher); an before vowel sound (engineer).',
       'Reject I from / I am from in as correct answers.',
+      'error-fix: prefer missing am (I from Russia → I am from Russia) over pure country swaps.',
+      'Boss/compound: prefer city + mood (I am from Moscow and I am happy) when synthesizing.',
       'When practiceScenarioBank is provided, mirror its grammar pattern but vary wording.'
     )
   } else if (params.sourceSituations.length > 0) {
@@ -209,7 +212,7 @@ function buildSessionDiversityRule(params: {
   if (params.practiceType === 'error-fix') {
     parts.push(
       'error-fix: Ситуация + Исправьте broken phrase; STT-safe lexical error; no options; hint empty; rotate situations.',
-      'Lesson 1: keep situation and targetAnswer on one axis (It\'s + adj vs It\'s time to + verb); never incomplete "It\'s time."'
+      'Lesson 1: keep situation and targetAnswer on one axis (It\'s + adj vs It\'s time to + verb vs It\'s time for + noun); never incomplete "It\'s time."'
     )
   }
   if (params.practiceType === 'roleplay-mini') {
@@ -231,7 +234,8 @@ function buildSessionDiversityRule(params: {
   if (params.lesson.id === '1') {
     parts.push(
       'Rotate weather, time, and distance; avoid repeating "темно" / It\'s dark in consecutive items.',
-      'Correct axis only: It\'s + adj or It\'s time to + verb; time for is error/distractor only.'
+      'Correct axes: It\'s + adj, It\'s time to + verb, or It\'s time for + noun (lunch/dinner/bed/a break).',
+      'Keep for+verb and to+noun as error/distractor patterns only.'
     )
   }
   if (params.lesson.id === '2') {
@@ -252,7 +256,9 @@ function buildSessionDiversityRule(params: {
   }
   if (params.lesson.id === '4') {
     parts.push(
-      'Self-intro: I am/I\'m, from + place, a/an correctly.',
+      'Self-intro: I am/I\'m + mood adj, from + place, a/an correctly.',
+      'error-fix: prefer missing am over country lexical swaps.',
+      'Boss/compound: city + mood when synthesizing two parts.',
       'Challenge step 10 roleplay: targetAnswer equals free-response anchor (from-place phrase).',
       'When practiceScenarioBank is present, use it as the quality template for new scenarios.'
     )

@@ -21,15 +21,15 @@ describe('lesson registries', () => {
     expect(findStaticLessonByTopic('знакомство на английском')?.id).toBe('4')
   })
 
-  it('step 6 first translate omits greeting and accepts I am from Russia only', () => {
+  it('step 6 first translate is name only and omits greeting', () => {
     const step6 = introducingYourselfLesson.steps.find((step) => step.stepNumber === 6)
     const exercise = step6?.exercise as Exercise | undefined
-    expect(exercise?.question).toBe('Переведите на английский: "Я из России"')
+    expect(exercise?.question).toBe('Переведите на английский: "Меня зовут Вася"')
     expect(exercise?.question).not.toMatch(/Привет/i)
 
-    expect(validateAnswer("I'm from Russia.", exercise!)).toBe(true)
-    expect(validateAnswer('I am from Russia.', exercise!)).toBe(true)
-    expect(validateAnswer('I am form Russia', exercise!)).toBe(false)
+    expect(validateAnswer('I am Vasya.', exercise!)).toBe(true)
+    expect(validateAnswer("I'm Vasya.", exercise!)).toBe(true)
+    expect(validateAnswer('I am from Russia.', exercise!)).toBe(false)
   })
 
   it('registers embedded questions lesson in structured and learning registries', () => {

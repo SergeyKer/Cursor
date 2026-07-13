@@ -54,6 +54,7 @@ describe('errorFixBrokenPhrase', () => {
   it('rejects incomplete It\'s time targets on lesson 1', () => {
     expect(isErrorFixTargetComplete("It's time.", '1')).toBe(false)
     expect(isErrorFixTargetComplete("It's time to sleep.", '1')).toBe(true)
+    expect(isErrorFixTargetComplete("It's time for dinner.", '1')).toBe(true)
     expect(isErrorFixTargetComplete("It's dark.", '1')).toBe(true)
   })
 

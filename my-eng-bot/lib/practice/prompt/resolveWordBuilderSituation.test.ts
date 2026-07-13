@@ -5,7 +5,7 @@ import { resolveWordBuilderSituation } from '@/lib/practice/prompt/resolveWordBu
 import { findMatchingPuzzleVariant } from '@/lib/practice/resolvePracticeSentencePuzzleSlice'
 
 describe('resolveWordBuilderSituation', () => {
-  it('returns country situation for Britain phrase', () => {
+  it('returns name situation for Britain phrase on Alex profile', () => {
     const lesson = lessonForPracticeStep(getStructuredLessonById('4')!, 2)
     const puzzleStep = lesson.steps.find((step) => step.exercise?.type === 'sentence_puzzle')
     const exercise = puzzleStep!.exercise!
@@ -19,11 +19,11 @@ describe('resolveWordBuilderSituation', () => {
       matchedVariant,
     })
 
-    expect(situation).toMatch(/Великобритани/i)
+    expect(situation).toMatch(/Алекс/i)
     expect(situation).not.toMatch(/настроени/i)
   })
 
-  it('returns role situation for engineer phrase', () => {
+  it('returns name situation for engineer phrase on Maria profile', () => {
     const lesson = lessonForPracticeStep(getStructuredLessonById('4')!, 1)
     const puzzleStep = lesson.steps.find((step) => step.exercise?.type === 'sentence_puzzle')
     const exercise = puzzleStep!.exercise!
@@ -37,7 +37,7 @@ describe('resolveWordBuilderSituation', () => {
       matchedVariant,
     })
 
-    expect(situation).toMatch(/инженер/i)
+    expect(situation).toMatch(/Мария/i)
     expect(situation).not.toMatch(/настроени/i)
   })
 })

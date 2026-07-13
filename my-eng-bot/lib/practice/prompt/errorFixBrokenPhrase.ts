@@ -98,7 +98,9 @@ export function isErrorFixTargetComplete(targetAnswer: string, lessonId?: string
 
   const normalized = trimmed.toLowerCase()
   if (/^it'?s\s+time\.?$/i.test(normalized)) return false
-  if (/\btime\b/.test(normalized) && !/\btime\s+to\b/.test(normalized)) return false
+  if (/\btime\b/.test(normalized) && !/\btime\s+to\b/.test(normalized) && !/\btime\s+for\b/.test(normalized)) {
+    return false
+  }
   return true
 }
 

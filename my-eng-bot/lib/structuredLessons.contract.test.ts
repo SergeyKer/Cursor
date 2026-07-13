@@ -5,7 +5,6 @@ import { stepTranslateInfoCollidesWithAnswers } from '@/lib/lessonExampleAnswerC
 import { toSentencePuzzleCards } from '@/lib/sentencePuzzleWords'
 import { extractRussianTranslatePromptSegment } from '@/lib/structuredLessonFactory'
 import { getAllStructuredLessons, getStructuredLessonById, loadLessonById } from '@/lib/structuredLessons'
-import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { primeLessonCache } from '@/lib/lessons/loadLessonById'
 import type { Exercise, ExerciseVariant, LessonData, LessonRepeatStepVariant, LessonStep, SentencePuzzleVariant } from '@/types/lesson'
 
@@ -209,14 +208,18 @@ describe('structured lesson 7-step contract', () => {
     expectLessonPuzzleVariantsAligned(lesson)
   })
 
-  it('keeps its-time-to step 3 translate variants russian-only in the prompt segment', () => {
+  it('keeps its-time-to step 3 as single-word fill framing, not translate', () => {
     for (const profile of itsTimeToLesson.repeatConfig?.variantProfiles ?? []) {
       const step3 = (profile.steps ?? []).find((step) => step.stepNumber === 3)
+      expect(step3?.exercise?.type).toBe('fill_text')
+      expect(step3?.bubbles?.find((bubble) => bubble.type === 'task')?.content).toMatch(/Дополните одним словом/i)
       for (const variant of step3?.exercise?.variants ?? []) {
-        const segment = extractRussianTranslatePromptSegment(variant.question ?? '')
-        expect(segment, `${profile.id} ${variant.id}`).not.toBeNull()
-        expect(segment, `${profile.id} ${variant.id}`).not.toMatch(/[A-Za-z]/)
+        expect(variant.question, `${profile.id} ${variant.id}`).toMatch(/Дополните одним словом/i)
+        expect(variant.question, `${profile.id} ${variant.id}`).not.toMatch(/Переведите/i)
+        expect(extractRussianTranslatePromptSegment(variant.question ?? ''), `${profile.id} ${variant.id}`).toBeNull()
       }
+      const answers = (step3?.exercise?.variants ?? []).map((variant) => variant.correctAnswer)
+      expect(answers).toEqual(["It's", 'to', 'for'])
     }
   })
 
@@ -252,6 +255,85 @@ describe('structured lesson 7-step contract', () => {
           `lesson ${lesson.id} variant ${profile.id} step ${step.stepNumber}`
         ).toBe(false)
       }
+    }
+  })
+
+  it('locks L1 axes: no time-for on step1, for on step2/3, morph only step7 hard, clock only step6 hard', () => {
+    for (const profile of itsTimeToLesson.repeatConfig?.variantProfiles ?? []) {
+      const steps = profile.steps ?? []
+      const step1 = steps.find((step) => step.stepNumber === 1)
+      const step1Options = step1?.exercise?.options ?? []
+      expect(step1Options.join(' ').toLowerCase()).not.toMatch(/time for/)
+
+      const step2 = steps.find((step) => step.stepNumber === 2)
+      expect(step2?.exercise?.correctAnswer).toBe('for')
+
+      const step6 = steps.find((step) => step.stepNumber === 6)
+      const step6Hard = step6?.exercise?.variants?.find((variant) => variant.difficulty === 'hard')
+      expect(step6Hard?.correctAnswer.toLowerCase()).toMatch(/five o'?clock|5 o'?clock/)
+
+      const step7 = steps.find((step) => step.stepNumber === 7)
+      const step7Hard = step7?.exercise?.variants?.find((variant) => variant.difficulty === 'hard')
+      const morphOptions = [...(step7Hard?.options ?? [])].sort()
+      expect(morphOptions, profile.id).toHaveLength(3)
+      expect(morphOptions.some((option) => option.endsWith('ing')), profile.id).toBe(true)
+      expect(morphOptions.some((option) => /s$/i.test(option) && !option.endsWith('ing')), profile.id).toBe(true)
+    }
+  })
+
+  it('locks L2 hook Who is that and single WH on step7', () => {
+    const lesson = getStructuredLessonById('2')
+    for (const profile of lesson?.repeatConfig?.variantProfiles ?? []) {
+      const steps = profile.steps ?? []
+      const step1 = steps.find((step) => step.stepNumber === 1)
+      expect(step1?.exercise?.correctAnswer).toBe('Who is that?')
+      expect(step1?.exercise?.options).toEqual(expect.arrayContaining(['What is that?', 'Where is that?']))
+
+      const step6 = steps.find((step) => step.stepNumber === 6)
+      const step6Task = step6?.bubbles?.find((bubble) => bubble.type === 'task')?.content
+      const step6First = step6?.exercise?.variants?.[0]
+      expect(step6Task).toBeTruthy()
+      expect(step6First?.question).toContain(step6Task?.replace(/^Переведите на английский:\s*/u, '') ?? '___')
+
+      const step7 = steps.find((step) => step.stepNumber === 7)
+      const whCount = (step7?.exercise?.variants ?? []).filter((variant) =>
+        (variant.options ?? []).some((option) => /^(Who|What|Where)$/i.test(option)),
+      ).length
+      expect(whCount, profile.id).toBe(1)
+    }
+  })
+
+  it('locks L3 who×1 on home-lives only and rejects how-to', () => {
+    const lesson = getStructuredLessonById('3')
+    for (const profile of lesson?.repeatConfig?.variantProfiles ?? []) {
+      const step6 = (profile.steps ?? []).find((step) => step.stepNumber === 6)
+      const easy = step6?.exercise?.variants?.find((variant) => variant.difficulty === 'easy')
+      if (profile.id === 'home-lives') {
+        expect(easy?.correctAnswer).toBe('I know who he is.')
+      } else {
+        expect(easy?.correctAnswer.toLowerCase()).not.toMatch(/\bwho\b/)
+      }
+
+      const allText = JSON.stringify(profile.steps ?? [])
+      expect(allText.toLowerCase()).not.toMatch(/how to /)
+    }
+  })
+
+  it('locks L4 am spiral, a/an theory, and city+mood hard exam', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson?.level).toMatch(/A1/i)
+    for (const profile of lesson?.repeatConfig?.variantProfiles ?? []) {
+      const steps = profile.steps ?? []
+      const step2 = steps.find((step) => step.stepNumber === 2)
+      expect(['a', 'an']).toContain(step2?.exercise?.correctAnswer)
+
+      const step3 = steps.find((step) => step.stepNumber === 3)
+      expect((step3?.exercise?.variants ?? []).map((variant) => variant.correctAnswer)).toEqual(['am', 'am', 'am'])
+
+      const step6 = steps.find((step) => step.stepNumber === 6)
+      const hard = step6?.exercise?.variants?.find((variant) => variant.difficulty === 'hard')
+      expect(hard?.correctAnswer.toLowerCase()).toMatch(/\band\b/)
+      expect(hard?.correctAnswer.toLowerCase()).toMatch(/\b(happy|tired|fine|excited|glad)\b/)
     }
   })
 })

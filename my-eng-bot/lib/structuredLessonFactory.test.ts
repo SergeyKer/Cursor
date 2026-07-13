@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { LessonData } from '@/types/lesson'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { assessGeneratedSteps, validateGeneratedSteps, type GeneratedStepPayload } from '@/lib/structuredLessonFactory'
+import { diversifyCriticalStepAnswers } from '@/lib/testHelpers/diversifyCriticalStepAnswers'
 
 function withStrictQualityGate(lesson: LessonData): LessonData {
   const rc = lesson.repeatConfig
@@ -40,10 +41,17 @@ function toGeneratedPayload(): GeneratedStepPayload[] {
 }
 
 describe('structuredLessonFactory', () => {
-  it('accepts canonical fallback lesson steps', () => {
+  it('rejects verbatim copy of source answers on translate/puzzle steps', () => {
     const validation = assessGeneratedSteps(itsTimeToLesson, itsTimeToLesson.steps, itsTimeToLesson.steps)
+    expect(validation.accepted).toBe(false)
+    expect(validation.issues.some((issue) => issue.code === 'verbatim_source_answers')).toBe(true)
+  })
+
+  it('accepts contrast_gap single-word chip options', () => {
+    const steps = diversifyCriticalStepAnswers(toGeneratedPayload())
+    const validation = assessGeneratedSteps(itsTimeStrict, itsTimeStrict.steps, steps)
+    expect(validation.issues.some((issue) => issue.code === 'contrast_gap_requires_single_word_options')).toBe(false)
     expect(validation.accepted).toBe(true)
-    expect(validation.validatedSteps).toHaveLength(itsTimeToLesson.steps.length)
   })
 
   it('rejects steps that break semantic anchors', () => {
@@ -154,14 +162,19 @@ describe('structuredLessonFactory', () => {
   })
 
   it('does not false-reject a lesson with a valid normalized variant', () => {
-    const acceptableSteps = toGeneratedPayload()
+    const acceptableSteps = diversifyCriticalStepAnswers(toGeneratedPayload())
     acceptableSteps[5] = {
       ...acceptableSteps[5],
       exercise: {
         ...acceptableSteps[5].exercise!,
         correctAnswer: 'It is time to go home.',
         acceptedAnswers: ['It is time to go home.'],
-        variants: itsTimeToLesson.steps[5]?.exercise?.variants,
+        variants: (acceptableSteps[5].exercise?.variants as Array<{ correctAnswer?: string }> | undefined)?.map(
+          (variant, index) =>
+            index === 0
+              ? { ...variant, correctAnswer: 'It is time to go home.', acceptedAnswers: ['It is time to go home.'] }
+              : variant
+        ),
       },
     }
 
@@ -217,13 +230,23 @@ describe('structuredLessonFactory', () => {
   })
 
   it('keeps acceptable A2 answer within CEFR limits', () => {
-    const acceptableSteps = toGeneratedPayload()
+    const acceptableSteps = diversifyCriticalStepAnswers(toGeneratedPayload())
     acceptableSteps[5] = {
       ...acceptableSteps[5],
       exercise: {
         ...acceptableSteps[5].exercise!,
-        correctAnswer: "It's time to go home now.",
-        acceptedAnswers: ["It's time to go home now.", 'It is time to go home now.'],
+        correctAnswer: 'It is time to go home now.',
+        acceptedAnswers: ['It is time to go home now.', "It's time to go home now."],
+        variants: (acceptableSteps[5].exercise?.variants as Array<{ correctAnswer?: string }> | undefined)?.map(
+          (variant, index) =>
+            index === 0
+              ? {
+                  ...variant,
+                  correctAnswer: 'It is time to go home now.',
+                  acceptedAnswers: ['It is time to go home now.', "It's time to go home now."],
+                }
+              : variant
+        ),
       },
     }
 

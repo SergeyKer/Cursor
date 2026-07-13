@@ -160,8 +160,8 @@ describe('normalizeAiPracticeQuestion', () => {
     const q = normalizeAiPracticeQuestion(row, lesson!, 3)
     expect(q).not.toBeNull()
     expect(q!.prompt).not.toMatch(/три предложен/i)
-    expect(q!.targetAnswer).toMatch(/go home/i)
-    expect(q!.shuffledWords).toEqual(["It's", 'time', 'to', 'go', 'home'])
+    expect(q!.targetAnswer).toMatch(/dinner/i)
+    expect(q!.shuffledWords).toEqual(["It's", 'time', 'for', 'dinner'])
   })
 
   it('normalizes word-builder-pro with morph extraWords and rejects semantic traps', () => {

@@ -37,6 +37,7 @@ type Body = {
   lessonId?: string
   recentVariantIds?: string[]
   bypassCache?: boolean
+  generationNonce?: string
 }
 
 type LessonRepeatFallbackReason = 'provider' | 'parse' | 'validation' | 'exception' | 'no_steps'
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
   const recentVariantIds = Array.isArray(body.recentVariantIds)
     ? body.recentVariantIds.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : []
+  const generationNonce = typeof body.generationNonce === 'string' ? body.generationNonce.trim() : ''
   const { lesson, selectedVariantId } = selectStructuredLessonVariant(baseLesson, recentVariantIds)
   const repeatConfig = lesson.repeatConfig
   if (!repeatConfig) {
@@ -69,7 +71,7 @@ export async function POST(req: NextRequest) {
   const sourceRepeatableSteps = getLessonLearningSteps(lesson)
   if (!sourceRepeatableSteps.length) {
     return NextResponse.json({
-      lesson: cloneLessonWithNewRunKey(lesson),
+      lesson: { ...cloneLessonWithNewRunKey(lesson), generated: false, fallback: true },
       generated: false,
       fallback: true,
       fallbackReason: 'no_steps' satisfies LessonRepeatFallbackReason,
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest) {
     audience,
     provider,
     openAiChatPreset,
+    generationNonce: generationNonce || null,
   })
   const cacheReadStartedAt = Date.now()
   const cachedResponse = readLessonRouteCache<{
@@ -157,17 +160,13 @@ export async function POST(req: NextRequest) {
   )
 
   const sharedResponse = await runLessonRouteInflight(cacheKey, async () => {
-    const shouldCacheFallback = !body.bypassCache
     const maxAttempts = body.bypassCache ? resolveLessonRepeatMenuBypassMaxAttempts() : 2
     const createFallbackPayload = (fallbackReason: LessonRepeatFallbackReason) => ({
-      lesson: cloneLessonWithNewRunKey(lesson),
+      lesson: { ...cloneLessonWithNewRunKey(lesson), generated: false, fallback: true },
       generated: false,
       fallback: true,
       fallbackReason,
     })
-    const maybeWriteFallbackCache = (responsePayload: ReturnType<typeof createFallbackPayload>) => {
-      if (shouldCacheFallback) writeLessonRouteCache(cacheKey, responsePayload)
-    }
     const logFallback = (stages: Record<string, number>) => {
       logLessonRouteSummary({
         correlationId,
@@ -212,7 +211,6 @@ export async function POST(req: NextRequest) {
       if (!model.ok) {
         if (attempt < maxAttempts) continue
         const responsePayload = createFallbackPayload('provider')
-        maybeWriteFallbackCache(responsePayload)
         logFallback({
           attempts: attempt,
           provider_ms: Date.now() - providerStartedAt,
@@ -235,7 +233,6 @@ export async function POST(req: NextRequest) {
           continue
         }
         const responsePayload = createFallbackPayload('parse')
-        maybeWriteFallbackCache(responsePayload)
         logFallback({
           attempts: attempt,
           provider_ms: Date.now() - providerStartedAt,
@@ -260,7 +257,6 @@ export async function POST(req: NextRequest) {
           continue
         }
         const responsePayload = createFallbackPayload('parse')
-        maybeWriteFallbackCache(responsePayload)
         logFallback({
           attempts: attempt,
           provider_ms: Date.now() - providerStartedAt,
@@ -289,7 +285,6 @@ export async function POST(req: NextRequest) {
           continue
         }
         const responsePayload = createFallbackPayload('validation')
-        maybeWriteFallbackCache(responsePayload)
         logFallback({
           attempts: attempt,
           provider_ms: validationStartedAt - providerStartedAt,
@@ -300,7 +295,11 @@ export async function POST(req: NextRequest) {
 
       try {
         const responsePayload = {
-          lesson: buildLessonFromGeneratedSteps(lesson, validation.validatedSteps),
+          lesson: {
+            ...buildLessonFromGeneratedSteps(lesson, validation.validatedSteps),
+            generated: true,
+            fallback: false,
+          },
           generated: true,
           fallback: false,
         }
@@ -328,7 +327,6 @@ export async function POST(req: NextRequest) {
         return responsePayload
       } catch {
         const responsePayload = createFallbackPayload('exception')
-        maybeWriteFallbackCache(responsePayload)
         logFallback({
           attempts: attempt,
           provider_ms: Date.now() - providerStartedAt,
@@ -338,7 +336,6 @@ export async function POST(req: NextRequest) {
     }
 
     const responsePayload = createFallbackPayload('exception')
-    maybeWriteFallbackCache(responsePayload)
     logFallback({ attempts: maxAttempts })
     return responsePayload
   })

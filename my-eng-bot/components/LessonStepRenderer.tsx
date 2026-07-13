@@ -43,7 +43,6 @@ import {
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 import type {
-  BlockProgress,
   LessonAnswerOptions,
   LessonStatus,
   LessonTimelineEntry,
@@ -120,7 +119,6 @@ import {
 type LessonStepRendererProps = {
   timeline: LessonTimelineEntry[]
   status: LessonStatus
-  blockProgress: BlockProgress
   exerciseErrors?: number
   onAnswer: (answer: string, options?: LessonAnswerOptions) => void
   onCompleteStep?: (options?: {
@@ -287,7 +285,6 @@ function useLessonFeedStatusEnterClass(prefersReducedMotion: boolean) {
 export default function LessonStepRenderer({
   timeline,
   status,
-  blockProgress,
   exerciseErrors = 0,
   onAnswer,
   onCompleteStep,

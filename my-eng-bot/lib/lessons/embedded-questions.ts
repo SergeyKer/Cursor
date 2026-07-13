@@ -39,9 +39,6 @@ type EmbeddedQuestionVariant = {
   step5TaskRu: string
   step5CorrectAnswer: string
   step5AcceptedAnswers: string[]
-  step6TaskRu: string
-  step6Options: [string, string, string]
-  step6CorrectAnswer: string
   step6LightQuestion: string
   step6LightAnswer: string
   step6LightAcceptedAnswers?: string[]
@@ -137,15 +134,9 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step5TaskRu: 'Переведите на английский: "Ты знаешь, где живет Алекс? Он живет рядом с парком."',
     step5CorrectAnswer: 'Do you know where Alex lives? He lives near the park.',
     step5AcceptedAnswers: ['Do you know where Alex lives? Alex lives near the park.'],
-    step6TaskRu: 'Быстрая проверка: выберите правильный вариант для фразы "Скажи мне, где работает Анна."',
-    step6Options: [
-      'Tell me where Anna works.',
-      'Tell me where does Anna work.',
-      'Tell me where Anna work.',
-    ],
-    step6CorrectAnswer: 'Tell me where Anna works.',
-    step6LightQuestion: 'Переведите на английский: "Скажи мне, где работает Анна."',
-    step6LightAnswer: 'Tell me where Anna works.',
+    step6LightQuestion: 'Переведите на английский: "Я знаю, кто он."',
+    step6LightAnswer: 'I know who he is.',
+    step6LightAcceptedAnswers: ['I know who he is'],
     step6MediumQuestion: 'Переведите на английский: "Ты знаешь, где живет Алекс? Он живет рядом с парком."',
     step6MediumAnswer: 'Do you know where Alex lives? He lives near the park.',
     step6MediumAcceptedAnswers: ['Do you know where Alex lives? Alex lives near the park.'],
@@ -157,7 +148,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
       'Ты знаешь, что ей нравится?',
       'Скажи мне, где находится станция.',
       'Ты знаешь, где живет Алекс?',
-      'Скажи мне, где работает Анна.',
+      'Я знаю, кто он.',
     ],
   },
   {
@@ -237,13 +228,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step5TaskRu: 'Переведите на английский: "Ты знаешь, что любит Оля? Она любит джаз."',
     step5CorrectAnswer: 'Do you know what Olya likes? She likes jazz.',
     step5AcceptedAnswers: ['Do you know what Olya likes? Olya likes jazz.'],
-    step6TaskRu: 'Быстрая проверка: выберите правильный вариант для фразы "Скажи, когда начинается урок."',
-    step6Options: [
-      'Can you say when the lesson starts?',
-      'Can you say when does the lesson start?',
-      'Can you say when the lesson start?',
-    ],
-    step6CorrectAnswer: 'Can you say when the lesson starts?',
     step6LightQuestion: 'Переведите на английский: "Я не знаю, где он работает."',
     step6LightAnswer: "I don't know where he works.",
     step6LightAcceptedAnswers: ['I do not know where he works.'],
@@ -338,13 +322,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step5TaskRu: 'Переведите на английский: "Ты знаешь, когда начинается фильм? Он начинается в семь."',
     step5CorrectAnswer: 'Do you know when the film starts? It starts at seven.',
     step5AcceptedAnswers: ['Do you know when the film starts? The film starts at seven.'],
-    step6TaskRu: 'Быстрая проверка: выберите правильный вариант для фразы "Я не знаю, где находится банк."',
-    step6Options: [
-      "I don't know where the bank is.",
-      "I don't know where is the bank.",
-      "I don't know where the bank are.",
-    ],
-    step6CorrectAnswer: "I don't know where the bank is.",
     step6LightQuestion: 'Переведите на английский: "Я не знаю, чего она хочет."',
     step6LightAnswer: "I don't know what she wants.",
     step6LightAcceptedAnswers: ['I do not know what she wants.'],
@@ -353,7 +330,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step6MediumAcceptedAnswers: ['Do you know when the film starts? The film starts at seven.'],
     step6CreativeQuestion: 'Переведите на английский: "Ты знаешь, чего хочет учитель?"',
     step6CreativeAnswer: 'Do you know what the teacher wants?',
-    step6CreativeAcceptedAnswers: ['Do you know what the teacher needs?'],
     sourceSituations: [
       'Скажи, когда начинается урок.',
       'Скажи мне, где находится кафе.',
@@ -439,13 +415,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step5TaskRu: 'Переведите на английский: "Скажи мне, где находится музей. Он рядом со школой."',
     step5CorrectAnswer: 'Tell me where the museum is. It is near the school.',
     step5AcceptedAnswers: ['Tell me where the museum is. The museum is near the school.'],
-    step6TaskRu: 'Быстрая проверка: выберите правильный вариант для фразы "Я не знаю, когда они начинают."',
-    step6Options: [
-      "I don't know when they start.",
-      "I don't know when do they start.",
-      "I don't know when they starts.",
-    ],
-    step6CorrectAnswer: "I don't know when they start.",
     step6LightQuestion: 'Переведите на английский: "Скажи мне, где находится парк."',
     step6LightAnswer: 'Tell me where the park is.',
     step6MediumQuestion: 'Переведите на английский: "Скажи мне, где находится музей. Он рядом со школой."',
@@ -453,7 +422,6 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
     step6MediumAcceptedAnswers: ['Tell me where the museum is. The museum is near the school.'],
     step6CreativeQuestion: 'Переведите на английский: "Ты знаешь, что нужно медсестре?"',
     step6CreativeAnswer: 'Do you know what the nurse needs?',
-    step6CreativeAcceptedAnswers: ['Do you know what the nurse wants?'],
     sourceSituations: [
       'Скажи мне, где находится станция.',
       'Я не знаю, когда они начинают.',
@@ -471,11 +439,12 @@ const embeddedQuestionsPostLesson = {
 } as const
 
 function extractWhWord(text: string): string {
-  const match = text.match(/\b(where|what|when)\b/i)
+  const match = text.match(/\b(where|what|when|who)\b/i)
   return match?.[1]?.toLowerCase() ?? 'where'
 }
 
 function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): LessonRepeatStepBlueprint[] {
+  const step6LightHasQuestionMark = variant.step6LightAnswer.includes('?')
   return [
     {
       stepNumber: 1,
@@ -491,8 +460,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
         pedagogicalRole: 'introduce_context',
         mustInclude: [variant.introCorrectSentence.toLowerCase()],
         shouldInclude: ['порядок слов', 'обычном предложении'],
-        mustAvoid: ['if', 'whether', 'past simple'],
-        hintShouldMention: ['when', 'where', 'what', 'does'],
+        mustAvoid: ['if', 'whether', 'past simple', 'how to', 'how-to'],
+        hintShouldMention: ['when', 'where', 'what', 'who', 'does'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -511,8 +480,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
         pedagogicalRole: 'explain_rule',
         mustInclude: [variant.theoryCorrectClause.toLowerCase()],
         shouldInclude: ['порядок слов', 'subject', 'verb'],
-        mustAvoid: ['if', 'whether', 'future perfect'],
-        hintShouldMention: ['when', 'where', 'what', 'does'],
+        mustAvoid: ['if', 'whether', 'future perfect', 'how to', 'how-to'],
+        hintShouldMention: ['when', 'where', 'what', 'who', 'does'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -531,8 +500,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
         pedagogicalRole: 'controlled_pattern_drill',
         mustInclude: [extractWhWord(variant.step3Variants[0].question)],
         shouldInclude: ['обычный порядок слов'],
-        mustAvoid: ['if', 'whether', 'present continuous'],
-        hintShouldMention: ['when', 'where', 'what', '-s'],
+        mustAvoid: ['if', 'whether', 'present continuous', 'how to', 'how-to'],
+        hintShouldMention: ['when', 'where', 'what', 'who', '-s'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -551,8 +520,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
         pedagogicalRole: 'controlled_pattern_drill',
         mustInclude: [extractWhWord(variant.step4Variants[0].correctAnswer)],
         shouldInclude: ['порядок слов'],
-        mustAvoid: ['if', 'whether', 'where does'],
-        hintShouldMention: ['когда', 'где', 'что', 'when', 'where', 'what'],
+        mustAvoid: ['if', 'whether', 'where does', 'how to', 'how-to'],
+        hintShouldMention: ['когда', 'где', 'что', 'кто', 'when', 'where', 'what', 'who'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 2,
       },
@@ -571,8 +540,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
         pedagogicalRole: 'apply_in_new_situation',
         mustInclude: [extractWhWord(variant.step5CorrectAnswer)],
         shouldInclude: ['пазл', 'порядок слов'],
-        mustAvoid: ['if', 'whether', 'present continuous'],
-        hintShouldMention: ['when', 'where', 'what', 'порядок'],
+        mustAvoid: ['if', 'whether', 'present continuous', 'how to', 'how-to'],
+        hintShouldMention: ['when', 'where', 'what', 'who', 'порядок'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -584,17 +553,20 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'equivalent_variants',
-      sourceCorrectAnswer: variant.step5CorrectAnswer,
-      sourcePattern: 'question with embedded clause + short answer',
-      semanticAnchors: [variant.step5CorrectAnswer.toLowerCase()],
+      sourceCorrectAnswer: variant.step6LightAnswer,
+      sourcePattern: 'lead phrase + wh-clause; optional mini-dialogue',
+      semanticAnchors: [variant.step6LightAnswer.toLowerCase()],
       semanticExpectations: {
         pedagogicalRole: 'apply_in_new_situation',
-        mustInclude: [extractWhWord(variant.step5CorrectAnswer), '?'],
+        mustInclude: [
+          extractWhWord(variant.step6LightAnswer),
+          ...(step6LightHasQuestionMark ? ['?'] : []),
+        ],
         shouldInclude: ['вопрос', 'ответ'],
-        mustAvoid: ['if', 'whether', 'past simple'],
-        hintShouldMention: ['когда', 'где', 'что', 'when', 'where', 'what'],
+        mustAvoid: ['if', 'whether', 'past simple', 'how to', 'how-to'],
+        hintShouldMention: ['когда', 'где', 'что', 'кто', 'when', 'where', 'what', 'who'],
         requireCyrillicHint: true,
-        requireQuestionMarkInAnswer: true,
+        requireQuestionMarkInAnswer: step6LightHasQuestionMark,
         maxAcceptedAnswers: 3,
       },
     },
@@ -610,8 +582,8 @@ function buildEmbeddedQuestionBlueprints(variant: EmbeddedQuestionVariant): Less
       semanticAnchors: [variant.step3Variants[0]!.correctAnswer],
       semanticExpectations: {
         pedagogicalRole: 'contrast_check',
-        mustAvoid: ['if', 'whether', 'present continuous'],
-        hintShouldMention: ['when', 'where', 'what', '-s'],
+        mustAvoid: ['if', 'whether', 'present continuous', 'how to', 'how-to', 'how'],
+        hintShouldMention: ['when', 'where', 'what', 'who', '-s'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
       },
@@ -629,7 +601,7 @@ function buildEmbeddedPuzzleVariant(id: string, title: string, answer: string): 
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
-    errorText: 'Сначала вводная фраза, потом when/where/what + слова по порядку.',
+    errorText: 'Сначала вводная фраза, потом when/where/what/who + слова по порядку.',
     hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Собираем следующий вариант.',
@@ -727,6 +699,9 @@ function buildEmbeddedStep7Variants(variant: EmbeddedQuestionVariant) {
 
 function buildEmbeddedStep6Hint(question: string, multiSentence: boolean): string {
   const normalizedQuestion = question.toLowerCase()
+  if (normalizedQuestion.includes('кто')) {
+    return '«Кто» - who. После who - подлежащее и глагол (is), без does.'
+  }
   if (normalizedQuestion.includes('когда')) {
     return multiSentence
       ? '«Когда» - when. Две фразы: вопрос и короткий ответ.'
@@ -740,7 +715,7 @@ function buildEmbeddedStep6Hint(question: string, multiSentence: boolean): strin
   if (normalizedQuestion.includes('что') || normalizedQuestion.includes('чего')) {
     return '«Что/чего» - what. После what - подлежащее и глагол, без does.'
   }
-  return 'Сохрани шаблон: вводная фраза + when/where/what + слова по порядку.'
+  return 'Сохрани шаблон: вводная фраза + when/where/what/who + слова по порядку.'
 }
 
 function buildEmbeddedStep6Variants(variant: EmbeddedQuestionVariant) {
@@ -790,7 +765,7 @@ function buildEmbeddedSentencePuzzleVariants(variant: EmbeddedQuestionVariant): 
     buildEmbeddedPuzzleVariant(
       `${variant.id}_puzzle_check`,
       'Пазл 3/3: финальная сборка',
-      variant.step6CorrectAnswer
+      variant.step5CorrectAnswer
     ),
   ]
 }
@@ -979,11 +954,11 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       exercise: {
         type: 'sentence_puzzle',
         question: 'Соберите три фразы из слов.',
-        correctAnswer: variant.step6CorrectAnswer,
-        acceptedAnswers: [variant.step6CorrectAnswer],
+        correctAnswer: variant.step5CorrectAnswer,
+        acceptedAnswers: [variant.step5CorrectAnswer, ...variant.step5AcceptedAnswers],
         answerFormat: 'full_sentence',
         answerPolicy: 'strict',
-        hint: 'Подсказка: начни с вводной фразы, потом when/where/what + слова по порядку.',
+        hint: 'Подсказка: начни с вводной фразы, потом when/where/what/who + слова по порядку.',
         bonusXp: 30,
         puzzleVariants: buildEmbeddedSentencePuzzleVariants(variant),
       },
@@ -1157,7 +1132,7 @@ export const embeddedQuestionsLesson: LessonData = {
       selfCheckRule: 'Если перед вопросительным словом уже есть вводная фраза, после него ставь подлежащее + глагол.',
     },
     learningPlan: {
-      grammarFocus: ['встроенные вопросы', 'вопросительное слово + подлежащее + глагол'],
+      grammarFocus: ['встроенные вопросы', 'вопросительное слово + подлежащее + глагол', 'I know who he is'],
       firstPracticeGoal: 'Убрать лишнюю инверсию внутри встроенного вопроса.',
     },
   },
@@ -1169,6 +1144,7 @@ export const embeddedQuestionsLesson: LessonData = {
     grammarFocus: [
       'Do you know what she likes',
       'Tell me where the station is',
+      'I know who he is',
       'question word subject verb',
     ],
     sourceSituations: Array.from(new Set(embeddedQuestionVariants.flatMap((variant) => variant.sourceSituations))),
@@ -1182,7 +1158,7 @@ export const embeddedQuestionsLesson: LessonData = {
     stepBlueprints: buildEmbeddedQuestionBlueprints(baseVariant),
     variantProfiles: embeddedQuestionVariants.map((variant) => buildEmbeddedQuestionVariantProfile(variant)),
     antiRepeatWindow: 3,
-    bannedTerms: ['if', 'whether', 'past simple', 'present continuous', 'future perfect', 'conditionals', 'passive'],
+    bannedTerms: ['if', 'whether', 'past simple', 'present continuous', 'future perfect', 'conditionals', 'passive', 'how to', 'how-to'],
     qualityGate: {
       minScore: 0.6,
       maxSoftIssues: 4,

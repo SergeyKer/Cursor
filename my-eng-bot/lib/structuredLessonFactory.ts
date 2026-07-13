@@ -384,6 +384,92 @@ function buildAnswerFrequencyMap(steps: Array<LessonStep | GeneratedStepPayload>
   return frequency
 }
 
+function collectComparableAnswers(step: LessonStep | GeneratedStepPayload): string[] {
+  const exercise = step.exercise
+  if (!exercise) return []
+  const answers: string[] = []
+  if (typeof exercise.correctAnswer === 'string' && exercise.correctAnswer.trim()) {
+    answers.push(normalizeForPolicyCheck(exercise.correctAnswer))
+  }
+  if (Array.isArray(exercise.variants)) {
+    for (const variant of exercise.variants) {
+      const item = variant as { correctAnswer?: unknown }
+      if (typeof item.correctAnswer === 'string' && item.correctAnswer.trim()) {
+        answers.push(normalizeForPolicyCheck(item.correctAnswer))
+      }
+    }
+  }
+  if (Array.isArray(exercise.puzzleVariants)) {
+    for (const variant of exercise.puzzleVariants) {
+      const item = variant as { correctAnswer?: unknown }
+      if (typeof item.correctAnswer === 'string' && item.correctAnswer.trim()) {
+        answers.push(normalizeForPolicyCheck(item.correctAnswer))
+      }
+    }
+  }
+  return answers
+}
+
+function isNoveltyCriticalStep(sourceStep: LessonStep): boolean {
+  const type = sourceStep.exercise?.type
+  return (
+    type === 'translate' ||
+    type === 'sentence_puzzle' ||
+    type === 'write_own' ||
+    sourceStep.stepNumber === 4 ||
+    sourceStep.stepNumber === 5 ||
+    sourceStep.stepNumber === 6
+  )
+}
+
+function countLessonDiversityDimensions(
+  sourceSteps: LessonStep[],
+  generatedSteps: GeneratedStepPayload[]
+): number {
+  let dimensions = 0
+  const sourceTasks = sourceSteps.map((step) => normalizeForSemanticCheck(step.bubbles[2]?.content ?? ''))
+  const generatedTasks = generatedSteps.map((step) =>
+    normalizeForSemanticCheck(Array.isArray(step.bubbles) ? String(step.bubbles[2]?.content ?? '') : '')
+  )
+  if (sourceTasks.some((task, index) => task && generatedTasks[index] && task !== generatedTasks[index])) {
+    dimensions += 1
+  }
+
+  const sourceQuestions = sourceSteps.map((step) => normalizeForSemanticCheck(step.exercise?.question ?? ''))
+  const generatedQuestions = generatedSteps.map((step) =>
+    normalizeForSemanticCheck(typeof step.exercise?.question === 'string' ? step.exercise.question : '')
+  )
+  if (sourceQuestions.some((question, index) => question && generatedQuestions[index] && question !== generatedQuestions[index])) {
+    dimensions += 1
+  }
+
+  const criticalIndexes = sourceSteps
+    .map((step, index) => (isNoveltyCriticalStep(step) ? index : -1))
+    .filter((index) => index >= 0)
+  const answerChanged = criticalIndexes.some((index) => {
+    const sourceAnswers = new Set(collectComparableAnswers(sourceSteps[index]))
+    const generatedAnswers = collectComparableAnswers(generatedSteps[index])
+    return generatedAnswers.some((answer) => answer && !sourceAnswers.has(answer))
+  })
+  if (answerChanged) dimensions += 1
+
+  const sourceOptions = sourceSteps.map((step) =>
+    normalizeForSemanticCheck((step.exercise?.options ?? []).join(' | '))
+  )
+  const generatedOptions = generatedSteps.map((step) =>
+    normalizeForSemanticCheck(
+      Array.isArray(step.exercise?.options)
+        ? step.exercise.options.filter((item): item is string => typeof item === 'string').join(' | ')
+        : ''
+    )
+  )
+  if (sourceOptions.some((options, index) => options && generatedOptions[index] && options !== generatedOptions[index])) {
+    dimensions += 1
+  }
+
+  return dimensions
+}
+
 function normalizeLessonLevelToCefrLevel(level: LessonData['level']): LevelId {
   return level.toLowerCase() as LevelId
 }
@@ -635,6 +721,43 @@ function validateGeneratedStepShape(
         }
         if (new Set(options.map((item) => normalizeForPolicyCheck(item))).size !== options.length) {
           issues.push(issue('hard', 'duplicate_choice_options', 'options не должны дублироваться.', sourceStep.stepNumber))
+        }
+        const choiceMode = blueprint?.semanticExpectations?.choiceMode
+        if (choiceMode === 'contrast_gap') {
+          const multiWord = options.filter((option) => /\s/.test(option.trim()))
+          if (multiWord.length > 0) {
+            issues.push(
+              issue(
+                'hard',
+                'contrast_gap_requires_single_word_options',
+                'choiceMode=contrast_gap: options должны быть однословными чипами без пробелов.',
+                sourceStep.stepNumber
+              )
+            )
+          }
+          const question = typeof row.exercise.question === 'string' ? row.exercise.question : ''
+          if (question && !question.includes('___')) {
+            issues.push(
+              issue(
+                'soft',
+                'contrast_gap_missing_frame',
+                'choiceMode=contrast_gap: желательна EN-рамка с ___ в question.',
+                sourceStep.stepNumber
+              )
+            )
+          }
+        } else if (choiceMode === 'sentence_choice') {
+          const fullSentenceOptions = options.filter((option) => /\s/.test(option.trim()))
+          if (fullSentenceOptions.length < options.length) {
+            issues.push(
+              issue(
+                'hard',
+                'sentence_choice_requires_full_sentence_options',
+                'choiceMode=sentence_choice: options должны быть полными предложениями.',
+                sourceStep.stepNumber
+              )
+            )
+          }
         }
       }
       if (sourceStep.stepNumber === 7 && (sourceStep.exercise.variants?.length ?? 0) >= 3) {
@@ -1202,6 +1325,50 @@ function validateLessonCoherence(
     score += 1
   }
 
+  for (let index = 0; index < sourceSteps.length; index += 1) {
+    const sourceStep = sourceSteps[index]
+    if (!isNoveltyCriticalStep(sourceStep)) continue
+    const sourceAnswers = collectComparableAnswers(sourceStep)
+    const generatedAnswers = collectComparableAnswers(generatedSteps[index] ?? {})
+    if (sourceAnswers.length === 0 || generatedAnswers.length === 0) continue
+    const sourceSet = new Set(sourceAnswers)
+    const reusedExact = generatedAnswers.filter((answer) => sourceSet.has(answer))
+    if (reusedExact.length === generatedAnswers.length) {
+      issues.push(
+        issue(
+          'hard',
+          'verbatim_source_answers',
+          'Шаги 4–6 / puzzle: нельзя копировать correctAnswers эталона дословно.',
+          sourceStep.stepNumber
+        )
+      )
+    } else if (reusedExact.length > 0) {
+      issues.push(
+        issue(
+          'hard',
+          'source_answer_reuse',
+          'Шаги 4–6 / puzzle: обнаружено повторное использование ответа эталона.',
+          sourceStep.stepNumber
+        )
+      )
+    }
+  }
+
+  maxScore += 1
+  const diversityDimensions = countLessonDiversityDimensions(sourceSteps, generatedSteps)
+  if (diversityDimensions >= 3) {
+    score += 1
+  } else {
+    issues.push(
+      issue(
+        'soft',
+        'low_novelty_diversity',
+        `Новый вариант слабо отличается от эталона (diversity dimensions=${diversityDimensions}, нужно ≥3).`,
+        null
+      )
+    )
+  }
+
   return { issues, score, maxScore }
 }
 
@@ -1396,8 +1563,10 @@ export function buildStructuredCreationSystemPrompt(audience: Audience = 'adult'
     '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
     'Не добавляй новую грамматику вне указанного grammar focus.',
     'Если передан selectedVariantId, sourceSituations и sourceSteps, считай их обязательными смысловыми рельсами для нового варианта.',
-    'Для fill_choice на шагах 1–2: ровно 3 options - полные грамматически корректные предложения; correctAnswer ∈ options.',
-    'Для fill_choice на шагах 1–2: distractors - естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
+    'Для fill_choice смотри semanticExpectations.choiceMode в stepBlueprints: шаги 1–2 НЕ всегда полные предложения.',
+    'choiceMode=sentence_choice: ровно 3 options - полные грамматически корректные предложения; correctAnswer ∈ options; distractors - естественные фразы (не ломанный английский вроде "It\'s dark to go.").',
+    'choiceMode=contrast_gap: ровно 3 однословных чипа (options без пробелов); question/рамка с ___; correctAnswer ∈ options.',
+    'Соблюдай mustInclude / mustAvoid / shouldInclude из blueprints. L1: time for + noun допустим; L2: без object-Who; L3: без how-to; L4: держи missing am и a/an.',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
     'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction - пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
     'Для sentence_puzzle: hintText - пустая строка, если в words не больше 4 токенов; при 5+ - короткая подсказка без полного ответа (допустимо «Подсказка: первое слово - …»).',
@@ -1450,7 +1619,9 @@ export function buildStructuredVariantDiversifyInstruction(): string {
     'Для этого урока обязательно сгенерируй новый вариант: не копируй дословно sourceSteps.',
     'Меняй формулировки, примеры, микро-ситуации и лексику, сохраняя тот же grammar focus и шаги.',
     'Недостаточно заменить she на he, имя персонажа, одно слово или порядок двух фраз.',
-    'Новый вариант должен ощущаться как другой сценарий той же учебной цели.',
+    'Новый сюжет должен ощущаться как другой сценарий той же учебной цели.',
+    'На шагах 4–6 и sentence_puzzle запрещено повторять correctAnswers эталона дословно.',
+    'Стремись минимум к 3 осям новизны сразу: новые ситуации/task, новые questions и новые ответы.',
     'На шаге 7 - три новых gap-слова в новых ситуациях, не копируй старый MCQ из целых предложений.',
   ].join(' ')
 }
@@ -1471,8 +1642,10 @@ export function buildStructuredRepeatSystemPrompt(audience: Audience = 'adult'):
     '- Английский допустим только во второй части после дефиса (рамка с ___ или подсказка).',
     '- Не подставляй correctAnswer, глагол из ответа и объекты ответа в русскую формулировку.',
     '- На hard-вариантах переформулируй ситуацию по смыслу, но не раскрывай ответ ни на русском, ни английском до рамки с пропуском.',
-    'Для fill_choice на шагах 1–2: ровно 3 options - полные грамматически корректные предложения; correctAnswer ∈ options.',
-    'Для fill_choice на шагах 1–2: distractors - естественные фразы. Нельзя ломанный английский вроде "It\'s dark to go.".',
+    'Для fill_choice смотри semanticExpectations.choiceMode в stepBlueprints: шаги 1–2 НЕ всегда полные предложения.',
+    'choiceMode=sentence_choice: ровно 3 options - полные грамматически корректные предложения; correctAnswer ∈ options; distractors - естественные фразы (не ломанный английский вроде "It\'s dark to go.").',
+    'choiceMode=contrast_gap: ровно 3 однословных чипа (options без пробелов); question/рамка с ___; correctAnswer ∈ options.',
+    'Соблюдай mustInclude / mustAvoid / shouldInclude из blueprints. L1: time for + noun допустим; L2: без object-Who; L3: без how-to; L4: держи missing am и a/an.',
     'Для sentence_puzzle всегда давай ровно 3 puzzleVariants. В каждом puzzle-варианте нужны title, instruction, words, correctOrder, correctAnswer, successText, errorText, hintText, myEngComment.',
     'Для sentence_puzzle: смысл под-задачи в title (например «Пазл 2/3: …»). instruction - пустая строка или нейтральная «Расставьте слова по порядку»; без грамматических шаблонов (I am from + …, It is time to …).',
     'Для sentence_puzzle: hintText - пустая строка, если в words не больше 4 токенов; при 5+ - короткая подсказка без полного ответа (допустимо «Подсказка: первое слово - …»).',

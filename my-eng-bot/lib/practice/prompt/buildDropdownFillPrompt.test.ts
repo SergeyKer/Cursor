@@ -96,7 +96,7 @@ describe('buildDropdownFillPrompt lesson 3 embedded questions', () => {
 
     const prompt = buildEtalonDropdownFillPromptForLesson(lesson!, 0)
     expect(prompt).not.toBeNull()
-    expect(prompt).toBe('Выберите слово для пропуска: "Я из России" - «I am from ___.».')
+    expect(prompt).toBe('Выберите слово для пропуска: "Я Вася" - «I ___ from Russia.».')
     expect(isGapFillStylePrompt(prompt!)).toBe(true)
   })
 

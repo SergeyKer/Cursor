@@ -173,6 +173,8 @@ export type LessonPedagogicalRole =
   | 'contrast_check'
   | 'celebrate_completion'
 
+export type LessonChoiceMode = 'sentence_choice' | 'contrast_gap'
+
 export interface LessonSemanticExpectations {
   pedagogicalRole: LessonPedagogicalRole
   mustInclude?: string[]
@@ -184,6 +186,12 @@ export interface LessonSemanticExpectations {
   requireCyrillicHint?: boolean
   /** Разрешить латиницу в русской части «Переведите на английский: "…"» (педагогические подсказки). */
   allowEnglishInRussianPrompt?: boolean
+  /**
+   * Mode for fill_choice steps (esp. step 1–2):
+   * - sentence_choice: full-sentence options
+   * - contrast_gap: one-word chips in a frame with ___
+   */
+  choiceMode?: LessonChoiceMode
 }
 
 export interface LessonRepeatStepBlueprint {
@@ -313,6 +321,10 @@ export interface LessonData {
   id: string
   runKey?: string
   variantId?: string
+  /** True when steps came from a successful AI generation (not local fallback). */
+  generated?: boolean
+  /** True when UI/API fell back to the static/local lesson instead of a new AI variant. */
+  fallback?: boolean
   topic: string
   level: 'A1' | 'A2' | 'B1' | 'B2' | 'C1'
   intro?: LessonIntro

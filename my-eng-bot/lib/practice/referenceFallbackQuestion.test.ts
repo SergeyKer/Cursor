@@ -201,7 +201,7 @@ describe('buildReferenceFallbackQuestion context-clue', () => {
     })
 
     expect(question).not.toBeNull()
-    expect(question!.targetAnswer).toBe("It's time to sleep.")
+    expect(question!.targetAnswer).toBe("It's time for dinner.")
     expect(question!.options).toHaveLength(3)
     expect(question!.options?.every((item) => /^It's /i.test(item))).toBe(true)
   })

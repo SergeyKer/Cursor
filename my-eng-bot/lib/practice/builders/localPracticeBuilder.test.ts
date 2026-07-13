@@ -164,7 +164,7 @@ describe('buildLocalPracticeSession', () => {
 
     const contextClue = session.questions[2]
     expect(contextClue?.type).toBe('context-clue')
-    expect(contextClue?.targetAnswer).toBe("It's time to sleep.")
+    expect(contextClue?.targetAnswer).toBe("It's time for dinner.")
     expect(contextClue?.options).toHaveLength(3)
     expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
   })
@@ -216,7 +216,7 @@ describe('buildLocalPracticeSession', () => {
     })
 
     expect(question).not.toBeNull()
-    expect(question!.targetAnswer).toBe("It's time to sleep.")
+    expect(question!.targetAnswer).toBe("It's time for dinner.")
     expect(question!.options).toHaveLength(3)
   })
 

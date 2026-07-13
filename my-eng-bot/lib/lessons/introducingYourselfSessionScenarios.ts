@@ -21,6 +21,12 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     options: ['I am Anna.', 'I Anna.', 'Am I Anna.'],
   },
   {
+    id: 'l4-i-am-happy',
+    situationRu: 'На встрече говорите о настроении.',
+    targetAnswer: 'I am happy.',
+    options: ['I am happy.', 'I happy.', 'Am I happy.'],
+  },
+  {
     id: 'l4-from-moscow',
     situationRu: 'Соберите фразу о городе.',
     targetAnswer: 'I am from Moscow.',
@@ -47,6 +53,12 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     options: ['a', 'an', 'the'],
   },
   {
+    id: 'l4-moscow-happy',
+    situationRu: 'Свяжите город и настроение в одной фразе.',
+    targetAnswer: 'I am from Moscow and I am happy.',
+    extraWords: ['an', 'froms'],
+  },
+  {
     id: 'l4-russia-student',
     situationRu: 'Свяжите страну и роль в одной фразе.',
     targetAnswer: 'I am from Russia and I am a student.',
@@ -65,6 +77,12 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     translateRu: 'Я из Бразилии.',
   },
   {
+    id: 'l4-happy-listen',
+    situationRu: 'Как человек себя чувствует? Послушайте.',
+    targetAnswer: 'I am happy.',
+    options: ['I am happy.', 'I happy.', 'Am I happy.'],
+  },
+  {
     id: 'l4-roleplay-moscow',
     situationRu: 'Sarah спрашивает, откуда вы.',
     roleIntroRu: 'Ответьте Sarah коротко.',
@@ -74,23 +92,21 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l4-error-i-from',
-    situationRu: 'В анкете перепутали страну.',
+    situationRu: 'В анкете пропущено важное слово.',
     targetAnswer: 'I am from Russia.',
-    brokenPhrase: 'I am from Spain.',
+    brokenPhrase: 'I from Russia.',
   },
   {
     id: 'l4-boss-intro',
-    situationRu: 'Коротко представьтесь: имя, город и роль.',
-    targetAnswer: "I'm Anna, I'm from Moscow, and I'm a student.",
+    situationRu: 'Коротко: город и настроение.',
+    targetAnswer: "I'm from Moscow and I'm happy.",
     keywords: ['i am'],
-    minWords: 6,
-    acceptedAnswers: ['I am Anna, I am from Moscow, and I am a student.'],
-  },
-  {
-    id: 'l4-i-am-happy',
-    situationRu: 'На встрече говорите о настроении.',
-    targetAnswer: 'I am happy.',
-    options: ['I am happy.', 'I happy.', 'Am I happy.'],
+    minWords: 5,
+    acceptedAnswers: [
+      'I am from Moscow and I am happy.',
+      "I'm from Moscow and I am happy.",
+      "I am from Moscow and I'm happy.",
+    ],
   },
   {
     id: 'l4-from-spain',
@@ -112,9 +128,9 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
   },
   {
     id: 'l4-error-from-in',
-    situationRu: 'В анкете перепутали город и страну.',
-    targetAnswer: 'I am from Moscow.',
-    brokenPhrase: 'I am from Russia.',
+    situationRu: 'В анкете лишнее слово после from.',
+    targetAnswer: 'I am from Russia.',
+    brokenPhrase: 'I am from in Russia.',
   },
   {
     id: 'l4-roleplay-name',
@@ -132,11 +148,30 @@ const GOLDEN_SCENARIOS: readonly LessonPracticeScenario[] = [
     minWords: 5,
   },
   {
+    id: 'l4-boss-city-mood',
+    situationRu: 'Коротко: город и настроение.',
+    targetAnswer: "I'm from Moscow and I'm happy.",
+    keywords: ['i am'],
+    minWords: 5,
+    acceptedAnswers: [
+      'I am from Moscow and I am happy.',
+      "I'm from Moscow and I am happy.",
+      "I am from Moscow and I'm happy.",
+    ],
+  },
+  {
     id: 'l4-translate-russia',
     situationRu: 'Скажите о стране.',
     translateRu: 'Я из России.',
     targetAnswer: 'I am from Russia.',
     acceptedAnswers: ["I'm from Russia."],
+  },
+  {
+    id: 'l4-translate-happy',
+    situationRu: 'Скажите о настроении.',
+    translateRu: 'Я счастлив.',
+    targetAnswer: 'I am happy.',
+    acceptedAnswers: ["I'm happy."],
   },
   {
     id: 'l4-from-brazil-listen',
@@ -153,7 +188,7 @@ export const INTRODUCING_YOURSELF_SESSION_STEP_MAPS = {
   relaxed: [
     'l4-from-russia',
     'l4-im-from-russia',
-    'l4-i-am-anna',
+    'l4-i-am-happy',
     'l4-a-student',
     'l4-translate-moscow',
     'l4-from-spain',
@@ -162,10 +197,10 @@ export const INTRODUCING_YOURSELF_SESSION_STEP_MAPS = {
     'l4-i-am-happy',
     'l4-from-moscow',
     'l4-im-from-japan',
-    'l4-translate-russia',
+    'l4-translate-happy',
     'l4-an-engineer',
-    'l4-moscow-teacher',
-    'l4-from-brazil',
+    'l4-moscow-happy',
+    'l4-happy-listen',
     'l4-error-i-from',
     'l4-translate-moscow',
   ],
@@ -175,15 +210,15 @@ const REFERENCE_EXTRA_IDS: Record<(typeof CHALLENGE_STEP_SPECS)[number]['type'],
   choice: ['l4-from-spain', 'l4-i-am-happy', 'l4-i-am-anna', 'l4-from-moscow', 'l4-im-from-russia', 'l4-im-from-japan'],
   'voice-shadow': ['l4-im-from-japan', 'l4-from-moscow', 'l4-i-am-anna', 'l4-from-spain', 'l4-i-am-happy', 'l4-translate-russia'],
   'context-clue': ['l4-from-russia', 'l4-from-spain', 'l4-i-am-happy', 'l4-i-am-anna', 'l4-from-moscow', 'l4-im-from-russia'],
-  'sentence-surgery': ['l4-from-russia', 'l4-from-moscow', 'l4-i-am-anna', 'l4-from-spain', 'l4-i-am-happy', 'l4-im-from-russia'],
-  'free-response': ['l4-translate-russia', 'l4-from-spain', 'l4-i-am-anna', 'l4-i-am-happy', 'l4-im-from-japan', 'l4-from-brazil'],
+  'sentence-surgery': ['l4-from-russia', 'l4-from-moscow', 'l4-i-am-happy', 'l4-from-spain', 'l4-i-am-anna', 'l4-im-from-russia'],
+  'free-response': ['l4-translate-russia', 'l4-translate-happy', 'l4-from-spain', 'l4-i-am-anna', 'l4-from-brazil', 'l4-im-from-japan'],
   'dropdown-fill': ['l4-an-engineer', 'l4-a-teacher', 'l4-from-russia', 'l4-i-am-anna', 'l4-from-moscow', 'l4-i-am-happy'],
-  'word-builder-pro': ['l4-from-russia', 'l4-from-moscow', 'l4-russia-student', 'l4-moscow-teacher', 'l4-from-spain', 'l4-i-am-anna'],
-  dictation: ['l4-from-russia', 'l4-from-moscow', 'l4-russia-student', 'l4-moscow-teacher', 'l4-from-spain', 'l4-i-am-anna'],
-  'listening-select': ['l4-from-brazil-listen', 'l4-from-spain', 'l4-im-from-japan', 'l4-from-russia', 'l4-from-moscow', 'l4-i-am-anna'],
+  'word-builder-pro': ['l4-moscow-happy', 'l4-from-russia', 'l4-from-moscow', 'l4-russia-student', 'l4-from-spain', 'l4-i-am-happy'],
+  dictation: ['l4-moscow-happy', 'l4-from-russia', 'l4-from-moscow', 'l4-russia-student', 'l4-from-spain', 'l4-i-am-happy'],
+  'listening-select': ['l4-happy-listen', 'l4-from-brazil-listen', 'l4-from-spain', 'l4-i-am-happy', 'l4-from-russia', 'l4-from-moscow'],
   'roleplay-mini': ['l4-roleplay-name', 'l4-translate-moscow', 'l4-from-russia', 'l4-from-spain', 'l4-i-am-anna', 'l4-im-from-russia'],
-  'error-fix': ['l4-error-from-in', 'l4-from-russia', 'l4-from-moscow', 'l4-i-am-anna', 'l4-from-spain', 'l4-i-am-happy'],
-  'boss-challenge': ['l4-boss-from-student', 'l4-russia-student', 'l4-moscow-teacher', 'l4-from-moscow', 'l4-from-russia', 'l4-i-am-anna'],
+  'error-fix': ['l4-from-moscow', 'l4-i-am-anna', 'l4-i-am-happy', 'l4-from-spain', 'l4-im-from-japan', 'l4-from-brazil'],
+  'boss-challenge': ['l4-boss-city-mood', 'l4-moscow-happy', 'l4-boss-from-student', 'l4-from-moscow', 'l4-i-am-happy', 'l4-from-russia'],
 }
 
 function challengeAtomToScenario(
@@ -233,18 +268,16 @@ function adaptScenarioForReferenceType(
     next.options = undefined
     next.dropdownFrameEn = undefined
     if (!next.brokenPhrase) {
-      if (/\bRussia\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bRussia\b/i, 'Spain')
-      } else if (/\bMoscow\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bMoscow\b/i, 'London')
-      } else if (/\bSpain\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bSpain\b/i, 'Russia')
-      } else if (/\bAnna\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bAnna\b/i, 'Maria')
-      } else if (/\bhappy\b/i.test(next.targetAnswer)) {
-        next.brokenPhrase = next.targetAnswer.replace(/\bhappy\b/i, 'tired')
+      if (/\bI am from\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\bI am from\b/i, 'I from')
+      } else if (/\bI'm from\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\bI'm from\b/i, 'I from')
+      } else if (/\bI am\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\bI am\b/i, 'I')
+      } else if (/\bI'm\b/i.test(next.targetAnswer)) {
+        next.brokenPhrase = next.targetAnswer.replace(/\bI'm\b/i, 'I')
       } else {
-        next.brokenPhrase = 'I am from Spain.'
+        next.brokenPhrase = 'I from Russia.'
         next.targetAnswer = 'I am from Russia.'
       }
     }
@@ -259,10 +292,15 @@ function adaptScenarioForReferenceType(
     next.minWords = next.minWords ?? 5
     next.keywords = next.keywords ?? ['i am']
     if (!/\b(i'?m|i am)\b/i.test(next.targetAnswer)) {
-      next.targetAnswer = "I'm Anna, I'm from Moscow, and I'm a student."
-      next.situationRu = 'Коротко представьтесь: имя, город и роль.'
+      next.targetAnswer = "I'm from Moscow and I'm happy."
+      next.situationRu = 'Коротко: город и настроение.'
       next.keywords = ['i am']
-      next.minWords = 6
+      next.minWords = 5
+      next.acceptedAnswers = [
+        'I am from Moscow and I am happy.',
+        "I'm from Moscow and I am happy.",
+        "I am from Moscow and I'm happy.",
+      ]
     }
   }
 
@@ -287,15 +325,20 @@ function adaptScenarioForReferenceType(
         next.acceptedAnswers = ["I'm from Moscow."]
       } else if (/\bI am Anna\b/i.test(next.targetAnswer)) {
         next.acceptedAnswers = ["I'm Anna."]
+      } else if (/\bI am happy\b/i.test(next.targetAnswer)) {
+        next.acceptedAnswers = ["I'm happy."]
       }
     }
   }
 
   if (type === 'free-response' && !next.translateRu) {
-    if (/\bMoscow\b/i.test(next.targetAnswer)) next.translateRu = 'Я из Москвы.'
+    if (/\bMoscow\b/i.test(next.targetAnswer) && /\bhappy\b/i.test(next.targetAnswer)) {
+      next.translateRu = 'Я из Москвы, и я счастлив.'
+    } else if (/\bMoscow\b/i.test(next.targetAnswer)) next.translateRu = 'Я из Москвы.'
     else if (/\bRussia\b/i.test(next.targetAnswer)) next.translateRu = 'Я из России.'
     else if (/\bSpain\b/i.test(next.targetAnswer)) next.translateRu = 'Я из Испании.'
     else if (/\bJapan\b/i.test(next.targetAnswer)) next.translateRu = 'Я из Японии.'
+    else if (/\bBrazil\b/i.test(next.targetAnswer)) next.translateRu = 'Я из Бразилии.'
     else if (/\bAnna\b/i.test(next.targetAnswer)) next.translateRu = 'Я Анна.'
     else if (/\bhappy\b/i.test(next.targetAnswer)) next.translateRu = 'Я счастлив.'
     else next.translateRu = 'Я из Москвы.'

@@ -1,0 +1,6 @@
+[
+  [
+    "  beginLessonCycle1,\n  capLessonMedalForRun,\n  closeLessonCycle1,\n  isLocalStructuredLessonRun,\n  resolveLessonSilverCapForRun,\n  shouldCapGoldToSilver,\n} from '@/lib/lessonAntiFarm'",
+    "  beginLessonCycle1,\n  capLessonMedalForRun,\n  closeLessonCycle1,\n  isLocalStructuredLessonRun,\n  shouldCapGoldToSilver,\n} from '@/lib/lessonAntiFarm'"
+  ]
+]

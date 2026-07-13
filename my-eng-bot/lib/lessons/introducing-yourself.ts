@@ -23,212 +23,173 @@ import type {
 type SelfIntroVariant = {
   id: string
   label: string
-  introSituationRu: string
-  step1Correct: string
-  step1WrongFrom: string
-  step1WrongRole: string
-  feelingAdj: string
-  moodRuShort: string
+  name: string
+  nameRu: string
+  city: string
+  cityRu: string
   country: string
+  countryRu: string
   roleArticle: 'a' | 'an'
   roleNoun: string
   rolePhrase: string
+  roleRu: string
+  feelingAdj: string
+  moodRu: string
   wrongArticle1: string
   wrongArticle2: string
-  step3FillWord: string
-  step3HintEn: string
-  step3StateRu: string
-  step3MediumRu: string
-  step3HardRu: string
-  step4AltAdj1: string
-  step4AltAdj2: string
-  step4Ru1: string
-  step4Ru2: string
-  step4Ru3: string
-  step5RoleRu: string
-  step5EnFull: string
-  finalCheckRu: string
-  finalCorrectSentence: string
-  finalWrong1: string
-  finalWrong2: string
-  step6CreativeCountry: string
-  step6CreativeRu: string
   sourceSituations: string[]
 }
 
-function toImFeelingSentence(adj: string): string {
+function toIAmName(name: string): string {
+  return `I am ${name}.`
+}
+
+function toIAmFromPlace(place: string): string {
+  return `I am from ${place}.`
+}
+
+function toImFromPlace(place: string): string {
+  return `I'm from ${place}.`
+}
+
+function toIAmRole(rolePhrase: string): string {
+  return `I am ${rolePhrase}.`
+}
+
+function toIAmMood(adj: string): string {
+  return `I am ${adj}.`
+}
+
+function toImMood(adj: string): string {
   return `I'm ${adj}.`
 }
 
-function toImFeelingAccepted(adj: string): string[] {
-  return [`I'm ${adj}.`, `I am ${adj}.`]
+function toFromAccepted(place: string): string[] {
+  return [toIAmFromPlace(place), toImFromPlace(place)]
+}
+
+function toMoodAccepted(adj: string): string[] {
+  return [toIAmMood(adj), toImMood(adj)]
+}
+
+function toNameAccepted(name: string): string[] {
+  return [toIAmName(name), `I'm ${name}.`]
+}
+
+function toCityMoodSentence(city: string, adj: string): string {
+  return `I am from ${city} and I am ${adj}.`
+}
+
+function toCityMoodAccepted(city: string, adj: string): string[] {
+  return [
+    toCityMoodSentence(city, adj),
+    `I'm from ${city} and I'm ${adj}.`,
+    `I am from ${city} and I'm ${adj}.`,
+    `I'm from ${city} and I am ${adj}.`,
+  ]
 }
 
 const selfIntroVariants: SelfIntroVariant[] = [
   {
     id: 'vasya-russia-student',
     label: 'Россия, студент, настроение',
-    introSituationRu: 'Ты коротко говоришь, что чувствуешь себя хорошо',
-    step1Correct: "I'm happy.",
-    step1WrongFrom: "I'm from Russia.",
-    step1WrongRole: 'I am a student.',
-    feelingAdj: 'happy',
-    moodRuShort: 'Я счастлив.',
+    name: 'Vasya',
+    nameRu: 'Вася',
+    city: 'Moscow',
+    cityRu: 'Москвы',
     country: 'Russia',
+    countryRu: 'России',
     roleArticle: 'a',
     roleNoun: 'student',
     rolePhrase: 'a student',
+    roleRu: 'студент',
+    feelingAdj: 'happy',
+    moodRu: 'Я счастлив.',
     wrongArticle1: 'an',
     wrongArticle2: 'the',
-    step3FillWord: 'Russia',
-    step3HintEn: 'I am from ___.',
-    step3StateRu: 'Сейчас говорим только про страну',
-    step3MediumRu: 'Хочешь сказать, откуда ты родом',
-    step3HardRu: 'В анкете нужно указать страну после I am from',
-    step4AltAdj1: 'tired',
-    step4AltAdj2: 'fine',
-    step4Ru1: 'Я счастлив.',
-    step4Ru2: 'Я устал.',
-    step4Ru3: 'У меня всё нормально.',
-    step5RoleRu: 'Я студент.',
-    step5EnFull: 'I am a student.',
-    finalCheckRu: 'Ты говоришь, откуда ты',
-    finalCorrectSentence: "I'm from Russia.",
-    finalWrong1: "I'm happy.",
-    finalWrong2: 'I am a student.',
-    step6CreativeCountry: 'Canada',
-    step6CreativeRu: 'В анкете ты из Канады. Напиши коротко, откуда ты.',
     sourceSituations: [
+      'Я Вася.',
       'Я из России.',
       'Я студент.',
-      'Я счастлив учиться.',
-      'Расскажи: откуда ты?',
+      'Я счастлив.',
     ],
   },
   {
     id: 'maria-spain-engineer',
     label: 'Испания, инженер, усталость',
-    introSituationRu: 'Ты говоришь, что немного устал после дня',
-    step1Correct: "I'm tired.",
-    step1WrongFrom: "I'm from Spain.",
-    step1WrongRole: 'I am an engineer.',
-    feelingAdj: 'tired',
-    moodRuShort: 'Я устал.',
+    name: 'Maria',
+    nameRu: 'Мария',
+    city: 'Madrid',
+    cityRu: 'Мадрида',
     country: 'Spain',
+    countryRu: 'Испании',
     roleArticle: 'an',
     roleNoun: 'engineer',
     rolePhrase: 'an engineer',
+    roleRu: 'инженер',
+    feelingAdj: 'tired',
+    moodRu: 'Я устал.',
     wrongArticle1: 'a',
     wrongArticle2: 'the',
-    step3FillWord: 'Spain',
-    step3HintEn: 'I am from ___.',
-    step3StateRu: 'Только название страны',
-    step3MediumRu: 'Ты из Испании, это важно для знакомства',
-    step3HardRu: 'После from нужно английское имя страны одним словом',
-    step4AltAdj1: 'happy',
-    step4AltAdj2: 'fine',
-    step4Ru1: 'Я устал.',
-    step4Ru2: 'Я счастлив.',
-    step4Ru3: 'Всё хорошо, я в порядке.',
-    step5RoleRu: 'Я инженер.',
-    step5EnFull: 'I am an engineer.',
-    finalCheckRu: 'Ты представляешь профессию',
-    finalCorrectSentence: 'I am an engineer.',
-    finalWrong1: "I'm from Spain.",
-    finalWrong2: "I'm tired.",
-    step6CreativeCountry: 'Italy',
-    step6CreativeRu: 'В этой задаче ты из Италии. Напиши коротко, откуда ты.',
     sourceSituations: [
+      'Я Мария.',
       'Я из Испании.',
       'Я инженер.',
-      'Сегодня я устал.',
-      'Кем ты работаешь?',
+      'Я устал.',
     ],
   },
   {
     id: 'alex-uk-teacher',
     label: 'Британия, учитель, всё ок',
-    introSituationRu: 'Ты говоришь, что у тебя всё нормально',
-    step1Correct: "I'm fine.",
-    step1WrongFrom: "I'm from Britain.",
-    step1WrongRole: 'I am a teacher.',
-    feelingAdj: 'fine',
-    moodRuShort: 'У меня всё нормально.',
+    name: 'Alex',
+    nameRu: 'Алекс',
+    city: 'London',
+    cityRu: 'Лондона',
     country: 'Britain',
+    countryRu: 'Британии',
     roleArticle: 'a',
     roleNoun: 'teacher',
     rolePhrase: 'a teacher',
+    roleRu: 'учитель',
+    feelingAdj: 'fine',
+    moodRu: 'У меня всё нормально.',
     wrongArticle1: 'an',
     wrongArticle2: 'the',
-    step3FillWord: 'Britain',
-    step3HintEn: 'I am from ___.',
-    step3StateRu: 'Одно слово - название страны',
-    step3MediumRu: 'Ты из Великобритании',
-    step3HardRu: 'В короткой фразе часто говорят Britain после from',
-    step4AltAdj1: 'happy',
-    step4AltAdj2: 'tired',
-    step4Ru1: 'У меня всё нормально.',
-    step4Ru2: 'Я рад.',
-    step4Ru3: 'Я немного устал.',
-    step5RoleRu: 'Я учитель.',
-    step5EnFull: 'I am a teacher.',
-    finalCheckRu: 'Ты говоришь про страну',
-    finalCorrectSentence: "I'm from Britain.",
-    finalWrong1: "I'm fine.",
-    finalWrong2: 'I am a teacher.',
-    step6CreativeCountry: 'Japan',
-    step6CreativeRu: 'Представь, что ты из Японии. Напиши коротко, откуда ты.',
     sourceSituations: [
-      'Я из Великобритании.',
+      'Я Алекс.',
+      'Я из Британии.',
       'Я учитель.',
-      'Со мной всё в порядке.',
-      'Откуда ты приехал?',
+      'У меня всё нормально.',
     ],
   },
   {
     id: 'sam-france-doctor',
     label: 'Франция, врач, радость',
-    introSituationRu: 'Ты говоришь, что рад встрече',
-    step1Correct: "I'm happy.",
-    step1WrongFrom: "I'm from France.",
-    step1WrongRole: 'I am a doctor.',
-    feelingAdj: 'happy',
-    moodRuShort: 'Я рад.',
+    name: 'Sam',
+    nameRu: 'Сэм',
+    city: 'Paris',
+    cityRu: 'Парижа',
     country: 'France',
+    countryRu: 'Франции',
     roleArticle: 'a',
     roleNoun: 'doctor',
     rolePhrase: 'a doctor',
+    roleRu: 'врач',
+    feelingAdj: 'happy',
+    moodRu: 'Я рад.',
     wrongArticle1: 'an',
     wrongArticle2: 'the',
-    step3FillWord: 'France',
-    step3HintEn: 'I am from ___.',
-    step3StateRu: 'Одно слово - страна',
-    step3MediumRu: 'Ты родом из Франции',
-    step3HardRu: 'После from нужно английское France',
-    step4AltAdj1: 'fine',
-    step4AltAdj2: 'tired',
-    step4Ru1: 'Я рад.',
-    step4Ru2: 'Всё отлично.',
-    step4Ru3: 'Я сегодня устал.',
-    step5RoleRu: 'Я врач.',
-    step5EnFull: 'I am a doctor.',
-    finalCheckRu: 'Ты называешь работу',
-    finalCorrectSentence: 'I am a doctor.',
-    finalWrong1: "I'm from France.",
-    finalWrong2: "I'm happy.",
-    step6CreativeCountry: 'Germany',
-    step6CreativeRu: 'Тебя спрашивают про Германию. Напиши коротко, откуда ты.',
     sourceSituations: [
+      'Я Сэм.',
       'Я из Франции.',
       'Я врач.',
-      'Я очень рад.',
-      'Кто ты по профессии?',
+      'Я рад.',
     ],
   },
 ]
 
 const selfIntroPostLesson = {
-    interestingFact:
+  interestingFact:
     'В разговоре чаще говорят I’m happy, а I am from … звучит понятно, когда важно сказать, откуда вы.',
   options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
@@ -238,27 +199,28 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
     {
       stepNumber: 1,
       stepType: 'hook',
-      learningGoal: 'Показать ситуацию, где нужно выбрать фразу про настроение, страну или роль.',
+      learningGoal: 'Выбрать полное представление с am, а не чужое лицо или другую ситуацию.',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.step1Correct,
-      sourcePattern: "I'm + adjective",
-      semanticAnchors: ['i am', "i'm", variant.feelingAdj],
+      sourceCorrectAnswer: toIAmName(variant.name),
+      sourcePattern: 'I am + name',
+      semanticAnchors: ['i am', variant.name.toLowerCase()],
       semanticExpectations: {
         pedagogicalRole: 'introduce_context',
-        mustInclude: [variant.feelingAdj],
-        shouldInclude: ["i'm"],
+        mustInclude: ['am', variant.name.toLowerCase()],
+        shouldInclude: ['i'],
         mustAvoid: ['time to', 'who likes'],
-        hintShouldMention: ['настроение', 'смысл'],
+        hintShouldMention: ['am', 'я'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
+        choiceMode: 'sentence_choice',
       },
     },
     {
       stepNumber: 2,
       stepType: 'theory',
-      learningGoal: 'Показать ситуацию, где нужно выбрать правильный артикль перед профессией.',
+      learningGoal: 'Выбрать артикль a/an перед ролью.',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
@@ -269,49 +231,49 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
         pedagogicalRole: 'explain_rule',
         mustInclude: [variant.roleArticle],
         shouldInclude: [variant.roleNoun],
-        mustAvoid: ['time to', 'from'],
-        hintShouldMention: ['артикль', 'профессия'],
+        mustAvoid: ['time to', 'am vs is'],
+        hintShouldMention: ['артикль'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
+        choiceMode: 'contrast_gap',
       },
     },
     {
       stepNumber: 3,
       stepType: 'practice_fill',
-      learningGoal: 'Вписать название страны после I am from.',
+      learningGoal: 'Вписать am в рамках from / role / mood.',
       exerciseType: 'fill_text',
       answerFormat: 'single_word',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.step3FillWord,
-      sourcePattern: 'I am from + country',
-      semanticAnchors: ['from', variant.step3FillWord],
+      sourceCorrectAnswer: 'am',
+      sourcePattern: 'I am from / I am a / I am + adj',
+      semanticAnchors: ['am'],
       semanticExpectations: {
         pedagogicalRole: 'controlled_pattern_drill',
-        mustInclude: ['from'],
-        shouldInclude: [variant.step3FillWord],
+        mustInclude: ['am'],
+        shouldInclude: ['i'],
         mustAvoid: ['time to', 'who likes'],
-        hintShouldMention: ['страна', 'одно слово'],
+        hintShouldMention: ['am', 'одно слово'],
         requireCyrillicHint: true,
-        allowEnglishInRussianPrompt: true,
         maxAcceptedAnswers: 1,
       },
     },
     {
       stepNumber: 4,
       stepType: 'practice_fill',
-      learningGoal: 'Перевести короткое описание настроения на английский.',
+      learningGoal: 'Перевести from / role / mood на английский.',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'normalized',
-      sourceCorrectAnswer: toImFeelingSentence(variant.feelingAdj),
-      sourcePattern: "I'm + adjective",
-      semanticAnchors: ["i'm", variant.feelingAdj],
+      sourceCorrectAnswer: toIAmFromPlace(variant.country),
+      sourcePattern: 'I am from / I am a / I am + adj',
+      semanticAnchors: ['i am', 'from', variant.country.toLowerCase()],
       semanticExpectations: {
         pedagogicalRole: 'controlled_pattern_drill',
-        mustInclude: [variant.feelingAdj],
-        shouldInclude: ["i'm"],
-        mustAvoid: ['from', 'time to'],
-        hintShouldMention: ['настроение', 'шаблон'],
+        mustInclude: ['am'],
+        shouldInclude: ['i'],
+        mustAvoid: ['time to'],
+        hintShouldMention: ['i am'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 2,
       },
@@ -319,17 +281,17 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
     {
       stepNumber: 5,
       stepType: 'practice_apply',
-      learningGoal: 'Собрать три коротких предложения про настроение, страну и роль в puzzle-формате.',
+      learningGoal: 'Собрать from / role / mood в puzzle-формате.',
       exerciseType: 'sentence_puzzle',
       answerFormat: 'full_sentence',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.finalCorrectSentence,
-      sourcePattern: "word order puzzle for I'm from / I am",
-      semanticAnchors: ['from', variant.country],
+      sourceCorrectAnswer: toIAmFromPlace(variant.country),
+      sourcePattern: 'word order puzzle for I am from / role / mood',
+      semanticAnchors: ['am', 'from', variant.country.toLowerCase()],
       semanticExpectations: {
         pedagogicalRole: 'apply_in_new_situation',
-        mustInclude: ['from'],
-        shouldInclude: ['i am', 'пазл'],
+        mustInclude: ['am'],
+        shouldInclude: ['i', 'пазл'],
         mustAvoid: ['time to'],
         hintShouldMention: ['первое слово', 'порядок'],
         requireCyrillicHint: true,
@@ -339,19 +301,19 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
     {
       stepNumber: 6,
       stepType: 'practice_apply',
-      learningGoal: 'Финальная проверка: три коротких предложения про страну, роль и перенос на новую страну.',
+      learningGoal: 'Синтез: имя, from+city, city+mood (макс. 2 части).',
       exerciseType: 'translate',
       answerFormat: 'full_sentence',
       answerPolicy: 'normalized',
-      sourceCorrectAnswer: variant.step5EnFull,
-      sourcePattern: 'I am + article + profession',
-      semanticAnchors: ['i am', variant.roleNoun],
+      sourceCorrectAnswer: toIAmName(variant.name),
+      sourcePattern: 'I am + name / from + city / city + mood',
+      semanticAnchors: ['i am', variant.name.toLowerCase()],
       semanticExpectations: {
         pedagogicalRole: 'apply_in_new_situation',
-        mustInclude: [variant.roleNoun],
-        shouldInclude: ['i am'],
+        mustInclude: ['am'],
+        shouldInclude: ['i'],
         mustAvoid: ['time to'],
-        hintShouldMention: ['i am', 'профессия'],
+        hintShouldMention: ['i am'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 2,
       },
@@ -359,19 +321,20 @@ function buildSelfIntroBlueprints(variant: SelfIntroVariant): LessonRepeatStepBl
     {
       stepNumber: 7,
       stepType: 'feedback',
-      learningGoal: 'Три contrast-gap: одно ключевое слово в новой рамке (настроение, страна, артикль).',
+      learningGoal: 'Contrast: дыра am, am vs is/are, один chip a/an.',
       exerciseType: 'fill_choice',
       answerFormat: 'choice',
       answerPolicy: 'strict',
-      sourceCorrectAnswer: variant.feelingAdj,
-      sourcePattern: 'contrast gap: I am + adj / from + country / a|an + role',
-      semanticAnchors: [variant.feelingAdj, variant.step6CreativeCountry.toLowerCase(), variant.roleArticle],
+      sourceCorrectAnswer: 'am',
+      sourcePattern: 'am-gap / am vs is|are / a|an',
+      semanticAnchors: ['am', variant.roleArticle],
       semanticExpectations: {
         pedagogicalRole: 'contrast_check',
         mustAvoid: ['time to'],
-        hintShouldMention: ['смысл', 'ситуация'],
+        hintShouldMention: ['am'],
         requireCyrillicHint: true,
         maxAcceptedAnswers: 1,
+        choiceMode: 'contrast_gap',
       },
     },
   ]
@@ -387,48 +350,37 @@ function buildSelfIntroPuzzleVariant(id: string, title: string, answer: string):
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
-    errorText: 'Начни с I\'m или I am, потом слово про настроение, страну или роль.',
+    errorText: 'Начни с I am, потом from, роль или настроение.',
     hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Берём следующий вариант.',
   }
 }
 
-const SELF_INTRO_STEP7_COUNTRY_POOL = ['Canada', 'Italy', 'Japan', 'Germany', 'Brazil', 'Mexico'] as const
-
-function pickStep7CountryDistractors(correctCountry: string): [string, string] {
-  const pool = SELF_INTRO_STEP7_COUNTRY_POOL.filter((country) => country !== correctCountry)
-  return [pool[0] ?? 'Italy', pool[1] ?? 'Japan']
-}
-
 function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
-  const moodDistractors = [variant.step4AltAdj1, variant.step4AltAdj2].filter(
-    (adj) => adj !== variant.feelingAdj
-  ) as [string, string]
-
   return buildStep7ContrastVariants([
     {
       id: `${variant.id}_step7_easy`,
       difficulty: 'easy',
-      situationRu: variant.introSituationRu,
-      frameEn: "I'm ___.",
-      correctWord: variant.feelingAdj,
-      distractors: moodDistractors,
-      hint: 'Чувство в задании - прилагательное после I\'m.',
+      situationRu: `На форуме нужно сказать, что вы из ${variant.countryRu}`,
+      frameEn: `I ___ from ${variant.country}.`,
+      correctWord: 'am',
+      distractors: ['I', 'from'],
+      hint: 'После I в такой рамке нужно am.',
     },
     {
       id: `${variant.id}_step7_medium`,
       difficulty: 'medium',
-      situationRu: variant.step6CreativeRu,
-      frameEn: "I'm from ___.",
-      correctWord: variant.step6CreativeCountry,
-      distractors: pickStep7CountryDistractors(variant.step6CreativeCountry),
-      hint: 'Страна из задания - одно слово после from.',
+      situationRu: `Соседка представляется: она ${variant.feelingAdj}`,
+      frameEn: `She ___ ${variant.feelingAdj}.`,
+      correctWord: 'is',
+      distractors: ['am', 'are'],
+      hint: 'С she нужна форма is; am только после I.',
     },
     {
       id: `${variant.id}_step7_hard`,
       difficulty: 'hard',
-      situationRu: `В коротком представлении вы - ${variant.roleNoun}.`,
+      situationRu: `В коротком представлении вы - ${variant.roleRu}`,
       frameEn: `I am ___ ${variant.roleNoun}.`,
       correctWord: variant.roleArticle,
       distractors: [variant.wrongArticle1, variant.wrongArticle2],
@@ -438,57 +390,56 @@ function buildSelfIntroStep7Variants(variant: SelfIntroVariant) {
 }
 
 function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
-  const fromSentence = `I'm from ${variant.country}.`
-  const fromAccepted = [fromSentence, fromSentence.replace("I'm", 'I am')]
-  const roleSentence = variant.step5EnFull
-  const roleAccepted = [roleSentence]
-  const creativeSentence = `I'm from ${variant.step6CreativeCountry}.`
-  const creativeAccepted = [creativeSentence, creativeSentence.replace("I'm", 'I am')]
+  const nameSentence = toIAmName(variant.name)
+  const fromCitySentence = toIAmFromPlace(variant.city)
+  const cityMoodSentence = toCityMoodSentence(variant.city, variant.feelingAdj)
 
   return buildStep6ExamVariants([
     {
       id: `${variant.id}_step6_easy`,
       difficulty: 'easy',
-      question: formatTranslateQuestion(variant.sourceSituations[0] ?? `Я из ${variant.country}`),
-      correctAnswer: fromSentence,
-      acceptedAnswers: fromAccepted,
-      hint: 'Короткая фраза: I am from + страна одним словом.',
+      question: formatTranslateQuestion(`Меня зовут ${variant.nameRu}.`),
+      correctAnswer: nameSentence,
+      acceptedAnswers: toNameAccepted(variant.name),
+      hint: 'Коротко: I am + имя.',
     },
     {
       id: `${variant.id}_step6_medium`,
       difficulty: 'medium',
-      question: formatTranslateQuestion(variant.step5RoleRu),
-      correctAnswer: roleSentence,
-      acceptedAnswers: roleAccepted,
-      hint: 'Используйте I am + артикль + существительное.',
+      question: formatTranslateQuestion(`Я из ${variant.cityRu}.`),
+      correctAnswer: fromCitySentence,
+      acceptedAnswers: toFromAccepted(variant.city),
+      hint: 'I am from + город одним словом.',
     },
     {
       id: `${variant.id}_step6_hard`,
       difficulty: 'hard',
-      question: formatTranslateQuestion(variant.step6CreativeRu),
-      correctAnswer: creativeSentence,
-      acceptedAnswers: creativeAccepted,
-      hint: 'I\'m from + страна из новой ситуации, одним словом.',
+      question: formatTranslateQuestion(`Я из ${variant.cityRu}, и ${variant.moodRu.replace(/\.$/, '').toLowerCase()}.`),
+      correctAnswer: cityMoodSentence,
+      acceptedAnswers: toCityMoodAccepted(variant.city, variant.feelingAdj),
+      hint: 'Две связанные части: from + город и настроение через and.',
     },
   ])
 }
 
-function buildSelfIntroSentencePuzzleVariants(variant: SelfIntroVariant): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
+function buildSelfIntroSentencePuzzleVariants(
+  variant: SelfIntroVariant
+): [SentencePuzzleVariant, SentencePuzzleVariant, SentencePuzzleVariant] {
   return [
     buildSelfIntroPuzzleVariant(
-      `${variant.id}_puzzle_mood`,
-      'Пазл 1/3: настроение',
-      toImFeelingSentence(variant.feelingAdj)
-    ),
-    buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_from`,
-      'Пазл 2/3: откуда ты',
-      `I'm from ${variant.country}.`
+      'Пазл 1/3: откуда ты',
+      toIAmFromPlace(variant.country)
     ),
     buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_role`,
-      'Пазл 3/3: роль',
-      `I am ${variant.rolePhrase}.`
+      'Пазл 2/3: роль',
+      toIAmRole(variant.rolePhrase)
+    ),
+    buildSelfIntroPuzzleVariant(
+      `${variant.id}_puzzle_mood`,
+      'Пазл 3/3: настроение',
+      toIAmMood(variant.feelingAdj)
     ),
   ]
 }
@@ -512,52 +463,75 @@ function buildSelfIntroFinale(): LessonFinale {
 }
 
 function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
+  const step1Correct = toIAmName(variant.name)
+  const step1WrongPerson = `She is ${variant.name}.`
+  const step1WrongMood = toIAmMood(variant.feelingAdj === 'happy' ? 'tired' : 'happy')
+
   const step3Variants = [
     {
       id: `${variant.id}_step3_easy`,
-      question: `Переведите на английский: "${variant.sourceSituations[0]}." - "${variant.step3HintEn}"`,
-      correctAnswer: variant.step3FillWord,
-      hint: 'После from напишите одно английское слово - название страны.',
+      question: `Дополните одним словом: "I ___ from ${variant.country}."`,
+      correctAnswer: 'am',
+      hint: 'После I в этой рамке нужно am.',
       difficulty: 'easy' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
     },
     {
       id: `${variant.id}_step3_medium`,
-      question: `Переведите на английский: "${variant.step3MediumRu}." - "${variant.step3HintEn}"`,
-      correctAnswer: variant.step3FillWord,
-      hint: '«Из …» - from. Одно слово: страна по-английски.',
+      question: `Дополните одним словом: "I ___ ${variant.rolePhrase}."`,
+      correctAnswer: 'am',
+      hint: 'Перед ролью тоже нужен am: I am …',
       difficulty: 'medium' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
     },
     {
       id: `${variant.id}_step3_hard`,
-      question: `Переведите на английский: "${variant.step3HardRu}." - "${variant.step3HintEn}"`,
-      correctAnswer: variant.step3FillWord,
-      hint: 'Одно слово после from - как Russia или France.',
+      question: `Дополните одним словом: "I ___ ${variant.feelingAdj}."`,
+      correctAnswer: 'am',
+      hint: 'И в настроении после I ставим am.',
       difficulty: 'hard' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
     },
   ]
 
-  const step4Adjectives = Array.from(new Set([variant.feelingAdj, variant.step4AltAdj1, variant.step4AltAdj2])).slice(0, 3)
-  const step4RuPrompts = [variant.step4Ru1, variant.step4Ru2, variant.step4Ru3]
-  const step4Variants = step4Adjectives.map((adj, index) => {
-    const difficulty: ExerciseDifficulty = index === 0 ? 'easy' : index === 1 ? 'medium' : 'hard'
-    const ru = step4RuPrompts[index] ?? variant.moodRuShort
-    return {
-      id: `${variant.id}_step4_${index + 1}`,
-      question: formatTranslateQuestion(ru),
-      correctAnswer: toImFeelingSentence(adj),
-      acceptedAnswers: toImFeelingAccepted(adj),
-      hint: 'Напишите короткое предложение по шаблону I am / I’m + прилагательное.',
-      difficulty,
+  const step4Variants = [
+    {
+      id: `${variant.id}_step4_from`,
+      question: formatTranslateQuestion(`Я из ${variant.countryRu}.`),
+      correctAnswer: toIAmFromPlace(variant.country),
+      acceptedAnswers: toFromAccepted(variant.country),
+      hint: 'Шаблон: I am from + страна.',
+      difficulty: 'easy' as ExerciseDifficulty,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
-    }
-  })
+    },
+    {
+      id: `${variant.id}_step4_role`,
+      question: formatTranslateQuestion(`Я ${variant.roleRu}.`),
+      correctAnswer: toIAmRole(variant.rolePhrase),
+      acceptedAnswers: [toIAmRole(variant.rolePhrase)],
+      hint: 'I am + артикль + роль.',
+      difficulty: 'medium' as ExerciseDifficulty,
+      answerFormat: 'full_sentence' as const,
+      answerPolicy: 'normalized' as const,
+    },
+    {
+      id: `${variant.id}_step4_mood`,
+      question: formatTranslateQuestion(variant.moodRu),
+      correctAnswer: toIAmMood(variant.feelingAdj),
+      acceptedAnswers: toMoodAccepted(variant.feelingAdj),
+      hint: 'I am / I’m + прилагательное настроения.',
+      difficulty: 'hard' as ExerciseDifficulty,
+      answerFormat: 'full_sentence' as const,
+      answerPolicy: 'normalized' as const,
+    },
+  ]
+
+  const step6Variants = buildSelfIntroStep6Variants(variant)
+  const step6First = step6Variants[0]!
 
   return [
     {
@@ -566,27 +540,28 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Сегодня разберем три короткие фразы для знакомства: настроение, страна и роль.',
+          content: 'Сегодня коротко представимся: имя, откуда вы, роль и настроение.',
         },
         {
           type: 'info',
-          content: 'I am / I’m + прилагательное - про чувство. I am from + место - про страну. I am a/an + роль - про работу или статус.',
+          content: 'На форуме знакомств нужно представиться одной короткой фразой.',
         },
         {
           type: 'task',
-          content: `Выберите правильное предложение для ситуации: "${variant.introSituationRu}"`,
+          content: `Выберите фразу, где вы говорите о себе: "${variant.nameRu}"`,
         },
       ],
       exercise: {
         type: 'fill_choice',
-        question: 'Какое предложение подходит по смыслу?',
-        options: [variant.step1Correct, variant.step1WrongFrom, variant.step1WrongRole],
-        correctAnswer: variant.step1Correct,
-        acceptedAnswers: [variant.step1Correct],
+        question: 'Какое предложение подходит?',
+        options: [step1Correct, step1WrongPerson, step1WrongMood],
+        correctAnswer: step1Correct,
+        acceptedAnswers: [step1Correct],
         answerFormat: 'choice',
         answerPolicy: 'strict',
+        hint: 'Нужна фраза про вас с am и именем.',
       },
-      footerDynamic: 'Правило 1: настроение - I am / I’m + прилагательное',
+      footerDynamic: 'Hook: I am + name',
       myEngComment: 'Вижу, вы готовы к новой конструкции.',
     },
     {
@@ -595,15 +570,15 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь посмотрим на роль: I am a/an + существительное.',
+          content: 'Отдельно посмотрим на артикль перед ролью.',
         },
         {
           type: 'info',
-          content: `Перед профессией часто нужен артикль: ${variant.rolePhrase}, a doctor, an engineer.`,
+          content: 'В соседнем примере: I am a nurse. / I am an artist. - перед ролью часто нужен a или an.',
         },
         {
           type: 'task',
-          content: `Выберите правильный артикль: "I am ___ ${variant.roleNoun}."`,
+          content: `Выберите артикль: "I am ___ ${variant.roleNoun}."`,
         },
       ],
       exercise: {
@@ -616,7 +591,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         answerPolicy: 'strict',
         hint: 'После I am перед работой или учёбой обычно нужен a или an.',
       },
-      footerDynamic: 'Правило 2: I am a/an + роль',
+      footerDynamic: 'Theory: a/an + роль',
       myEngComment: 'Отлично, теперь берем роль.',
     },
     {
@@ -625,15 +600,15 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Сравним страну и роль в нескольких коротких ситуациях.',
+          content: 'Закрепим am в трёх коротких рамках.',
         },
         {
           type: 'info',
-          content: 'Пример: "I am from Japan. I am a nurse."',
+          content: 'Три пропуска: страна, роль и настроение - везде одно слово am.',
         },
         {
           type: 'task',
-          content: `Впишите пропуск: "${variant.sourceSituations[0]}." - "${variant.step3HintEn}"`,
+          content: 'Дополните одним словом.',
         },
       ],
       exercise: {
@@ -649,8 +624,8 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
           acceptedAnswers: [stepVariant.correctAnswer],
         })),
       },
-      footerDynamic: 'Практика: впишите страну',
-      myEngComment: 'Пора почувствовать разницу вживую.',
+      footerDynamic: 'Практика: впишите am',
+      myEngComment: 'Пора почувствовать am вживую.',
     },
     {
       stepNumber: 4,
@@ -658,31 +633,31 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь потренируем настроение в нескольких новых вариантах.',
+          content: 'Теперь три шаблона целиком: from, роль и настроение.',
         },
         {
           type: 'info',
-          content: 'Пример: "I am calm."',
+          content: 'Каждый ход - одно короткое предложение про себя.',
         },
         {
           type: 'task',
-          content: 'Напишите английское предложение для короткого описания настроения.',
+          content: 'Напишите английское предложение.',
         },
       ],
       exercise: {
         type: 'translate',
-        question: step4Variants[0]?.question ?? formatTranslateQuestion(variant.moodRuShort),
-        correctAnswer: step4Variants[0]?.correctAnswer ?? toImFeelingSentence(variant.feelingAdj),
-        acceptedAnswers: step4Variants[0]?.acceptedAnswers ?? toImFeelingAccepted(variant.feelingAdj),
+        question: step4Variants[0].question,
+        correctAnswer: step4Variants[0].correctAnswer,
+        acceptedAnswers: step4Variants[0].acceptedAnswers,
         answerFormat: 'full_sentence',
         answerPolicy: 'normalized',
-        hint: step4Variants[0]?.hint ?? 'Напишите короткое предложение по шаблону I am / I’m + прилагательное.',
+        hint: step4Variants[0].hint,
         variants: step4Variants.map((stepVariant) => ({
           ...stepVariant,
           acceptedAnswers: stepVariant.acceptedAnswers,
         })),
       },
-      footerDynamic: 'Практика: напишите предложение',
+      footerDynamic: 'Практика: from / роль / mood',
       myEngComment: 'Хорошо идете, держим темп.',
     },
     {
@@ -691,11 +666,11 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Финальная сборка: теперь соберите предложения из слов.',
+          content: 'Соберите предложения из слов.',
         },
         {
           type: 'info',
-          content: 'Будет три коротких пазла: настроение, страна и роль.',
+          content: 'Три коротких пазла: страна, роль и настроение.',
         },
         {
           type: 'task',
@@ -705,11 +680,11 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       exercise: {
         type: 'sentence_puzzle',
         question: 'Соберите три предложения из слов.',
-        correctAnswer: variant.finalCorrectSentence,
-        acceptedAnswers: [variant.finalCorrectSentence, variant.finalCorrectSentence.replace("I'm", 'I am')],
+        correctAnswer: toIAmFromPlace(variant.country),
+        acceptedAnswers: toFromAccepted(variant.country),
         answerFormat: 'full_sentence',
         answerPolicy: 'strict',
-        hint: 'Подсказка: начните с I’m или I am и следите за порядком слов после from.',
+        hint: 'Подсказка: начните с I am и следите за порядком слов.',
         bonusXp: 30,
         puzzleVariants: buildSelfIntroSentencePuzzleVariants(variant),
       },
@@ -722,31 +697,27 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Финальная проверка: три коротких предложения подряд.',
+          content: 'Финальная проверка: имя, город и город+настроение.',
         },
         {
           type: 'info',
-          content: 'Сначала страна, потом роль, в конце - та же грамматика, но новая страна.',
+          content: 'Сначала имя, потом город, в конце две связанные части.',
         },
         {
           type: 'task',
-          content: formatTranslateQuestion(variant.sourceSituations[0] ?? `Я из ${variant.country}`),
+          content: step6First.question,
         },
       ],
-      exercise: (() => {
-        const step6Variants = buildSelfIntroStep6Variants(variant)
-        const first = step6Variants[0]!
-        return {
-          type: 'translate',
-          question: first.question,
-          correctAnswer: first.correctAnswer,
-          acceptedAnswers: first.acceptedAnswers,
-          answerFormat: 'full_sentence',
-          answerPolicy: 'normalized',
-          hint: first.hint,
-          variants: step6Variants,
-        }
-      })(),
+      exercise: {
+        type: 'translate',
+        question: step6First.question,
+        correctAnswer: step6First.correctAnswer,
+        acceptedAnswers: step6First.acceptedAnswers,
+        answerFormat: 'full_sentence',
+        answerPolicy: 'normalized',
+        hint: step6First.hint,
+        variants: step6Variants,
+      },
       footerDynamic: 'Финальная проверка: 3 коротких предложения',
       myEngComment: 'Три фразы подряд - вы почти у финиша.',
     },
@@ -756,11 +727,11 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Быстрый финиш: три коротких слова в новых ситуациях.',
+          content: 'Быстрый финиш: три коротких слова в контрасте.',
         },
         {
           type: 'info',
-          content: 'В каждой рамке одно слово закрывает пропуск - без подсказки из карточки.',
+          content: 'В каждой рамке одно слово закрывает пропуск.',
         },
         {
           type: 'task',
@@ -846,53 +817,57 @@ export const introducingYourselfLesson: LessonData = {
     complexity: 'simple',
     quick: {
       why: [
-        'I am / I’m + прилагательное помогает сказать, как вы себя чувствуете.',
+        'Без am фраза ломается: I Anna или I from Russia звучат неправильно.',
         'I am from + место помогает назвать страну или город.',
         'I am a/an + роль помогает коротко назвать профессию или статус.',
       ],
       how: [
-        "I'm happy. / I am happy.",
-        'I am from Russia.',
+        'I am Maria. / I am from Russia.',
         'I am a student. / I am an engineer.',
+        "I am happy. / I'm happy.",
       ],
       examples: [
-        { en: "I'm happy.", ru: 'Я счастлив.', note: 'настроение' },
+        { en: 'I am Maria.', ru: 'Я Мария.', note: 'нужен am' },
         { en: 'I am from Russia.', ru: 'Я из России.', note: 'страна' },
-        { en: 'I am a student.', ru: 'Я студент.', note: 'роль' },
+        { en: 'I am a student.', ru: 'Я студент.', note: 'роль + a/an' },
       ],
-      takeaway: 'Сначала подумай: настроение, страна или роль - потом выбери короткий шаблон.',
+      takeaway: 'С I почти всегда нужен am; потом выбирай from, роль или настроение.',
     },
     details: {
       points: [
-        'В I am happy слово happy описывает чувство, а не место.',
-        'После from пишут страну по-английски: Russia, Spain - чаще всего одно слово.',
-        'Перед профессией почти всегда нужен артикль a или an: a teacher, an engineer.',
+        'Главная дыра новичка - пропуск am: I from Russia вместо I am from Russia.',
+        'После from пишут страну или город по-английски одним словом.',
+        'Перед профессией почти всегда нужен артикль a или an.',
       ],
       examples: [
-        { en: "I'm fine.", ru: 'У меня всё нормально.', note: 'только настроение' },
-        { en: "I'm from Spain.", ru: 'Я из Испании.', note: 'только место' },
+        { en: "I'm happy.", ru: 'Я счастлив.', note: 'настроение' },
+        { en: "I'm from Madrid.", ru: 'Я из Мадрида.', note: 'город' },
       ],
     },
     deepDive: {
       commonMistakes: [
         'I am from in Russia вместо I am from Russia.',
+        'I Anna / I from Russia вместо I am Anna / I am from Russia.',
         'I am student вместо I am a student.',
-        'Писать длинно, когда достаточно трёх слов: I am a student.',
       ],
-      contrastNotes: ["I'm happy - про настроение.", 'I am from Russia - про страну.', 'I am a doctor - про работу.'],
-      selfCheckRule: 'Если называете страну после from, не добавляйте лишний предлог in перед названием.',
+      contrastNotes: [
+        'I am Maria - имя с am.',
+        'I am from Russia - место.',
+        'I am a doctor - роль с a/an.',
+      ],
+      selfCheckRule: 'Если начали с I, проверьте am; перед ролью отдельно проверьте a/an.',
     },
     learningPlan: {
-      grammarFocus: ['I am / I’m + adjective', 'I am from + place', 'I am a/an + role'],
+      grammarFocus: ['I am + name/from/mood', 'I am a/an + role', 'am vs is/are'],
       contrastPair: ['I am happy.', "I'm happy."],
-      firstPracticeGoal: 'Сказать коротко: как я себя чувствую, откуда я, кем я учусь или работаю.',
+      firstPracticeGoal: 'Не терять am и различать from / роль / mood.',
     },
   },
   variantId: baseSelfIntroVariant.id,
   finale: buildSelfIntroFinale(),
   repeatConfig: {
-    ruleSummary: 'Различаем настроение, страну и роль в коротком самопредставлении.',
-    grammarFocus: ['I am + adjective', 'I am from + place', 'I am a/an + noun'],
+    ruleSummary: 'Держим am после I и различаем from, роль (a/an) и настроение.',
+    grammarFocus: ['I am + name/from/mood', 'I am a/an + role', 'am vs is/are'],
     sourceSituations: Array.from(new Set(selfIntroVariants.flatMap((variant) => variant.sourceSituations))),
     stepBlueprints: buildSelfIntroBlueprints(baseSelfIntroVariant),
     variantProfiles: selfIntroVariants.map((variant) => buildSelfIntroVariantProfile(variant)),

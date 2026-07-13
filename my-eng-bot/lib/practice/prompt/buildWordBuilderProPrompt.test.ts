@@ -38,7 +38,7 @@ describe('buildWordBuilderProPrompt', () => {
     expect(prompt).toBe(`${situation} Расставьте слова в правильном порядке.`)
   })
 
-  it('uses country situation for lesson 2 Britain target', () => {
+  it('uses name situation for lesson 4 Britain target', () => {
     const lesson = lessonForPracticeStep(getStructuredLessonById('4')!, 2)
     const puzzleStep = lesson.steps.find((step) => step.exercise?.type === 'sentence_puzzle')
     const prompt = buildWordBuilderProPrompt({
@@ -48,7 +48,7 @@ describe('buildWordBuilderProPrompt', () => {
       puzzlePrompt: DEFAULT_PRACTICE_SENTENCE_PUZZLE_PROMPT,
       targetAnswer: "I'm from Britain.",
     })
-    expect(prompt).toMatch(/Великобритани/i)
+    expect(prompt).toMatch(/Алекс/i)
     expect(prompt).not.toMatch(/настроени/i)
   })
 })

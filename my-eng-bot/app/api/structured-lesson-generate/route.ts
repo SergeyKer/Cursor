@@ -32,6 +32,7 @@ type Body = {
   audience?: Audience
   lessonId?: string
   recentVariantIds?: string[]
+  generationNonce?: string
 }
 
 export const maxDuration = 150
@@ -53,6 +54,7 @@ export async function POST(req: NextRequest) {
   const recentVariantIds = Array.isArray(body.recentVariantIds)
     ? body.recentVariantIds.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : []
+  const generationNonce = typeof body.generationNonce === 'string' ? body.generationNonce.trim() : ''
   const { lesson, selectedVariantId } = selectStructuredLessonVariant(baseLesson, recentVariantIds)
   const repeatConfig = lesson.repeatConfig
   if (!repeatConfig) {
@@ -75,6 +77,7 @@ export async function POST(req: NextRequest) {
     audience,
     provider,
     openAiChatPreset,
+    generationNonce: generationNonce || null,
   })
   const cacheReadStartedAt = Date.now()
   const cachedResponse = readLessonRouteCache<{ lesson: typeof lesson; generated: boolean; fallback: boolean }>(cacheKey)
@@ -142,7 +145,11 @@ export async function POST(req: NextRequest) {
       { role: 'system', content: system },
       { role: 'user', content: user },
     ]
-    const createFallbackPayload = () => ({ lesson: cloneLessonWithNewRunKey(lesson), generated: false, fallback: true })
+    const createFallbackPayload = () => ({
+      lesson: { ...cloneLessonWithNewRunKey(lesson), generated: false, fallback: true },
+      generated: false,
+      fallback: true,
+    })
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const providerStartedAt = Date.now()
@@ -158,7 +165,6 @@ export async function POST(req: NextRequest) {
       if (!model.ok) {
         if (attempt < maxAttempts) continue
         const responsePayload = createFallbackPayload()
-        writeLessonRouteCache(cacheKey, responsePayload)
         logLessonRouteSummary({
           correlationId,
           mode: 'generate',
@@ -192,7 +198,6 @@ export async function POST(req: NextRequest) {
           continue
         }
         const responsePayload = createFallbackPayload()
-        writeLessonRouteCache(cacheKey, responsePayload)
         logLessonRouteSummary({
           correlationId,
           mode: 'generate',
@@ -262,7 +267,11 @@ export async function POST(req: NextRequest) {
         }
 
         const responsePayload = {
-          lesson: buildLessonFromGeneratedSteps({ ...lesson, steps: sourceSteps }, validation.validatedSteps),
+          lesson: {
+            ...buildLessonFromGeneratedSteps({ ...lesson, steps: sourceSteps }, validation.validatedSteps),
+            generated: true,
+            fallback: false,
+          },
           generated: true,
           fallback: false,
         }
@@ -298,7 +307,6 @@ export async function POST(req: NextRequest) {
           continue
         }
         const responsePayload = createFallbackPayload()
-        writeLessonRouteCache(cacheKey, responsePayload)
         logLessonRouteSummary({
           correlationId,
           mode: 'generate',

@@ -14,9 +14,9 @@ export const ITS_TIME_TO_CHALLENGE_ATOMS: readonly LessonChallengeAtom[] = [
   },
   {
     stepIndex: 2,
-    situationRu: 'Уже поздно вечером, все хотят спать.',
-    targetAnswer: "It's time to sleep.",
-    options: ["It's time to sleep.", "It's time for sleep.", "It's time to sleeps."],
+    situationRu: 'Все голодны — пора ужина.',
+    targetAnswer: "It's time for dinner.",
+    options: ["It's time for dinner.", "It's time to dinner.", "It's time for go."],
   },
   {
     stepIndex: 3,
@@ -64,9 +64,9 @@ export const ITS_TIME_TO_CHALLENGE_ATOMS: readonly LessonChallengeAtom[] = [
   },
   {
     stepIndex: 10,
-    situationRu: 'В сообщении ошибка: неправильно сказали «пора».',
+    situationRu: 'В сообщении ошибка: предлог перед глаголом.',
     targetAnswer: "It's time to go.",
-    brokenPhrase: "It's time to sleep.",
+    brokenPhrase: "It's time for go.",
   },
   {
     stepIndex: 11,

@@ -3,6 +3,7 @@ import type { LessonData } from '@/types/lesson'
 import { itsTimeToLesson } from '@/lib/lessons/its-time-to'
 import { whoLikesLesson } from '@/lib/lessons/who-likes'
 import type { GeneratedStepPayload } from '@/lib/structuredLessonFactory'
+import { diversifyCriticalStepAnswers } from '@/lib/testHelpers/diversifyCriticalStepAnswers'
 
 const callProviderChatMock = vi.hoisted(() => vi.fn())
 
@@ -51,51 +52,55 @@ function makeRequest(body: unknown): Request {
 }
 
 function toRepeatModelSteps(): GeneratedStepPayload[] {
-  return itsTimeToLesson.steps
-    .filter((step) => step.stepType !== 'completion')
-    .map((step) => ({
-      stepNumber: step.stepNumber,
-      bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
-      ...(step.exercise
-        ? {
-            exercise: {
-              question: step.exercise.question,
-              options: step.exercise.options,
-              correctAnswer: step.exercise.correctAnswer,
-              acceptedAnswers: step.exercise.acceptedAnswers,
-              hint: step.exercise.hint,
-              puzzleVariants: step.exercise.puzzleVariants,
-              variants: step.exercise.variants,
-              bonusXp: step.exercise.bonusXp,
-            },
-          }
-        : {}),
-      footerDynamic: step.footerDynamic,
-    }))
+  return diversifyCriticalStepAnswers(
+    itsTimeToLesson.steps
+      .filter((step) => step.stepType !== 'completion')
+      .map((step) => ({
+        stepNumber: step.stepNumber,
+        bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
+        ...(step.exercise
+          ? {
+              exercise: {
+                question: step.exercise.question,
+                options: step.exercise.options,
+                correctAnswer: step.exercise.correctAnswer,
+                acceptedAnswers: step.exercise.acceptedAnswers,
+                hint: step.exercise.hint,
+                puzzleVariants: step.exercise.puzzleVariants,
+                variants: step.exercise.variants,
+                bonusXp: step.exercise.bonusXp,
+              },
+            }
+          : {}),
+        footerDynamic: step.footerDynamic,
+      }))
+  )
 }
 
 function toWhoLikesRepeatSteps(): GeneratedStepPayload[] {
-  return whoLikesLesson.steps
-    .filter((step) => step.stepType !== 'completion')
-    .map((step) => ({
-      stepNumber: step.stepNumber,
-      bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
-      ...(step.exercise
-        ? {
-            exercise: {
-              question: step.exercise.question,
-              options: step.exercise.options,
-              correctAnswer: step.exercise.correctAnswer,
-              acceptedAnswers: step.exercise.acceptedAnswers,
-              hint: step.exercise.hint,
-              puzzleVariants: step.exercise.puzzleVariants,
-              variants: step.exercise.variants,
-              bonusXp: step.exercise.bonusXp,
-            },
-          }
-        : {}),
-      footerDynamic: step.footerDynamic,
-    }))
+  return diversifyCriticalStepAnswers(
+    whoLikesLesson.steps
+      .filter((step) => step.stepType !== 'completion')
+      .map((step) => ({
+        stepNumber: step.stepNumber,
+        bubbles: step.bubbles.map((bubble) => ({ ...bubble })),
+        ...(step.exercise
+          ? {
+              exercise: {
+                question: step.exercise.question,
+                options: step.exercise.options,
+                correctAnswer: step.exercise.correctAnswer,
+                acceptedAnswers: step.exercise.acceptedAnswers,
+                hint: step.exercise.hint,
+                puzzleVariants: step.exercise.puzzleVariants,
+                variants: step.exercise.variants,
+                bonusXp: step.exercise.bonusXp,
+              },
+            }
+          : {}),
+        footerDynamic: step.footerDynamic,
+      }))
+  )
 }
 
 describe('POST /api/lesson-repeat', () => {

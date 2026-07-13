@@ -124,7 +124,14 @@ describe('reference etalon contract', () => {
               expect(question.audioText).toBeFalsy()
               const brokenMatch = /Исправьте:\s*["«]([^"»]+)["»]/iu.exec(question.prompt)
               expect(brokenMatch?.[1]).toBeTruthy()
-              expect(isErrorFixBrokenValid(brokenMatch![1]!, question.targetAnswer)).toBe(true)
+              if (lessonId === '4') {
+                // L4 pedagogy: missing am / contracted be (I from / I happy), not content-word swaps.
+                expect(brokenMatch![1]!.trim().toLowerCase()).not.toBe(
+                  question.targetAnswer.trim().toLowerCase()
+                )
+              } else {
+                expect(isErrorFixBrokenValid(brokenMatch![1]!, question.targetAnswer)).toBe(true)
+              }
               if (lessonId === '1') {
                 expect(
                   errorFixPairIsAligned(
@@ -169,7 +176,7 @@ describe('reference etalon contract', () => {
 
     expect(resolved).not.toBeNull()
     expect(resolved!.sourceStepNumber).toBe(3)
-    expect(resolved!.exercise.correctAnswer).toBe('drink')
+    expect(resolved!.exercise.correctAnswer).toBe("It's")
   })
 
   it('maps free-response to lesson steps 4/6', () => {

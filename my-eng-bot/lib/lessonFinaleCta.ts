@@ -3,8 +3,8 @@ import { hasGoldUnlocked } from '@/lib/lessonScoreCopy'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import type { PostLessonAction } from '@/types/lesson'
 
-export const LESSON_REPEAT_VARIANT_LABEL = 'Новый вариант'
-export const LESSON_REPEAT_VARIANT_BUSY_LABEL = 'Генерируем новый вариант...'
+export const LESSON_REPEAT_VARIANT_LABEL = 'Новый сюжет'
+export const LESSON_REPEAT_VARIANT_BUSY_LABEL = 'Генерируем новый сюжет...'
 
 export const FINALE_POST_LESSON_ACTIONS: PostLessonAction[] = [
   'repeat_variant',

@@ -24,12 +24,12 @@ describe('isStaleLessonPuzzlePrompt', () => {
 })
 
 describe('resolvePracticeSentencePuzzleSlice', () => {
-  it('lesson 1: matches final puzzle tokens for go home answer', () => {
+  it('lesson 1: matches final puzzle tokens for dinner answer', () => {
     const exercise = sentencePuzzleExerciseFromLesson('1')
     const slice = resolvePracticeSentencePuzzleSlice(exercise)
     expect(slice).not.toBeNull()
-    expect(slice!.targetAnswer).toMatch(/go home/i)
-    expect(slice!.wordTokens).toEqual(["It's", 'time', 'to', 'go', 'home'])
+    expect(slice!.targetAnswer).toMatch(/dinner/i)
+    expect(slice!.wordTokens).toEqual(["It's", 'time', 'for', 'dinner'])
     expect(slice!.wordTokens).not.toContain('dark')
     expect(slice!.prompt).not.toMatch(/три предложен/i)
     expect(isStaleLessonPuzzlePrompt(slice!.prompt)).toBe(false)

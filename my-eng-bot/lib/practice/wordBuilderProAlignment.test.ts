@@ -6,10 +6,10 @@ describe('wordBuilderProAlignment', () => {
   const lesson4 = getStructuredLessonById('4')
 
   it.each([
-    [0, /стран|рол/i, 'I am from Russia and I am a student.'],
-    [1, /знакомств|стран/i, 'I am from Russia.'],
-    [2, /город/i, 'I am from Moscow.'],
-    [3, /стран|рол/i, 'I am from Russia and I am a student.'],
+    [0, /город|настроен/i, 'I am from Moscow and I am happy.'],
+    [1, /город|настроен/i, 'I am from Moscow and I am happy.'],
+    [2, /стран/i, 'I am from Russia.'],
+    [3, /город/i, 'I am from Moscow.'],
   ])('reference index %i prompt matches target axis', (index, promptPattern, targetAnswer) => {
     expect(lesson4).not.toBeNull()
     const question = buildSinglePracticeQuestion({

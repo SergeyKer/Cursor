@@ -122,7 +122,7 @@ import {
   capLessonMedalForRun,
   closeLessonCycle1,
   isLocalStructuredLessonRun,
-  resolveLessonSilverCapForRun,
+  shouldCapGoldToSilver,
 } from '@/lib/lessonAntiFarm'
 import { buildLessonMedalRevealCopy } from '@/lib/lessonMedalRevealCopy'
 import { computeCorePercent, resolveMedalFromCoreXp, type LessonMedalTierOrNull } from '@/lib/lessonScore'
@@ -416,6 +416,23 @@ function cloneStructuredLessonWithRunKey(lesson: LessonData): LessonData {
     ...cloned,
     runKey: `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
   }
+}
+
+function withLessonGenerationMeta(
+  lesson: LessonData,
+  meta: { generated: boolean; fallback: boolean }
+): LessonData {
+  return {
+    ...lesson,
+    generated: meta.generated,
+    fallback: meta.fallback,
+  }
+}
+
+function isAiGeneratedLessonRuntime(lesson: LessonData | null | undefined): boolean {
+  if (!lesson) return false
+  if (lesson.fallback === true || lesson.generated === false) return false
+  return lesson.generated === true
 }
 
 function cloneLessonData<T>(value: T): T {
@@ -786,7 +803,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     timeline: activeStructuredLessonTimeline,
     status: activeStructuredLessonStatus,
     feedback: activeStructuredLessonFeedback,
-    blockProgress: activeStructuredLessonBlockProgress,
     footerDynamicText: activeStructuredLessonFooterDynamicText,
     footerStaticText: activeStructuredLessonFooterStaticText,
     footerVariantProgress: activeStructuredLessonFooterVariantProgress,
@@ -1022,9 +1038,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const structuredLessonSilverCap = React.useMemo(() => {
     if (!activeStructuredLesson) return isStructuredLessonRepeatRun
     const progress = loadLessonProgress(activeStructuredLesson.id)
-    return resolveLessonSilverCapForRun({
-      origin: structuredLessonRunOriginRef.current,
-      variantNumber: activeLessonVariantNumber,
+    const isLocalLesson =
+      !isAiGeneratedLessonRuntime(activeStructuredLesson) ||
+      isLocalStructuredLessonRun(structuredLessonRunOriginRef.current, activeLessonVariantNumber)
+    return shouldCapGoldToSilver({
+      isLocalLesson,
       cycle1Closed: progress?.cycle1Closed === true,
       isRepeatRun: isStructuredLessonRepeatRun,
     })
@@ -3449,29 +3467,41 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   audience: settings.audience,
                   lessonId,
                   recentVariantIds,
+                  generationNonce: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
                 }),
                 signal,
               }),
             { deadlineMs: STRUCTURED_LESSON_RUNTIME_TIMEOUT_MS }
           )
-          const data = (await response.json()) as { lesson?: LessonData }
+          const data = (await response.json()) as {
+            lesson?: LessonData
+            generated?: boolean
+            fallback?: boolean
+          }
           if (response.ok && data.lesson) {
-            if (data.lesson.variantId && !options?.cacheResult) {
+            const runtimeLesson = withLessonGenerationMeta(data.lesson, {
+              generated: Boolean(data.generated) && !data.fallback,
+              fallback: Boolean(data.fallback) || !data.generated,
+            })
+            if (runtimeLesson.variantId && !options?.cacheResult) {
               const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-              structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
+              structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, runtimeLesson.variantId)
             }
             if (options?.cacheResult) {
-              prefetchedStructuredLessonRuntimeRef.current[requestKey] = cloneLessonData(data.lesson)
+              prefetchedStructuredLessonRuntimeRef.current[requestKey] = cloneLessonData(runtimeLesson)
             }
             console.info(
-              `[lesson-ui] mode=${mode} lesson=${lessonId} source=network fetch_ms=${Date.now() - fetchStartedAt}`
+              `[lesson-ui] mode=${mode} lesson=${lessonId} source=${runtimeLesson.fallback ? 'fallback' : 'network'} fetch_ms=${Date.now() - fetchStartedAt}`
             )
-            return data.lesson
+            return runtimeLesson
           }
         } catch (error) {
           console.warn(mode === 'repeat' ? 'lesson-repeat failed:' : 'structured-lesson-generate failed:', error)
         }
-        const clonedFallback = cloneStructuredLessonWithRunKey(fallbackLesson)
+        const clonedFallback = withLessonGenerationMeta(cloneStructuredLessonWithRunKey(fallbackLesson), {
+          generated: false,
+          fallback: true,
+        })
         if (clonedFallback.variantId && !options?.cacheResult) {
           const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
           structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, clonedFallback.variantId)
@@ -3852,6 +3882,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               lessonId,
               recentVariantIds,
               bypassCache: true,
+              generationNonce: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             }),
           })
           reportPrepareMilestoneRef.current(70)
@@ -3873,9 +3904,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           }
           if (requestId !== lessonOpenRequestIdRef.current) return
 
-          if (data.lesson.variantId) {
+          const runtimeLesson = withLessonGenerationMeta(data.lesson, {
+            generated: Boolean(data.generated) && !data.fallback,
+            fallback: menuGenerationFallback,
+          })
+          if (runtimeLesson.variantId) {
             const history = structuredLessonVariantHistoryRef.current[lessonId] ?? []
-            structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, data.lesson.variantId)
+            structuredLessonVariantHistoryRef.current[lessonId] = appendLessonVariantHistory(history, runtimeLesson.variantId)
           }
 
           setMenuLessonBgError(null)
@@ -3887,10 +3922,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           if (requestId !== lessonOpenRequestIdRef.current) return
           if (fetchEpoch !== menuLessonBgFetchEpochRef.current) return
 
-          setActiveStructuredLessonRuntime(data.lesson)
+          setActiveStructuredLessonRuntime(runtimeLesson)
           if (variantGenerateLaunchRef.current === 'briefing') {
             setActiveLessonVariantNumber((current) => current + 1)
-            acknowledgeLessonReturnBriefingRef.current(data.lesson)
+            acknowledgeLessonReturnBriefingRef.current(runtimeLesson)
             console.info(
               `[lesson-ui] mode=briefing-generate-bg lesson=${lessonId} source=${menuGenerationFallback ? 'fallback' : 'llm'} fetch_ms=${Date.now() - fetchStartedAt}`
             )
@@ -3903,7 +3938,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           if (error instanceof Error && error.name === 'AbortError') {
             if (!timedOutRef.current) return
             setMenuLessonBgError(
-              'Подготовка нового варианта заняла слишком много времени. Урок уже открыт - позже можно снова нажать «Новый вариант».'
+              'Подготовка нового сюжета заняла слишком много времени. Урок уже открыт - позже можно снова нажать «Новый сюжет».'
             )
             return
           }
@@ -6309,10 +6344,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       audience: settings.audience,
       lessonCoinClaimed: isLessonGoldCoinClaimed(rewardsState, activeStructuredLesson.id),
       isGeneratedVariantRun:
-        activeLessonVariantNumber > 1 ||
-        origin === 'post_lesson_repeat' ||
-        origin === 'repeat_api' ||
-        origin === 'menu_generate',
+        isAiGeneratedLessonRuntime(activeStructuredLesson) &&
+        (activeLessonVariantNumber > 1 ||
+          origin === 'post_lesson_repeat' ||
+          origin === 'repeat_api' ||
+          origin === 'menu_generate'),
       profileMedal: progress?.medal ?? null,
       runMedalCapSilver: structuredLessonSilverCap,
     }
@@ -8246,7 +8282,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 <LessonStepRenderer
                   timeline={activeStructuredLessonTimeline}
                   status={activeStructuredLessonStatus}
-                  blockProgress={activeStructuredLessonBlockProgress}
                   exerciseErrors={activeStructuredLessonExerciseErrors}
                   defaultTtsSpeechRate={defaultTtsSpeechRate}
                   onAnswer={handleStructuredLessonAnswer}

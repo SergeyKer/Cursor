@@ -17,8 +17,8 @@ describe('resolvePracticeLessonStep', () => {
 
     expect(resolved).not.toBeNull()
     expect(resolved!.sourceStepNumber).toBe(3)
-    expect(resolved!.exercise.correctAnswer).toBe('drink')
-    expect(resolved!.canonicalOptions).toEqual(['drink', 'sleeps', 'sleeping'])
+    expect(resolved!.exercise.correctAnswer).toBe('for')
+    expect(resolved!.canonicalOptions).toEqual(['for', 'to', 'at'])
   })
 
   it('maps challenge choice step 1 to lesson sentence choice', () => {
@@ -34,7 +34,7 @@ describe('resolvePracticeLessonStep', () => {
 
     expect(resolved).not.toBeNull()
     expect(resolved!.sourceStepNumber).toBe(1)
-    expect(resolved!.exercise.correctAnswer).toBe("It's dark.")
+    expect(resolved!.exercise.correctAnswer).toBe("It's dark. It's time to sleep.")
   })
 
   it('redirects balanced context-clue away from sentence_puzzle', () => {
@@ -66,7 +66,7 @@ describe('resolvePracticeLessonStep', () => {
 
     expect(resolved).not.toBeNull()
     expect(resolved!.sourceStepNumber).toBe(3)
-    expect(resolved!.exercise.correctAnswer).toBe('drink')
+    expect(resolved!.exercise.correctAnswer).toBe("It's")
   })
 
   it('resolves lesson 2 without throwing', () => {
@@ -130,7 +130,7 @@ describe('resolvePracticeLessonStep', () => {
 
     expect(resolved).not.toBeNull()
     expect(resolved!.sourceStepNumber).toBe(1)
-    expect(resolved!.exercise.correctAnswer).toBe("It's dark.")
+    expect(resolved!.exercise.correctAnswer).toBe("It's dark. It's time to sleep.")
   })
 
   it('delegates reference listening-select to resolveReferenceLessonStep', () => {
@@ -152,6 +152,6 @@ describe('resolvePracticeLessonStep', () => {
 
     expect(fromPractice).toEqual(fromResolver)
     expect(fromPractice?.sourceStepNumber).toBe(1)
-    expect(fromPractice?.exercise.correctAnswer).toBe("It's dark.")
+    expect(fromPractice?.exercise.correctAnswer).toBe("It's dark. It's time to sleep.")
   })
 })

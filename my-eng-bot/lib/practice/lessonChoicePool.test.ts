@@ -39,18 +39,22 @@ describe('lessonChoicePool', () => {
       "It's cold."
     )
 
-    expect(canonical).toEqual(["It's cold.", "It's time to sleep.", "It's time to drink."])
+    expect(canonical).toEqual([
+      "It's cold.",
+      "It's early. It's time to wait.",
+      "It's hot. It's time to stay.",
+    ])
   })
 
-  it('lesson 4 resolveCanonicalChoiceOptions for Russia excludes articles', () => {
+  it('lesson 4 resolveCanonicalChoiceOptions for am excludes articles', () => {
     const lesson = getStructuredLessonById('4')
     expect(lesson).not.toBeNull()
     const fillStep = lesson!.steps.find((step) => step.stepNumber === 3)
-    expect(fillStep?.exercise?.correctAnswer).toBe('Russia')
+    expect(fillStep?.exercise?.correctAnswer).toBe('am')
 
-    const canonical = resolveCanonicalChoiceOptions(lesson!, fillStep!.exercise!, 'Russia')
+    const canonical = resolveCanonicalChoiceOptions(lesson!, fillStep!.exercise!, 'am')
     expect(canonical.length).toBeGreaterThanOrEqual(3)
-    expect(canonical).toContain('Russia')
+    expect(canonical).toContain('am')
     expect(canonical.some((item) => ['a', 'an', 'the'].includes(item.toLowerCase()))).toBe(false)
     expect(canonical.every((item) => !/\s/.test(item.trim()) || item.split(/\s+/).length === 1)).toBe(true)
   })

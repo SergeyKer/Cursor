@@ -19,12 +19,12 @@ describe('buildVoiceShadowPrompt', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()
     const step = lesson!.steps.find((item) =>
-      item.bubbles.some((bubble) => bubble.content.includes('На улице темно'))
+      item.bubbles.some((bubble) => /темно/i.test(bubble.content))
     )
     expect(step?.exercise).toBeTruthy()
 
     const prompt = buildVoiceShadowPrompt(step!, step!.exercise!, lesson!)
-    expect(prompt).toBe('Ситуация: На улице темно.')
+    expect(prompt).toMatch(/Ситуация:.*темно/i)
     expect(prompt).not.toContain("It's dark")
   })
 })

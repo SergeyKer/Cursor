@@ -66,12 +66,13 @@ describe('distractorTier', () => {  it('produces different option sets per tier'
     expect(lesson).not.toBeNull()
     const sanitized = sanitizeWordBuilderProExtraWords({
       targetAnswer: "It's time to go home.",
-      candidates: ['sleep', 'drink', 'goes'],
+      candidates: ['sleep', 'dinner', 'goes'],
       lesson: lesson!,
     })
     expect(sanitized).toBeDefined()
     expect(sanitized).not.toContain('sleep')
-    expect(sanitized).not.toContain('drink')
+    expect(sanitized).not.toContain('dinner')
+    expect(sanitized).toContain('goes')
     expect(sanitized!.length).toBe(2)
   })
 })

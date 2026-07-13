@@ -144,7 +144,7 @@ describe('buildLessonReturnBriefingPayload', () => {
     expect(payload.actions).toEqual({
       offerGenerateVariant: true,
       primaryLabel: 'Повтор варианта',
-      secondaryLabel: 'Новый вариант',
+      secondaryLabel: 'Новый сюжет',
     })
   })
 
