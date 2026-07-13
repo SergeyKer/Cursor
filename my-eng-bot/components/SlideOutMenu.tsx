@@ -86,6 +86,7 @@ interface SlideOutMenuProps {
   practiceSessionActiveForDebug?: boolean
   /** Активная сессия практики — синхронизация выбора в меню при reopen. */
   activePracticeMenuSnapshot?: ActivePracticeMenuSnapshot | null
+  onOpenQuickTest?: () => void
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -169,6 +170,7 @@ export default function SlideOutMenu({
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
   activePracticeMenuSnapshot = null,
+  onOpenQuickTest,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
@@ -317,6 +319,7 @@ export default function SlideOutMenu({
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
         practiceSessionActiveForDebug={practiceSessionActiveForDebug}
         activePracticeMenuSnapshot={activePracticeMenuSnapshot}
+        onOpenQuickTest={onOpenQuickTest}
         onOpenPracticeSession={onOpenPracticeSession}
         onGeneratePracticeSession={onGeneratePracticeSession}
         onOpenAccentTrainer={onOpenAccentTrainer}

@@ -123,6 +123,12 @@ export function getLessonTopicById(lessonId: string): LessonTopicCatalogItem | n
   return getLessonTopicCatalog().find((topic) => topic.id === lessonId) ?? null
 }
 
+export function getLessonTopicBySlug(slug: string): LessonTopicCatalogItem | null {
+  const normalized = slug.trim().toLowerCase()
+  if (!normalized) return null
+  return getLessonTopicCatalog().find((topic) => topic.slug === normalized) ?? null
+}
+
 /** CEFR уровня урока в каталоге → LevelId для фишек, кэша и CEFR-guard. */
 export function catalogLevelToLevelId(level: LessonCatalogLevel): LevelId {
   const map: Record<LessonCatalogLevel, LevelId> = {

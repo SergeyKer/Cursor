@@ -11,5 +11,7 @@ export const featureFlags = {
   languageNoteV1: process.env.NEXT_PUBLIC_FEATURE_LANGUAGE_NOTE_V1 !== 'false',
   /** Маскот на корневом экране дома (приветствие). По умолчанию скрыт. */
   homeMascotVisible: process.env.NEXT_PUBLIC_FEATURE_HOME_MASCOT_VISIBLE === 'true',
+  /** Быстрый тест: меню + /test. По умолчанию включён. */
+  quickTestV1: process.env.NEXT_PUBLIC_FEATURE_QUICK_TEST_V1 !== 'false',
 } as const
 

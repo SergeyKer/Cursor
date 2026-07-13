@@ -5,6 +5,13 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
 import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
 import { featureFlags } from '@/lib/featureFlags'
+import {
+  clearOpenLessonIntent,
+  consumeOpenLessonIntent,
+  peekOpenLessonIntent,
+  writeEntryContext,
+} from '@/lib/quickTest/openLessonIntent'
+import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
@@ -5122,6 +5129,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   }, [menuOpen, dialogStarted, engvoVoiceMode, settings, restartChatForNewModeFromMenu])
 
+  const openQuickTest = useCallback(() => {
+    writeEntryContext({
+      source: 'internal_menu',
+      audience: settings.audience === 'child' ? 'child' : 'adult',
+    })
+    window.location.assign('/test')
+  }, [settings.audience])
+
   const goToStartScreen = useCallback(() => {
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
@@ -5346,6 +5361,27 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (entryBridge.branchIntent === 'chat') setHomeMenuView('aiChat')
     if (entryBridge.branchIntent === 'hub') setHomeMenuView('lessons')
   }, [storageLoaded, entryBridge?.audience, entryBridge?.audienceChosen, entryBridge?.branchIntent])
+
+  useEffect(() => {
+    if (!storageLoaded || !homeAudienceChosen) return
+    const intent = peekOpenLessonIntent()
+    if (!intent) return
+    if (intent.audience && intent.audience !== settings.audience) {
+      // Wait until audience matches after gate / bridge apply.
+      return
+    }
+    const consumed = consumeOpenLessonIntent()
+    if (!consumed) return
+    const lesson = getLearningLessonById(consumed.lessonId)
+    if (!lesson) {
+      clearOpenLessonIntent()
+      setRetryMessage(QUICK_TEST_COPY.lessonMissingNotice)
+      return
+    }
+    void openLearningLesson(consumed.lessonId, 'a2')
+    // openLearningLesson is stable enough; avoid re-firing on every settings tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storageLoaded, homeAudienceChosen, settings.audience])
 
   useEffect(() => {
     if (!storageLoaded) return
@@ -8055,6 +8091,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onChatPatternTuningChange={handleChatPatternTuningChange}
                     onChatPatternTuningReset={handleChatPatternTuningReset}
                     onOpenLearningLesson={openOrContinueLearningLesson}
+                    onOpenQuickTest={openQuickTest}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
                     practiceSessionActiveForDebug={practiceSessionActiveForDebug}
@@ -8515,6 +8552,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onChatPatternTuningReset={handleChatPatternTuningReset}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
+        onOpenQuickTest={openQuickTest}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}

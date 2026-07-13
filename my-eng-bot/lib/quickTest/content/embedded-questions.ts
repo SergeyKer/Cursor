@@ -1,0 +1,68 @@
+import type { QuickTestVariant } from '@/lib/quickTest/types'
+
+export const embeddedQuestionsVariants: QuickTestVariant[] = [
+  {
+    id: 'variant-1',
+    questions: [
+      {
+        id: 'eq-v1-q1',
+        prompt: 'I know where she ___.',
+        options: ['lives', 'does live', 'live'],
+        correctIndex: 0,
+        explanationRu: 'Во вложенном вопросе порядок как в утверждении: where she lives.',
+        slot: 1,
+        format: 'complete',
+        skillTag: 'embedded-wh',
+        mistakeTag: 'embedded-aux',
+      },
+      {
+        id: 'eq-v1-q2',
+        prompt: 'Выбери верное.',
+        options: ['I know what he likes.', 'I know what does he like.', 'I know what he like.'],
+        correctIndex: 0,
+        explanationRu: 'Без does после what во вложении.',
+        slot: 2,
+        format: 'natural',
+        skillTag: 'embedded-wh',
+        mistakeTag: 'embedded-aux',
+      },
+      {
+        id: 'eq-v1-q3',
+        prompt: 'Ошибка: «Tell me where does he work.»',
+        options: ['убрать does; he works', 'нужно where he does', 'нужно works he'],
+        correctIndex: 0,
+        explanationRu: 'Tell me where he works.',
+        slot: 3,
+        format: 'find-error',
+        skillTag: 'embedded-wh',
+        mistakeTag: 'embedded-aux',
+      },
+      {
+        id: 'eq-v1-q4',
+        prompt: 'Как сказать «Я не знаю, что она хочет»?',
+        options: [
+          "I don't know what she wants.",
+          "I don't know what does she want.",
+          "I don't know what she want.",
+        ],
+        correctIndex: 0,
+        explanationRu: 'what she wants — без does.',
+        slot: 4,
+        format: 'context',
+        skillTag: 'embedded-wh',
+        mistakeTag: 'embedded-aux',
+      },
+      {
+        id: 'eq-v1-q5',
+        prompt: 'Что верно?',
+        options: ['Ask him when he arrives.', 'Ask him when does he arrive.', 'Ask him when he arrive.'],
+        correctIndex: 0,
+        explanationRu: 'when he arrives — утвердительный порядок.',
+        slot: 5,
+        format: 'distinguish',
+        skillTag: 'embedded-wh',
+        mistakeTag: 'embedded-aux',
+      },
+    ],
+  },
+]

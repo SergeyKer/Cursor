@@ -496,6 +496,8 @@ export interface MenuSectionPanelsProps {
   activePracticeMenuSnapshot?: ActivePracticeMenuSnapshot | null
   /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
+  /** Быстрый тест: выход на /test (холодный опыт). */
+  onOpenQuickTest?: () => void
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -589,6 +591,7 @@ export default function MenuSectionPanels({
   practiceSessionActiveForDebug = false,
   activePracticeMenuSnapshot = null,
   onGenerateLearningLesson,
+  onOpenQuickTest,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenAccentTrainer,
@@ -2052,6 +2055,9 @@ export default function MenuSectionPanels({
                   {featureFlags.practiceEngineV1 && (
                     <MenuNavRow label="Практика" onClick={() => setLessonsPanel('practice')} />
                   )}
+                  {featureFlags.quickTestV1 && onOpenQuickTest ? (
+                    <MenuNavRow label="Быстрый тест" onClick={() => onOpenQuickTest()} />
+                  ) : null}
                   {featureFlags.accentTrainerV1 ? (
                     <MenuNavRow label="Произношение" onClick={() => setLessonsPanel('pronunciation')} />
                   ) : (

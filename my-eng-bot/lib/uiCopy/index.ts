@@ -6,3 +6,4 @@ export {
 export { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
 export { PRACTICE_REFERENCE_COPY } from '@/lib/uiCopy/practiceCopy'
 export { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
+export { QUICK_TEST_COPY, buildQuickTestGreeting, buildShareChallengeText } from '@/lib/uiCopy/quickTest'

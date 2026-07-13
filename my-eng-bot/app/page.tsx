@@ -7,6 +7,7 @@ import StartShell from '@/components/start/StartShell'
 import { prefetchBranches } from '@/lib/start/branchRegistry'
 import { createEmptyBridge, mergeBridgeState, type StartBridgeState } from '@/lib/start/startBridge'
 import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
+import { peekOpenLessonIntent } from '@/lib/quickTest/openLessonIntent'
 
 type AppShellComponent = ComponentType<AppShellProps>
 type AppShellLoadState = 'pending' | 'ready' | 'error'
@@ -28,6 +29,21 @@ export default function Page() {
   const [appShellLoadState, setAppShellLoadState] = useState<AppShellLoadState>('pending')
   const [appShellLoadNonce, setAppShellLoadNonce] = useState(0)
   const [bridge, setBridge] = useState<StartBridgeState>(createEmptyBridge)
+  const [skipStartForQuickTest, setSkipStartForQuickTest] = useState(false)
+
+  useEffect(() => {
+    const intent = peekOpenLessonIntent()
+    if (intent?.audience) {
+      setSkipStartForQuickTest(true)
+      setBridge((current) =>
+        mergeBridgeState(current, {
+          audience: intent.audience,
+          audienceChosen: true,
+          branchIntent: 'hub',
+        })
+      )
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -64,12 +80,22 @@ export default function Page() {
   const isIosSafariClient =
     typeof navigator !== 'undefined' && isIosSafariUserAgent(navigator.userAgent)
 
-  const showStartFallback = !AppShellComponent
+  const showStartFallback = !AppShellComponent && !skipStartForQuickTest
+  const showQuickTestLoading = !AppShellComponent && skipStartForQuickTest
 
   return (
     <>
       {AppShellComponent ? (
         <AppShellComponent entryBridge={bridge} onRuntimeReady={handleRuntimeReady} />
+      ) : null}
+
+      {showQuickTestLoading ? (
+        <div className="fixed inset-0 z-50 flex min-h-[100dvh] items-center justify-center bg-[var(--bg,#c3d6e2)] text-[var(--text)]">
+          <div className="text-center">
+            <div className="text-[17px] font-semibold">Engvo AI</div>
+            <div className="mt-2 text-[14px] opacity-70">Открываем урок…</div>
+          </div>
+        </div>
       ) : null}
 
       {showStartFallback ? (
