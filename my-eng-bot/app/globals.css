@@ -961,8 +961,10 @@ html[data-theme='glass3'] {
   --bubble-ai-bg: rgba(255, 255, 255, 0.36);
   --bubble-ai-text: rgba(0, 0, 0, 0.85);
   --bubble-radius: var(--glass-radius-xl);
-  --bubble-radius-assistant: var(--glass-radius-xl);
-  --bubble-radius-user: var(--glass-radius-xl);
+  /* Keep user/assistant at 20px: xl (28px) only looks tight on short solo bubbles
+     (radius clamps to half-height) and becomes too soft on 2+ line bubbles. */
+  --bubble-radius-assistant: 20px;
+  --bubble-radius-user: 20px;
   --accent-text: #ffffff;
   --text-primary: rgba(0, 0, 0, 0.85);
   --text-secondary: rgba(0, 0, 0, 0.65);

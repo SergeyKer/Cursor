@@ -1,6 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type AnimationEvent,
+} from 'react'
 import { useRouter } from 'next/navigation'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import DialogComposerStack from '@/components/DialogComposerStack'
@@ -9,17 +17,21 @@ import TypingText from '@/components/TypingText'
 import { ChatBubbleFrame, getBubblePosition } from '@/components/chat/ChatBubble'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
+import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
-import { estimateLessonComposerMinHeight } from '@/lib/lessonComposerLayout'
+import { measureChoiceChipsLaneWidthPx } from '@/lib/lessonComposerLayout'
 import {
+  isLessonFeedOverflowing,
   LESSON_SCROLL_VIEWPORT_CLASS,
+  resolveLessonScrollBehavior,
   scheduleScrollAfterLayout,
   scrollLessonFeedTailMessageIntoView,
-  resolveLessonScrollBehavior,
+  scrollLessonFeedToMax,
 } from '@/lib/lessonFeedScroll'
 import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
-import { PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
+import { PRACTICE_ANSWER_REVEAL_MS, PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
 import {
   getPopularTopicsForLevel,
   getQuickTestBankBySlug,
@@ -61,8 +73,8 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   const router = useRouter()
   const prefersReducedMotion = usePrefersReducedMotion()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const composerStackRef = useRef<HTMLDivElement>(null)
   const introStackRef = useRef<HTMLDivElement>(null)
-  const enteredIdsRef = useRef<Set<string>>(new Set())
   const introAdvanceSessionRef = useRef(0)
 
   const lobbyBubbles = useMemo<Bubble[]>(
@@ -78,27 +90,59 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   const [introReady, setIntroReady] = useState(false)
   const [phase, setPhase] = useState<LobbyPhase>('levels')
   const [level, setLevel] = useState<QuickTestLevelId | null>(null)
+  const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
+  const [topicTransitionPending, setTopicTransitionPending] = useState(false)
+  const topicNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const topicTransitionPendingRef = useRef(false)
 
   const levelLabels = useMemo(() => LEVELS.map((id) => QUICK_TEST_COPY.levelLabels[id]), [])
   const topics = level ? getPopularTopicsForLevel(level) : []
   const topicLabels = useMemo(() => topics.map((t) => t.title), [topics])
   const composerStackLayout = useMemo(() => getChatComposerStackLayout(true), [])
 
-  const scrollTail = useCallback(() => {
-    if (!introReady) return
-    scheduleScrollAfterLayout(() => {
-      const container = scrollContainerRef.current
-      const behavior = resolveLessonScrollBehavior({
-        prefersReducedMotion,
-        reason: 'new_message',
-      })
-      scrollLessonFeedTailMessageIntoView(container, behavior)
-    })
-  }, [prefersReducedMotion, introReady])
+  const feedMessageIds = useMemo(() => feed.map((message) => message.id), [feed])
+  const feedTailEnter = useLessonFeedTailEnter({
+    scrollContainerRef,
+    messageIds: feedMessageIds,
+    prefersReducedMotion,
+    enabled: introReady,
+  })
 
-  useEffect(() => {
-    scrollTail()
-  }, [feed.length, introReady, scrollTail])
+  const pinLobbyFeedTail = useCallback(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+    const behavior = resolveLessonScrollBehavior({
+      prefersReducedMotion,
+      reason: 'new_message',
+    })
+    scrollLessonFeedTailMessageIntoView(container, behavior)
+    if (isLessonFeedOverflowing(container)) {
+      scrollLessonFeedToMax(container, behavior)
+    }
+  }, [prefersReducedMotion])
+
+  const handleFeedAssistantAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      feedTailEnter.markEnterFinished(messageId)
+      scheduleScrollAfterLayout(pinLobbyFeedTail)
+    },
+    [feedTailEnter, pinLobbyFeedTail]
+  )
+
+  const handleFeedUserAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      feedTailEnter.markEnterFinished(messageId)
+      scheduleScrollAfterLayout(pinLobbyFeedTail)
+    },
+    [feedTailEnter, pinLobbyFeedTail]
+  )
+
+  useLayoutEffect(() => {
+    if (!introReady) return
+    return scheduleScrollAfterLayout(pinLobbyFeedTail)
+  }, [feed.length, introReady, pinLobbyFeedTail, topicTransitionPending])
 
   useEffect(() => {
     onFooterChange?.(
@@ -167,6 +211,37 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     [router]
   )
 
+  useEffect(() => {
+    return () => {
+      if (topicNavigateTimerRef.current) {
+        clearTimeout(topicNavigateTimerRef.current)
+      }
+    }
+  }, [])
+
+  const scheduleTopicStart = useCallback(
+    (slug: string, userLabel?: string) => {
+      if (topicTransitionPendingRef.current) return
+      topicTransitionPendingRef.current = true
+
+      if (userLabel) {
+        setFeed((prev) => [
+          ...prev,
+          { id: `lobby-user-topic-${slug}`, role: 'user', text: userLabel },
+        ])
+      }
+
+      setTopicTransitionPending(true)
+
+      const delay = prefersReducedMotion ? PRACTICE_ANSWER_REVEAL_MS : PRACTICE_CHECKING_MS
+      topicNavigateTimerRef.current = setTimeout(() => {
+        topicNavigateTimerRef.current = null
+        startTopic(slug)
+      }, delay)
+    },
+    [prefersReducedMotion, startTopic]
+  )
+
   const onLevelChoice = useCallback(
     (text: string) => {
       const id = LEVELS.find((levelId) => QUICK_TEST_COPY.levelLabels[levelId] === text)
@@ -192,53 +267,59 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
 
   const onTopicChoice = useCallback(
     (text: string) => {
+      if (topicTransitionPending) return
       const topic = topics.find((t) => t.title === text)
       if (!topic) return
-      startTopic(topic.slug)
+      scheduleTopicStart(topic.slug, text)
     },
-    [startTopic, topics]
+    [scheduleTopicStart, topicTransitionPending, topics]
   )
 
   const onDontKnow = useCallback(() => {
+    if (topicTransitionPending) return
     const slug = resolveRecommendedTopicSlug()
-    if (slug) startTopic(slug)
-  }, [startTopic])
-
-  const assistantEnterClass = useCallback(
-    (id: string, allowEnter?: boolean) => {
-      if (prefersReducedMotion || !allowEnter) return ''
-      if (enteredIdsRef.current.has(id)) return ''
-      enteredIdsRef.current.add(id)
-      return 'lesson-enter'
-    },
-    [prefersReducedMotion]
-  )
-
-  const userEnterClass = useCallback(
-    (id: string) => {
-      if (prefersReducedMotion) return ''
-      if (enteredIdsRef.current.has(id)) return ''
-      enteredIdsRef.current.add(id)
-      return 'lesson-text-soft-enter'
-    },
-    [prefersReducedMotion]
-  )
+    if (!slug) return
+    scheduleTopicStart(slug, QUICK_TEST_COPY.dontKnowChip)
+  }, [scheduleTopicStart, topicTransitionPending])
 
   const chipsVisible = introReady
+  const chipsLocked = topicTransitionPending
   const choiceOptions =
     phase === 'levels'
       ? [...levelLabels, QUICK_TEST_COPY.dontKnowChip]
       : topicLabels
 
-  const composerMinHeight = useMemo(
-    () =>
-      estimateLessonComposerMinHeight({
-        panelKind: 'choice',
-        choiceOptions,
-        compact: true,
-      }),
-    [choiceOptions]
-  )
+  useLayoutEffect(() => {
+    if (!introReady) return
+    const el = composerStackRef.current
+    if (!el) return
+
+    const measure = () => {
+      const width = measureChoiceChipsLaneWidthPx(el)
+      if (width != null) {
+        setComposerInnerWidthPx((current) => (current === width ? current : width))
+      }
+    }
+
+    measure()
+    if (typeof ResizeObserver === 'undefined') return
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [choiceOptions, introReady, phase])
+
+  const composerMinHeight = useLessonComposerHeightLock({
+    stackRef: composerStackRef,
+    transitionKey: `lobby-${phase}`,
+    panelKind: 'choice',
+    optionCount: choiceOptions.length,
+    choiceOptions,
+    containerWidthPx: composerInnerWidthPx,
+    compact: true,
+    enabled: introReady,
+    lockReleased: false,
+  })
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -312,6 +393,8 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
                 ) : null}
 
                 {feed.map((message, index) => {
+                  if (!feedTailEnter.isMessageVisible(message.id)) return null
+
                   const previousRole =
                     index === 0 ? ('assistant' as const) : feed[index - 1]?.role
                   const nextRole = feed[index + 1]?.role
@@ -324,10 +407,18 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
                       position={position}
                       className={
                         message.role === 'assistant'
-                          ? assistantEnterClass(message.id, message.enter)
-                          : userEnterClass(message.id)
+                          ? feedTailEnter.getAssistantEnterClass(
+                              message.id,
+                              message.enter
+                            )
+                          : feedTailEnter.getUserEnterClass(message.id)
                       }
                       rowClassName="mb-2.5"
+                      onAnimationEnd={
+                        message.role === 'assistant'
+                          ? (event) => handleFeedAssistantAnimationEnd(message.id, event)
+                          : (event) => handleFeedUserAnimationEnd(message.id, event)
+                      }
                     >
                       {message.role === 'assistant' ? (
                         <section className={lobbyCommunicationSectionClass}>
@@ -345,23 +436,27 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
             </DialogGlassScrollHost>
 
             <DialogComposerStack
+              ref={composerStackRef}
               className={composerStackLayout.verticalClass}
               style={{
                 ...(composerStackLayout.style ?? {}),
-                minHeight: composerMinHeight,
+                ...(composerMinHeight != null ? { minHeight: composerMinHeight } : {}),
               }}
             >
               <div
                 className={`w-full ${chipsVisible ? '' : 'invisible'}`}
                 aria-hidden={!chipsVisible}
-                style={{ pointerEvents: chipsVisible ? 'auto' : 'none' }}
+                style={{ pointerEvents: chipsVisible && !chipsLocked ? 'auto' : 'none' }}
               >
                 <LessonChoiceChips
                   key={`lobby-${phase}`}
                   resetKey={`lobby-${phase}`}
                   choices={choiceOptions}
-                  suppressEnterAnimation={!chipsVisible || prefersReducedMotion}
+                  disabled={chipsLocked}
+                  frozen={chipsLocked}
+                  suppressEnterAnimation={!introReady || prefersReducedMotion}
                   onChoose={(text) => {
+                    if (topicTransitionPending) return
                     if (phase === 'levels') {
                       if (text === QUICK_TEST_COPY.dontKnowChip) onDontKnow()
                       else onLevelChoice(text)

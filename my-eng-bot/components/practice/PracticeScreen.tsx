@@ -52,6 +52,7 @@ import { shouldSuppressPracticeComposerEnterAnimation } from '@/lib/practice/pra
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
+import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
 import { resolveTaskBubbleIndex } from '@/lib/lessonBubbleLayout'
 import {
   estimateLessonComposerMinHeight,
@@ -339,14 +340,6 @@ export default function PracticeScreen({
   const { getEnterClass: lessonFeedStatusEnterClass, markEnterFinished: markStatusEnterFinished } =
     useLessonFeedStatusEnterClass(prefersReducedMotion)
 
-  const handleStatusBubbleAnimationEnd = useCallback(
-    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
-      if (event.animationName !== 'lessonSlideIn') return
-      markStatusEnterFinished(messageId)
-    },
-    [markStatusEnterFinished]
-  )
-
   const resolvedFeedbackType = useMemo(() => {
     if (feedback?.type) return feedback.type
     if (state === 'generating_next' || state === 'feedback') {
@@ -418,7 +411,6 @@ export default function PracticeScreen({
   const taskBubbleIndex = useMemo(() => resolveTaskBubbleIndex(revealBubbles), [revealBubbles])
   const isQuickTestSession = session.entrySource === 'quick_test'
   const revealEnabled =
-    !isQuickTestSession &&
     state === 'active' &&
     Boolean(currentLessonMessage) &&
     revealSectionCount > 0
@@ -440,6 +432,34 @@ export default function PracticeScreen({
     prefersReducedMotion,
     extraPauseBeforeIndex: taskBubbleIndex >= 0 ? taskBubbleIndex : undefined,
   })
+
+  const feedMessageIds = useMemo(() => messages.map((message) => message.id), [messages])
+  const quickTestFeedTailEnter = useLessonFeedTailEnter({
+    scrollContainerRef,
+    messageIds: feedMessageIds,
+    prefersReducedMotion,
+    enabled: isQuickTestSession,
+  })
+
+  const handleStatusBubbleAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      if (isQuickTestSession) {
+        quickTestFeedTailEnter.markEnterFinished(messageId)
+        return
+      }
+      markStatusEnterFinished(messageId)
+    },
+    [isQuickTestSession, markStatusEnterFinished, quickTestFeedTailEnter]
+  )
+
+  const handleQuickTestUserAnswerAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      quickTestFeedTailEnter.markEnterFinished(messageId)
+    },
+    [quickTestFeedTailEnter]
+  )
 
   const invokeShellScrollCompleteOnce = useCallback(() => {
     if (shellScrollCompleteInvokedRef.current) return
@@ -838,8 +858,7 @@ export default function PracticeScreen({
     isChoiceChipsPanel &&
     state === 'active' &&
     revealSectionCount > 0 &&
-    !prefersReducedMotion &&
-    !isQuickTestSession
+    !prefersReducedMotion
 
   const isChoiceChipsVisible =
     !deferChoiceChipsUntilCardReveal ||
@@ -1541,9 +1560,8 @@ export default function PracticeScreen({
                         textAnimatingIndex === taskBubbleIndex
 
                       const isQuickTestLesson = session.entrySource === 'quick_test'
-                      const lessonBubbleKey = isQuickTestLesson
-                        ? message.id
-                        : isCurrentQuestion && currentQuestion
+                      const lessonBubbleKey =
+                        isCurrentQuestion && currentQuestion
                           ? `practice-soft-${currentQuestion.id}`
                           : message.id
                       const lessonPreferUnifiedLayout =
@@ -1602,13 +1620,30 @@ export default function PracticeScreen({
                     }
 
                     if (message.kind === 'answer') {
+                      if (
+                        isQuickTestSession &&
+                        !quickTestFeedTailEnter.isMessageVisible(message.id)
+                      ) {
+                        return null
+                      }
+
                       return (
                         <ChatBubbleFrame
                           key={message.id}
                           role="user"
                           position={position}
-                          className={lessonUserEnterClass(message.id)}
+                          className={
+                            isQuickTestSession
+                              ? quickTestFeedTailEnter.getUserEnterClass(message.id)
+                              : lessonUserEnterClass(message.id)
+                          }
                           rowClassName={rowMargin}
+                          onAnimationEnd={
+                            isQuickTestSession
+                              ? (event) =>
+                                  handleQuickTestUserAnswerAnimationEnd(message.id, event)
+                              : undefined
+                          }
                         >
                           <p className="whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
                             {message.text}
@@ -1628,7 +1663,16 @@ export default function PracticeScreen({
                       )
                     }
 
-                    const statusEnterClass = lessonFeedStatusEnterClass(message.id)
+                    const statusEnterClass = isQuickTestSession
+                      ? quickTestFeedTailEnter.getAssistantEnterClass(message.id)
+                      : lessonFeedStatusEnterClass(message.id)
+
+                    if (
+                      isQuickTestSession &&
+                      !quickTestFeedTailEnter.isMessageVisible(message.id)
+                    ) {
+                      return null
+                    }
 
                     if (message.tone === 'error') {
                       const isTailVoiceRepeatCorrectionError =
