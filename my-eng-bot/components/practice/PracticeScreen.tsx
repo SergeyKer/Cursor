@@ -433,12 +433,26 @@ export default function PracticeScreen({
     extraPauseBeforeIndex: taskBubbleIndex >= 0 ? taskBubbleIndex : undefined,
   })
 
-  const feedMessageIds = useMemo(() => messages.map((message) => message.id), [messages])
+  const quickTestTailEnterMessageIds = useMemo(
+    () =>
+      isQuickTestSession
+        ? messages
+            .filter(
+              (message) =>
+                message.kind === 'answer' ||
+                (message.kind === 'status' && message.tone !== 'service')
+            )
+            .map((message) => message.id)
+        : [],
+    [isQuickTestSession, messages]
+  )
   const quickTestFeedTailEnter = useLessonFeedTailEnter({
     scrollContainerRef,
-    messageIds: feedMessageIds,
+    messageIds: quickTestTailEnterMessageIds,
     prefersReducedMotion,
     enabled: isQuickTestSession,
+    userEnterClass: 'lesson-enter',
+    assistantEnterClass: 'lesson-feed-status-enter',
   })
 
   const handleStatusBubbleAnimationEnd = useCallback(
@@ -947,21 +961,6 @@ export default function PracticeScreen({
           })
       : undefined
 
-  const quickTestComposerMinHeight = useMemo(() => {
-    if (!isQuickTestSession || !currentQuestion) return undefined
-    const options = ensurePracticeChoiceOptions(
-      currentQuestion.options,
-      currentQuestion.targetAnswer
-    )
-    const height = estimateLessonComposerMinHeight({
-      panelKind: 'choice',
-      choiceOptions: options,
-      containerWidthPx: composerInnerWidthPx,
-      compact: true,
-    })
-    return height > 0 ? height : undefined
-  }, [isQuickTestSession, currentQuestion, composerInnerWidthPx])
-
   const composerHeightLockReleased =
     prefersReducedMotion ||
     (session.entrySource === 'quick_test' &&
@@ -1015,16 +1014,14 @@ export default function PracticeScreen({
     puzzleHasTitle: false,
     puzzleHasInstruction: false,
     compact: isChoiceChipsPanel || isPuzzlePanel,
-    enabled:
-      (isChoiceChipsPanel || isPuzzlePanel || isChoiceVoiceCorrectionFlow) && !isQuickTestSession,
+    enabled: isChoiceChipsPanel || isPuzzlePanel || isChoiceVoiceCorrectionFlow,
     lockReleased: composerHeightLockReleased,
   })
 
   const composerMinHeight =
     state === 'completed'
       ? PRACTICE_FINALE_COMPOSER_RESERVE_PX
-      : quickTestComposerMinHeight ??
-        lockedComposerMinHeight ??
+      : lockedComposerMinHeight ??
         (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
           ? choiceComposerMinHeightEstimate
           : puzzleComposerLayout?.reserveMinHeight && !isPuzzleVisible

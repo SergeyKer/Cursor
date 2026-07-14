@@ -17,6 +17,8 @@ type UseLessonFeedTailEnterParams = {
   messageIds: string[]
   prefersReducedMotion: boolean
   enabled: boolean
+  userEnterClass?: string
+  assistantEnterClass?: string
 }
 
 type UseLessonFeedTailEnterResult = {
@@ -33,6 +35,8 @@ export function useLessonFeedTailEnter({
   messageIds,
   prefersReducedMotion,
   enabled,
+  userEnterClass = LESSON_FEED_MESSAGE_ENTER_CLASS,
+  assistantEnterClass = LESSON_FEED_MESSAGE_ENTER_CLASS,
 }: UseLessonFeedTailEnterParams): UseLessonFeedTailEnterResult {
   const [enteringId, setEnteringId] = useState<string | null>(null)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set())
@@ -124,23 +128,22 @@ export function useLessonFeedTailEnter({
     scrollContainerRef,
   ])
 
-  const getEnterClass = useCallback(
-    (messageId: string, allowEnter = true) => {
-      if (prefersReducedMotion || !enabled || !allowEnter) return ''
-      if (enteringId !== messageId) return ''
-      return LESSON_FEED_MESSAGE_ENTER_CLASS
-    },
-    [enabled, enteringId, prefersReducedMotion]
-  )
-
   const getUserEnterClass = useCallback(
-    (messageId: string) => getEnterClass(messageId),
-    [getEnterClass]
+    (messageId: string) => {
+      if (prefersReducedMotion || !enabled) return ''
+      if (enteringId !== messageId) return ''
+      return userEnterClass
+    },
+    [enabled, enteringId, prefersReducedMotion, userEnterClass]
   )
 
   const getAssistantEnterClass = useCallback(
-    (messageId: string, allowEnter = true) => getEnterClass(messageId, allowEnter),
-    [getEnterClass]
+    (messageId: string, allowEnter = true) => {
+      if (prefersReducedMotion || !enabled || !allowEnter) return ''
+      if (enteringId !== messageId) return ''
+      return assistantEnterClass
+    },
+    [assistantEnterClass, enabled, enteringId, prefersReducedMotion]
   )
 
   const isMessageVisible = useCallback(
