@@ -2631,6 +2631,28 @@ html[data-theme='glass3'][data-audience] {
   z-index: 1;
 }
 
+/* Dialog feed: wallpaper on fixed host layer; scroll viewport stays transparent. */
+.dialog-glass-scroll-host > .chat-feed-wallpaper-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.dialog-glass-scroll-host > .lesson-scroll-viewport.chat-feed-wallpaper {
+  z-index: 1;
+  background-image: none;
+}
+
+.dialog-glass-scroll-host > .lesson-scroll-viewport.chat-feed-wallpaper::before {
+  display: none;
+}
+
+html[data-ios-safari-dialog] .dialog-glass-scroll-host > .chat-feed-wallpaper-backdrop,
+html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-glass-scroll-host > .chat-feed-wallpaper-backdrop {
+  bottom: var(--dialog-scroll-bottom-inset, var(--chat-composer-stack-height, 9rem));
+}
+
 html[data-chat-pattern='study-doodles'] .chat-feed-wallpaper::before {
   background-image: url('/patterns/study-doodles.png');
 }

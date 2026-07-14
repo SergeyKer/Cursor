@@ -19,3 +19,11 @@ export function shouldHighlightWrongPracticeChoice(
 ): boolean {
   return state === 'correction' && feedbackType === 'error'
 }
+
+/** Подсветка неверного чипа в quick test (feedback без correction). */
+export function shouldHighlightWrongQuickTestChoice(
+  state: PracticeFlowState,
+  feedbackType: 'success' | 'error' | undefined,
+): boolean {
+  return state === 'feedback' && feedbackType === 'error'
+}

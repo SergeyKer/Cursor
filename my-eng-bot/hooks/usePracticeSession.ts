@@ -186,28 +186,30 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
 
   const beginNextQuestion = useCallback(() => {
     clearTransitionTimers()
-    setSession((current) => {
-      if (!current) return current
-      if (current.currentIndex >= current.questions.length - 1) {
-        const completed = applyStatus(current, 'completed')
-        storage.saveCompletedSession(completed)
-        storage.clearActiveSession()
-        setState('completed')
-        return completed
-      }
-      const next = normalizeAdaptiveQuestionInSession({
-        ...current,
-        currentIndex: current.currentIndex + 1,
-        wrongAttemptsOnCurrentQuestion: 0,
-      })
-      questionStartedAtRef.current = Date.now()
-      pendingCorrectionRef.current = null
-      setFeedback(null)
-      setPendingAnswer(null)
-      setState('active')
-      storage.saveActiveSession(next)
-      return next
+    const current = sessionRef.current
+    if (!current) return
+
+    if (current.currentIndex >= current.questions.length - 1) {
+      const completed = applyStatus(current, 'completed')
+      storage.saveCompletedSession(completed)
+      storage.clearActiveSession()
+      setSession(completed)
+      setState('completed')
+      return
+    }
+
+    const next = normalizeAdaptiveQuestionInSession({
+      ...current,
+      currentIndex: current.currentIndex + 1,
+      wrongAttemptsOnCurrentQuestion: 0,
     })
+    questionStartedAtRef.current = Date.now()
+    pendingCorrectionRef.current = null
+    storage.saveActiveSession(next)
+    setSession(next)
+    setFeedback(null)
+    setPendingAnswer(null)
+    setState('active')
   }, [clearTransitionTimers, storage])
 
   useEffect(() => {

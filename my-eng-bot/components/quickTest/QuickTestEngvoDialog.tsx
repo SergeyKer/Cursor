@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
-import { ChatBubbleFrame, getBubblePosition, CHAT_FEED_SERVICE_STATUS_ROW_CLASS } from '@/components/chat/ChatBubble'
+import TypingText from '@/components/TypingText'
+import { ChatBubbleFrame, getBubblePosition } from '@/components/chat/ChatBubble'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
-import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
+import { getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
 import { estimateLessonComposerMinHeight } from '@/lib/lessonComposerLayout'
 import {
   LESSON_SCROLL_VIEWPORT_CLASS,
@@ -18,6 +18,7 @@ import {
   resolveLessonScrollBehavior,
 } from '@/lib/lessonFeedScroll'
 import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
+import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
 import { PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
 import {
   getPopularTopicsForLevel,
@@ -32,16 +33,25 @@ import { QUICK_TEST_COPY, buildQuickTestLobbyMessages } from '@/lib/uiCopy/quick
 import { trackQuickTest } from '@/lib/quickTest/analytics'
 import { resolveQuickTestFooter } from '@/lib/quickTest/quickTestFooter'
 import type { QuickTestFooterView } from '@/lib/quickTest/quickTestFooter'
+import type { Bubble } from '@/types/lesson'
 
 const LEVELS: QuickTestLevelId[] = ['A1', 'A2', 'B1', 'B2']
-const TYPING_ID = 'lobby-typing'
+
+const lobbyAssistantBubbleClass = 'w-full !max-w-full'
+const lobbyAssistantRowClass = 'mb-2.5 w-full'
+
+/** Inner section как neutral SectionCard в «Общении». */
+const lobbyCommunicationSectionClass =
+  'chat-section-surface glass-surface block min-w-0 w-full max-w-full self-stretch overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)]'
+
+const lobbyBlockBodyClass =
+  'whitespace-pre-line break-words text-[15px] leading-[1.45] text-[var(--text)]'
 
 type LobbyPhase = 'levels' | 'topics'
 
 type FeedMessage =
   | { id: string; role: 'assistant'; text: string; enter?: boolean }
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'service'; text: string }
 
 type QuickTestEngvoDialogProps = {
   onFooterChange?: (footer: QuickTestFooterView) => void
@@ -51,50 +61,44 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   const router = useRouter()
   const prefersReducedMotion = usePrefersReducedMotion()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const introStackRef = useRef<HTMLDivElement>(null)
   const enteredIdsRef = useRef<Set<string>>(new Set())
-  const [feed, setFeed] = useState<FeedMessage[]>(() => {
-    const first = buildQuickTestLobbyMessages()[0]
-    return first
-      ? [{ id: 'lobby-msg-1', role: 'assistant', text: first, enter: true }]
-      : []
-  })
+  const introAdvanceSessionRef = useRef(0)
+
+  const lobbyBubbles = useMemo<Bubble[]>(
+    () => buildQuickTestLobbyMessages().map((text) => ({ type: 'info', content: text })),
+    []
+  )
+  const lobbySectionCount = lobbyBubbles.length
+
+  const [feed, setFeed] = useState<FeedMessage[]>([])
+  const [revealedBlockCount, setRevealedBlockCount] = useState(1)
+  const [typingBlockIndex, setTypingBlockIndex] = useState<number | null>(0)
+  const [introGhostBlockIndex, setIntroGhostBlockIndex] = useState<number | null>(null)
   const [introReady, setIntroReady] = useState(false)
   const [phase, setPhase] = useState<LobbyPhase>('levels')
   const [level, setLevel] = useState<QuickTestLevelId | null>(null)
-  const introStartedRef = useRef(false)
 
   const levelLabels = useMemo(() => LEVELS.map((id) => QUICK_TEST_COPY.levelLabels[id]), [])
   const topics = level ? getPopularTopicsForLevel(level) : []
   const topicLabels = useMemo(() => topics.map((t) => t.title), [topics])
-  const composerMinHeight = useMemo(() => {
-    const levelsH = estimateLessonComposerMinHeight({
-      panelKind: 'choice',
-      choiceOptions: [...levelLabels, QUICK_TEST_COPY.dontKnowChip],
-      compact: true,
-    })
-    const topicsH = estimateLessonComposerMinHeight({
-      panelKind: 'choice',
-      choiceOptions: topicLabels.length > 0 ? topicLabels : levelLabels,
-      compact: true,
-    })
-    return Math.max(levelsH, topicsH)
-  }, [levelLabels, topicLabels])
+  const composerStackLayout = useMemo(() => getChatComposerStackLayout(true), [])
 
   const scrollTail = useCallback(() => {
+    if (!introReady) return
     scheduleScrollAfterLayout(() => {
-      scrollLessonFeedTailMessageIntoView(
-        scrollContainerRef.current,
-        resolveLessonScrollBehavior({
-          prefersReducedMotion,
-          reason: 'new_message',
-        })
-      )
+      const container = scrollContainerRef.current
+      const behavior = resolveLessonScrollBehavior({
+        prefersReducedMotion,
+        reason: 'new_message',
+      })
+      scrollLessonFeedTailMessageIntoView(container, behavior)
     })
-  }, [prefersReducedMotion])
+  }, [prefersReducedMotion, introReady])
 
   useEffect(() => {
     scrollTail()
-  }, [feed.length, scrollTail])
+  }, [feed.length, introReady, scrollTail])
 
   useEffect(() => {
     onFooterChange?.(
@@ -103,55 +107,44 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   }, [phase, onFooterChange])
 
   useEffect(() => {
-    if (introStartedRef.current) return
-    introStartedRef.current = true
-    const messages = [...buildQuickTestLobbyMessages()]
-    let cancelled = false
+    if (!prefersReducedMotion) return
+    introAdvanceSessionRef.current += 1
+    setRevealedBlockCount(lobbySectionCount)
+    setTypingBlockIndex(null)
+    setIntroGhostBlockIndex(null)
+    setIntroReady(true)
+  }, [lobbySectionCount, prefersReducedMotion])
 
-    const appendAssistant = (id: string, text: string) => {
-      setFeed((prev) => {
-        const withoutTyping = prev.filter((m) => m.id !== TYPING_ID)
-        return [...withoutTyping, { id, role: 'assistant', text, enter: true }]
-      })
-    }
+  const onIntroBlockTypeComplete = useCallback(
+    (completedIndex: number) => {
+      if (prefersReducedMotion) return
 
-    const showTyping = () => {
-      setFeed((prev) => {
-        if (prev.some((m) => m.id === TYPING_ID)) return prev
-        return [...prev, { id: TYPING_ID, role: 'service', text: ENGVO_TYPING_MESSAGE }]
-      })
-    }
+      const session = introAdvanceSessionRef.current + 1
+      introAdvanceSessionRef.current = session
 
-    const run = async () => {
-      if (prefersReducedMotion) {
-        setFeed(
-          messages.map((text, index) => ({
-            id: `lobby-msg-${index + 1}`,
-            role: 'assistant' as const,
-            text,
-          }))
-        )
-        setIntroReady(true)
-        return
-      }
+      const run = async () => {
+        if (completedIndex >= lobbySectionCount - 1) {
+          if (session !== introAdvanceSessionRef.current) return
+          setTypingBlockIndex(null)
+          setIntroReady(true)
+          return
+        }
 
-      for (let i = 1; i < messages.length; i += 1) {
-        if (cancelled) return
-        showTyping()
+        setTypingBlockIndex(null)
+        const nextBlockIndex = completedIndex + 1
+        setRevealedBlockCount(nextBlockIndex + 1)
+        setIntroGhostBlockIndex(nextBlockIndex)
         await new Promise((r) => setTimeout(r, PRACTICE_CHECKING_MS))
-        if (cancelled) return
-        appendAssistant(`lobby-msg-${i + 1}`, messages[i]!)
-        await new Promise((r) => setTimeout(r, 420 + 200))
-      }
-      if (!cancelled) setIntroReady(true)
-    }
+        if (session !== introAdvanceSessionRef.current) return
 
-    void run()
-    return () => {
-      cancelled = true
-      introStartedRef.current = false
-    }
-  }, [prefersReducedMotion])
+        setIntroGhostBlockIndex(null)
+        setTypingBlockIndex(nextBlockIndex)
+      }
+
+      void run()
+    },
+    [lobbySectionCount, prefersReducedMotion]
+  )
 
   const startTopic = useCallback(
     (slug: string) => {
@@ -237,6 +230,16 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
       ? [...levelLabels, QUICK_TEST_COPY.dontKnowChip]
       : topicLabels
 
+  const composerMinHeight = useMemo(
+    () =>
+      estimateLessonComposerMinHeight({
+        panelKind: 'choice',
+        choiceOptions,
+        compact: true,
+      }),
+    [choiceOptions]
+  )
+
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
@@ -250,21 +253,70 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
                 ref={scrollContainerRef}
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
               >
+                {lobbySectionCount > 0 ? (
+                  <ChatBubbleFrame
+                    role="assistant"
+                    position="solo"
+                    className={lobbyAssistantBubbleClass}
+                    rowClassName={lobbyAssistantRowClass}
+                  >
+                    <div ref={introStackRef} className="flex w-full min-w-0 flex-col space-y-1.5">
+                      {lobbyBubbles.slice(0, revealedBlockCount).map((bubble, blockIndex) => {
+                        const text = bubble.content
+                        const isTyping = !prefersReducedMotion && typingBlockIndex === blockIndex
+                        const isGhostSlot =
+                          !prefersReducedMotion && introGhostBlockIndex === blockIndex
+
+                        const isCompactGhost =
+                          isGhostSlot && blockIndex > 0
+
+                        return (
+                          <section
+                            key={`lobby-block-${blockIndex}`}
+                            className={lobbyCommunicationSectionClass}
+                          >
+                            {isCompactGhost ? (
+                              <div className="px-3 py-2.5" role="status" aria-live="polite">
+                                <EngvoFeedServiceTypingText text={ENGVO_TYPING_MESSAGE} />
+                              </div>
+                            ) : (
+                              <div className="relative w-full px-3 py-2.5">
+                                <div
+                                  className={`invisible block w-full ${lobbyBlockBodyClass}`}
+                                  aria-hidden="true"
+                                >
+                                  {text}
+                                </div>
+                                <div className="absolute inset-0 px-3 py-2.5">
+                                  {isTyping ? (
+                                    <TypingText
+                                      text={text}
+                                      mode="char"
+                                      speed={ENGVO_SERVICE_TYPEWRITER_CHAR_MS}
+                                      fadeWhileTyping={false}
+                                      variant="chat"
+                                      startDelayMs={0}
+                                      onComplete={() => onIntroBlockTypeComplete(blockIndex)}
+                                    />
+                                  ) : (
+                                    <span className={lobbyBlockBodyClass}>{text}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </section>
+                        )
+                      })}
+                    </div>
+                  </ChatBubbleFrame>
+                ) : null}
+
                 {feed.map((message, index) => {
-                  if (message.role === 'service') {
-                    return (
-                      <div key={message.id} dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
-                        <EngvoFeedServiceTypingText text={message.text} />
-                      </div>
-                    )
-                  }
-                  const previousRole = feed[index - 1]?.role === 'service' ? undefined : feed[index - 1]?.role
-                  const nextRole = feed[index + 1]?.role === 'service' ? undefined : feed[index + 1]?.role
-                  const position = getBubblePosition(
-                    previousRole as 'assistant' | 'user' | undefined,
-                    message.role,
-                    nextRole as 'assistant' | 'user' | undefined
-                  )
+                  const previousRole =
+                    index === 0 ? ('assistant' as const) : feed[index - 1]?.role
+                  const nextRole = feed[index + 1]?.role
+                  const position = getBubblePosition(previousRole, message.role, nextRole)
+
                   return (
                     <ChatBubbleFrame
                       key={message.id}
@@ -278,10 +330,11 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
                       rowClassName="mb-2.5"
                     >
                       {message.role === 'assistant' ? (
-                        <UnifiedLessonBubble
-                          bubbles={[{ type: 'info', content: message.text }]}
-                          layout="detached"
-                        />
+                        <section className={lobbyCommunicationSectionClass}>
+                          <div className="px-3 py-2">
+                            <p className={lobbyBlockBodyClass}>{message.text}</p>
+                          </div>
+                        </section>
                       ) : (
                         <p className="text-[15px] leading-relaxed">{message.text}</p>
                       )}
@@ -292,15 +345,14 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
             </DialogGlassScrollHost>
 
             <DialogComposerStack
-              className={CHAT_COMPOSER_STACK_TOP_CLASS}
+              className={composerStackLayout.verticalClass}
               style={{
-                paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+                ...(composerStackLayout.style ?? {}),
                 minHeight: composerMinHeight,
               }}
-              contentMaxWidthClass="max-w-[22rem]"
             >
               <div
-                className={chipsVisible ? '' : 'invisible'}
+                className={`w-full ${chipsVisible ? '' : 'invisible'}`}
                 aria-hidden={!chipsVisible}
                 style={{ pointerEvents: chipsVisible ? 'auto' : 'none' }}
               >

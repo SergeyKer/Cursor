@@ -3,6 +3,7 @@ import {
   CHOICE_REOPEN_DELAY_MS,
   shouldHighlightWrongLessonChoice,
   shouldHighlightWrongPracticeChoice,
+  shouldHighlightWrongQuickTestChoice,
 } from '@/lib/lessonChoiceHighlight'
 
 describe('CHOICE_REOPEN_DELAY_MS', () => {
@@ -40,5 +41,27 @@ describe('shouldHighlightWrongPracticeChoice', () => {
 
   it('returns false on correction success', () => {
     expect(shouldHighlightWrongPracticeChoice('correction', 'success')).toBe(false)
+  })
+
+  it('returns false on feedback error (quick test only)', () => {
+    expect(shouldHighlightWrongPracticeChoice('feedback', 'error')).toBe(false)
+  })
+})
+
+describe('shouldHighlightWrongQuickTestChoice', () => {
+  it('returns false during checking', () => {
+    expect(shouldHighlightWrongQuickTestChoice('checking', 'error')).toBe(false)
+  })
+
+  it('returns false on correction error', () => {
+    expect(shouldHighlightWrongQuickTestChoice('correction', 'error')).toBe(false)
+  })
+
+  it('returns false on success feedback', () => {
+    expect(shouldHighlightWrongQuickTestChoice('feedback', 'success')).toBe(false)
+  })
+
+  it('returns true on error feedback', () => {
+    expect(shouldHighlightWrongQuickTestChoice('feedback', 'error')).toBe(true)
   })
 })

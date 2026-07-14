@@ -81,7 +81,7 @@ export function resolveQuickTestFooter(input: {
         static: buildQuickTestFooterStatic(step, total, true),
         progress: { current: step, total },
         tone,
-        typingKey: `quick-test-question-${step}`,
+        typingKey: `quick-test-step-${step}`,
       }
     case 'checking':
       return {
@@ -89,7 +89,7 @@ export function resolveQuickTestFooter(input: {
         static: buildQuickTestFooterStatic(step, total, true),
         progress: { current: step, total },
         tone,
-        typingKey: `quick-test-checking-${step}`,
+        typingKey: `quick-test-step-${step}`,
       }
     case 'feedback-correct':
       return {
@@ -97,7 +97,7 @@ export function resolveQuickTestFooter(input: {
         static: buildQuickTestFooterStatic(step, total, true),
         progress: { current: step, total },
         tone,
-        typingKey: `quick-test-feedback-correct-${step}`,
+        typingKey: `quick-test-step-${step}`,
       }
     case 'feedback-wrong':
       return {
@@ -105,7 +105,7 @@ export function resolveQuickTestFooter(input: {
         static: buildQuickTestFooterStatic(step, total, true),
         progress: { current: step, total },
         tone,
-        typingKey: `quick-test-feedback-wrong-${step}`,
+        typingKey: `quick-test-step-${step}`,
       }
     case 'finale': {
       const band = input.scoreBand ?? 'start'

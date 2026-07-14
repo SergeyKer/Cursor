@@ -33,6 +33,7 @@ import {
 } from '@/lib/practice/practiceComposerLayout'
 import {
   shouldHighlightWrongPracticeChoice,
+  shouldHighlightWrongQuickTestChoice,
 } from '@/lib/lessonChoiceHighlight'
 import {
   canCompleteChipPhase,
@@ -415,8 +416,12 @@ export default function PracticeScreen({
   const revealSectionCount = revealBubbles.length
   const revealKey = session.questions[session.currentIndex]?.id ?? null
   const taskBubbleIndex = useMemo(() => resolveTaskBubbleIndex(revealBubbles), [revealBubbles])
+  const isQuickTestSession = session.entrySource === 'quick_test'
   const revealEnabled =
-    state === 'active' && Boolean(currentLessonMessage) && revealSectionCount > 0
+    !isQuickTestSession &&
+    state === 'active' &&
+    Boolean(currentLessonMessage) &&
+    revealSectionCount > 0
 
   const {
     isShellEnterActive,
@@ -754,12 +759,30 @@ export default function PracticeScreen({
   }, [state, clearCorrectionPhaseTimers])
 
   useEffect(() => {
-    if (!isChoiceVoiceCorrectionFlow || !isPracticeChoiceChipCorrectionType(questionType)) {
+    if (!isPracticeChoiceChipCorrectionType(questionType)) {
       setWrongChoiceHighlight(null)
       return
     }
 
     if (state === 'checking') {
+      setWrongChoiceHighlight(null)
+      return
+    }
+
+    if (isQuickTestSession) {
+      if (!shouldHighlightWrongQuickTestChoice(state, resolvedFeedbackType)) return
+
+      const lastAnswer = session.answers
+        .filter((answer) => answer.questionId === currentQuestion?.id)
+        .at(-1)
+      const submitted = lastAnswer?.userAnswer?.trim() ?? ''
+      if (!submitted) return
+
+      setWrongChoiceHighlight(submitted)
+      return
+    }
+
+    if (!isChoiceVoiceCorrectionFlow) {
       setWrongChoiceHighlight(null)
       return
     }
@@ -775,6 +798,7 @@ export default function PracticeScreen({
 
     setWrongChoiceHighlight(submitted)
   }, [
+    isQuickTestSession,
     isChoiceVoiceCorrectionFlow,
     currentQuestion?.id,
     questionType,
@@ -814,7 +838,8 @@ export default function PracticeScreen({
     isChoiceChipsPanel &&
     state === 'active' &&
     revealSectionCount > 0 &&
-    !prefersReducedMotion
+    !prefersReducedMotion &&
+    !isQuickTestSession
 
   const isChoiceChipsVisible =
     !deferChoiceChipsUntilCardReveal ||
@@ -903,13 +928,32 @@ export default function PracticeScreen({
           })
       : undefined
 
+  const quickTestComposerMinHeight = useMemo(() => {
+    if (!isQuickTestSession || !currentQuestion) return undefined
+    const options = ensurePracticeChoiceOptions(
+      currentQuestion.options,
+      currentQuestion.targetAnswer
+    )
+    const height = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: options,
+      containerWidthPx: composerInnerWidthPx,
+      compact: true,
+    })
+    return height > 0 ? height : undefined
+  }, [isQuickTestSession, currentQuestion, composerInnerWidthPx])
+
   const composerHeightLockReleased =
     prefersReducedMotion ||
-    (isPuzzlePanel
+    (session.entrySource === 'quick_test' &&
+      isChoiceChipsPanel &&
+      (state === 'checking' || state === 'feedback'))
       ? false
-      : choiceComposerLayout
-        ? choiceComposerLayout.lockReleased
-        : !isRevealInProgress)
+      : isPuzzlePanel
+        ? false
+        : choiceComposerLayout
+          ? choiceComposerLayout.lockReleased
+          : !isRevealInProgress
 
   const composerPanelKind =
     correctionPhase === 'voiceLocked' || correctionPhase === 'voiceReady'
@@ -952,14 +996,16 @@ export default function PracticeScreen({
     puzzleHasTitle: false,
     puzzleHasInstruction: false,
     compact: isChoiceChipsPanel || isPuzzlePanel,
-    enabled: isChoiceChipsPanel || isPuzzlePanel || isChoiceVoiceCorrectionFlow,
+    enabled:
+      (isChoiceChipsPanel || isPuzzlePanel || isChoiceVoiceCorrectionFlow) && !isQuickTestSession,
     lockReleased: composerHeightLockReleased,
   })
 
   const composerMinHeight =
     state === 'completed'
       ? PRACTICE_FINALE_COMPOSER_RESERVE_PX
-      : lockedComposerMinHeight ??
+      : quickTestComposerMinHeight ??
+        lockedComposerMinHeight ??
         (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
           ? choiceComposerMinHeightEstimate
           : puzzleComposerLayout?.reserveMinHeight && !isPuzzleVisible
@@ -1005,13 +1051,18 @@ export default function PracticeScreen({
   })
 
   const scheduleScrollPracticeFeedTail = useCallback(
-    (behavior: ScrollBehavior = 'auto') =>
-      scheduleScroll((scrollBehavior) => {
+    (behavior: ScrollBehavior = 'auto') => {
+      const resolvedBehavior: ScrollBehavior =
+        session.entrySource === 'quick_test' && (state === 'checking' || state === 'feedback')
+          ? 'auto'
+          : behavior
+      return scheduleScroll((scrollBehavior) => {
         const scrollContainer = scrollContainerRef.current
         if (!scrollContainer) return
         scrollLessonFeedToModeIfNeeded(scrollContainer, 'tail_if_needed', scrollBehavior)
-      }, behavior),
-    [scheduleScroll]
+      }, resolvedBehavior)
+    },
+    [scheduleScroll, session.entrySource, state]
   )
 
   useEffect(() => {
@@ -1164,6 +1215,7 @@ export default function PracticeScreen({
     prefersReducedMotion,
     revealEnabled,
     scheduleScrollPracticeFeedTail,
+    session.entrySource,
   ])
 
   useEffect(() => {
@@ -1488,6 +1540,15 @@ export default function PracticeScreen({
                         !prefersReducedMotion &&
                         textAnimatingIndex === taskBubbleIndex
 
+                      const isQuickTestLesson = session.entrySource === 'quick_test'
+                      const lessonBubbleKey = isQuickTestLesson
+                        ? message.id
+                        : isCurrentQuestion && currentQuestion
+                          ? `practice-soft-${currentQuestion.id}`
+                          : message.id
+                      const lessonPreferUnifiedLayout =
+                        isQuickTestLesson || (isCurrentQuestion && isActiveRevealTarget)
+
                       return (
                         <ChatBubbleFrame
                           key={message.id}
@@ -1497,13 +1558,9 @@ export default function PracticeScreen({
                           rowClassName={rowMargin}
                         >
                           <LessonStepBubble
-                            key={
-                              isCurrentQuestion && currentQuestion
-                                ? `practice-soft-${currentQuestion.id}`
-                                : message.id
-                            }
+                            key={lessonBubbleKey}
                             bubbles={message.bubbles ?? []}
-                            preferUnifiedLayout={isCurrentQuestion && isActiveRevealTarget}
+                            preferUnifiedLayout={lessonPreferUnifiedLayout}
                             shellEnterActive={
                               isCurrentQuestion && isActiveRevealTarget ? lessonShellEnterActive : false
                             }
