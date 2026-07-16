@@ -2094,9 +2094,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             if (continuationSent) {
               engvoGreetingTriggeredRef.current = true
               setEngvoCallPhase('assistantPending')
-              window.setTimeout(() => {
-                engvoXaiTransportRef.current?.startMicCapture()
-              }, 2000)
+              // xAI: do not open mic until response.done — early VAD cancels the turn.
             } else {
               setEngvoCallPhase('listening')
               engvoXaiTransportRef.current?.startMicCapture()
@@ -2130,10 +2128,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               console.info('[engvo] greeting-sent', parsed.type)
               window.setTimeout(() => {
                 if (!engvoAssistantResponseIdRef.current) {
-                  console.warn('[engvo] greeting watchdog: no response yet, stay pending')
+                  console.warn('[engvo] greeting watchdog: no response.created yet')
                 }
-                engvoXaiTransportRef.current?.startMicCapture()
-              }, 2000)
+              }, 3000)
             } else {
               setEngvoCallPhase('listening')
               engvoXaiTransportRef.current?.startMicCapture()
@@ -2153,7 +2150,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (engvoActiveProviderRef.current !== 'xai') {
           // OpenAI uses WebRTC mic tracks already attached.
         } else if (engvoGreetingTriggeredRef.current) {
-          // Mic starts on response.created / greeting watchdog.
+          // Mic starts on response.done (avoid VAD killing greeting).
         } else if (
           parsed.type !== 'conversation.created' &&
           parsed.type !== 'session.created'
@@ -2376,9 +2373,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setEngvoAssistantPendingText('')
         }
         setEngvoCallPhase('assistantPending')
-        if (engvoActiveProviderRef.current === 'xai') {
-          engvoXaiTransportRef.current?.startMicCapture()
-        }
+        // xAI mic starts on response.done — opening mic here lets VAD kill greeting audio.
         return
       }
 
@@ -2463,6 +2458,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoAssistantResponseDoneRef.current = true
         const fallbackText = extracted || engvoFinalAssistantTextRef.current || engvoAssistantPendingText
         commitEngvoAssistantText(fallbackText, responseId)
+        if (engvoActiveProviderRef.current === 'xai') {
+          engvoXaiTransportRef.current?.startMicCapture()
+        }
       }
     },
     [

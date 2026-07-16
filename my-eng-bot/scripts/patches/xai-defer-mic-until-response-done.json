@@ -1,0 +1,18 @@
+[
+  [
+    "            if (continuationSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              window.setTimeout(() => {\n                engvoXaiTransportRef.current?.startMicCapture()\n              }, 2000)\n            } else {\n              setEngvoCallPhase('listening')\n              engvoXaiTransportRef.current?.startMicCapture()\n            }",
+    "            if (continuationSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              // xAI: do not open mic until response.done — early VAD cancels the turn.\n            } else {\n              setEngvoCallPhase('listening')\n              engvoXaiTransportRef.current?.startMicCapture()\n            }"
+  ],
+  [
+    "            if (greetingSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              console.info('[engvo] greeting-sent', parsed.type)\n              window.setTimeout(() => {\n                if (!engvoAssistantResponseIdRef.current) {\n                  console.warn('[engvo] greeting watchdog: no response yet, stay pending')\n                }\n                engvoXaiTransportRef.current?.startMicCapture()\n              }, 2000)\n            } else {\n              setEngvoCallPhase('listening')\n              engvoXaiTransportRef.current?.startMicCapture()\n            }",
+    "            if (greetingSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              console.info('[engvo] greeting-sent', parsed.type)\n              window.setTimeout(() => {\n                if (!engvoAssistantResponseIdRef.current) {\n                  console.warn('[engvo] greeting watchdog: no response.created yet')\n                }\n              }, 3000)\n            } else {\n              setEngvoCallPhase('listening')\n              engvoXaiTransportRef.current?.startMicCapture()\n            }"
+  ],
+  [
+    "        setEngvoCallPhase('assistantPending')\n        if (engvoActiveProviderRef.current === 'xai') {\n          engvoXaiTransportRef.current?.startMicCapture()\n        }\n        return\n      }\n\n      if (parsed.type === 'response.output_text.delta') {",
+    "        setEngvoCallPhase('assistantPending')\n        // xAI mic starts on response.done — opening mic here lets VAD kill greeting audio.\n        return\n      }\n\n      if (parsed.type === 'response.output_text.delta') {"
+  ],
+  [
+    "        engvoAssistantResponseDoneRef.current = true\n        const fallbackText = extracted || engvoFinalAssistantTextRef.current || engvoAssistantPendingText\n        commitEngvoAssistantText(fallbackText, responseId)\n      }\n    },",
+    "        engvoAssistantResponseDoneRef.current = true\n        const fallbackText = extracted || engvoFinalAssistantTextRef.current || engvoAssistantPendingText\n        commitEngvoAssistantText(fallbackText, responseId)\n        if (engvoActiveProviderRef.current === 'xai') {\n          engvoXaiTransportRef.current?.startMicCapture()\n        }\n      }\n    },"
+  ]
+]
