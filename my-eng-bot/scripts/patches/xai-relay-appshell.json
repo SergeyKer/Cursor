@@ -1,0 +1,18 @@
+[
+  [
+    "  const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)\n  const engvoXaiTokenRef = React.useRef<string | null>(null)",
+    "  const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)"
+  ],
+  [
+    "      engvoXaiTransportRef.current = null\n      engvoXaiTokenRef.current = null\n      if (xaiTransport) {",
+    "      engvoXaiTransportRef.current = null\n      if (xaiTransport) {"
+  ],
+  [
+    "        const tokenController = new AbortController()\n        const tokenTimeoutId = window.setTimeout(() => tokenController.abort(), ENGVO_SDP_FETCH_TIMEOUT_MS)\n        const tokenResponse = await fetch('/api/realtime-session/xai-token', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            audience: settings.audience,\n            topic: settings.topic,\n            voice: callXaiVoice,\n            level: engvoCefrLevel,\n            speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai'),\n          }),\n          signal: tokenController.signal,\n        }).finally(() => {\n          window.clearTimeout(tokenTimeoutId)\n        })\n        const tokenData = (await tokenResponse.json().catch(() => ({}))) as {\n          token?: string\n          model?: string\n          error?: string\n          userMessage?: string\n        }\n        if (!tokenResponse.ok || !tokenData.token) {\n          throw new Error(\n            tokenData.userMessage ||\n              normalizeEngvoRealtimeUserMessage(tokenData.error ?? '') ||\n              'Не удалось получить токен Grok.'\n          )\n        }\n        engvoXaiTokenRef.current = tokenData.token\n        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai')\n        const transport = connectEngvoXaiRealtime({\n          token: tokenData.token,\n          model: tokenData.model ?? ENGVO_XAI_MODEL,\n          mediaStream,\n          audioContext,\n          handlers: {",
+    "        const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai')\n        const transport = connectEngvoXaiRealtime({\n          model: ENGVO_XAI_MODEL,\n          mediaStream,\n          audioContext,\n          handlers: {"
+  ],
+  [
+    "                setEngvoSessionError('Grok не подтвердил Realtime-сессию. Проверьте сеть/VPN.')",
+    "                setEngvoSessionError('Grok не подтвердил Realtime-сессию. Попробуйте ещё раз.')"
+  ]
+]

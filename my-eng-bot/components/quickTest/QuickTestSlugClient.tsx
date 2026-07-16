@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import PracticeScreen from '@/components/practice/PracticeScreen'
 import { QuickTestThemeGuard } from '@/components/quickTest/QuickTestThemeGuard'
 import { QuickTestPageChrome } from '@/components/quickTest/QuickTestPageChrome'
@@ -37,6 +38,7 @@ import {
   pickShowcaseErrors,
   scoreBandFromCorrect,
 } from '@/lib/quickTest/scoring'
+import { resolveQuickTestFinalePresentation } from '@/lib/quickTest/resolveQuickTestFinalePresentation'
 import { getVariantFromBank } from '@/lib/quickTest/catalog'
 import { writeEntryContext } from '@/lib/quickTest/openLessonIntent'
 
@@ -174,10 +176,24 @@ export function QuickTestSlugClient({
     return practiceAnswersToQuickTestRecords(practice.session.answers, metaRef.current)
   }, [practice.session])
 
+  const answerCount = practice.session?.answers.length ?? 0
   const correctCount = countCorrect(qtAnswers)
   const band = scoreBandFromCorrect(correctCount)
+  const presentation = useMemo(
+    () =>
+      resolveQuickTestFinalePresentation({
+        correct: correctCount,
+        total: 5,
+        answerCount,
+      }),
+    [correctCount, answerCount]
+  )
   const insight = insightForMistakeTag(pickPrimaryMistakeTag(qtAnswers), band)
-  const showcaseErrors = pickShowcaseErrors(qtAnswers, bankQuestions)
+  const showcaseErrors = pickShowcaseErrors(
+    qtAnswers,
+    bankQuestions,
+    presentation.showcaseLimit || 2
+  )
   const durationLabel = formatDuration(
     Math.max(0, (finishedAt ?? Date.now()) - (startedAt ?? Date.now()))
   )
@@ -194,6 +210,7 @@ export function QuickTestSlugClient({
         topicTitle,
         scoreBand: band,
         correct: correctCount,
+        answerCount,
         durationLabel,
       })
     }
@@ -209,9 +226,57 @@ export function QuickTestSlugClient({
       })
     }
     return resolveQuickTestFooter({ phase: 'question', step, topicTitle })
-  }, [practice.state, practice.session, practice.feedback, topicTitle, band, correctCount, durationLabel])
+  }, [practice.state, practice.session, practice.feedback, topicTitle, band, correctCount, answerCount, durationLabel])
 
   const showFinale = practice.state === 'completed' && Boolean(lessonId)
+  const [compactViewport, setCompactViewport] = useState(false)
+
+  useEffect(() => {
+    const update = () => {
+      setCompactViewport(window.innerHeight < 700 || window.innerWidth < 380)
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
+  const finaleOverlay = useCallback(
+    (columnBounds: AppColumnBounds | null) =>
+      showFinale ? (
+        <QuickTestFinale
+          open
+          columnBounds={columnBounds}
+          slug={slug}
+          topicTitle={topicTitle}
+          lessonId={lessonId}
+          correct={correctCount}
+          total={5}
+          answerCount={answerCount}
+          durationLabel={durationLabel}
+          band={band}
+          insight={insight}
+          showcaseErrors={showcaseErrors}
+          nextVariantId={nextVariantId}
+          entrySource={entrySource}
+          compactViewport={compactViewport}
+        />
+      ) : null,
+    [
+      showFinale,
+      slug,
+      topicTitle,
+      lessonId,
+      correctCount,
+      answerCount,
+      durationLabel,
+      band,
+      insight,
+      showcaseErrors,
+      nextVariantId,
+      entrySource,
+      compactViewport,
+    ]
+  )
 
   const quickTestSessionActiveForDebug =
     practice.session?.entrySource === 'quick_test' &&
@@ -257,22 +322,10 @@ export function QuickTestSlugClient({
         footerTone={footer.tone}
         footerTypingKey={footer.typingKey}
         progress={footer.progress}
+        overlay={finaleOverlay}
+        mainInert={showFinale}
       >
-        {showFinale ? (
-          <QuickTestFinale
-            slug={slug}
-            topicTitle={topicTitle}
-            lessonId={lessonId}
-            correct={correctCount}
-            total={5}
-            durationLabel={durationLabel}
-            band={band}
-            insight={insight}
-            showcaseErrors={showcaseErrors}
-            nextVariantId={nextVariantId}
-            entrySource={entrySource}
-          />
-        ) : practice.session ? (
+        {practice.session ? (
           <PracticeScreen
             session={practice.session}
             audience="adult"

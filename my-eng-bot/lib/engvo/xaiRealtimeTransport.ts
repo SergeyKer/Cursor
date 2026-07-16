@@ -1,10 +1,10 @@
 import {
   ENGVO_XAI_MODEL,
   ENGVO_XAI_PCM_SAMPLE_RATE,
-  ENGVO_XAI_REALTIME_URL,
   shouldSendOutputAudioBufferClear,
   type EngvoProvider,
 } from '@/lib/engvo/constants'
+import { buildEngvoXaiRelayWsUrl } from '@/lib/engvo/xaiRelay'
 import {
   applyInputGain,
   arrayBufferToBase64,
@@ -33,14 +33,12 @@ export type EngvoXaiTransport = {
   getRemoteMediaStream: () => MediaStream | null
 }
 
+/** @deprecated Use buildEngvoXaiRelayWsUrl from xaiRelay. Kept for tests. */
 export function buildXaiRealtimeWsUrl(model: string = ENGVO_XAI_MODEL): string {
-  const url = new URL(ENGVO_XAI_REALTIME_URL)
-  url.searchParams.set('model', model)
-  return url.toString()
+  return buildEngvoXaiRelayWsUrl(model)
 }
 
 export function connectEngvoXaiRealtime(params: {
-  token: string
   model?: string
   mediaStream: MediaStream
   /** Owned by AppShell; must be resumed in the same user gesture as getUserMedia. */
@@ -48,8 +46,8 @@ export function connectEngvoXaiRealtime(params: {
   handlers: EngvoXaiTransportHandlers
 }): EngvoXaiTransport {
   const model = params.model ?? ENGVO_XAI_MODEL
-  const wsUrl = buildXaiRealtimeWsUrl(model)
-  const ws = new WebSocket(wsUrl, [`xai-client-secret.${params.token}`])
+  const wsUrl = buildEngvoXaiRelayWsUrl(model)
+  const ws = new WebSocket(wsUrl)
 
   let closed = false
   const audioContext = params.audioContext

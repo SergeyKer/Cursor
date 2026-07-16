@@ -1,7 +1,7 @@
-import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
+import { resolveQuickTestFinalePresentation } from '@/lib/quickTest/resolveQuickTestFinalePresentation'
 import type { FooterVoiceTone } from '@/lib/footerVoice'
 import type { QuickTestScoreBand } from '@/lib/quickTest/types'
-
+import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 export type QuickTestFooterPhase =
   | 'lobby-levels'
   | 'lobby-topics'
@@ -51,6 +51,7 @@ export function resolveQuickTestFooter(input: {
   topicTitle?: string
   scoreBand?: QuickTestScoreBand
   correct?: number
+  answerCount?: number
   durationLabel?: string
   frozenHint?: boolean
 }): QuickTestFooterView {
@@ -108,19 +109,20 @@ export function resolveQuickTestFooter(input: {
         typingKey: `quick-test-step-${step}`,
       }
     case 'finale': {
-      const band = input.scoreBand ?? 'start'
-      const dynamic =
-        band === 'perfect'
-          ? QUICK_TEST_COPY.footerFinalePerfect
-          : band === 'strong'
-            ? QUICK_TEST_COPY.footerFinaleStrong
-            : QUICK_TEST_COPY.footerFinaleStart
+      const correct = input.correct ?? 0
+      const answerCount = input.answerCount ?? correct
+      const presentation = resolveQuickTestFinalePresentation({
+        correct,
+        total: input.total ?? 5,
+        answerCount,
+      })
+      const band = input.scoreBand ?? presentation.band
       return {
-        dynamic,
+        dynamic: presentation.footerTitle,
         static: buildQuickTestFooterStatic(total, total, true),
         progress: { current: total, total },
-        tone,
-        typingKey: `quick-test-finale-${band}`,
+        tone: resolveQuickTestFooterTone('finale', band),
+        typingKey: `quick-test-finale-${presentation.mode}-${correct}`,
       }
     }
     default:

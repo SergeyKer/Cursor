@@ -16,6 +16,8 @@ import { isIosSafariUserAgent } from '@/lib/iosSafariViewport'
 import { formatFooterDynamicLine } from '@/lib/footerVoice'
 import { resolveFooterPresentation } from '@/lib/footerPresentation'
 import type { FooterVoiceTone } from '@/lib/footerVoice'
+import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
+import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 
 const LOGO_SRC = '/engvo-logo-1024-plus5-eqletters.png'
 const QUICK_TEST_PATTERN: ChatPatternId = 'study-doodles'
@@ -36,6 +38,9 @@ type QuickTestPageChromeProps = {
   footerTone?: FooterVoiceTone
   footerTypingKey?: string
   progress?: { current: number; total: number } | null
+  /** Fixed overlay (e.g. finale sheet) aligned to app column. */
+  overlay?: (columnBounds: AppColumnBounds | null) => React.ReactNode
+  mainInert?: boolean
 }
 
 function QuickTestFooterProgress({
@@ -90,9 +95,12 @@ export function QuickTestPageChrome({
   footerTone = 'hint',
   footerTypingKey,
   progress = null,
+  overlay,
+  mainInert = false,
 }: QuickTestPageChromeProps) {
   const appColumnRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const columnBounds = useAppColumnBounds(appColumnRef)
 
   useEffect(() => {
     const root = document.documentElement
@@ -207,14 +215,17 @@ export function QuickTestPageChrome({
       />
 
       <main
-        className="flex min-h-0 flex-1 flex-col"
+        className={`flex min-h-0 flex-1 flex-col${mainInert ? ' pointer-events-none' : ''}`}
         style={{
           paddingTop: 'var(--app-top-offset)',
           paddingBottom: 'var(--app-bottom-offset)',
         }}
+        aria-hidden={mainInert ? true : undefined}
       >
         {children}
       </main>
+
+      {overlay?.(columnBounds)}
 
       <footer className="app-dialog-chrome-footer pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-visible">
         <div className="app-footer-surface h-[var(--app-footer-row-height)] min-h-[var(--app-footer-row-height)] shrink-0 border-t border-[var(--app-footer-border)]">

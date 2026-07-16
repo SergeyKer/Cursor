@@ -101,6 +101,7 @@ import { getPracticeCoinForgivenessCopy } from '@/lib/practice/practiceCoinForgi
 import {
   PRACTICE_FINALE_COMPOSER_RESERVE_PX,
 } from '@/lib/practice/practiceFinaleLayout'
+import { shouldShowPracticeFinaleComposer } from '@/lib/quickTest/shouldShowPracticeFinaleComposer'
 import type { PracticeGlobalXpReason } from '@/lib/practice/practiceGlobalXpAward'
 
 type PhraseTranslationResult = { translation?: string; error?: string }
@@ -410,6 +411,7 @@ export default function PracticeScreen({
   const revealKey = session.questions[session.currentIndex]?.id ?? null
   const taskBubbleIndex = useMemo(() => resolveTaskBubbleIndex(revealBubbles), [revealBubbles])
   const isQuickTestSession = session.entrySource === 'quick_test'
+  const showPracticeFinaleComposer = shouldShowPracticeFinaleComposer(session, state)
   const revealEnabled =
     state === 'active' &&
     Boolean(currentLessonMessage) &&
@@ -1029,7 +1031,9 @@ export default function PracticeScreen({
 
   const composerMinHeight =
     state === 'completed'
-      ? PRACTICE_FINALE_COMPOSER_RESERVE_PX
+      ? showPracticeFinaleComposer
+        ? PRACTICE_FINALE_COMPOSER_RESERVE_PX
+        : undefined
       : lockedComposerMinHeight ??
         (choiceComposerLayout?.reserveMinHeight && !isChoiceChipsVisible
           ? choiceComposerMinHeightEstimate
@@ -1764,6 +1768,7 @@ export default function PracticeScreen({
               style={composerStackStyle}
             >
               {state === 'completed' ? (
+                showPracticeFinaleComposer ? (
                 <PracticeFinale
                   session={session}
                   completionReady={Boolean(completionMeta)}
@@ -1799,6 +1804,7 @@ export default function PracticeScreen({
                   onOpenAiChat={onOpenAiChat}
                   busy={generationBusy}
                 />
+                ) : null
               ) : state === 'error' ? (
                 <div className="space-y-2">
                   <p className="px-1 text-center text-[13px] leading-snug text-amber-800">

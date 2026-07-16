@@ -15,8 +15,8 @@ export const ENGVO_PROVIDER_STORAGE_KEY = 'myeng-engvo-provider'
 export const ENGVO_LEVEL_STORAGE_KEY = 'myeng-engvo-cefr-level'
 export const ENGVO_SPEECH_SPEED_STORAGE_KEY = 'myeng-engvo-speech-speed-preset'
 export const ENGVO_INACTIVITY_HANGUP_MS = 45_000
-/** Hard cap on live call wall-clock (token burn guard). */
-export const ENGVO_MAX_CALL_DURATION_MS = 5 * 60_000
+/** Hard cap on live call wall-clock (token burn guard). Slightly below Vercel relay maxDuration (300s). */
+export const ENGVO_MAX_CALL_DURATION_MS = 285_000
 
 export const ENGVO_PROVIDERS = ['openai', 'xai'] as const
 export type EngvoProvider = (typeof ENGVO_PROVIDERS)[number]

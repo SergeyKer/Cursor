@@ -24,4 +24,12 @@ test.describe('Quick test visual', () => {
     await expect(page.locator('.app-footer-surface')).toBeVisible()
     await expect(page).toHaveScreenshot('qt-q1.png', { fullPage: true })
   })
+
+  test('finale sheet snapshot', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/test/who-likes?debugFinale=1')
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15000 })
+    await expect(page.locator('.app-footer-surface')).toBeVisible()
+    await expect(page).toHaveScreenshot('qt-finale-sheet-start.png', { fullPage: true })
+  })
 })

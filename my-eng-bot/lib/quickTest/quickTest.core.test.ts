@@ -129,6 +129,14 @@ describe('share + analytics', () => {
         variantId: 'variant-1',
       })
     ).toEqual([])
+    expect(
+      assertAnalyticsProps('share_copy', {
+        entrySource: 'test_lobby',
+        slug: 'who-likes',
+        scoreBand: 'start',
+        ctaPosition: 'finale_tertiary',
+      })
+    ).toEqual([])
   })
 })
 

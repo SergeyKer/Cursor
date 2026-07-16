@@ -5,16 +5,16 @@ const ENGVO_RATE_LIMIT_USER_MESSAGE =
   'Слишком много запросов к голосовому сервису. Подождите немного и попробуйте снова.'
 
 const ENGVO_NETWORK_USER_MESSAGE =
-  'Не удалось подключиться к голосовому сервису. Проверьте сеть или VPN.'
+  'Не удалось подключиться к голосовому сервису. Попробуйте ещё раз через несколько секунд.'
 
 const ENGVO_XAI_MISSING_KEY_USER_MESSAGE =
   'На сервере не задан XAI_API_KEY. Добавьте ключ в .env.local (локально) или в Vercel Env.'
 
 const ENGVO_XAI_TOKEN_USER_MESSAGE =
-  'Не удалось получить токен Grok. Проверьте XAI_API_KEY и сеть (локально — VPN / HTTPS_PROXY).'
+  'Не удалось подключиться к Grok Voice. Попробуйте ещё раз.'
 
 const ENGVO_XAI_WS_USER_MESSAGE =
-  'Не удалось подключиться к Grok Voice. Проверьте сеть или VPN в браузере.'
+  'Не удалось подключиться к Grok Voice. Попробуйте ещё раз.'
 
 function extractOpenAiErrorMessage(raw: string): string {
   const trimmed = raw.trim()

@@ -279,6 +279,20 @@ import {
   buildEngvoXaiClientSessionUpdate,
 } from '@/lib/engvo/realtimeSession'
 import {
+  buildEngvoSessionBootstrapSnapshot,
+  isEngvoSessionBootstrapRedundantUpdate,
+  type EngvoSessionBootstrapSnapshot,
+} from '@/lib/engvo/sessionBootstrap'
+import {
+  createEngvoDebugTimingState,
+  isEngvoFirstAudioDeltaEvent,
+  logEngvoDebugFirstAudioDelta,
+  logEngvoDebugTimingEvent,
+  markEngvoDebugTimingOrigin,
+  recordEngvoDebugSessionUpdate,
+  resetEngvoDebugTimingState,
+} from '@/lib/engvo/debugTiming'
+import {
   connectEngvoXaiRealtime,
   getEngvoStopPlaybackEvents,
   type EngvoXaiTransport,
@@ -950,7 +964,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     useState<EngvoXaiVoiceRotationMode>(ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE)
   const engvoActiveProviderRef = React.useRef<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
   const engvoXaiTransportRef = React.useRef<EngvoXaiTransport | null>(null)
-  const engvoXaiTokenRef = React.useRef<string | null>(null)
   const engvoXaiAudioContextRef = React.useRef<AudioContext | null>(null)
   const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
   const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
@@ -1133,6 +1146,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const engvoFinalAssistantTextRef = React.useRef('')
   const engvoStreamingAssistantIndexRef = React.useRef<number | null>(null)
   const engvoSessionStartedRef = React.useRef(false)
+  const engvoSessionBootstrapRef = React.useRef<EngvoSessionBootstrapSnapshot | null>(null)
+  const engvoDebugTimingRef = React.useRef(createEngvoDebugTimingState())
   const engvoGreetingTriggeredRef = React.useRef(false)
   /** После таймера/трубки: следующий `startEngvoCall` сбрасывает чат и показывает только строку набора. */
   const engvoRedialWithoutWelcomeRef = React.useRef(false)
@@ -1634,7 +1649,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       const xaiTransport = engvoXaiTransportRef.current
       engvoXaiTransportRef.current = null
-      engvoXaiTokenRef.current = null
       if (xaiTransport) {
         try {
           xaiTransport.disconnect()
@@ -1697,6 +1711,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       engvoTranscriptStateRef.current = createRealtimeTranscriptState()
       engvoGreetingTriggeredRef.current = false
       engvoSessionStartedRef.current = false
+      engvoSessionBootstrapRef.current = null
+      resetEngvoDebugTimingState(engvoDebugTimingRef.current)
       engvoPendingRealtimeVoiceRef.current = null
       engvoPendingRealtimeSpeedRef.current = null
       engvoLastAppliedRealtimeVoiceRef.current = null
@@ -1770,14 +1786,47 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [cleanupEngvoRuntime]
   )
 
+  const buildCurrentEngvoSessionBootstrapSnapshot = useCallback((): EngvoSessionBootstrapSnapshot => {
+    const provider = engvoActiveProviderRef.current
+    return buildEngvoSessionBootstrapSnapshot({
+      level: engvoCefrLevel,
+      audience: settings.audience,
+      topic: settings.topic,
+      voice: provider === 'xai' ? engvoXaiVoice : engvoRealtimeVoice,
+      speed: clampEngvoRealtimeSpeed(
+        engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset, provider),
+        provider
+      ),
+      provider,
+    })
+  }, [
+    engvoCefrLevel,
+    engvoRealtimeVoice,
+    engvoSpeechSpeedPreset,
+    engvoXaiVoice,
+    settings.audience,
+    settings.topic,
+  ])
+
+  const refreshEngvoSessionBootstrapRef = useCallback(() => {
+    engvoSessionBootstrapRef.current = buildCurrentEngvoSessionBootstrapSnapshot()
+  }, [buildCurrentEngvoSessionBootstrapSnapshot])
+
   const sendEngvoRealtimeEvent = useCallback((payload: Record<string, unknown>): boolean => {
     if (engvoActiveProviderRef.current === 'xai') {
-      return engvoXaiTransportRef.current?.send(payload) ?? false
+      const sent = engvoXaiTransportRef.current?.send(payload) ?? false
+      if (sent && payload.type === 'session.update') {
+        recordEngvoDebugSessionUpdate(engvoDebugTimingRef.current)
+      }
+      return sent
     }
     const dataChannel = engvoDataChannelRef.current
     if (!dataChannel || dataChannel.readyState !== 'open') return false
     try {
       dataChannel.send(JSON.stringify(payload))
+      if (payload.type === 'session.update') {
+        recordEngvoDebugSessionUpdate(engvoDebugTimingRef.current)
+      }
       return true
     } catch {
       return false
@@ -1959,6 +2008,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
       if (!parsed?.type) return
 
+      if (isEngvoFirstAudioDeltaEvent(parsed.type)) {
+        logEngvoDebugFirstAudioDelta(engvoDebugTimingRef.current)
+      }
+
       const responseId = resolveEngvoRealtimeResponseId(parsed)
       if (responseId && engvoIgnoredResponseIdsRef.current.has(responseId)) return
       const activeResponseId = engvoAssistantResponseIdRef.current
@@ -1990,6 +2043,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       if (parsed.type === 'session.created' || parsed.type === 'session.updated') {
         markEngvoSessionUpdateAck()
+        logEngvoDebugTimingEvent(
+          engvoDebugTimingRef.current,
+          parsed.type === 'session.created' ? 'session.created' : 'session.updated'
+        )
+        refreshEngvoSessionBootstrapRef()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         console.info('[engvo] session-ack', parsed.type)
         engvoSessionStartedRef.current = true
@@ -2221,6 +2279,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
 
       if (parsed.type === 'response.created') {
+        logEngvoDebugTimingEvent(engvoDebugTimingRef.current, 'response.created')
         clearEngvoTimeout(engvoResponseDoneFallbackTimeoutRef)
         clearEngvoForceCommitTimeout()
         engvoForceCommitArmedRef.current = true
@@ -2353,6 +2412,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setEngvoSessionError,
       isEngvoDeferredSessionUpdateConflict,
       markEngvoSessionUpdateAck,
+      refreshEngvoSessionBootstrapRef,
       bumpEngvoGoal,
       settings.audience,
       settings.topic,
@@ -2469,40 +2529,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         }
         engvoXaiAudioContextRef.current = audioContext
 
-        const tokenController = new AbortController()
-        const tokenTimeoutId = window.setTimeout(() => tokenController.abort(), ENGVO_SDP_FETCH_TIMEOUT_MS)
-        const tokenResponse = await fetch('/api/realtime-session/xai-token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            audience: settings.audience,
-            topic: settings.topic,
-            voice: callXaiVoice,
-            level: engvoCefrLevel,
-            speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai'),
-          }),
-          signal: tokenController.signal,
-        }).finally(() => {
-          window.clearTimeout(tokenTimeoutId)
-        })
-        const tokenData = (await tokenResponse.json().catch(() => ({}))) as {
-          token?: string
-          model?: string
-          error?: string
-          userMessage?: string
-        }
-        if (!tokenResponse.ok || !tokenData.token) {
-          throw new Error(
-            tokenData.userMessage ||
-              normalizeEngvoRealtimeUserMessage(tokenData.error ?? '') ||
-              'Не удалось получить токен Grok.'
-          )
-        }
-        engvoXaiTokenRef.current = tokenData.token
         const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai')
         const transport = connectEngvoXaiRealtime({
-          token: tokenData.token,
-          model: tokenData.model ?? ENGVO_XAI_MODEL,
+          model: ENGVO_XAI_MODEL,
           mediaStream,
           audioContext,
           handlers: {
@@ -2510,6 +2539,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               void handleEngvoRealtimeMessage(raw)
             },
             onOpen: () => {
+              markEngvoDebugTimingOrigin(engvoDebugTimingRef.current)
+              logEngvoDebugTimingEvent(engvoDebugTimingRef.current, 'ws_open')
               clearEngvoTimeout(engvoPcConnectTimeoutRef)
               const sent = sendEngvoRealtimeEvent(
                 buildEngvoXaiClientSessionUpdate({
@@ -2527,9 +2558,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 setEngvoSessionError('Не удалось отправить параметры Grok-сессии.')
                 return
               }
+              engvoSessionBootstrapRef.current = buildEngvoSessionBootstrapSnapshot({
+                level: engvoCefrLevel,
+                audience: settings.audience,
+                topic: settings.topic,
+                voice: callXaiVoice,
+                speed: speechSpeed,
+                provider: 'xai',
+              })
               clearEngvoTimeout(engvoSessionAckTimeoutRef)
               engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
-                setEngvoSessionError('Grok не подтвердил Realtime-сессию. Проверьте сеть/VPN.')
+                setEngvoSessionError('Grok не подтвердил Realtime-сессию. Попробуйте ещё раз.')
               }, ENGVO_SESSION_ACK_TIMEOUT_MS)
             },
             onError: () => {
@@ -2619,6 +2658,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
 
       dataChannel.onopen = () => {
+        markEngvoDebugTimingOrigin(engvoDebugTimingRef.current)
+        logEngvoDebugTimingEvent(engvoDebugTimingRef.current, 'dc_open')
         clearEngvoTimeout(engvoDcOpenTimeoutRef)
         console.info('[engvo] dc-open')
         const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai')
@@ -2644,6 +2685,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setEngvoSessionError('Не удалось отправить параметры Realtime-сессии.')
           return
         }
+        engvoSessionBootstrapRef.current = buildEngvoSessionBootstrapSnapshot({
+          level: engvoCefrLevel,
+          audience: settings.audience,
+          topic: settings.topic,
+          voice: engvoRealtimeVoice,
+          speed: speechSpeed,
+          provider: 'openai',
+        })
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
           setEngvoSessionError('OpenAI не подтвердил Realtime-сессию. Проверьте сеть/VPN.')
@@ -2954,8 +3003,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   useEffect(() => {
     if (!engvoVoiceMode || !engvoSessionStartedRef.current) return
+    const next = buildCurrentEngvoSessionBootstrapSnapshot()
+    if (isEngvoSessionBootstrapRedundantUpdate(engvoSessionBootstrapRef.current, next)) return
     updateEngvoRealtimeSession({ level: engvoCefrLevel })
-  }, [engvoVoiceMode, engvoCefrLevel, settings.audience, settings.topic, updateEngvoRealtimeSession])
+  }, [
+    engvoVoiceMode,
+    engvoCefrLevel,
+    settings.audience,
+    settings.topic,
+    buildCurrentEngvoSessionBootstrapSnapshot,
+    updateEngvoRealtimeSession,
+  ])
 
   useEffect(() => {
     if (!engvoVoiceMode) return

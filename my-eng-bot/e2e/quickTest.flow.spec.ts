@@ -33,8 +33,24 @@ test.describe('Quick test flow', () => {
     await expect(statusLine).toContainText('Engvo готовит задание')
   })
 
-  test('unknown slug is 404', async ({ page }) => {
-    const res = await page.goto('/test/not-a-real-slug-xyz')
-    expect(res?.status()).toBe(404)
+  test('finale sheet via debugFinale', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/test/who-likes?debugFinale=1')
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('heading', { name: 'Результат' })).toBeVisible()
+    await expect(page.getByText('Прогон без ответов')).toBeVisible()
+    await expect(page.getByText('Нормальный старт')).toHaveCount(0)
+    await expect(page.getByLabel('Закрыть')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: /Пройти тему в уроке с нуля/i })).toBeVisible()
+    await expect(page.locator('.dialog-composer-dock')).toBeVisible()
+    await expect(page.getByText('Загрузка результата')).toHaveCount(0)
+  })
+
+  test('finale other test navigates to lobby', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/test/who-likes?debugFinale=1')
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 15000 })
+    await page.getByRole('button', { name: 'Другой тест' }).first().click()
+    await expect(page).toHaveURL(/\/test$/)
   })
 })

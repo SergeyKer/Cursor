@@ -18,14 +18,18 @@
     "check:cyrillic": "node scripts/check-cyrillic-integrity.mjs",
     "check:bundle:baseline": "node scripts/check-bundle-budget.mjs --baseline --save-baseline",
     "check:bundle": "node scripts/check-bundle-budget.mjs --enforce",
-    "test:translation:smoke": "vitest run lib/translationLastRepeat.test.ts app/api/chat/route.translationStateRetention.test.ts lib/translationSayReconcile.test.ts app/api/chat/route.translationContext.test.ts app/api/chat/route.repeatFlow.test.ts"
+    "test:translation:smoke": "vitest run lib/translationLastRepeat.test.ts app/api/chat/route.translationStateRetention.test.ts lib/translationSayReconcile.test.ts app/api/chat/route.translationContext.test.ts app/api/chat/route.repeatFlow.test.ts",
+    "dev:vercel": "vercel dev"
   },
   "dependencies": {
+    "@vercel/functions": "^3.7.5",
+    "https-proxy-agent": "^7.0.6",
     "next": "^14.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "server-only": "^0.0.1",
     "undici": "^7.24.5",
+    "ws": "^8.18.1",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -33,6 +37,7 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/ws": "^8.18.1",
     "autoprefixer": "^10.4.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "^14.2.0",

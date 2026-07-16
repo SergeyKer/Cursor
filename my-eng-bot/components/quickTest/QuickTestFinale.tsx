@@ -1,14 +1,19 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import MedalBadge from '@/components/MedalBadge'
-import { QuickTestShareButton } from '@/components/quickTest/QuickTestShareButton'
+import { useCallback, useMemo, useState } from 'react'
+import { QuickTestFinaleSheet } from '@/components/quickTest/QuickTestFinaleSheet'
+import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
+import { buildQuickTestFinaleActions } from '@/lib/quickTest/buildQuickTestFinaleActions'
+import type { QuickTestFinaleAction } from '@/lib/quickTest/buildQuickTestFinaleActions'
 import {
   clearEntryContext,
   readEntryContext,
   writeOpenLessonIntent,
 } from '@/lib/quickTest/openLessonIntent'
 import { trackQuickTest } from '@/lib/quickTest/analytics'
+import { resolveQuickTestFinalePresentation } from '@/lib/quickTest/resolveQuickTestFinalePresentation'
+import { buildQuickTestSharePayload } from '@/lib/quickTest/shareCopy'
 import type { QuickTestEntrySource, QuickTestScoreBand } from '@/lib/quickTest/types'
 import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 
@@ -20,49 +25,60 @@ type ShowcaseError = {
 }
 
 type QuickTestFinaleProps = {
+  open: boolean
+  columnBounds?: AppColumnBounds | null
   slug: string
   topicTitle: string
   lessonId: string
   correct: number
   total: number
+  answerCount: number
   durationLabel: string
   band: QuickTestScoreBand
   insight: string | null
   showcaseErrors: ShowcaseError[]
   nextVariantId: string | null
   entrySource: QuickTestEntrySource
+  compactViewport?: boolean
 }
 
 export function QuickTestFinale({
+  open,
+  columnBounds = null,
   slug,
   topicTitle,
   lessonId,
   correct,
   total,
+  answerCount,
   durationLabel,
   band,
   insight,
   showcaseErrors,
   nextVariantId,
   entrySource,
+  compactViewport = false,
 }: QuickTestFinaleProps) {
   const router = useRouter()
+  const [shareNotice, setShareNotice] = useState<string | null>(null)
 
-  const title =
-    band === 'perfect'
-      ? QUICK_TEST_COPY.finaleTitlePerfect
-      : band === 'strong'
-        ? QUICK_TEST_COPY.finaleTitleStrong
-        : QUICK_TEST_COPY.finaleTitleStart
+  const presentation = useMemo(
+    () =>
+      resolveQuickTestFinalePresentation({
+        correct,
+        total,
+        answerCount,
+        compactViewport,
+      }),
+    [correct, total, answerCount, compactViewport]
+  )
 
-  const cta =
-    band === 'perfect'
-      ? QUICK_TEST_COPY.finaleCtaPerfect
-      : band === 'strong'
-        ? QUICK_TEST_COPY.finaleCtaStrong
-        : QUICK_TEST_COPY.finaleCtaStart
+  const actions = useMemo(
+    () => buildQuickTestFinaleActions({ band, nextVariantId }),
+    [band, nextVariantId]
+  )
 
-  const openLesson = () => {
+  const openLesson = useCallback(() => {
     const entry = readEntryContext()
     writeOpenLessonIntent({
       lessonId,
@@ -80,9 +96,9 @@ export function QuickTestFinale({
       ctaPosition: 'finale_primary',
     })
     window.location.assign('/')
-  }
+  }, [band, entrySource, lessonId, slug])
 
-  const anotherVariant = () => {
+  const anotherVariant = useCallback(() => {
     if (!nextVariantId) return
     trackQuickTest('cta_another_variant', {
       entrySource,
@@ -92,9 +108,9 @@ export function QuickTestFinale({
       ctaPosition: 'finale_secondary',
     })
     router.push(`/test/${slug}?variant=${encodeURIComponent(nextVariantId)}`)
-  }
+  }, [band, entrySource, nextVariantId, router, slug])
 
-  const otherTest = () => {
+  const otherTest = useCallback(() => {
     trackQuickTest('cta_other_test', {
       entrySource,
       slug,
@@ -103,87 +119,65 @@ export function QuickTestFinale({
       ctaPosition: 'finale_tertiary',
     })
     router.replace('/test')
-  }
+  }, [band, entrySource, router, slug])
+
+  const share = useCallback(async () => {
+    const payload = buildQuickTestSharePayload({
+      slug,
+      topicTitle,
+      correct,
+      total,
+      durationLabel,
+    })
+    trackQuickTest('share_copy', {
+      entrySource,
+      slug,
+      scoreBand: band,
+      ctaId: 'share_copy',
+      ctaPosition: actions.tertiary.id === 'share' ? 'finale_tertiary' : 'finale_secondary',
+    })
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(payload.text)
+        setShareNotice(QUICK_TEST_COPY.shareCopied)
+        return
+      }
+    } catch {
+      /* fall through */
+    }
+    setShareNotice(QUICK_TEST_COPY.shareClipboardFallback)
+  }, [actions.tertiary.id, band, correct, durationLabel, entrySource, slug, topicTitle, total])
+
+  const handleSecondary = useCallback(
+    (action: QuickTestFinaleAction) => {
+      if (action.id === 'another_variant') anotherVariant()
+      else if (action.id === 'other_test') otherTest()
+      else void share()
+    },
+    [anotherVariant, otherTest, share]
+  )
+
+  const handleTertiary = useCallback(() => {
+    if (actions.tertiary.id === 'share') void share()
+    else otherTest()
+  }, [actions.tertiary.id, otherTest, share])
 
   return (
-    <div className="chat-shell-x mx-auto flex w-full max-w-xl flex-1 flex-col gap-4 px-3 py-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-[22px] font-semibold leading-tight text-[var(--text)]">{title}</h2>
-          <p className="mt-1 text-[15px] text-[var(--text-secondary,var(--text))] opacity-80">
-            {QUICK_TEST_COPY.finaleScore(correct, total)} · {durationLabel} · {topicTitle}
-          </p>
-        </div>
-        {band === 'perfect' ? <MedalBadge tier="gold" muted size="md" title="Призрак медали" /> : null}
-      </div>
-
-      {band === 'perfect' ? (
-        <p className="text-[14px] leading-relaxed text-[var(--text)] opacity-85">
-          {QUICK_TEST_COPY.finalePerfectHint}
-        </p>
-      ) : null}
-
-      {insight ? (
-        <p className="rounded-xl border border-[var(--border-subtle,rgba(0,0,0,0.12))] bg-white/45 px-3 py-2.5 text-[14px] leading-relaxed text-[var(--text)]">
-          {insight}
-        </p>
-      ) : null}
-
-      {showcaseErrors.length > 0 ? (
-        <div>
-          <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-[var(--text)] opacity-70">
-            {QUICK_TEST_COPY.finaleErrorsHeading}
-          </h3>
-          <ul className="space-y-2">
-            {showcaseErrors.map((item) => (
-              <li
-                key={item.questionId}
-                className="rounded-xl border border-[var(--border-subtle,rgba(0,0,0,0.1))] bg-white/35 px-3 py-2 text-[13px] leading-relaxed"
-              >
-                <div className="font-medium">{item.prompt}</div>
-                <div className="mt-1 opacity-80">{item.explanationRu}</div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        onClick={openLesson}
-        className="min-h-[48px] w-full rounded-xl bg-[var(--text-accent,#4f8fe8)] px-4 py-3 text-[16px] font-semibold text-white touch-manipulation"
-      >
-        {cta}
-      </button>
-
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <QuickTestShareButton
-          slug={slug}
-          topicTitle={topicTitle}
-          correct={correct}
-          total={total}
-          durationLabel={durationLabel}
-          scoreBand={band}
-          entrySource={entrySource}
-        />
-        {nextVariantId ? (
-          <button
-            type="button"
-            onClick={anotherVariant}
-            className="min-h-[44px] w-full rounded-xl border border-[var(--border-subtle,rgba(0,0,0,0.15))] bg-white/50 px-4 py-2.5 text-[15px] font-medium text-[var(--text)] touch-manipulation"
-          >
-            {QUICK_TEST_COPY.finaleAnotherVariant}
-          </button>
-        ) : null}
-      </div>
-
-      <button
-        type="button"
-        onClick={otherTest}
-        className="mx-auto text-[14px] font-medium text-[var(--text-accent,#4f8fe8)] underline-offset-2 hover:underline"
-      >
-        {QUICK_TEST_COPY.finaleOtherTest}
-      </button>
-    </div>
+    <QuickTestFinaleSheet
+      open={open}
+      columnBounds={columnBounds}
+      presentation={presentation}
+      topicTitle={topicTitle}
+      correct={correct}
+      total={total}
+      durationLabel={durationLabel}
+      insight={insight}
+      showcaseErrors={showcaseErrors}
+      actions={actions}
+      shareNotice={shareNotice}
+      onPrimary={openLesson}
+      onSecondary={handleSecondary}
+      onTertiary={handleTertiary}
+    />
   )
 }
