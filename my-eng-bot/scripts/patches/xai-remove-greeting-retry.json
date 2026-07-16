@@ -1,0 +1,6 @@
+[
+  [
+    "              console.info('[engvo] greeting-sent', parsed.type)\n              window.setTimeout(() => {\n                if (engvoAssistantResponseIdRef.current) return\n                console.warn('[engvo] greeting watchdog: retry bare response.create')\n                sendEngvoRealtimeEvent({ type: 'response.create' })\n              }, 2500)",
+    "              console.info('[engvo] greeting-sent', parsed.type)"
+  ]
+]

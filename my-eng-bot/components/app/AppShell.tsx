@@ -2224,11 +2224,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               engvoGreetingTriggeredRef.current = true
               setEngvoCallPhase('assistantPending')
               console.info('[engvo] greeting-sent', parsed.type)
-              window.setTimeout(() => {
-                if (engvoAssistantResponseIdRef.current) return
-                console.warn('[engvo] greeting watchdog: retry bare response.create')
-                sendEngvoRealtimeEvent({ type: 'response.create' })
-              }, 2500)
             } else {
               setEngvoCallPhase('listening')
               engvoXaiTransportRef.current?.startMicCapture()
