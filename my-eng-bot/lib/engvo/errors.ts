@@ -64,7 +64,8 @@ function mapEngvoRealtimeApiMessage(apiMessage: string, httpStatus?: number): st
   if (
     normalized.includes('network') ||
     normalized.includes('timeout') ||
-    normalized.includes('connection')
+    normalized.includes('connection') ||
+    normalized.includes('fetch failed')
   ) {
     return ENGVO_NETWORK_USER_MESSAGE
   }

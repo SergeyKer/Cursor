@@ -184,11 +184,7 @@ export function connectEngvoXaiRealtime(params: {
     const raw = typeof event.data === 'string' ? event.data : ''
     if (!raw) return
     try {
-      const parsed = JSON.parse(raw) as {
-        type?: string
-        delta?: string
-        error?: { message?: string; code?: string }
-      }
+      const parsed = JSON.parse(raw) as { type?: string; delta?: string }
       if (
         (parsed.type === 'response.output_audio.delta' || parsed.type === 'response.audio.delta') &&
         typeof parsed.delta === 'string' &&

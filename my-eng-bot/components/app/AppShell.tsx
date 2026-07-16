@@ -297,7 +297,7 @@ import {
   getEngvoStopPlaybackEvents,
   type EngvoXaiTransport,
 } from '@/lib/engvo/xaiRealtimeTransport'
-import { resolveEngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
+import { resolveEngvoXaiTransportMode, type EngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
 import { primeEngvoVoiceMeterAudio } from '@/components/EngvoVoiceMeter'
 import {
   loadEngvoCefrLevel,
@@ -2531,7 +2531,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoXaiAudioContextRef.current = audioContext
 
         const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai')
-        const xaiTransportMode = resolveEngvoXaiTransportMode()
+        let xaiTransportMode: EngvoXaiTransportMode = resolveEngvoXaiTransportMode()
+        try {
+          const modeResponse = await fetch('/api/realtime-session/xai-transport-mode')
+          if (modeResponse.ok) {
+            const modeData = (await modeResponse.json().catch(() => ({}))) as {
+              mode?: EngvoXaiTransportMode
+            }
+            if (modeData.mode === 'relay' || modeData.mode === 'direct') {
+              xaiTransportMode = modeData.mode
+            }
+          }
+        } catch {
+          // keep client fallback
+        }
         let xaiToken: string | undefined
         if (xaiTransportMode === 'direct') {
           const tokenController = new AbortController()
