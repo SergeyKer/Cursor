@@ -1,6 +1,7 @@
 import {
   ENGVO_XAI_MODEL,
   ENGVO_XAI_PCM_SAMPLE_RATE,
+  ENGVO_XAI_REALTIME_URL,
   shouldSendOutputAudioBufferClear,
   type EngvoProvider,
 } from '@/lib/engvo/constants'
@@ -14,6 +15,7 @@ import {
   ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT,
   floatTo16BitPCM,
 } from '@/lib/engvo/pcm'
+import type { EngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
 
 export { shouldSendOutputAudioBufferClear }
 
@@ -33,12 +35,20 @@ export type EngvoXaiTransport = {
   getRemoteMediaStream: () => MediaStream | null
 }
 
-/** @deprecated Use buildEngvoXaiRelayWsUrl from xaiRelay. Kept for tests. */
+export function buildXaiDirectRealtimeWsUrl(model: string = ENGVO_XAI_MODEL): string {
+  const url = new URL(ENGVO_XAI_REALTIME_URL)
+  url.searchParams.set('model', model)
+  return url.toString()
+}
+
+/** Browser-side direct xAI Realtime URL (legacy name kept for tests). */
 export function buildXaiRealtimeWsUrl(model: string = ENGVO_XAI_MODEL): string {
-  return buildEngvoXaiRelayWsUrl(model)
+  return buildXaiDirectRealtimeWsUrl(model)
 }
 
 export function connectEngvoXaiRealtime(params: {
+  token?: string
+  transport?: EngvoXaiTransportMode
   model?: string
   mediaStream: MediaStream
   /** Owned by AppShell; must be resumed in the same user gesture as getUserMedia. */
@@ -46,8 +56,13 @@ export function connectEngvoXaiRealtime(params: {
   handlers: EngvoXaiTransportHandlers
 }): EngvoXaiTransport {
   const model = params.model ?? ENGVO_XAI_MODEL
-  const wsUrl = buildEngvoXaiRelayWsUrl(model)
-  const ws = new WebSocket(wsUrl)
+  const transport = params.transport ?? (params.token ? 'direct' : 'relay')
+  const wsUrl =
+    transport === 'relay' ? buildEngvoXaiRelayWsUrl(model) : buildXaiDirectRealtimeWsUrl(model)
+  const ws =
+    transport === 'direct' && params.token
+      ? new WebSocket(wsUrl, [`xai-client-secret.${params.token}`])
+      : new WebSocket(wsUrl)
 
   let closed = false
   const audioContext = params.audioContext
@@ -169,7 +184,11 @@ export function connectEngvoXaiRealtime(params: {
     const raw = typeof event.data === 'string' ? event.data : ''
     if (!raw) return
     try {
-      const parsed = JSON.parse(raw) as { type?: string; delta?: string }
+      const parsed = JSON.parse(raw) as {
+        type?: string
+        delta?: string
+        error?: { message?: string; code?: string }
+      }
       if (
         (parsed.type === 'response.output_audio.delta' || parsed.type === 'response.audio.delta') &&
         typeof parsed.delta === 'string' &&

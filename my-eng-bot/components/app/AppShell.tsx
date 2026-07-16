@@ -297,6 +297,7 @@ import {
   getEngvoStopPlaybackEvents,
   type EngvoXaiTransport,
 } from '@/lib/engvo/xaiRealtimeTransport'
+import { resolveEngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
 import { primeEngvoVoiceMeterAudio } from '@/components/EngvoVoiceMeter'
 import {
   loadEngvoCefrLevel,
@@ -2530,7 +2531,46 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoXaiAudioContextRef.current = audioContext
 
         const speechSpeed = clampEngvoRealtimeSpeed(speechSpeedForCall, 'xai')
+        const xaiTransportMode = resolveEngvoXaiTransportMode()
+        let xaiToken: string | undefined
+        if (xaiTransportMode === 'direct') {
+          const tokenController = new AbortController()
+          const tokenTimeoutId = window.setTimeout(
+            () => tokenController.abort(),
+            ENGVO_SDP_FETCH_TIMEOUT_MS
+          )
+          const tokenResponse = await fetch('/api/realtime-session/xai-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              audience: settings.audience,
+              topic: settings.topic,
+              voice: callXaiVoice,
+              level: engvoCefrLevel,
+              speed: speechSpeed,
+            }),
+            signal: tokenController.signal,
+          }).finally(() => {
+            window.clearTimeout(tokenTimeoutId)
+          })
+          const tokenData = (await tokenResponse.json().catch(() => ({}))) as {
+            token?: string
+            model?: string
+            error?: string
+            userMessage?: string
+          }
+          if (!tokenResponse.ok || !tokenData.token) {
+            throw new Error(
+              tokenData.userMessage ||
+                normalizeEngvoRealtimeUserMessage(tokenData.error ?? '') ||
+                'Failed to mint Grok token.'
+            )
+          }
+          xaiToken = tokenData.token
+        }
         const transport = connectEngvoXaiRealtime({
+          transport: xaiTransportMode,
+          token: xaiToken,
           model: ENGVO_XAI_MODEL,
           mediaStream,
           audioContext,
