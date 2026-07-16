@@ -9,11 +9,13 @@ const ENGVO_FEED_SERVICE_TYPING_CLASS =
 type EngvoFeedServiceTypingTextProps = {
   text: string
   className?: string
+  instant?: boolean
 }
 
 export default function EngvoFeedServiceTypingText({
   text,
   className,
+  instant = false,
 }: EngvoFeedServiceTypingTextProps) {
   return (
     <TypingText
@@ -23,6 +25,7 @@ export default function EngvoFeedServiceTypingText({
       startDelayMs={0}
       fadeWhileTyping={false}
       singleLine
+      instant={instant}
       className={className ?? ENGVO_FEED_SERVICE_TYPING_CLASS}
     />
   )

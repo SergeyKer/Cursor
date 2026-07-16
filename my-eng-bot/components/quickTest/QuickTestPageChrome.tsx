@@ -1,7 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AppIconFrame } from '@/components/AppIconFrame'
+import { MenuToggleIcon } from '@/components/MenuToggleIcon'
+import { QuickTestAppMenu } from '@/components/quickTest/QuickTestAppMenu'
 import TypingText from '@/components/TypingText'
 import EmojiLeadingStatText from '@/components/EmojiLeadingStatText'
 import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
@@ -20,8 +22,14 @@ const QUICK_TEST_PATTERN: ChatPatternId = 'study-doodles'
 const IOS_SAFARI_DIALOG_ATTR = 'data-ios-safari-dialog'
 
 type QuickTestPageChromeProps = {
-  showExit?: boolean
-  onExit?: () => void
+  /** Перед уходом из активного прогона теста. false — отменить навигацию. */
+  onLeaveTest?: () => boolean
+  /** DEBUG: сразу к финалу быстрого теста. */
+  onDebugSkipToQuickTestFinale?: () => void
+  quickTestSessionActiveForDebug?: boolean
+  quickTestLobbyActiveForDebug?: boolean
+  /** Перезапуск intro на /test (пункт меню «Быстрый тест»). */
+  onOpenQuickTest?: () => void
   children: React.ReactNode
   footerDynamic?: string
   footerStatic?: string
@@ -71,8 +79,11 @@ function QuickTestFooterProgress({
 }
 
 export function QuickTestPageChrome({
-  showExit = false,
-  onExit,
+  onLeaveTest,
+  onDebugSkipToQuickTestFinale,
+  quickTestSessionActiveForDebug = false,
+  quickTestLobbyActiveForDebug = false,
+  onOpenQuickTest,
   children,
   footerDynamic = '',
   footerStatic = '',
@@ -80,6 +91,21 @@ export function QuickTestPageChrome({
   footerTypingKey,
   progress = null,
 }: QuickTestPageChromeProps) {
+  const appColumnRef = useRef<HTMLDivElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (menuOpen) {
+      root.setAttribute('data-menu-open', '')
+    } else {
+      root.removeAttribute('data-menu-open')
+    }
+    return () => {
+      root.removeAttribute('data-menu-open')
+    }
+  }, [menuOpen])
+
   useEffect(() => {
     const root = document.documentElement
     const prevPattern = root.getAttribute('data-chat-pattern')
@@ -118,6 +144,11 @@ export function QuickTestPageChrome({
     text: topLine,
   })
 
+  const handleDebugSkipToQuickTestFinale = useCallback(() => {
+    setMenuOpen(false)
+    onDebugSkipToQuickTestFinale?.()
+  }, [onDebugSkipToQuickTestFinale])
+
   return (
     <div
       className="quick-test-root flex flex-col bg-[var(--bg)] text-[var(--text)]"
@@ -133,33 +164,47 @@ export function QuickTestPageChrome({
         className="app-header-surface fixed left-0 right-0 top-0 z-[65] border-b border-[var(--app-header-border)]"
         style={{ paddingTop: 'var(--app-safe-top-inset)' }}
       >
-        <div className="chat-shell-x grid w-full min-h-[var(--app-header-row-height)] grid-cols-[2.5rem_1fr_2.5rem] items-center">
-          <div className="col-start-1 flex items-center justify-start">
-            {showExit ? (
-              <button
-                type="button"
-                className="app-header-control chat-action-button flex h-10 w-10 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
-                style={{ borderRadius: 'var(--app-header-control-radius)' }}
-                aria-label={QUICK_TEST_COPY.exitLabel}
-                onClick={onExit}
-              >
-                <span aria-hidden className="text-xl leading-none">
-                  ×
-                </span>
-              </button>
-            ) : null}
-          </div>
-          <h1
-            className="col-start-2 truncate px-2 text-center text-[16px] font-semibold leading-[1.32] text-[var(--app-header-text)] sm:text-[17px]"
-            style={{ fontFamily: 'var(--app-header-font-family)' }}
+        <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
+          <div
+            ref={appColumnRef}
+            className="relative mx-auto grid w-full max-w-[29rem] grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto]"
           >
-            {QUICK_TEST_COPY.headerTitle}
-          </h1>
-          <div className="col-start-3 flex items-center justify-end">
-            <AppIconFrame variant="header" src={LOGO_SRC} alt="Engvo" />
+            <button
+              type="button"
+              onClick={() => setMenuOpen((value) => !value)}
+              className="app-header-control chat-action-button pointer-events-auto relative z-20 col-start-1 row-start-1 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
+              style={{ borderRadius: 'var(--app-header-control-radius)' }}
+              aria-label={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
+              aria-expanded={menuOpen}
+              title={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
+            >
+              <MenuToggleIcon />
+            </button>
+            <h1
+              className="app-header-title-layer col-start-2 min-w-0 truncate px-2 text-center text-[16px] font-semibold leading-[1.32] text-[var(--app-header-text)] sm:text-[17px]"
+              style={{ fontFamily: 'var(--app-header-font-family)' }}
+            >
+              {QUICK_TEST_COPY.headerTitle}
+            </h1>
+            <div className="relative z-20 col-start-3 row-start-1 flex h-10 min-h-[36px] shrink-0 items-center justify-end gap-1 justify-self-end">
+              <AppIconFrame variant="header" src={LOGO_SRC} alt="Engvo" />
+            </div>
           </div>
         </div>
       </header>
+
+      <QuickTestAppMenu
+        open={menuOpen}
+        onToggle={() => setMenuOpen((value) => !value)}
+        columnRef={appColumnRef}
+        onLeaveTest={onLeaveTest}
+        onDebugSkipToQuickTestFinale={
+          onDebugSkipToQuickTestFinale ? handleDebugSkipToQuickTestFinale : undefined
+        }
+        quickTestSessionActiveForDebug={quickTestSessionActiveForDebug}
+        quickTestLobbyActiveForDebug={quickTestLobbyActiveForDebug}
+        onOpenQuickTest={onOpenQuickTest}
+      />
 
       <main
         className="flex min-h-0 flex-1 flex-col"

@@ -51,6 +51,7 @@ export default async function QuickTestSlugPage({ params, searchParams }: PagePr
 
   const variantParam = firstString(query.variant)
   const fromShare = firstString(query.from) === 'share'
+  const debugFinale = firstString(query.debugFinale) === '1'
   const forceDefaultVariant = !variantParam
   const variantId = forceDefaultVariant ? DEFAULT_VARIANT_ID : variantParam || DEFAULT_VARIANT_ID
   const variant = getVariantFromBank(slug, variantId) ?? getVariantFromBank(slug, DEFAULT_VARIANT_ID)
@@ -72,6 +73,7 @@ export default async function QuickTestSlugPage({ params, searchParams }: PagePr
       forceDefaultVariant={forceDefaultVariant}
       entrySource={entrySource}
       fromShare={fromShare}
+      debugFinale={debugFinale}
       ssrPrompt={q1.prompt}
       ssrOptions={shuffled.options}
     />

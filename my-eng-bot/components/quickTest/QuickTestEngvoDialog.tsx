@@ -14,13 +14,16 @@ import LessonChoiceChips from '@/components/LessonChoiceChips'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import TypingText from '@/components/TypingText'
-import { ChatBubbleFrame, getBubblePosition } from '@/components/chat/ChatBubble'
+import {
+  CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
+  ChatBubbleFrame,
+  getBubblePosition,
+} from '@/components/chat/ChatBubble'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
-import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
-import { measureChoiceChipsLaneWidthPx } from '@/lib/lessonComposerLayout'
+import { estimateLessonComposerMinHeight, measureChoiceChipsLaneWidthPx } from '@/lib/lessonComposerLayout'
 import {
   isLessonFeedOverflowing,
   LESSON_SCROLL_VIEWPORT_CLASS,
@@ -29,7 +32,7 @@ import {
   scrollLessonFeedTailMessageIntoView,
   scrollLessonFeedToMax,
 } from '@/lib/lessonFeedScroll'
-import { ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
+import { ENGVO_PREPARING_TASK_MESSAGE, ENGVO_TYPING_MESSAGE } from '@/lib/engvoPersonaCopy'
 import { ENGVO_SERVICE_TYPEWRITER_CHAR_MS } from '@/lib/practice/practiceRevealTiming'
 import { PRACTICE_ANSWER_REVEAL_MS, PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
 import {
@@ -67,9 +70,10 @@ type FeedMessage =
 
 type QuickTestEngvoDialogProps = {
   onFooterChange?: (footer: QuickTestFooterView) => void
+  onDebugSlugChange?: (slug: string | null) => void
 }
 
-export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogProps) {
+export function QuickTestEngvoDialog({ onFooterChange, onDebugSlugChange }: QuickTestEngvoDialogProps) {
   const router = useRouter()
   const prefersReducedMotion = usePrefersReducedMotion()
   const scrollContainerRef = useRef<HTMLDivElement>(null)
@@ -92,6 +96,7 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
   const [level, setLevel] = useState<QuickTestLevelId | null>(null)
   const [composerInnerWidthPx, setComposerInnerWidthPx] = useState<number | undefined>()
   const [topicTransitionPending, setTopicTransitionPending] = useState(false)
+  const [selectedTopicSlug, setSelectedTopicSlug] = useState<string | null>(null)
   const topicNavigateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const topicTransitionPendingRef = useRef(false)
 
@@ -108,6 +113,11 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     enabled: introReady,
   })
 
+  const lobbyComposerLockRef = useRef(0)
+  const [stableLobbyComposerMinHeight, setStableLobbyComposerMinHeight] = useState<number | undefined>(
+    undefined
+  )
+
   const pinLobbyFeedTail = useCallback(() => {
     const container = scrollContainerRef.current
     if (!container) return
@@ -115,6 +125,13 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
       prefersReducedMotion,
       reason: 'new_message',
     })
+
+    const serviceRow = container.querySelector<HTMLElement>('[data-feed-service-status]')
+    if (serviceRow) {
+      scrollLessonFeedToMax(container, behavior)
+      return
+    }
+
     scrollLessonFeedTailMessageIntoView(container, behavior)
     if (isLessonFeedOverflowing(container)) {
       scrollLessonFeedToMax(container, behavior)
@@ -125,6 +142,7 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
       if (event.animationName !== 'lessonSlideIn') return
       feedTailEnter.markEnterFinished(messageId)
+      if (topicTransitionPendingRef.current) return
       scheduleScrollAfterLayout(pinLobbyFeedTail)
     },
     [feedTailEnter, pinLobbyFeedTail]
@@ -134,6 +152,7 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
       if (event.animationName !== 'lessonSlideIn') return
       feedTailEnter.markEnterFinished(messageId)
+      if (topicTransitionPendingRef.current) return
       scheduleScrollAfterLayout(pinLobbyFeedTail)
     },
     [feedTailEnter, pinLobbyFeedTail]
@@ -149,6 +168,19 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
       resolveQuickTestFooter({ phase: phase === 'levels' ? 'lobby-levels' : 'lobby-topics' })
     )
   }, [phase, onFooterChange])
+
+  useEffect(() => {
+    if (!onDebugSlugChange) return
+    if (selectedTopicSlug) {
+      onDebugSlugChange(selectedTopicSlug)
+      return
+    }
+    if (phase === 'topics' && level) {
+      onDebugSlugChange(getPopularTopicsForLevel(level)[0]?.slug ?? null)
+      return
+    }
+    onDebugSlugChange(resolveRecommendedTopicSlug())
+  }, [level, onDebugSlugChange, phase, selectedTopicSlug])
 
   useEffect(() => {
     if (!prefersReducedMotion) return
@@ -223,6 +255,7 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     (slug: string, userLabel?: string) => {
       if (topicTransitionPendingRef.current) return
       topicTransitionPendingRef.current = true
+      setSelectedTopicSlug(slug)
 
       if (userLabel) {
         setFeed((prev) => [
@@ -309,17 +342,89 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
     return () => observer.disconnect()
   }, [choiceOptions, introReady, phase])
 
-  const composerMinHeight = useLessonComposerHeightLock({
-    stackRef: composerStackRef,
-    transitionKey: `lobby-${phase}`,
-    panelKind: 'choice',
-    optionCount: choiceOptions.length,
-    choiceOptions,
-    containerWidthPx: composerInnerWidthPx,
-    compact: true,
-    enabled: introReady,
-    lockReleased: false,
-  })
+  const levelsChoiceOptions = useMemo(
+    () => [...levelLabels, QUICK_TEST_COPY.dontKnowChip],
+    [levelLabels]
+  )
+
+  const lobbyComposerMinHeight = useMemo(() => {
+    const levelsHeight = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: levelsChoiceOptions,
+      containerWidthPx: composerInnerWidthPx,
+      compact: true,
+    })
+
+    let topicsHeight = 0
+    for (const levelId of LEVELS) {
+      const labels = getPopularTopicsForLevel(levelId).map((topic) => topic.title)
+      if (labels.length === 0) continue
+      topicsHeight = Math.max(
+        topicsHeight,
+        estimateLessonComposerMinHeight({
+          panelKind: 'choice',
+          choiceOptions: labels,
+          containerWidthPx: composerInnerWidthPx,
+          compact: true,
+        })
+      )
+    }
+
+    return Math.max(levelsHeight, topicsHeight)
+  }, [composerInnerWidthPx, levelsChoiceOptions])
+
+  /** Fallback-width estimate: never shrink below first layout (prevents backdrop jump). */
+  const lobbyComposerMinHeightFloor = useMemo(() => {
+    const levelsHeight = estimateLessonComposerMinHeight({
+      panelKind: 'choice',
+      choiceOptions: levelsChoiceOptions,
+      compact: true,
+    })
+
+    let topicsHeight = 0
+    for (const levelId of LEVELS) {
+      const labels = getPopularTopicsForLevel(levelId).map((topic) => topic.title)
+      if (labels.length === 0) continue
+      topicsHeight = Math.max(
+        topicsHeight,
+        estimateLessonComposerMinHeight({
+          panelKind: 'choice',
+          choiceOptions: labels,
+          compact: true,
+        })
+      )
+    }
+
+    return Math.max(levelsHeight, topicsHeight)
+  }, [levelsChoiceOptions])
+
+  useLayoutEffect(() => {
+    if (!introReady) return
+    const stack = composerStackRef.current
+    const measured = stack ? Math.round(stack.getBoundingClientRect().height) : 0
+    const nextLock = Math.max(
+      lobbyComposerLockRef.current,
+      lobbyComposerMinHeightFloor,
+      lobbyComposerMinHeight,
+      measured
+    )
+    if (nextLock > lobbyComposerLockRef.current) {
+      lobbyComposerLockRef.current = nextLock
+      setStableLobbyComposerMinHeight(nextLock)
+    }
+  }, [
+    introReady,
+    lobbyComposerMinHeight,
+    lobbyComposerMinHeightFloor,
+    phase,
+    feed.length,
+  ])
+
+  const appliedLobbyComposerMinHeight = Math.max(
+    stableLobbyComposerMinHeight ?? 0,
+    lobbyComposerMinHeightFloor,
+    lobbyComposerMinHeight
+  )
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -432,6 +537,20 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
                     </ChatBubbleFrame>
                   )
                 })}
+                {topicTransitionPending ? (
+                  <div
+                    dir="ltr"
+                    className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}
+                    data-feed-service-status=""
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <EngvoFeedServiceTypingText
+                      text={ENGVO_PREPARING_TASK_MESSAGE}
+                      instant={prefersReducedMotion}
+                    />
+                  </div>
+                ) : null}
               </div>
             </DialogGlassScrollHost>
 
@@ -440,7 +559,9 @@ export function QuickTestEngvoDialog({ onFooterChange }: QuickTestEngvoDialogPro
               className={composerStackLayout.verticalClass}
               style={{
                 ...(composerStackLayout.style ?? {}),
-                ...(composerMinHeight != null ? { minHeight: composerMinHeight } : {}),
+                ...(appliedLobbyComposerMinHeight != null
+                  ? { minHeight: appliedLobbyComposerMinHeight }
+                  : {}),
               }}
             >
               <div

@@ -38,6 +38,7 @@ import {
   scoreBandFromCorrect,
 } from '@/lib/quickTest/scoring'
 import { getVariantFromBank } from '@/lib/quickTest/catalog'
+import { writeEntryContext } from '@/lib/quickTest/openLessonIntent'
 
 type QuickTestSlugClientProps = {
   slug: string
@@ -45,6 +46,7 @@ type QuickTestSlugClientProps = {
   forceDefaultVariant: boolean
   entrySource: QuickTestEntrySource
   fromShare: boolean
+  debugFinale?: boolean
   ssrPrompt: string
   ssrOptions: [string, string, string]
 }
@@ -57,10 +59,12 @@ export function QuickTestSlugClient({
   forceDefaultVariant,
   entrySource,
   fromShare,
+  debugFinale = false,
 }: QuickTestSlugClientProps) {
   const router = useRouter()
   const practice = usePracticeSession({ storage: noopStorage, audience: 'adult' })
   const metaRef = useRef<ReadonlyMap<string, QuickTestQuestionMeta>>(new Map())
+  const debugFinalePendingRef = useRef(false)
   const [variantId, setVariantId] = useState('variant-1')
   const [lessonId, setLessonId] = useState('')
   const [topicTitle, setTopicTitle] = useState('')
@@ -69,6 +73,10 @@ export function QuickTestSlugClient({
   const [bankQuestions, setBankQuestions] = useState<QuickTestQuestion[]>([])
   const startedRef = useRef(false)
   const trackedComplete = useRef(false)
+
+  useEffect(() => {
+    if (debugFinale) debugFinalePendingRef.current = true
+  }, [debugFinale])
 
   useEffect(() => {
     if (startedRef.current) return
@@ -153,6 +161,14 @@ export function QuickTestSlugClient({
     clearResume()
   }, [practice.state, practice.session, entrySource, slug, lessonId, variantId])
 
+  useEffect(() => {
+    if (!debugFinalePendingRef.current) return
+    const session = practice.session
+    if (!session || session.status !== 'active') return
+    debugFinalePendingRef.current = false
+    practice.completeSession()
+  }, [practice.session?.id, practice.session?.status, practice])
+
   const qtAnswers = useMemo(() => {
     if (!practice.session) return []
     return practiceAnswersToQuickTestRecords(practice.session.answers, metaRef.current)
@@ -195,23 +211,47 @@ export function QuickTestSlugClient({
     return resolveQuickTestFooter({ phase: 'question', step, topicTitle })
   }, [practice.state, practice.session, practice.feedback, topicTitle, band, correctCount, durationLabel])
 
-  const onExit = useCallback(() => {
-    if ((practice.session?.answers.length ?? 0) > 0) {
+  const showFinale = practice.state === 'completed' && Boolean(lessonId)
+
+  const quickTestSessionActiveForDebug =
+    practice.session?.entrySource === 'quick_test' &&
+    practice.session?.status === 'active' &&
+    practice.state !== 'completed'
+
+  const handleDebugSkipToQuickTestFinale = useCallback(() => {
+    if (!quickTestSessionActiveForDebug) return
+    practice.completeSession()
+  }, [practice, quickTestSessionActiveForDebug])
+
+  const handleRestartQuickTestIntro = useCallback(() => {
+    if (!showFinale && (practice.session?.answers.length ?? 0) > 0) {
       const ok = window.confirm(QUICK_TEST_COPY.exitConfirm)
       if (!ok) return
     }
     practice.abandonSession()
     clearResume()
-    router.replace('/test')
-  }, [practice, router])
+    writeEntryContext({ source: 'internal_menu', audience: 'adult' })
+    window.location.assign('/test')
+  }, [practice, showFinale])
 
-  const showFinale = practice.state === 'completed' && Boolean(lessonId)
+  const onLeaveTest = useCallback(() => {
+    if (showFinale) return true
+    if ((practice.session?.answers.length ?? 0) > 0) {
+      const ok = window.confirm(QUICK_TEST_COPY.exitConfirm)
+      if (!ok) return false
+    }
+    practice.abandonSession()
+    clearResume()
+    return true
+  }, [practice, showFinale])
 
   return (
     <QuickTestThemeGuard>
       <QuickTestPageChrome
-        showExit={!showFinale}
-        onExit={onExit}
+        onLeaveTest={onLeaveTest}
+        onDebugSkipToQuickTestFinale={handleDebugSkipToQuickTestFinale}
+        quickTestSessionActiveForDebug={quickTestSessionActiveForDebug}
+        onOpenQuickTest={handleRestartQuickTestIntro}
         footerDynamic={footer.dynamic}
         footerStatic={footer.static}
         footerTone={footer.tone}

@@ -84,6 +84,12 @@ interface SlideOutMenuProps {
     referenceExerciseType?: PracticeExerciseType
   }) => void
   practiceSessionActiveForDebug?: boolean
+  /** DEBUG: сразу к финалу быстрого теста. Удалить после редактирования. */
+  onDebugSkipToQuickTestFinale?: () => void
+  /** DEBUG: активная сессия quick test во время прогона. */
+  quickTestSessionActiveForDebug?: boolean
+  /** DEBUG: лобби/интро quick test на /test. */
+  quickTestLobbyActiveForDebug?: boolean
   /** Активная сессия практики — синхронизация выбора в меню при reopen. */
   activePracticeMenuSnapshot?: ActivePracticeMenuSnapshot | null
   onOpenQuickTest?: () => void
@@ -169,6 +175,9 @@ export default function SlideOutMenu({
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
+  onDebugSkipToQuickTestFinale,
+  quickTestSessionActiveForDebug = false,
+  quickTestLobbyActiveForDebug = false,
   activePracticeMenuSnapshot = null,
   onOpenQuickTest,
   onOpenPracticeSession,
@@ -318,6 +327,9 @@ export default function SlideOutMenu({
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
         practiceSessionActiveForDebug={practiceSessionActiveForDebug}
+        onDebugSkipToQuickTestFinale={onDebugSkipToQuickTestFinale}
+        quickTestSessionActiveForDebug={quickTestSessionActiveForDebug}
+        quickTestLobbyActiveForDebug={quickTestLobbyActiveForDebug}
         activePracticeMenuSnapshot={activePracticeMenuSnapshot}
         onOpenQuickTest={onOpenQuickTest}
         onOpenPracticeSession={onOpenPracticeSession}

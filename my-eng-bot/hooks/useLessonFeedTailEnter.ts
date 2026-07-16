@@ -19,6 +19,8 @@ type UseLessonFeedTailEnterParams = {
   enabled: boolean
   userEnterClass?: string
   assistantEnterClass?: string
+  /** QT debug: false = анимация без scroll (как обычная практика). */
+  scrollOnNewMessage?: boolean
 }
 
 type UseLessonFeedTailEnterResult = {
@@ -37,6 +39,7 @@ export function useLessonFeedTailEnter({
   enabled,
   userEnterClass = LESSON_FEED_MESSAGE_ENTER_CLASS,
   assistantEnterClass = LESSON_FEED_MESSAGE_ENTER_CLASS,
+  scrollOnNewMessage = true,
 }: UseLessonFeedTailEnterParams): UseLessonFeedTailEnterResult {
   const [enteringId, setEnteringId] = useState<string | null>(null)
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(() => new Set())
@@ -111,6 +114,8 @@ export function useLessonFeedTailEnter({
       reason: 'new_message',
     })
 
+    if (!scrollOnNewMessage) return
+
     return scheduleScrollAfterLayout(() => {
       const liveContainer = scrollContainerRef.current
       if (!liveContainer) return
@@ -126,6 +131,7 @@ export function useLessonFeedTailEnter({
     messageIdsKey,
     prefersReducedMotion,
     scrollContainerRef,
+    scrollOnNewMessage,
   ])
 
   const getUserEnterClass = useCallback(

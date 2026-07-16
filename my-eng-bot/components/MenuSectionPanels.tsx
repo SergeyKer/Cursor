@@ -492,6 +492,12 @@ export interface MenuSectionPanelsProps {
   }) => void
   /** DEBUG: активная сессия практики (для skip-to-finale из меню). */
   practiceSessionActiveForDebug?: boolean
+  /** DEBUG: сразу к финалу быстрого теста. Удалить после редактирования. */
+  onDebugSkipToQuickTestFinale?: () => void
+  /** DEBUG: активная сессия quick test во время прогона. */
+  quickTestSessionActiveForDebug?: boolean
+  /** DEBUG: лобби/интро quick test на /test. */
+  quickTestLobbyActiveForDebug?: boolean
   /** Активная сессия практики — синхронизация выбора в меню при reopen. */
   activePracticeMenuSnapshot?: ActivePracticeMenuSnapshot | null
   /** Сгенерировать новый вариант урока через LLM, не открывая локальную версию. */
@@ -589,6 +595,9 @@ export default function MenuSectionPanels({
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
+  onDebugSkipToQuickTestFinale,
+  quickTestSessionActiveForDebug = false,
+  quickTestLobbyActiveForDebug = false,
   activePracticeMenuSnapshot = null,
   onGenerateLearningLesson,
   onOpenQuickTest,
@@ -1830,6 +1839,18 @@ export default function MenuSectionPanels({
                 className={menuNavIconButtonClass}
                 aria-label="DEBUG: финал практики"
                 title="DEBUG: финал практики"
+              >
+                <span className="text-[13px] font-bold leading-none text-[var(--text-muted)]">⏭</span>
+              </button>
+            ) : null}
+            {onDebugSkipToQuickTestFinale &&
+            (quickTestSessionActiveForDebug || quickTestLobbyActiveForDebug) ? (
+              <button
+                type="button"
+                onClick={onDebugSkipToQuickTestFinale}
+                className={menuNavIconButtonClass}
+                aria-label="DEBUG: финал теста"
+                title="DEBUG: финал теста"
               >
                 <span className="text-[13px] font-bold leading-none text-[var(--text-muted)]">⏭</span>
               </button>

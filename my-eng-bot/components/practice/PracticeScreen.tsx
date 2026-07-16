@@ -453,6 +453,7 @@ export default function PracticeScreen({
     enabled: isQuickTestSession,
     userEnterClass: 'lesson-enter',
     assistantEnterClass: 'lesson-feed-status-enter',
+    scrollOnNewMessage: false,
   })
 
   const handleStatusBubbleAnimationEnd = useCallback(
@@ -471,6 +472,14 @@ export default function PracticeScreen({
     (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
       if (event.animationName !== 'lessonSlideIn') return
       quickTestFeedTailEnter.markEnterFinished(messageId)
+    },
+    [quickTestFeedTailEnter]
+  )
+
+  const getQuickTestAssistantEnterClass = useCallback(
+    (messageId: string) => {
+      if (quickTestFeedTailEnter.getAssistantEnterClass(messageId) === '') return ''
+      return 'lesson-feed-status-enter'
     },
     [quickTestFeedTailEnter]
   )
@@ -1068,17 +1077,13 @@ export default function PracticeScreen({
 
   const scheduleScrollPracticeFeedTail = useCallback(
     (behavior: ScrollBehavior = 'auto') => {
-      const resolvedBehavior: ScrollBehavior =
-        session.entrySource === 'quick_test' && (state === 'checking' || state === 'feedback')
-          ? 'auto'
-          : behavior
       return scheduleScroll((scrollBehavior) => {
         const scrollContainer = scrollContainerRef.current
         if (!scrollContainer) return
         scrollLessonFeedToModeIfNeeded(scrollContainer, 'tail_if_needed', scrollBehavior)
-      }, resolvedBehavior)
+      }, behavior)
     },
-    [scheduleScroll, session.entrySource, state]
+    [scheduleScroll]
   )
 
   useEffect(() => {
@@ -1244,7 +1249,7 @@ export default function PracticeScreen({
   }, [state, feedback, tailMessageId, prefersReducedMotion, scheduleScrollPracticeFeedTail])
 
   useEffect(() => {
-    if (!isRevealInProgress) return
+    if (!isTextRevealActive) return
     if (deferChoiceChipsUntilCardReveal) return
     if (isLessonFeedScrolledToTail(scrollContainerRef.current, 'tail_if_needed')) return
 
@@ -1257,7 +1262,7 @@ export default function PracticeScreen({
   }, [
     textRevealedThroughIndex,
     textAnimatingIndex,
-    isRevealInProgress,
+    isTextRevealActive,
     deferChoiceChipsUntilCardReveal,
     prefersReducedMotion,
     scheduleScrollPracticeFeedTail,
@@ -1520,7 +1525,7 @@ export default function PracticeScreen({
                                 : (message.bubbles?.length ?? 0) - 1
                             : (message.bubbles?.length ?? 0) - 1
 
-                      if (hideLessonBubbleUntilRevealReady) {
+                      if (hideLessonBubbleUntilRevealReady && !isQuickTestSession) {
                         return null
                       }
 
@@ -1661,7 +1666,7 @@ export default function PracticeScreen({
                     }
 
                     const statusEnterClass = isQuickTestSession
-                      ? quickTestFeedTailEnter.getAssistantEnterClass(message.id)
+                      ? getQuickTestAssistantEnterClass(message.id)
                       : lessonFeedStatusEnterClass(message.id)
 
                     if (
