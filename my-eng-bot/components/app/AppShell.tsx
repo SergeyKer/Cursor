@@ -2153,8 +2153,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (engvoActiveProviderRef.current !== 'xai') {
           // OpenAI uses WebRTC mic tracks already attached.
         } else if (engvoGreetingTriggeredRef.current) {
-          // Mic starts on response.created to avoid barge-in of greeting.
-        } else if (parsed.type !== 'conversation.created') {
+          // Mic starts on response.created / greeting watchdog.
+        } else if (
+          parsed.type !== 'conversation.created' &&
+          parsed.type !== 'session.created'
+        ) {
           engvoXaiTransportRef.current?.startMicCapture()
         }
         return

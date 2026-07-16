@@ -1,0 +1,6 @@
+[
+  [
+    "        if (engvoActiveProviderRef.current !== 'xai') {\n          // OpenAI uses WebRTC mic tracks already attached.\n        } else if (engvoGreetingTriggeredRef.current) {\n          // Mic starts on response.created to avoid barge-in of greeting.\n        } else if (parsed.type !== 'conversation.created') {\n          engvoXaiTransportRef.current?.startMicCapture()\n        }",
+    "        if (engvoActiveProviderRef.current !== 'xai') {\n          // OpenAI uses WebRTC mic tracks already attached.\n        } else if (engvoGreetingTriggeredRef.current) {\n          // Mic starts on response.created / greeting watchdog.\n        } else if (\n          parsed.type !== 'conversation.created' &&\n          parsed.type !== 'session.created'\n        ) {\n          engvoXaiTransportRef.current?.startMicCapture()\n        }"
+  ]
+]
