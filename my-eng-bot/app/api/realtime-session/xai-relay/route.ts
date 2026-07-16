@@ -183,8 +183,9 @@ export async function GET(request: NextRequest) {
       console.info('[engvo][xai-relay] upstream_open', { model })
       try {
         clientWs.send(JSON.stringify({ type: ENGVO_XAI_RELAY_READY_EVENT }), { binary: false })
-      } catch {
-        // ignore
+        console.info('[engvo][xai-relay] relay_ready_sent', { model })
+      } catch (error) {
+        console.warn('[engvo][xai-relay] relay_ready_send_failed', error)
       }
       flushPendingClientFrames()
     })

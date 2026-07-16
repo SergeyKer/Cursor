@@ -137,7 +137,7 @@ import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/less
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, loadLessonProgressMap, saveLessonProgress } from '@/lib/lessonProgressStorage'
 import { listLearningSignals } from '@/lib/learningMemory'
-import { hasAnyLearningHistory, resolveReturningHomeMenuView } from '@/lib/myPlan/returningHome'
+import { hasAnyLearningHistory, resolveReturningHomeMenuView, shouldOpenMyPlanHome } from '@/lib/myPlan/returningHome'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -2056,7 +2056,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         parsed.type === 'session.updated' ||
         parsed.type === 'session.update.acknowledged'
       ) {
-        markEngvoSessionUpdateAck()
+        // xAI: greet ONLY after session.updated (session.created is too early — response.create
+        // is ignored and UI hangs on «Engvo говорит…»). OpenAI can greet on session.created.
+        // Early xAI events must NOT clear the ack timeout — otherwise dialing hangs forever when
+        // session.update never goes out (prod: upstream ack without client_session_update_forwarded).
+        const isXaiProvider = engvoActiveProviderRef.current === 'xai'
+        const isEarlyXaiAck =
+          isXaiProvider &&
+          (parsed.type === 'session.created' || parsed.type === 'conversation.created')
+        const shouldTriggerGreetingOrReplay = isXaiProvider
+          ? parsed.type === 'session.updated' || parsed.type === 'session.update.acknowledged'
+          : parsed.type === 'session.created' ||
+            parsed.type === 'session.updated' ||
+            parsed.type === 'session.update.acknowledged'
+        if (!isEarlyXaiAck) {
+          markEngvoSessionUpdateAck()
+          clearEngvoTimeout(engvoSessionAckTimeoutRef)
+          engvoSessionStartedRef.current = true
+          setEngvoErrorText(null)
+          setEngvoSessionUpdateTick((prev) => prev + 1)
+        }
         logEngvoDebugTimingEvent(
           engvoDebugTimingRef.current,
           parsed.type === 'session.created' || parsed.type === 'conversation.created'
@@ -2064,20 +2083,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             : parsed.type
         )
         refreshEngvoSessionBootstrapRef()
-        clearEngvoTimeout(engvoSessionAckTimeoutRef)
         console.info('[engvo] session-ack', parsed.type)
-        engvoSessionStartedRef.current = true
-        setEngvoErrorText(null)
-        setEngvoSessionUpdateTick((prev) => prev + 1)
-
-        // xAI: greet ONLY after session.updated (session.created is too early — response.create
-        // is ignored and UI hangs on «Engvo говорит…»). OpenAI can greet on session.created.
-        const isXaiProvider = engvoActiveProviderRef.current === 'xai'
-        const shouldTriggerGreetingOrReplay = isXaiProvider
-          ? parsed.type === 'session.updated' || parsed.type === 'session.update.acknowledged'
-          : parsed.type === 'session.created' ||
-            parsed.type === 'session.updated' ||
-            parsed.type === 'session.update.acknowledged'
         if (shouldTriggerGreetingOrReplay) {
           const replayItems = engvoRealtimeReplayItemsRef.current
           engvoRealtimeReplayItemsRef.current = null
@@ -2135,10 +2141,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               setEngvoCallPhase('assistantPending')
               console.info('[engvo] greeting-sent', parsed.type)
               window.setTimeout(() => {
-                if (!engvoAssistantResponseIdRef.current) {
-                  console.warn('[engvo] greeting watchdog: no response.created yet')
-                }
-              }, 3000)
+                if (engvoAssistantResponseIdRef.current) return
+                console.warn('[engvo] greeting watchdog: retry bare response.create')
+                sendEngvoRealtimeEvent({ type: 'response.create' })
+              }, 2500)
             } else {
               setEngvoCallPhase('listening')
               engvoXaiTransportRef.current?.startMicCapture()
@@ -5513,22 +5519,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             : {}),
         })
         setSettings(mergedSettings)
-        const hasHistory = hasAnyLearningHistory({
-          lastActiveDate: rewards.progress.lastActiveDate,
-          lessonProgressCount: Object.keys(loadLessonProgressMap()).length,
-          signalCount: listLearningSignals().length,
-        })
         if (entryBridge?.audienceChosen) {
           setHomeAudienceChosen(true)
           const view = resolveReturningHomeMenuView({
-            myPlanHomeEnabled: featureFlags.myPlanHomeV1,
-            hasAnyHistory: hasHistory,
             branchIntent: entryBridge.branchIntent,
           })
           if (view) setHomeMenuView(view)
-        } else if (featureFlags.myPlanHomeV1 && hasHistory) {
-          setHomeAudienceChosen(true)
-          setHomeMenuView('myPlan')
         }
         setDialogStarted(false)
         setMenuOpen(false)
@@ -5584,14 +5580,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
     )
     setHomeAudienceChosen(true)
-    const hasHistory = hasAnyLearningHistory({
-      lastActiveDate: rewardsState.progress.lastActiveDate,
-      lessonProgressCount: Object.keys(loadLessonProgressMap()).length,
-      signalCount: listLearningSignals().length,
-    })
     const view = resolveReturningHomeMenuView({
-      myPlanHomeEnabled: featureFlags.myPlanHomeV1,
-      hasAnyHistory: hasHistory,
       branchIntent: entryBridge.branchIntent,
     })
     if (view) setHomeMenuView(view)
@@ -5600,7 +5589,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     entryBridge?.audience,
     entryBridge?.audienceChosen,
     entryBridge?.branchIntent,
-    rewardsState.progress.lastActiveDate,
   ])
 
   useEffect(() => {
@@ -7383,6 +7371,35 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (!shouldShowStreakHomeBanner(rewardsState, Boolean(streakFooterPreview))) return null
     return formatStreakHomeBannerText(rewardsState, settings.audience)
   }, [dialogStarted, homeMenuView, rewardsState, streakFooterPreview, settings.audience])
+
+  const openMyPlanFromStart = React.useMemo(() => {
+    if (!storageLoaded) return false
+    return shouldOpenMyPlanHome({
+      myPlanHomeEnabled: featureFlags.myPlanHomeV1,
+      hasAnyHistory: hasAnyLearningHistory({
+        lastActiveDate: rewardsState.progress.lastActiveDate,
+        lessonProgressCount: Object.keys(loadLessonProgressMap()).length,
+        signalCount: listLearningSignals().length,
+      }),
+    })
+  }, [storageLoaded, rewardsState.progress.lastActiveDate])
+
+  const completeHomeAudienceChoice = useCallback(
+    (audience: 'child' | 'adult') => {
+      setSettings((prev) =>
+        normalizeSettingsForAudience({
+          ...prev,
+          audience,
+        })
+      )
+      setHomeAudienceChosen(true)
+      if (openMyPlanFromStart) {
+        setHomeMenuView('myPlan')
+      }
+    },
+    [openMyPlanFromStart]
+  )
+
   const resolveFooterWithStreakLayer = React.useCallback(
     (
       modeFallback: string | null,
@@ -8232,33 +8249,47 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       <>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSettings((prev) =>
-                              normalizeSettingsForAudience({
-                                ...prev,
-                                audience: 'child',
-                              })
-                            )
-                            setHomeAudienceChosen(true)
-                          }}
+                          onClick={() => completeHomeAudienceChoice('child')}
                           className={PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS}
                         >
                           {APP_SHELL_HOME_COPY.audienceChildLabel}
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            setSettings((prev) =>
-                              normalizeSettingsForAudience({
-                                ...prev,
-                                audience: 'adult',
-                              })
-                            )
-                            setHomeAudienceChosen(true)
-                          }}
+                          onClick={() => completeHomeAudienceChoice('adult')}
                           className={PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS}
                         >
                           {APP_SHELL_HOME_COPY.audienceAdultLabel}
+                        </button>
+                      </>
+                    ) : openMyPlanFromStart ? (
+                      <>
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setHomeAudienceChosen(false)}
+                            className={PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS}
+                            aria-label={APP_SHELL_HOME_COPY.homeBackAriaLabel}
+                          >
+                            <span className="mr-1" aria-hidden>
+                              &lt;
+                            </span>
+                            {APP_SHELL_HOME_COPY.homeBackLabel}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHomeMenuView('myPlan')}
+                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
+                          >
+                            {APP_SHELL_HOME_COPY.startMyPlanLabel}
+                          </button>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setHomeMenuView('lessons')}
+                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
+                        >
+                          Все уроки и режимы
                         </button>
                       </>
                     ) : (

@@ -174,6 +174,19 @@ export function connectEngvoXaiRealtime(params: {
   }
 
   let warnedNonStringFrame = false
+  let bootstrapSent = false
+  let relayBootstrapFallbackTimer: ReturnType<typeof setTimeout> | null = null
+
+  const triggerBootstrap = (reason: string) => {
+    if (closed || bootstrapSent) return
+    bootstrapSent = true
+    if (relayBootstrapFallbackTimer != null) {
+      clearTimeout(relayBootstrapFallbackTimer)
+      relayBootstrapFallbackTimer = null
+    }
+    console.info('[engvo][xai] bootstrap', { transport, reason })
+    params.handlers.onOpen?.()
+  }
 
   const handleRawMessage = (raw: string) => {
     if (!raw) return
@@ -181,8 +194,16 @@ export function connectEngvoXaiRealtime(params: {
       const parsed = JSON.parse(raw) as { type?: string; delta?: string }
       if (parsed.type === ENGVO_XAI_RELAY_READY_EVENT) {
         console.info('[engvo][xai] relay-ready', { transport })
-        params.handlers.onOpen?.()
+        triggerBootstrap('relay.ready')
         return
+      }
+      // Prod logs: upstream session.created arrives but session.update never leaves the browser
+      // when relay.ready is missed. Bootstrap on first session event so config still goes out.
+      if (
+        transport === 'relay' &&
+        (parsed.type === 'session.created' || parsed.type === 'conversation.created')
+      ) {
+        triggerBootstrap(parsed.type)
       }
       if (
         (parsed.type === 'response.output_audio.delta' || parsed.type === 'response.audio.delta') &&
@@ -232,11 +253,14 @@ export function connectEngvoXaiRealtime(params: {
     }
     console.info('[engvo][xai] ws-open', { transport })
     if (transport === 'relay') {
-      // Wait for upstream xAI before session.update (server sends relay.ready).
+      // Prefer relay.ready / first session event; fallback if both are missed.
+      relayBootstrapFallbackTimer = setTimeout(() => {
+        triggerBootstrap('ws-open-fallback')
+      }, 1200)
       return
     }
     // Mic starts after session ack from AppShell — not on open.
-    params.handlers.onOpen?.()
+    triggerBootstrap('ws-open-direct')
   })
 
   ws.addEventListener('message', (event) => {
@@ -278,6 +302,10 @@ export function connectEngvoXaiRealtime(params: {
     clearLocalPlayback,
     disconnect: () => {
       closed = true
+      if (relayBootstrapFallbackTimer != null) {
+        clearTimeout(relayBootstrapFallbackTimer)
+        relayBootstrapFallbackTimer = null
+      }
       clearLocalPlayback()
       try {
         processor?.disconnect()
