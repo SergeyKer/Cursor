@@ -2058,16 +2058,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         refreshEngvoSessionBootstrapRef()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         console.info('[engvo] session-ack', parsed.type)
-        if (engvoActiveProviderRef.current === 'xai') {
-          engvoXaiTransportRef.current?.startMicCapture()
-        }
         engvoSessionStartedRef.current = true
         setEngvoErrorText(null)
-        setEngvoCallPhase('listening')
         setEngvoSessionUpdateTick((prev) => prev + 1)
 
-        // Greeting after session is ready — not only session.created (xAI often acks via
-        // conversation.created then session.updated; greeting was skipped).
+        // Greeting after session config — not on conversation.created alone.
+        // xAI: keep connecting until greeting; start mic only after response.created
+        // (early mic + server_vad cancels the first turn).
         const shouldTriggerGreetingOrReplay =
           parsed.type === 'session.created' ||
           parsed.type === 'session.updated' ||
@@ -2095,6 +2092,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             })
             if (continuationSent) {
               engvoGreetingTriggeredRef.current = true
+              setEngvoCallPhase('assistantPending')
+              window.setTimeout(() => {
+                engvoXaiTransportRef.current?.startMicCapture()
+              }, 2000)
+            } else {
+              setEngvoCallPhase('listening')
+              engvoXaiTransportRef.current?.startMicCapture()
             }
             setMessages((prev) => prev.filter((m) => !m.engvoServiceLine))
           } else if (!engvoGreetingTriggeredRef.current) {
@@ -2110,9 +2114,33 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             })
             if (greetingSent) {
               engvoGreetingTriggeredRef.current = true
+              setEngvoCallPhase('assistantPending')
               console.info('[engvo] greeting-sent', parsed.type)
+              window.setTimeout(() => {
+                engvoXaiTransportRef.current?.startMicCapture()
+              }, 2000)
+            } else {
+              setEngvoCallPhase('listening')
+              engvoXaiTransportRef.current?.startMicCapture()
             }
           }
+        } else if (
+          parsed.type === 'conversation.created' &&
+          engvoActiveProviderRef.current === 'xai' &&
+          !engvoGreetingTriggeredRef.current
+        ) {
+          // Wait for session.updated — keep dialing UI.
+          setEngvoCallPhase('connecting')
+        } else if (!engvoGreetingTriggeredRef.current) {
+          setEngvoCallPhase('listening')
+        }
+
+        if (engvoActiveProviderRef.current !== 'xai') {
+          // OpenAI uses WebRTC mic tracks already attached.
+        } else if (engvoGreetingTriggeredRef.current) {
+          // Mic starts on response.created to avoid barge-in of greeting.
+        } else if (parsed.type !== 'conversation.created') {
+          engvoXaiTransportRef.current?.startMicCapture()
         }
         return
       }
@@ -2330,6 +2358,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setEngvoAssistantPendingText('')
         }
         setEngvoCallPhase('assistantPending')
+        if (engvoActiveProviderRef.current === 'xai') {
+          engvoXaiTransportRef.current?.startMicCapture()
+        }
         return
       }
 

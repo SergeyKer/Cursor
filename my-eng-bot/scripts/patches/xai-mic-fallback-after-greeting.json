@@ -1,0 +1,10 @@
+[
+  [
+    "            if (greetingSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              console.info('[engvo] greeting-sent', parsed.type)\n            } else {\n              setEngvoCallPhase('listening')\n            }",
+    "            if (greetingSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              console.info('[engvo] greeting-sent', parsed.type)\n              window.setTimeout(() => {\n                engvoXaiTransportRef.current?.startMicCapture()\n              }, 2000)\n            } else {\n              setEngvoCallPhase('listening')\n              engvoXaiTransportRef.current?.startMicCapture()\n            }"
+  ],
+  [
+    "            if (continuationSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n            } else {\n              setEngvoCallPhase('listening')\n            }",
+    "            if (continuationSent) {\n              engvoGreetingTriggeredRef.current = true\n              setEngvoCallPhase('assistantPending')\n              window.setTimeout(() => {\n                engvoXaiTransportRef.current?.startMicCapture()\n              }, 2000)\n            } else {\n              setEngvoCallPhase('listening')\n              engvoXaiTransportRef.current?.startMicCapture()\n            }"
+  ]
+]
