@@ -41,6 +41,7 @@ export function normalizeEngvoRealtimeServerEvent(
   if (
     type === 'session.updated' ||
     type === 'session.created' ||
+    type === 'conversation.created' ||
     type === 'session.update.acknowledged'
   ) {
     return { kind: 'session_ready' }

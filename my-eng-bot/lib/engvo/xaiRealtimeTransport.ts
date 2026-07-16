@@ -173,21 +173,9 @@ export function connectEngvoXaiRealtime(params: {
     console.warn('[engvo][xai] failed to prepare audio graph', error)
   }
 
-  ws.addEventListener('open', () => {
-    if (audioContext.state === 'suspended') {
-      void audioContext.resume().catch(() => {})
-    }
-    console.info('[engvo][xai] ws-open', { transport })
-    if (transport === 'relay') {
-      // Wait for upstream xAI before session.update (server sends relay.ready).
-      return
-    }
-    // Mic starts after session ack from AppShell — not on open.
-    params.handlers.onOpen?.()
-  })
+  let warnedNonStringFrame = false
 
-  ws.addEventListener('message', (event) => {
-    const raw = typeof event.data === 'string' ? event.data : ''
+  const handleRawMessage = (raw: string) => {
     if (!raw) return
     try {
       const parsed = JSON.parse(raw) as { type?: string; delta?: string }
@@ -207,6 +195,60 @@ export function connectEngvoXaiRealtime(params: {
       // still forward raw
     }
     params.handlers.onEvent(raw)
+  }
+
+  const decodeWsData = async (data: unknown): Promise<string | null> => {
+    if (typeof data === 'string') return data
+    if (typeof Blob !== 'undefined' && data instanceof Blob) {
+      if (!warnedNonStringFrame) {
+        warnedNonStringFrame = true
+        console.warn('[engvo][xai] non-string ws frame', { kind: 'Blob', size: data.size })
+      }
+      return await data.text()
+    }
+    if (data instanceof ArrayBuffer) {
+      if (!warnedNonStringFrame) {
+        warnedNonStringFrame = true
+        console.warn('[engvo][xai] non-string ws frame', {
+          kind: 'ArrayBuffer',
+          byteLength: data.byteLength,
+        })
+      }
+      return new TextDecoder().decode(data)
+    }
+    if (ArrayBuffer.isView(data)) {
+      if (!warnedNonStringFrame) {
+        warnedNonStringFrame = true
+        console.warn('[engvo][xai] non-string ws frame', { kind: 'TypedArray' })
+      }
+      return new TextDecoder().decode(data)
+    }
+    return null
+  }
+
+  ws.addEventListener('open', () => {
+    if (audioContext.state === 'suspended') {
+      void audioContext.resume().catch(() => {})
+    }
+    console.info('[engvo][xai] ws-open', { transport })
+    if (transport === 'relay') {
+      // Wait for upstream xAI before session.update (server sends relay.ready).
+      return
+    }
+    // Mic starts after session ack from AppShell — not on open.
+    params.handlers.onOpen?.()
+  })
+
+  ws.addEventListener('message', (event) => {
+    void (async () => {
+      try {
+        const raw = await decodeWsData(event.data)
+        if (raw == null) return
+        handleRawMessage(raw)
+      } catch (error) {
+        console.warn('[engvo][xai] failed to decode ws frame', error)
+      }
+    })()
   })
 
   ws.addEventListener('error', () => {

@@ -1,0 +1,6 @@
+[
+  [
+    "      if (\n        parsed.type === 'session.created' ||\n        parsed.type === 'session.updated' ||\n        parsed.type === 'session.update.acknowledged'\n      ) {\n        markEngvoSessionUpdateAck()\n        logEngvoDebugTimingEvent(\n          engvoDebugTimingRef.current,\n          parsed.type === 'session.created' ? 'session.created' : parsed.type\n        )",
+    "      if (\n        parsed.type === 'session.created' ||\n        parsed.type === 'conversation.created' ||\n        parsed.type === 'session.updated' ||\n        parsed.type === 'session.update.acknowledged'\n      ) {\n        markEngvoSessionUpdateAck()\n        logEngvoDebugTimingEvent(\n          engvoDebugTimingRef.current,\n          parsed.type === 'session.created' || parsed.type === 'conversation.created'\n            ? 'session.created'\n            : parsed.type\n        )"
+  ]
+]

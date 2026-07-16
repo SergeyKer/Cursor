@@ -105,3 +105,68 @@ export function buildXaiRelayErrorFrame(message: string, code?: string): string 
     },
   })
 }
+
+export type EngvoXaiRelayForwardPayload = {
+  payload: string | Buffer
+  binary: boolean
+}
+
+function bufferFromUnknown(data: unknown): Buffer | null {
+  if (typeof Buffer !== 'undefined' && Buffer.isBuffer(data)) return data
+  if (data instanceof ArrayBuffer) return Buffer.from(data)
+  if (ArrayBuffer.isView(data)) {
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength)
+  }
+  if (Array.isArray(data) && data.every((part) => typeof Buffer !== 'undefined' && Buffer.isBuffer(part))) {
+    return Buffer.concat(data as Buffer[])
+  }
+  return null
+}
+
+/**
+ * Decode a WebSocket text frame that Node `ws` delivered as Buffer (isBinary=false).
+ * Returns null for binary frames / undecodable payloads.
+ */
+export function decodeRelayWsTextPayload(data: unknown, isBinary: boolean): string | null {
+  if (isBinary) return null
+  if (typeof data === 'string') return data
+  const buf = bufferFromUnknown(data)
+  if (buf) return buf.toString('utf8')
+  return null
+}
+
+/**
+ * Prepare a frame for relay forwarding.
+ * Text (!isBinary) must go as UTF-8 string with binary:false so browsers get text frames.
+ * Binary stays bytes with binary:true.
+ */
+export function encodeRelayForwardPayload(
+  data: unknown,
+  isBinary: boolean
+): EngvoXaiRelayForwardPayload {
+  if (!isBinary) {
+    if (typeof data === 'string') return { payload: data, binary: false }
+    const text = decodeRelayWsTextPayload(data, false)
+    if (text !== null) return { payload: text, binary: false }
+  }
+  if (typeof data === 'string') return { payload: data, binary: true }
+  const buf = bufferFromUnknown(data)
+  if (buf) return { payload: buf, binary: true }
+  return { payload: String(data), binary: Boolean(isBinary) }
+}
+
+export function relayForwardPayloadByteLength(frame: EngvoXaiRelayForwardPayload): number {
+  if (typeof frame.payload === 'string') return Buffer.byteLength(frame.payload, 'utf8')
+  return frame.payload.length
+}
+
+export function isRelaySessionUpdatePayload(payload: string | Buffer): boolean {
+  const asString = typeof payload === 'string' ? payload : payload.toString('utf8')
+  if (!asString.includes('session.update')) return false
+  try {
+    const parsed = JSON.parse(asString) as { type?: string }
+    return parsed.type === 'session.update'
+  } catch {
+    return false
+  }
+}

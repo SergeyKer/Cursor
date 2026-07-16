@@ -7,21 +7,23 @@ import { ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT } from '@/lib/engvo/pcm'
 import {
   buildXaiRelayErrorFrame,
   buildXaiUpstreamWsUrl,
+  encodeRelayForwardPayload,
   isAllowedRelayOrigin,
+  isRelaySessionUpdatePayload,
   resolveXaiRelayModel,
+  relayForwardPayloadByteLength,
   XAI_RELAY_CLIENT_BUFFER_MAX_BYTES,
   XAI_RELAY_CLIENT_BUFFER_MAX_FRAMES,
   XAI_RELAY_CLOSE_INTERNAL,
   XAI_RELAY_UPSTREAM_TIMEOUT_MS,
   ENGVO_XAI_RELAY_READY_EVENT,
+  type EngvoXaiRelayForwardPayload,
 } from '@/lib/engvo/xaiRelay'
 import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE } from '@/lib/engvo/errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
-
-type WebSocketData = RawData
 
 function normalizeKey(raw: string): string {
   return raw.replace(/^["'\s]+|["'\s]+$/g, '')
@@ -46,22 +48,6 @@ function createUpstreamWebSocket(url: string, apiKey: string): WebSocket {
     },
     ...(agent ? { agent } : {}),
   })
-}
-
-function toMessageData(data: WebSocketData): string | Buffer | ArrayBuffer {
-  if (typeof data === 'string') return data
-  if (Buffer.isBuffer(data)) return data
-  if (ArrayBuffer.isView(data)) {
-    return Buffer.from(data.buffer, data.byteOffset, data.byteLength)
-  }
-  return String(data)
-}
-
-function messageByteLength(data: WebSocketData): number {
-  if (typeof data === 'string') return Buffer.byteLength(data, 'utf8')
-  if (Buffer.isBuffer(data)) return data.length
-  if (ArrayBuffer.isView(data)) return data.byteLength
-  return Buffer.byteLength(String(data), 'utf8')
 }
 
 function closeRelayPair(params: {
@@ -91,28 +77,21 @@ function closeRelayPair(params: {
   }
 }
 
-function isClientSessionUpdateFrame(data: WebSocketData): boolean {
-  const asString = typeof data === 'string' ? data : data.toString()
-  if (!asString.includes('session.update')) return false
-  try {
-    const parsed = JSON.parse(asString) as { type?: string }
-    return parsed.type === 'session.update'
-  } catch {
-    return false
-  }
-}
-
-function forwardWithBackpressure(to: WebSocket, data: WebSocketData): boolean {
+function forwardEncoded(
+  to: WebSocket,
+  frame: EngvoXaiRelayForwardPayload
+): boolean {
   if (to.readyState !== WebSocket.OPEN) return false
   if (to.bufferedAmount > ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT) {
-    const asString = typeof data === 'string' ? data : data.toString()
+    const asString =
+      typeof frame.payload === 'string' ? frame.payload : frame.payload.toString('utf8')
     if (asString.includes('input_audio_buffer.append')) {
       console.warn('[engvo][xai-relay] dropping mic append due to backpressure')
       return false
     }
   }
   try {
-    to.send(toMessageData(data))
+    to.send(frame.payload, { binary: frame.binary })
     return true
   } catch (error) {
     console.warn('[engvo][xai-relay] forward failed', error)
@@ -139,7 +118,7 @@ export async function GET(request: NextRequest) {
     let upstream: WebSocket | null = null
     let closed = false
     let upstreamOpen = false
-    const pendingClientFrames: WebSocketData[] = []
+    const pendingClientFrames: EngvoXaiRelayForwardPayload[] = []
     let pendingClientBytes = 0
 
     const shutdown = (code: number, reason: string, errorMessage?: string) => {
@@ -153,20 +132,23 @@ export async function GET(request: NextRequest) {
       while (pendingClientFrames.length > 0) {
         const frame = pendingClientFrames.shift()
         if (!frame) break
-        pendingClientBytes -= messageByteLength(frame)
-        if (isClientSessionUpdateFrame(frame)) {
-          console.info('[engvo][xai-relay] client_session_update_forwarded')
+        pendingClientBytes -= relayForwardPayloadByteLength(frame)
+        if (isRelaySessionUpdatePayload(frame.payload)) {
+          console.info('[engvo][xai-relay] client_session_update_forwarded', {
+            binary: frame.binary,
+            typeofPayload: typeof frame.payload,
+          })
         }
-        if (!forwardWithBackpressure(upstream, frame)) {
+        if (!forwardEncoded(upstream, frame)) {
           shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
           return
         }
       }
     }
 
-    const enqueueClientFrame = (data: WebSocketData) => {
+    const enqueueClientFrame = (frame: EngvoXaiRelayForwardPayload) => {
       if (closed) return
-      const frameBytes = messageByteLength(data)
+      const frameBytes = relayForwardPayloadByteLength(frame)
       if (
         pendingClientFrames.length >= XAI_RELAY_CLIENT_BUFFER_MAX_FRAMES ||
         pendingClientBytes + frameBytes > XAI_RELAY_CLIENT_BUFFER_MAX_BYTES
@@ -178,7 +160,7 @@ export async function GET(request: NextRequest) {
         )
         return
       }
-      pendingClientFrames.push(data)
+      pendingClientFrames.push(frame)
       pendingClientBytes += frameBytes
       flushPendingClientFrames()
     }
@@ -200,24 +182,34 @@ export async function GET(request: NextRequest) {
       upstreamOpen = true
       console.info('[engvo][xai-relay] upstream_open', { model })
       try {
-        clientWs.send(JSON.stringify({ type: ENGVO_XAI_RELAY_READY_EVENT }))
+        clientWs.send(JSON.stringify({ type: ENGVO_XAI_RELAY_READY_EVENT }), { binary: false })
       } catch {
         // ignore
       }
       flushPendingClientFrames()
     })
 
-    upstream.on('message', (data) => {
+    upstream.on('message', (data: RawData, isBinary: boolean) => {
       if (closed) return
-      const asString = typeof data === 'string' ? data : data.toString()
+      const frame = encodeRelayForwardPayload(data, isBinary)
+      const asString =
+        typeof frame.payload === 'string' ? frame.payload : frame.payload.toString('utf8')
       if (
-        asString.includes('session.created') ||
-        asString.includes('session.updated') ||
-        asString.includes('session.update.acknowledged')
+        !frame.binary &&
+        (asString.includes('session.created') ||
+          asString.includes('session.updated') ||
+          asString.includes('session.update.acknowledged') ||
+          asString.includes('conversation.created'))
       ) {
-        console.info('[engvo][xai-relay] upstream_session_ack')
+        console.info('[engvo][xai-relay] upstream_session_ack', {
+          isBinary,
+          binary: frame.binary,
+          typeofPayload: typeof frame.payload,
+        })
       }
-      forwardWithBackpressure(clientWs, data as WebSocketData)
+      if (!forwardEncoded(clientWs, frame)) {
+        shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
+      }
     })
 
     upstream.on('error', (error) => {
@@ -233,18 +225,22 @@ export async function GET(request: NextRequest) {
       if (!closed) shutdown(XAI_RELAY_CLOSE_INTERNAL, 'upstream_closed')
     })
 
-    clientWs.on('message', (data: WebSocketData) => {
+    clientWs.on('message', (data: RawData, isBinary: boolean) => {
       if (closed) return
+      const frame = encodeRelayForwardPayload(data, isBinary)
       if (upstreamOpen && upstream?.readyState === WebSocket.OPEN) {
-        if (isClientSessionUpdateFrame(data)) {
-          console.info('[engvo][xai-relay] client_session_update_forwarded')
+        if (isRelaySessionUpdatePayload(frame.payload)) {
+          console.info('[engvo][xai-relay] client_session_update_forwarded', {
+            binary: frame.binary,
+            typeofPayload: typeof frame.payload,
+          })
         }
-        if (!forwardWithBackpressure(upstream, data)) {
+        if (!forwardEncoded(upstream, frame)) {
           shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
         }
         return
       }
-      enqueueClientFrame(data)
+      enqueueClientFrame(frame)
     })
 
     clientWs.on('error', (error) => {

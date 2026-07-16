@@ -2044,13 +2044,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       if (
         parsed.type === 'session.created' ||
+        parsed.type === 'conversation.created' ||
         parsed.type === 'session.updated' ||
         parsed.type === 'session.update.acknowledged'
       ) {
         markEngvoSessionUpdateAck()
         logEngvoDebugTimingEvent(
           engvoDebugTimingRef.current,
-          parsed.type === 'session.created' ? 'session.created' : parsed.type
+          parsed.type === 'session.created' || parsed.type === 'conversation.created'
+            ? 'session.created'
+            : parsed.type
         )
         refreshEngvoSessionBootstrapRef()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)

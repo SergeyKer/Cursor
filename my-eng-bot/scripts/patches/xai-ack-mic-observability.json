@@ -1,0 +1,14 @@
+[
+  [
+    "import { engvoClientDebugLog } from '@/lib/engvo/debugSession79b473Client'\n",
+    ""
+  ],
+  [
+    "        console.info('[engvo] session-ack', parsed.type)\n        engvoClientDebugLog({\n          location: 'AppShell.tsx:session-ack',\n          message: 'session ack received',\n          data: { type: parsed.type },\n          hypothesisId: 'H5',\n        })\n        engvoSessionStartedRef.current = true",
+    "        console.info('[engvo] session-ack', parsed.type)\n        if (engvoActiveProviderRef.current === 'xai') {\n          engvoXaiTransportRef.current?.startMicCapture()\n        }\n        engvoSessionStartedRef.current = true"
+  ],
+  [
+    "              clearEngvoTimeout(engvoSessionAckTimeoutRef)\n              if (!engvoSessionStartedRef.current) {\n                engvoSessionAckTimeoutRef.current = window.setTimeout(() => {\n                  engvoClientDebugLog({\n                    location: 'AppShell.tsx:session-ack-timeout',\n                    message: 'session ack timeout',\n                    data: {\n                      transport: xaiTransportMode,\n                      sessionStarted: engvoSessionStartedRef.current,\n                    },\n                    hypothesisId: 'H5',\n                  })\n                  setEngvoSessionError('Grok не подтвердил Realtime-сессию. Попробуйте ещё раз.')\n                }, ENGVO_SESSION_ACK_TIMEOUT_MS)\n              }",
+    "              clearEngvoTimeout(engvoSessionAckTimeoutRef)\n              if (!engvoSessionStartedRef.current) {\n                engvoSessionAckTimeoutRef.current = window.setTimeout(() => {\n                  console.warn('[engvo] session-ack-timeout', { transport: xaiTransportMode })\n                  setEngvoSessionError(\n                    `Grok не подтвердил Realtime-сессию (${xaiTransportMode}). Попробуйте ещё раз.`\n                  )\n                }, ENGVO_SESSION_ACK_TIMEOUT_MS)\n              }"
+  ]
+]
