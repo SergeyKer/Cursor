@@ -2062,13 +2062,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setEngvoErrorText(null)
         setEngvoSessionUpdateTick((prev) => prev + 1)
 
-        // Greeting after session config — not on conversation.created alone.
-        // xAI: keep connecting until greeting; start mic only after response.created
-        // (early mic + server_vad cancels the first turn).
-        const shouldTriggerGreetingOrReplay =
-          parsed.type === 'session.created' ||
-          parsed.type === 'session.updated' ||
-          parsed.type === 'session.update.acknowledged'
+        // xAI: greet ONLY after session.updated (session.created is too early — response.create
+        // is ignored and UI hangs on «Engvo говорит…»). OpenAI can greet on session.created.
+        const isXaiProvider = engvoActiveProviderRef.current === 'xai'
+        const shouldTriggerGreetingOrReplay = isXaiProvider
+          ? parsed.type === 'session.updated' || parsed.type === 'session.update.acknowledged'
+          : parsed.type === 'session.created' ||
+            parsed.type === 'session.updated' ||
+            parsed.type === 'session.update.acknowledged'
         if (shouldTriggerGreetingOrReplay) {
           const replayItems = engvoRealtimeReplayItemsRef.current
           engvoRealtimeReplayItemsRef.current = null
@@ -2102,6 +2103,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             }
             setMessages((prev) => prev.filter((m) => !m.engvoServiceLine))
           } else if (!engvoGreetingTriggeredRef.current) {
+            // xAI docs: seed a user item, then response.create.
+            if (isXaiProvider) {
+              sendEngvoRealtimeEvent({
+                type: 'conversation.item.create',
+                item: {
+                  type: 'message',
+                  role: 'user',
+                  content: [{ type: 'input_text', text: 'Hi' }],
+                },
+              })
+            }
             const greetingSent = sendEngvoRealtimeEvent({
               type: 'response.create',
               response: {
@@ -2117,6 +2129,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               setEngvoCallPhase('assistantPending')
               console.info('[engvo] greeting-sent', parsed.type)
               window.setTimeout(() => {
+                if (!engvoAssistantResponseIdRef.current) {
+                  console.warn('[engvo] greeting watchdog: no response yet, stay pending')
+                }
                 engvoXaiTransportRef.current?.startMicCapture()
               }, 2000)
             } else {
@@ -2125,8 +2140,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             }
           }
         } else if (
-          parsed.type === 'conversation.created' &&
-          engvoActiveProviderRef.current === 'xai' &&
+          (parsed.type === 'conversation.created' ||
+            (isXaiProvider && parsed.type === 'session.created')) &&
           !engvoGreetingTriggeredRef.current
         ) {
           // Wait for session.updated — keep dialing UI.

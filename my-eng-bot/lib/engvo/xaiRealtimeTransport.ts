@@ -240,6 +240,11 @@ export function connectEngvoXaiRealtime(params: {
   })
 
   ws.addEventListener('message', (event) => {
+    // Keep text-frame order: sync path for strings (async Blob decode can reorder).
+    if (typeof event.data === 'string') {
+      handleRawMessage(event.data)
+      return
+    }
     void (async () => {
       try {
         const raw = await decodeWsData(event.data)
