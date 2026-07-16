@@ -16,6 +16,7 @@ import {
   floatTo16BitPCM,
 } from '@/lib/engvo/pcm'
 import type { EngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
+import { engvoClientDebugLog } from '@/lib/engvo/debugSession79b473Client'
 
 export { shouldSendOutputAudioBufferClear } from '@/lib/engvo/constants'
 export { ENGVO_XAI_RELAY_READY_EVENT } from '@/lib/engvo/xaiRelay'
@@ -168,21 +169,26 @@ export function connectEngvoXaiRealtime(params: {
 
   try {
     ensureAudioGraph()
-    startMicCapture()
   } catch (error) {
-    console.warn('[engvo][xai] failed to start mic capture graph', error)
+    console.warn('[engvo][xai] failed to prepare audio graph', error)
   }
 
   ws.addEventListener('open', () => {
     if (audioContext.state === 'suspended') {
       void audioContext.resume().catch(() => {})
     }
+    engvoClientDebugLog({
+      location: 'xaiRealtimeTransport.ts:ws-open',
+      message: 'browser ws open',
+      data: { transport },
+      hypothesisId: 'H2',
+    })
     if (transport === 'relay') {
       // Wait for upstream xAI before session.update / mic (server sends relay.ready).
       return
     }
-    startMicCapture()
     params.handlers.onOpen?.()
+    startMicCapture()
   })
 
   ws.addEventListener('message', (event) => {
@@ -191,8 +197,14 @@ export function connectEngvoXaiRealtime(params: {
     try {
       const parsed = JSON.parse(raw) as { type?: string; delta?: string }
       if (parsed.type === ENGVO_XAI_RELAY_READY_EVENT) {
-        startMicCapture()
+        engvoClientDebugLog({
+          location: 'xaiRealtimeTransport.ts:relay-ready',
+          message: 'relay ready received',
+          data: { transport },
+          hypothesisId: 'H3',
+        })
         params.handlers.onOpen?.()
+        startMicCapture()
         return
       }
       if (

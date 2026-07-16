@@ -292,6 +292,7 @@ import {
   recordEngvoDebugSessionUpdate,
   resetEngvoDebugTimingState,
 } from '@/lib/engvo/debugTiming'
+import { engvoClientDebugLog } from '@/lib/engvo/debugSession79b473Client'
 import {
   connectEngvoXaiRealtime,
   getEngvoStopPlaybackEvents,
@@ -2042,15 +2043,25 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return
       }
 
-      if (parsed.type === 'session.created' || parsed.type === 'session.updated') {
+      if (
+        parsed.type === 'session.created' ||
+        parsed.type === 'session.updated' ||
+        parsed.type === 'session.update.acknowledged'
+      ) {
         markEngvoSessionUpdateAck()
         logEngvoDebugTimingEvent(
           engvoDebugTimingRef.current,
-          parsed.type === 'session.created' ? 'session.created' : 'session.updated'
+          parsed.type === 'session.created' ? 'session.created' : parsed.type
         )
         refreshEngvoSessionBootstrapRef()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         console.info('[engvo] session-ack', parsed.type)
+        engvoClientDebugLog({
+          location: 'AppShell.tsx:session-ack',
+          message: 'session ack received',
+          data: { type: parsed.type },
+          hypothesisId: 'H5',
+        })
         engvoSessionStartedRef.current = true
         setEngvoErrorText(null)
         setEngvoCallPhase('listening')
@@ -2620,9 +2631,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 provider: 'xai',
               })
               clearEngvoTimeout(engvoSessionAckTimeoutRef)
-              engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
-                setEngvoSessionError('Grok не подтвердил Realtime-сессию. Попробуйте ещё раз.')
-              }, ENGVO_SESSION_ACK_TIMEOUT_MS)
+              if (!engvoSessionStartedRef.current) {
+                engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
+                  engvoClientDebugLog({
+                    location: 'AppShell.tsx:session-ack-timeout',
+                    message: 'session ack timeout',
+                    data: {
+                      transport: xaiTransportMode,
+                      sessionStarted: engvoSessionStartedRef.current,
+                    },
+                    hypothesisId: 'H5',
+                  })
+                  setEngvoSessionError('Grok не подтвердил Realtime-сессию. Попробуйте ещё раз.')
+                }, ENGVO_SESSION_ACK_TIMEOUT_MS)
+              }
             },
             onError: () => {
               setEngvoSessionError(ENGVO_XAI_WS_USER_MESSAGE)
