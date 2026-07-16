@@ -1,7 +1,8 @@
 import type { NextRequest } from 'next/server'
+// loadWs FIRST: sets WS_NO_BUFFER_UTIL before any `ws` Receiver init in this route graph.
+import WebSocket from '@/lib/engvo/loadWs'
 import { experimental_upgradeWebSocket } from '@vercel/functions'
 import type { RawData } from 'ws'
-import WebSocket from 'ws'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT } from '@/lib/engvo/pcm'
 import {
