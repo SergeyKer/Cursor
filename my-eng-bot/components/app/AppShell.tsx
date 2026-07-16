@@ -2066,7 +2066,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setEngvoCallPhase('listening')
         setEngvoSessionUpdateTick((prev) => prev + 1)
 
-        if (parsed.type === 'session.created') {
+        // Greeting after session is ready — not only session.created (xAI often acks via
+        // conversation.created then session.updated; greeting was skipped).
+        const shouldTriggerGreetingOrReplay =
+          parsed.type === 'session.created' ||
+          parsed.type === 'session.updated' ||
+          parsed.type === 'session.update.acknowledged'
+        if (shouldTriggerGreetingOrReplay) {
           const replayItems = engvoRealtimeReplayItemsRef.current
           engvoRealtimeReplayItemsRef.current = null
 
@@ -2104,6 +2110,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             })
             if (greetingSent) {
               engvoGreetingTriggeredRef.current = true
+              console.info('[engvo] greeting-sent', parsed.type)
             }
           }
         }
