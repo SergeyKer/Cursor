@@ -2,6 +2,9 @@ import { ENGVO_XAI_MODEL, ENGVO_XAI_REALTIME_URL } from '@/lib/engvo/constants'
 
 export const ENGVO_XAI_RELAY_PATH = '/api/realtime-session/xai-relay'
 
+/** Sent to browser when relay upstream xAI WebSocket is open. */
+export const ENGVO_XAI_RELAY_READY_EVENT = 'relay.ready' as const
+
 export const XAI_RELAY_UPSTREAM_TIMEOUT_MS = 10_000
 export const XAI_RELAY_CLIENT_BUFFER_MAX_BYTES = 512_000
 export const XAI_RELAY_CLIENT_BUFFER_MAX_FRAMES = 64

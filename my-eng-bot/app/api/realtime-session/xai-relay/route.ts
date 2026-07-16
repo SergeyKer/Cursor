@@ -13,6 +13,7 @@ import {
   XAI_RELAY_CLIENT_BUFFER_MAX_FRAMES,
   XAI_RELAY_CLOSE_INTERNAL,
   XAI_RELAY_UPSTREAM_TIMEOUT_MS,
+  ENGVO_XAI_RELAY_READY_EVENT,
 } from '@/lib/engvo/xaiRelay'
 import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE } from '@/lib/engvo/errors'
 
@@ -184,11 +185,20 @@ export async function GET(request: NextRequest) {
       clearTimeout(upstreamTimeout)
       upstreamOpen = true
       console.info('[engvo][xai-relay] upstream_open', { model })
+      try {
+        clientWs.send(JSON.stringify({ type: ENGVO_XAI_RELAY_READY_EVENT }))
+      } catch {
+        // ignore
+      }
       flushPendingClientFrames()
     })
 
     upstream.on('message', (data) => {
       if (closed) return
+      const asString = typeof data === 'string' ? data : data.toString()
+      if (asString.includes('session.created') || asString.includes('session.updated')) {
+        console.info('[engvo][xai-relay] upstream_session_ack')
+      }
       forwardWithBackpressure(clientWs, data as WebSocketData)
     })
 

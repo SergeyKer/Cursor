@@ -5,7 +5,7 @@ import {
   shouldSendOutputAudioBufferClear,
   type EngvoProvider,
 } from '@/lib/engvo/constants'
-import { buildEngvoXaiRelayWsUrl } from '@/lib/engvo/xaiRelay'
+import { buildEngvoXaiRelayWsUrl, ENGVO_XAI_RELAY_READY_EVENT } from '@/lib/engvo/xaiRelay'
 import {
   applyInputGain,
   arrayBufferToBase64,
@@ -17,7 +17,8 @@ import {
 } from '@/lib/engvo/pcm'
 import type { EngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
 
-export { shouldSendOutputAudioBufferClear }
+export { shouldSendOutputAudioBufferClear } from '@/lib/engvo/constants'
+export { ENGVO_XAI_RELAY_READY_EVENT } from '@/lib/engvo/xaiRelay'
 
 export type EngvoXaiTransportHandlers = {
   onEvent: (raw: string) => void
@@ -176,6 +177,10 @@ export function connectEngvoXaiRealtime(params: {
     if (audioContext.state === 'suspended') {
       void audioContext.resume().catch(() => {})
     }
+    if (transport === 'relay') {
+      // Wait for upstream xAI before session.update / mic (server sends relay.ready).
+      return
+    }
     startMicCapture()
     params.handlers.onOpen?.()
   })
@@ -185,6 +190,11 @@ export function connectEngvoXaiRealtime(params: {
     if (!raw) return
     try {
       const parsed = JSON.parse(raw) as { type?: string; delta?: string }
+      if (parsed.type === ENGVO_XAI_RELAY_READY_EVENT) {
+        startMicCapture()
+        params.handlers.onOpen?.()
+        return
+      }
       if (
         (parsed.type === 'response.output_audio.delta' || parsed.type === 'response.audio.delta') &&
         typeof parsed.delta === 'string' &&
