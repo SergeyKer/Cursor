@@ -11,6 +11,7 @@ const baseA = buildEngvoSessionBootstrapSnapshot({
   voice: 'ara',
   speed: 1,
   provider: 'xai',
+  kind: 'free_call',
 })
 
 const baseB = buildEngvoSessionBootstrapSnapshot({
@@ -25,13 +26,14 @@ describe('Engvo session bootstrap snapshot', () => {
     expect(isEngvoSessionBootstrapRedundantUpdate(null, copy)).toBe(false)
   })
 
-  it('detects level/topic/audience/voice/speed/provider changes', () => {
+  it('detects level/topic/audience/voice/speed/provider/kind changes', () => {
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, level: 'b1' })).toBe(false)
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, topic: 'travel' })).toBe(false)
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, audience: 'child' })).toBe(false)
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, voice: 'rex' })).toBe(false)
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, speed: 0.85 })).toBe(false)
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, provider: 'openai' })).toBe(false)
+    expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, kind: 'teacher' })).toBe(false)
   })
 
   it('A→B→A: after refresh to B, return to A is not redundant; after refresh to A, redundant again', () => {

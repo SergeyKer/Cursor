@@ -136,7 +136,15 @@ import { computeCorePercent, resolveMedalFromCoreXp, type LessonMedalTierOrNull 
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, loadLessonProgressMap, saveLessonProgress } from '@/lib/lessonProgressStorage'
-import { listLearningSignals } from '@/lib/learningMemory'
+import {
+  listLearningSignals,
+  recordAssistantTurnLearningSignal,
+  recordLanguageNoteSignal,
+  recordLessonOrPracticeResolved,
+  recordTeacherCorrectionSignal,
+  scheduleSilentAssess,
+  extractTeacherCorrection,
+} from '@/lib/learningMemory'
 import { hasAnyLearningHistory, resolveReturningHomeMenuView, shouldOpenMyPlanHome } from '@/lib/myPlan/returningHome'
 import {
   findStaticLessonByTopic,
@@ -222,12 +230,6 @@ import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { LanguageNote } from '@/lib/languageNote/types'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
-import {
-  recordAssistantTurnLearningSignal,
-  recordLanguageNoteSignal,
-  recordLessonOrPracticeResolved,
-  scheduleSilentAssess,
-} from '@/lib/learningMemory'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -311,7 +313,10 @@ import {
   loadEngvoCefrLevel,
   loadEngvoProvider,
   loadEngvoRealtimeVoice,
+  loadEngvoSessionKind,
   loadEngvoSpeechSpeedPreset,
+  loadEngvoTeacherSentenceType,
+  loadEngvoTeacherTense,
   loadEngvoXaiVoice,
   loadEngvoXaiVoiceRotationMode,
   loadEngvoXaiVoiceShuffleRemaining,
@@ -319,12 +324,24 @@ import {
   saveEngvoCefrLevel,
   saveEngvoProvider,
   saveEngvoRealtimeVoice,
+  saveEngvoSessionKind,
   saveEngvoSpeechSpeedPreset,
+  saveEngvoTeacherSentenceType,
+  saveEngvoTeacherTense,
   saveEngvoXaiVoice,
   saveEngvoXaiVoiceRotationMode,
   saveEngvoXaiVoiceShuffleRemaining,
   clearEngvoXaiVoiceShuffleRemaining,
 } from '@/lib/engvo/preferences'
+import {
+  ENGVO_DEFAULT_SESSION_KIND,
+  ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
+  ENGVO_DEFAULT_TEACHER_TENSE,
+  resolveEngvoTeacherPhase,
+  sanitizeEngvoTeacherTenseForAudience,
+  type EngvoTeacherPhase,
+  type EngvoVoiceSessionKind,
+} from '@/lib/engvo/sessionKind'
 import {
   loadPracticeTtsSpeedDefaultIndex,
   savePracticeTtsSpeedDefaultIndex,
@@ -367,7 +384,7 @@ import {
   shouldIgnoreNoiseTranscriptDuringAssistantSpeech,
 } from '@/lib/engvo/interruptDebounce'
 import { engvoVoiceTranscriptIsLikelyNoise, shouldShowEngvoVoiceUserTranscript } from '@/lib/engvo/transcriptGuard'
-import { consumeNextEngvoWelcomeMessage } from '@/lib/engvo/welcomeMessageRotation'
+import { consumeNextEngvoWelcomeMessage, consumeNextEngvoTeacherWelcomeMessage } from '@/lib/engvo/welcomeMessageRotation'
 import { applyCefrOutputGuardClient } from '@/lib/cefr/levelGuardClient'
 import {
   extractRealtimeTextFromResponseDone,
@@ -977,6 +994,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoCefrLevel, setEngvoCefrLevel] = useState<EngvoCefrLevel>(ENGVO_DEFAULT_LEVEL)
   const [engvoSpeechSpeedPreset, setEngvoSpeechSpeedPreset] =
     useState<EngvoSpeechSpeedPresetId>('conversational')
+  const [engvoSessionKind, setEngvoSessionKind] =
+    useState<EngvoVoiceSessionKind>(ENGVO_DEFAULT_SESSION_KIND)
+  const [engvoTeacherTense, setEngvoTeacherTense] = useState<TenseId>(ENGVO_DEFAULT_TEACHER_TENSE)
+  const [engvoTeacherSentenceType, setEngvoTeacherSentenceType] = useState<SentenceType>(
+    ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
+  )
+  const engvoTeacherPhaseRef = React.useRef<EngvoTeacherPhase | null>(null)
+  const engvoTeacherUserFinalCountRef = React.useRef(0)
+  const engvoSessionKindRef = React.useRef<EngvoVoiceSessionKind>(ENGVO_DEFAULT_SESSION_KIND)
+  engvoSessionKindRef.current = engvoSessionKind
   const [practiceTtsSpeedDefaultIndex, setPracticeTtsSpeedDefaultIndex] = useState(0)
   const [chatPatternId, setChatPatternId] = useState<ChatPatternId>('none')
   const [chatPatternTuningMap, setChatPatternTuningMap] = useState<ChatPatternTuningMap>({})
@@ -1190,6 +1217,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const engvoLastMeaningfulActivityAtRef = React.useRef<number>(0)
   const engvoLastFinalUserAtRef = React.useRef<number>(0)
   const engvoLastUserCoalescedAtRef = React.useRef<number>(0)
+  const engvoLastFinalUserTranscriptRef = React.useRef<string>('')
   const engvoGotAssistantForCurrentUserTurnRef = React.useRef(false)
   /** Снимок истории для передачи в новую Realtime-сессию после разрыва звонка; опустошается в `session.created`. */
   const engvoRealtimeReplayItemsRef = React.useRef<EngvoRealtimeReplayItem[] | null>(null)
@@ -1470,12 +1498,29 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const commitEngvoAssistantText = useCallback(
     (text: string, responseId?: string | null) => {
-      const cleanText = guardEngvoAssistantContent(cleanNewlines(text))
+      const rawText = cleanNewlines(text)
+      const cleanText = guardEngvoAssistantContent(rawText)
       if (!cleanText) return
       const id = responseId ?? engvoAssistantResponseIdRef.current
       if (id) {
         if (engvoCommittedResponseIdsRef.current.has(id)) return
         engvoCommittedResponseIdsRef.current.add(id)
+      }
+
+      if (
+        engvoSessionKindRef.current === 'teacher' &&
+        engvoTeacherPhaseRef.current === 'drill'
+      ) {
+        const extracted = extractTeacherCorrection(rawText || cleanText)
+        if (extracted.corrected) {
+          const userText = engvoLastFinalUserTranscriptRef.current.trim()
+          if (userText) {
+            recordTeacherCorrectionSignal({
+              userText,
+              corrected: extracted.corrected,
+            })
+          }
+        }
       }
 
       markEngvoAssistantAheadOfPendingUserTranscript()
@@ -1769,6 +1814,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const finishEngvoCall = useCallback(() => {
     engvoRedialWithoutWelcomeRef.current = true
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    engvoTeacherPhaseRef.current = resolveEngvoTeacherPhase({ kind: engvoSessionKindRef.current })
+    engvoTeacherUserFinalCountRef.current = 0
+    engvoLastFinalUserTranscriptRef.current = ''
     setEngvoCallPhase('ended')
     setEngvoErrorText(null)
     setEngvoBootstrapServiceStatusVisible(false)
@@ -1807,15 +1855,42 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         provider
       ),
       provider,
+      kind: engvoSessionKind,
+      teacherTense: engvoSessionKind === 'teacher' ? engvoTeacherTense : undefined,
+      teacherSentenceType: engvoSessionKind === 'teacher' ? engvoTeacherSentenceType : undefined,
     })
   }, [
     engvoCefrLevel,
     engvoRealtimeVoice,
+    engvoSessionKind,
     engvoSpeechSpeedPreset,
+    engvoTeacherSentenceType,
+    engvoTeacherTense,
     engvoXaiVoice,
     settings.audience,
     settings.topic,
   ])
+
+  const buildEngvoLiveInstructions = useCallback(
+    (speechSpeed: number) =>
+      buildEngvoRealtimeInstructionsClient({
+        audience: settings.audience,
+        level: engvoCefrLevel,
+        topic: settings.topic,
+        speechSpeed,
+        kind: engvoSessionKind,
+        tense: engvoTeacherTense,
+        sentenceType: engvoTeacherSentenceType,
+      }),
+    [
+      engvoCefrLevel,
+      engvoSessionKind,
+      engvoTeacherSentenceType,
+      engvoTeacherTense,
+      settings.audience,
+      settings.topic,
+    ]
+  )
 
   const refreshEngvoSessionBootstrapRef = useCallback(() => {
     engvoSessionBootstrapRef.current = buildCurrentEngvoSessionBootstrapSnapshot()
@@ -1879,6 +1954,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         level: payload.level ?? engvoCefrLevel,
         topic: settings.topic,
         speechSpeed,
+        kind: engvoSessionKind,
+        tense: engvoTeacherTense,
+        sentenceType: engvoTeacherSentenceType,
       })
       if (provider === 'xai') {
         const voice = (payload.voice as EngvoXaiCallVoice | undefined) ?? engvoXaiVoice
@@ -1899,7 +1977,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           instructions,
           inputAudioTranscription: {
             ...buildEngvoInputAudioTranscriptionConfig(),
-            language: 'ru',
+            ...(engvoSessionKind === 'teacher' ? {} : { language: 'ru' }),
           },
         }),
       })
@@ -1907,7 +1985,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [
       engvoCefrLevel,
       engvoRealtimeVoice,
+      engvoSessionKind,
       engvoSpeechSpeedPreset,
+      engvoTeacherSentenceType,
+      engvoTeacherTense,
       engvoXaiVoice,
       sendEngvoRealtimeEvent,
       settings.audience,
@@ -2133,6 +2214,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   audience: settings.audience,
                   level: engvoCefrLevel,
                   topic: settings.topic,
+                  kind: engvoSessionKind,
+                  tense: engvoTeacherTense,
+                  sentenceType: engvoTeacherSentenceType,
                 }),
               },
             })
@@ -2346,17 +2430,30 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 return insertEngvoUserMessage(prev, transcript, insertBeforeAssistant)
               })
               bumpEngvoGoal()
+              engvoLastFinalUserTranscriptRef.current = transcript
+              if (engvoSessionKindRef.current === 'teacher') {
+                engvoTeacherUserFinalCountRef.current += 1
+                if (
+                  engvoTeacherPhaseRef.current === 'topic_choice' &&
+                  engvoTeacherUserFinalCountRef.current >= 1
+                ) {
+                  // After topic naming, next assistant turn is drill; corrections only after that.
+                  engvoTeacherPhaseRef.current = 'drill'
+                }
+              }
               // Final coalesced user turn only — never on partials / near-duplicate coalesce.
-              scheduleSilentAssess({
-                text: transcript,
-                provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
-                openAiChatPreset: settings.openAiChatPreset,
-                audience: settings.audience,
-                mode: 'engvo',
-                source: 'call',
-                recentAssistantText:
-                  [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? null,
-              })
+              if (engvoSessionKindRef.current === 'free_call') {
+                scheduleSilentAssess({
+                  text: transcript,
+                  provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
+                  openAiChatPreset: settings.openAiChatPreset,
+                  audience: settings.audience,
+                  mode: 'engvo',
+                  source: 'call',
+                  recentAssistantText:
+                    [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? null,
+                })
+              }
             }
           }
           setEngvoCallPhase('assistantPending')
@@ -2550,6 +2647,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setDialogStarted(true)
     setEngvoVoiceMode(true)
     setEngvoBootstrapServiceStatusVisible(true)
+    engvoTeacherPhaseRef.current = resolveEngvoTeacherPhase({ kind: engvoSessionKind })
+    engvoTeacherUserFinalCountRef.current = 0
+    engvoLastFinalUserTranscriptRef.current = ''
     setEngvoCallPhase('connecting')
     setEngvoErrorText(null)
     setRetryMessage(null)
@@ -2688,12 +2788,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               clearEngvoTimeout(engvoPcConnectTimeoutRef)
               const sent = sendEngvoRealtimeEvent(
                 buildEngvoXaiClientSessionUpdate({
-                  instructions: buildEngvoRealtimeInstructionsClient({
-                    audience: settings.audience,
-                    level: engvoCefrLevel,
-                    topic: settings.topic,
-                    speechSpeed,
-                  }),
+                  instructions: buildEngvoLiveInstructions(speechSpeed),
                   voice: callXaiVoice,
                   speed: speechSpeed,
                 })
@@ -2702,14 +2797,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 setEngvoSessionError('Не удалось отправить параметры Grok-сессии.')
                 return
               }
-              engvoSessionBootstrapRef.current = buildEngvoSessionBootstrapSnapshot({
-                level: engvoCefrLevel,
-                audience: settings.audience,
-                topic: settings.topic,
-                voice: callXaiVoice,
-                speed: speechSpeed,
-                provider: 'xai',
-              })
+              engvoSessionBootstrapRef.current = buildCurrentEngvoSessionBootstrapSnapshot()
               clearEngvoTimeout(engvoSessionAckTimeoutRef)
               if (!engvoSessionStartedRef.current) {
                 engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
@@ -2818,15 +2906,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             model: ENGVO_REALTIME_MODEL,
             voice: engvoRealtimeVoice,
             speed: speechSpeed,
-            instructions: buildEngvoRealtimeInstructionsClient({
-              audience: settings.audience,
-              level: engvoCefrLevel,
-              topic: settings.topic,
-              speechSpeed,
-            }),
+            instructions: buildEngvoLiveInstructions(speechSpeed),
             inputAudioTranscription: {
               ...buildEngvoInputAudioTranscriptionConfig(),
-              language: 'ru',
+              ...(engvoSessionKind === 'teacher' ? {} : { language: 'ru' }),
             },
           }),
         })
@@ -2834,14 +2917,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setEngvoSessionError('Не удалось отправить параметры Realtime-сессии.')
           return
         }
-        engvoSessionBootstrapRef.current = buildEngvoSessionBootstrapSnapshot({
-          level: engvoCefrLevel,
-          audience: settings.audience,
-          topic: settings.topic,
-          voice: engvoRealtimeVoice,
-          speed: speechSpeed,
-          provider: 'openai',
-        })
+        engvoSessionBootstrapRef.current = buildCurrentEngvoSessionBootstrapSnapshot()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
           setEngvoSessionError('OpenAI не подтвердил Realtime-сессию. Проверьте сеть/VPN.')
@@ -2879,6 +2955,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           voice: engvoRealtimeVoice,
           level: engvoCefrLevel,
           speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai'),
+          kind: engvoSessionKind,
+          tense: engvoTeacherTense,
+          sentenceType: engvoTeacherSentenceType,
         }),
         signal: sdpController.signal,
       }).finally(() => {
@@ -3099,6 +3178,28 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     },
     [engvoVoiceMode]
   )
+
+  const handleEngvoSessionKindChange = useCallback((kind: EngvoVoiceSessionKind) => {
+    setEngvoSessionKind(kind)
+    saveEngvoSessionKind(kind)
+    engvoSessionKindRef.current = kind
+    engvoTeacherPhaseRef.current = resolveEngvoTeacherPhase({ kind })
+    engvoTeacherUserFinalCountRef.current = 0
+  }, [])
+
+  const handleEngvoTeacherTenseChange = useCallback(
+    (tense: TenseId) => {
+      const next = sanitizeEngvoTeacherTenseForAudience(tense, settings.audience)
+      setEngvoTeacherTense(next)
+      saveEngvoTeacherTense(next)
+    },
+    [settings.audience]
+  )
+
+  const handleEngvoTeacherSentenceTypeChange = useCallback((sentenceType: SentenceType) => {
+    setEngvoTeacherSentenceType(sentenceType)
+    saveEngvoTeacherSentenceType(sentenceType)
+  }, [])
 
   const handlePracticeTtsSpeedDefaultChange = useCallback((index: number) => {
     setPracticeTtsSpeedDefaultIndex(index)
@@ -3620,10 +3721,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMessages([
       {
         role: 'assistant',
-        content: consumeNextEngvoWelcomeMessage(settings.audience, engvoCefrLevel),
+        content:
+          engvoSessionKind === 'teacher'
+            ? consumeNextEngvoTeacherWelcomeMessage(settings.audience, engvoCefrLevel)
+            : consumeNextEngvoWelcomeMessage(settings.audience, engvoCefrLevel),
         engvoLocalWelcome: true,
       },
     ])
+    engvoTeacherPhaseRef.current = resolveEngvoTeacherPhase({ kind: engvoSessionKind })
+    engvoTeacherUserFinalCountRef.current = 0
+    engvoLastFinalUserTranscriptRef.current = ''
     setLoading(false)
     setSearchingInternet(false)
     setLoadingTranslationIndex(null)
@@ -3635,7 +3742,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     setMenuOpen(false)
-  }, [cleanupEngvoRuntime, engvoCefrLevel, resetStructuredLessonSession, settings.audience])
+  }, [
+    cleanupEngvoRuntime,
+    engvoCefrLevel,
+    engvoSessionKind,
+    resetStructuredLessonSession,
+    settings.audience,
+  ])
 
   const buildStructuredLessonRuntimeRequestKey = useCallback(
     (lessonId: string, mode: StructuredLessonRuntimeMode = 'generate') => {
@@ -5540,6 +5653,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             level: loadedEngvoLevel,
           })
         )
+        setEngvoSessionKind(loadEngvoSessionKind())
+        setEngvoTeacherTense(loadEngvoTeacherTense(mergedSettings.audience))
+        setEngvoTeacherSentenceType(loadEngvoTeacherSentenceType())
         setPracticeTtsSpeedDefaultIndex(loadPracticeTtsSpeedDefaultIndex())
         const loadedChatPattern = loadChatPattern()
         const loadedChatPatternTuningMap = loadChatPatternTuningMap()
@@ -8384,6 +8500,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}
                     onEngvoLevelChange={handleEngvoLevelChange}
                     onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
+                    engvoSessionKind={engvoSessionKind}
+                    engvoTeacherTense={engvoTeacherTense}
+                    engvoTeacherSentenceType={engvoTeacherSentenceType}
+                    engvoSettingsLocked={
+                      engvoVoiceMode &&
+                      (engvoCallPhase === 'connecting' ||
+                        engvoCallPhase === 'listening' ||
+                        engvoCallPhase === 'assistantPending' ||
+                        engvoCallPhase === 'assistantSpeaking' ||
+                        engvoCallPhase === 'userFinalizing')
+                    }
+                    onEngvoSessionKindChange={handleEngvoSessionKindChange}
+                    onEngvoTeacherTenseChange={handleEngvoTeacherTenseChange}
+                    onEngvoTeacherSentenceTypeChange={handleEngvoTeacherSentenceTypeChange}
                     practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
                     onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
                     chatPatternId={chatPatternId}
@@ -8844,6 +8974,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}
         onEngvoLevelChange={handleEngvoLevelChange}
         onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
+        engvoSessionKind={engvoSessionKind}
+        engvoTeacherTense={engvoTeacherTense}
+        engvoTeacherSentenceType={engvoTeacherSentenceType}
+        engvoSettingsLocked={
+          engvoVoiceMode &&
+          (engvoCallPhase === 'connecting' ||
+            engvoCallPhase === 'listening' ||
+            engvoCallPhase === 'assistantPending' ||
+            engvoCallPhase === 'assistantSpeaking' ||
+            engvoCallPhase === 'userFinalizing')
+        }
+        onEngvoSessionKindChange={handleEngvoSessionKindChange}
+        onEngvoTeacherTenseChange={handleEngvoTeacherTenseChange}
+        onEngvoTeacherSentenceTypeChange={handleEngvoTeacherSentenceTypeChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
         onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
         chatPatternId={chatPatternId}

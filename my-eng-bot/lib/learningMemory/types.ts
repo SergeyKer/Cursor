@@ -1,6 +1,7 @@
 export type LearningSource =
   | 'chat'
   | 'call'
+  | 'teacher'
   | 'translation'
   | 'guided_dialogue'
   | 'practice'
@@ -12,6 +13,7 @@ export type LearningDetector =
   | 'translation_parse'
   | 'language_note'
   | 'silent_assess'
+  | 'teacher_correction'
 
 export type LearningSignal = {
   id: string

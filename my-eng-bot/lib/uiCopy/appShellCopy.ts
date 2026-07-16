@@ -6,6 +6,7 @@ export const APP_SHELL_HOME_COPY = {
   homeBackAriaLabel: 'Главная: вернуться к выбору ребёнок или взрослый',
   homeBackLabel: 'Главная',
   startChatLabel: 'Начать чат с Engvo AI',
+  startMyPlanLabel: 'Мой план',
 } as const
 
 export const APP_SHELL_ERROR_COPY = {

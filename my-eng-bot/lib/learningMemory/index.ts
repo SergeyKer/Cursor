@@ -41,9 +41,11 @@ export {
   recordLessonOrPracticeResolved,
   recordPracticeWrongSignal,
   recordSilentAssessSignal,
+  recordTeacherCorrectionSignal,
   recordTranslationErrorSignal,
 } from '@/lib/learningMemory/record'
 export { extractTranslationErrorBlocks } from '@/lib/learningMemory/translationErrors'
+export { extractTeacherCorrection } from '@/lib/learningMemory/teacherCorrection'
 export { isLearningMemoryDebugEnabled } from '@/lib/learningMemory/debug'
 export {
   abortSilentAssessInFlight,

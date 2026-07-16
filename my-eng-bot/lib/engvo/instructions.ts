@@ -1,6 +1,11 @@
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
-import type { Audience, TopicId } from '@/lib/types'
+import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
 import { clampEngvoRealtimeSpeed, type EngvoCefrLevel } from '@/lib/engvo/constants'
+import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import {
+  buildEngvoTeacherFirstTurnResponseInstructions,
+  buildEngvoTeacherRealtimeInstructions,
+} from '@/lib/engvo/teacherPrompts'
 
 const ENGVO_TOPIC_NAMES: Record<TopicId, string> = {
   free_talk: 'Free talk (any topic)',
@@ -109,7 +114,23 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
   audience: Audience
   level: EngvoCefrLevel
   topic: TopicId
+  kind?: EngvoVoiceSessionKind
+  tense?: TenseId
+  sentenceType?: SentenceType
+  skipTopicChoice?: boolean
+  topicPreset?: string | null
 }): string {
+  if (params.kind === 'teacher') {
+    return buildEngvoTeacherFirstTurnResponseInstructions({
+      audience: params.audience,
+      level: params.level,
+      skipTopicChoice: params.skipTopicChoice,
+      topicPreset: params.topicPreset,
+      tense: params.tense ?? 'present_simple',
+      sentenceType: params.sentenceType ?? 'general',
+    })
+  }
+
   const safeTopic = sanitizeEngvoTopicForAudience(params.topic, params.audience)
   const topicName = ENGVO_TOPIC_NAMES[safeTopic] ?? 'the selected topic'
 
@@ -185,7 +206,24 @@ export function buildEngvoRealtimeInstructions(params: {
   level: EngvoCefrLevel
   topic: TopicId
   speechSpeed?: number
+  kind?: EngvoVoiceSessionKind
+  tense?: TenseId
+  sentenceType?: SentenceType
+  skipTopicChoice?: boolean
+  topicPreset?: string | null
 }): string {
+  if (params.kind === 'teacher') {
+    return buildEngvoTeacherRealtimeInstructions({
+      audience: params.audience,
+      level: params.level,
+      tense: params.tense ?? 'present_simple',
+      sentenceType: params.sentenceType ?? 'general',
+      speechSpeed: params.speechSpeed,
+      skipTopicChoice: params.skipTopicChoice,
+      topicPreset: params.topicPreset,
+    })
+  }
+
   const cefrBlock = buildCefrPromptBlock({
     level: params.level,
     audience: params.audience,

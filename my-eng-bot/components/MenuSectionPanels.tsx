@@ -102,6 +102,13 @@ import {
   type EngvoXaiVoiceRotationMode,
   type EngvoXaiVoiceSectionId,
 } from '@/lib/engvo/constants'
+import {
+  ENGVO_DEFAULT_SESSION_KIND,
+  ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
+  ENGVO_DEFAULT_TEACHER_TENSE,
+  ENGVO_SESSION_KIND_OPTIONS,
+  type EngvoVoiceSessionKind,
+} from '@/lib/engvo/sessionKind'
 import { formatEngvoVoiceDisplayName } from '@/lib/engvo/voiceDisplayName'
 import { listEngvoCustomVoices } from '@/lib/engvo/voiceLab/customVoicesManifest'
 import {
@@ -236,9 +243,12 @@ type SettingsMenuPanel =
   | 'patternBlend'
 type EngvoPanel =
   | 'summary'
+  | 'kind'
   | 'provider'
   | 'audience'
   | 'topic'
+  | 'tense'
+  | 'sentenceType'
   | 'voice'
   | 'voiceRotation'
   | 'voiceSection'
@@ -257,9 +267,12 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Позвонить',
+  kind: 'Формат звонка',
   provider: 'Провайдер',
   audience: 'Стиль общения',
   topic: 'Тема',
+  tense: 'Время',
+  sentenceType: 'Тип предложений',
   voice: 'Голос',
   voiceRotation: 'Случайный',
   voiceSection: 'Голос',
@@ -469,12 +482,20 @@ export interface MenuSectionPanelsProps {
   engvoXaiVoiceRotationMode?: EngvoXaiVoiceRotationMode
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
+  engvoSessionKind?: EngvoVoiceSessionKind
+  engvoTeacherTense?: TenseId
+  engvoTeacherSentenceType?: SentenceType
+  /** Lock format / drill params while a live call is in progress. */
+  engvoSettingsLocked?: boolean
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoXaiVoiceChange?: (voice: EngvoXaiCallVoice) => void
   onEngvoXaiVoiceRotationModeChange?: (mode: EngvoXaiVoiceRotationMode) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
+  onEngvoSessionKindChange?: (kind: EngvoVoiceSessionKind) => void
+  onEngvoTeacherTenseChange?: (tense: TenseId) => void
+  onEngvoTeacherSentenceTypeChange?: (sentenceType: SentenceType) => void
   practiceTtsSpeedDefaultIndex?: number
   onPracticeTtsSpeedDefaultChange?: (index: number) => void
   chatPatternId?: ChatPatternId
@@ -583,12 +604,19 @@ export default function MenuSectionPanels({
   engvoXaiVoiceRotationMode = ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE,
   engvoCefrLevel,
   engvoSpeechSpeedPreset,
+  engvoSessionKind = ENGVO_DEFAULT_SESSION_KIND,
+  engvoTeacherTense = ENGVO_DEFAULT_TEACHER_TENSE,
+  engvoTeacherSentenceType = ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
+  engvoSettingsLocked = false,
   onEngvoProviderChange,
   onEngvoVoiceChange,
   onEngvoXaiVoiceChange,
   onEngvoXaiVoiceRotationModeChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
+  onEngvoSessionKindChange,
+  onEngvoTeacherTenseChange,
+  onEngvoTeacherSentenceTypeChange,
   practiceTtsSpeedDefaultIndex = 0,
   onPracticeTtsSpeedDefaultChange,
   chatPatternId = 'none',
@@ -1261,6 +1289,17 @@ export default function MenuSectionPanels({
   const engvoSpeechSpeedLabel =
     ENGVO_SPEECH_SPEED_PRESETS.find((p) => p.id === (engvoSpeechSpeedPreset ?? 'conversational'))?.label ??
     'Разговорная'
+  const engvoSessionKindLabel =
+    ENGVO_SESSION_KIND_OPTIONS.find((o) => o.id === engvoSessionKind)?.label ?? 'Свободный звонок'
+  const engvoTeacherTenseLabel =
+    TENSES.find((t) => t.id === engvoTeacherTense)?.label ?? engvoTeacherTense
+  const engvoTeacherSentenceTypeLabel =
+    SENTENCE_TYPES.find((t) => t.id === engvoTeacherSentenceType)?.label ?? engvoTeacherSentenceType
+  const engvoTeacherTenseOptions =
+    settings.audience === 'child'
+      ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id as (typeof CHILD_TENSES)[number]))
+      : TENSES.filter((t) => t.id !== 'all')
+  const isTeacherFormat = engvoSessionKind === 'teacher'
   const practiceTtsSpeedLabel = getPracticeTtsSpeedPreset(practiceTtsSpeedDefaultIndex).label
   const chatPatternLabel = getChatPatternLabel(chatPatternId)
 
@@ -1380,8 +1419,11 @@ export default function MenuSectionPanels({
       }
       if (
         engvoPanel === 'provider' ||
+        engvoPanel === 'kind' ||
         engvoPanel === 'audience' ||
         engvoPanel === 'topic' ||
+        engvoPanel === 'tense' ||
+        engvoPanel === 'sentenceType' ||
         engvoPanel === 'voice' ||
         engvoPanel === 'level' ||
         engvoPanel === 'speed'
@@ -1405,8 +1447,11 @@ export default function MenuSectionPanels({
         ? 'К настройкам'
         : menuView === 'engvo' &&
             (engvoPanel === 'provider' ||
+              engvoPanel === 'kind' ||
               engvoPanel === 'audience' ||
               engvoPanel === 'topic' ||
+              engvoPanel === 'tense' ||
+              engvoPanel === 'sentenceType' ||
               engvoPanel === 'voice' ||
               engvoPanel === 'voiceRotation' ||
               engvoPanel === 'voiceSection' ||
@@ -1926,14 +1971,63 @@ export default function MenuSectionPanels({
                 <div className={MENU_GROUP_OUTER}>
                   <div className={MENU_GROUP_CLASS}>
                     <MenuSettingRow
+                      label="Формат звонка"
+                      value={engvoSessionKindLabel}
+                      onClick={() => {
+                        if (engvoSettingsLocked) return
+                        setEngvoPanel('kind')
+                      }}
+                      disabled={engvoSettingsLocked}
+                    />
+                    <MenuSettingRow
                       label="Провайдер"
                       value={engvoProviderLabel}
                       onClick={() => setEngvoPanel('provider')}
                     />
-                    <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setEngvoPanel('audience')} />
-                    <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setEngvoPanel('topic')} />
+                    <MenuSettingRow
+                      label="Стиль общения"
+                      value={audienceLabel}
+                      onClick={() => {
+                        if (engvoSettingsLocked) return
+                        setEngvoPanel('audience')
+                      }}
+                      disabled={engvoSettingsLocked}
+                    />
+                    {!isTeacherFormat && (
+                      <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setEngvoPanel('topic')} />
+                    )}
+                    {isTeacherFormat && (
+                      <>
+                        <MenuSettingRow
+                          label="Время"
+                          value={engvoTeacherTenseLabel}
+                          onClick={() => {
+                            if (engvoSettingsLocked) return
+                            setEngvoPanel('tense')
+                          }}
+                          disabled={engvoSettingsLocked}
+                        />
+                        <MenuSettingRow
+                          label="Тип предложений"
+                          value={engvoTeacherSentenceTypeLabel}
+                          onClick={() => {
+                            if (engvoSettingsLocked) return
+                            setEngvoPanel('sentenceType')
+                          }}
+                          disabled={engvoSettingsLocked}
+                        />
+                      </>
+                    )}
                     <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
-                    <MenuSettingRow label="Уровень" value={engvoLevelLabel} onClick={() => setEngvoPanel('level')} />
+                    <MenuSettingRow
+                      label="Уровень"
+                      value={engvoLevelLabel}
+                      onClick={() => {
+                        if (engvoSettingsLocked) return
+                        setEngvoPanel('level')
+                      }}
+                      disabled={engvoSettingsLocked}
+                    />
                     <MenuSettingRow
                       label="Скорость речи"
                       value={engvoSpeechSpeedLabel}
@@ -1949,6 +2043,16 @@ export default function MenuSectionPanels({
                   </div>
                 )}
               </>
+            )}
+            {engvoPanel === 'kind' && (
+              <PickerList
+                options={ENGVO_SESSION_KIND_OPTIONS}
+                value={engvoSessionKind}
+                onSelect={(id) => {
+                  onEngvoSessionKindChange?.(id as EngvoVoiceSessionKind)
+                  setEngvoPanel('summary')
+                }}
+              />
             )}
             {engvoPanel === 'provider' && (
               <PickerList
@@ -1976,6 +2080,26 @@ export default function MenuSectionPanels({
                 value={settings.topic}
                 onSelect={(id) => {
                   applyTopicSelection(id as TopicId)
+                  setEngvoPanel('summary')
+                }}
+              />
+            )}
+            {engvoPanel === 'tense' && (
+              <PickerList
+                options={engvoTeacherTenseOptions.map((t) => ({ id: t.id, label: t.label }))}
+                value={engvoTeacherTense}
+                onSelect={(id) => {
+                  onEngvoTeacherTenseChange?.(id as TenseId)
+                  setEngvoPanel('summary')
+                }}
+              />
+            )}
+            {engvoPanel === 'sentenceType' && (
+              <PickerList
+                options={SENTENCE_TYPES.map((t) => ({ id: t.id, label: t.label }))}
+                value={engvoTeacherSentenceType}
+                onSelect={(id) => {
+                  onEngvoTeacherSentenceTypeChange?.(id as SentenceType)
                   setEngvoPanel('summary')
                 }}
               />
@@ -4128,17 +4252,24 @@ function MenuSettingRow({
   value,
   trailing,
   onClick,
+  disabled = false,
 }: {
   label: string
   value: string
   trailing?: React.ReactNode
   onClick: () => void
+  disabled?: boolean
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation"
+      disabled={disabled}
+      className={`flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 touch-manipulation ${
+        disabled
+          ? 'cursor-not-allowed opacity-55'
+          : 'hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35'
+      }`}
     >
       <span className="shrink-0 text-sm font-medium leading-normal text-[var(--text-muted)]">{label}</span>
       {trailing ? <span className="shrink-0">{trailing}</span> : null}

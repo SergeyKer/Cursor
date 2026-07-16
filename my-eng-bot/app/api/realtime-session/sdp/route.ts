@@ -10,9 +10,17 @@ import {
 } from '@/lib/engvo/constants'
 import { resolveEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
 import { buildEngvoCallsApiSession } from '@/lib/engvo/realtimeSession'
+import {
+  ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
+  ENGVO_DEFAULT_TEACHER_TENSE,
+  isEngvoTeacherSentenceType,
+  isEngvoTeacherTense,
+  isEngvoVoiceSessionKind,
+  type EngvoVoiceSessionKind,
+} from '@/lib/engvo/sessionKind'
 import { TOPICS } from '@/lib/constants'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
-import type { Audience, TopicId } from '@/lib/types'
+import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
 
 export const runtime = 'nodejs'
 
@@ -88,6 +96,11 @@ export async function POST(req: NextRequest) {
       voice?: string
       level?: string
       speed?: unknown
+      kind?: string
+      tense?: string
+      sentenceType?: string
+      skipTopicChoice?: boolean
+      topicPreset?: string
     }
     const sdpRaw = typeof body.sdp === 'string' ? body.sdp : ''
     const sdp = sdpRaw
@@ -105,7 +118,26 @@ export async function POST(req: NextRequest) {
     const topic = topicIds.has(requestedTopic as TopicId) ? (requestedTopic as TopicId) : 'free_talk'
     const speechSpeed =
       typeof body.speed === 'number' && Number.isFinite(body.speed) ? clampEngvoRealtimeSpeed(body.speed) : 1
-    const instructions = buildEngvoRealtimeInstructions({ audience, level, topic, speechSpeed })
+    const kind: EngvoVoiceSessionKind = isEngvoVoiceSessionKind(body.kind ?? '')
+      ? (body.kind as EngvoVoiceSessionKind)
+      : 'free_call'
+    const tense: TenseId = isEngvoTeacherTense(body.tense ?? '')
+      ? (body.tense as TenseId)
+      : ENGVO_DEFAULT_TEACHER_TENSE
+    const sentenceType: SentenceType = isEngvoTeacherSentenceType(body.sentenceType ?? '')
+      ? (body.sentenceType as SentenceType)
+      : ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
+    const instructions = buildEngvoRealtimeInstructions({
+      audience,
+      level,
+      topic,
+      speechSpeed,
+      kind,
+      tense,
+      sentenceType,
+      skipTopicChoice: body.skipTopicChoice === true,
+      topicPreset: typeof body.topicPreset === 'string' ? body.topicPreset : null,
+    })
 
     const form = new FormData()
     form.append('sdp', sdp)

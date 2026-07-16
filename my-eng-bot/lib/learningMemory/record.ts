@@ -106,6 +106,30 @@ export function recordTranslationErrorSignal(params: {
   })
 }
 
+export function recordTeacherCorrectionSignal(params: {
+  userText: string
+  corrected: string
+}): void {
+  const userText = params.userText.trim()
+  const corrected = params.corrected.trim()
+  if (!userText || !corrected) return
+  scheduleIdle(() => {
+    saveLearningSignal({
+      source: 'teacher',
+      detector: 'teacher_correction',
+      utteranceHash: hashUtterance(userText),
+      rawTopicIds: ['teacher-errors'],
+      rawTopicTitles: ['Преподаватель'],
+      lessonIdHint: null,
+      skillTagIds: ['teacher-errors'],
+      snippet: {
+        original: userText.slice(0, 120),
+        corrected: corrected.slice(0, 120),
+      },
+    })
+  })
+}
+
 export function recordLanguageNoteSignal(params: {
   note: LanguageNote
   mode: AppMode

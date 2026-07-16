@@ -28,8 +28,21 @@ import {
   type EngvoXaiVoice,
   type EngvoXaiVoiceRotationMode,
 } from '@/lib/engvo/constants'
+import {
+  ENGVO_DEFAULT_SESSION_KIND,
+  ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
+  ENGVO_DEFAULT_TEACHER_TENSE,
+  ENGVO_SESSION_KIND_STORAGE_KEY,
+  ENGVO_TEACHER_SENTENCE_TYPE_STORAGE_KEY,
+  ENGVO_TEACHER_TENSE_STORAGE_KEY,
+  isEngvoTeacherSentenceType,
+  isEngvoTeacherTense,
+  isEngvoVoiceSessionKind,
+  sanitizeEngvoTeacherTenseForAudience,
+  type EngvoVoiceSessionKind,
+} from '@/lib/engvo/sessionKind'
 import { sanitizeXaiVoiceShuffleRemaining } from '@/lib/engvo/xaiVoiceRotation'
-import type { Audience } from '@/lib/types'
+import type { Audience, SentenceType, TenseId } from '@/lib/types'
 
 export function loadEngvoProvider(): EngvoProvider {
   if (typeof window === 'undefined') return ENGVO_DEFAULT_PROVIDER
@@ -215,4 +228,67 @@ export function resolveEngvoSpeechSpeedPreset(params: {
   const stored = params.stored ?? loadEngvoSpeechSpeedPreset()
   if (stored) return stored
   return getEngvoDefaultSpeechSpeedPreset(params.audience, params.level)
+}
+
+export function loadEngvoSessionKind(): EngvoVoiceSessionKind {
+  if (typeof window === 'undefined') return ENGVO_DEFAULT_SESSION_KIND
+  try {
+    const raw = localStorage.getItem(ENGVO_SESSION_KIND_STORAGE_KEY)?.trim() ?? ''
+    return isEngvoVoiceSessionKind(raw) ? raw : ENGVO_DEFAULT_SESSION_KIND
+  } catch {
+    return ENGVO_DEFAULT_SESSION_KIND
+  }
+}
+
+export function saveEngvoSessionKind(value: EngvoVoiceSessionKind): void {
+  if (typeof window === 'undefined') return
+  try {
+    localStorage.setItem(ENGVO_SESSION_KIND_STORAGE_KEY, value)
+  } catch {
+    // ignore
+  }
+}
+
+export function loadEngvoTeacherTense(audience?: Audience): TenseId {
+  const fallback = ENGVO_DEFAULT_TEACHER_TENSE
+  if (typeof window === 'undefined') {
+    return audience ? sanitizeEngvoTeacherTenseForAudience(fallback, audience) : fallback
+  }
+  try {
+    const raw = localStorage.getItem(ENGVO_TEACHER_TENSE_STORAGE_KEY)?.trim() ?? ''
+    const tense = isEngvoTeacherTense(raw) ? raw : fallback
+    return audience ? sanitizeEngvoTeacherTenseForAudience(tense, audience) : tense
+  } catch {
+    return audience ? sanitizeEngvoTeacherTenseForAudience(fallback, audience) : fallback
+  }
+}
+
+export function saveEngvoTeacherTense(value: TenseId): void {
+  if (typeof window === 'undefined') return
+  if (!isEngvoTeacherTense(value)) return
+  try {
+    localStorage.setItem(ENGVO_TEACHER_TENSE_STORAGE_KEY, value)
+  } catch {
+    // ignore
+  }
+}
+
+export function loadEngvoTeacherSentenceType(): SentenceType {
+  if (typeof window === 'undefined') return ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
+  try {
+    const raw = localStorage.getItem(ENGVO_TEACHER_SENTENCE_TYPE_STORAGE_KEY)?.trim() ?? ''
+    return isEngvoTeacherSentenceType(raw) ? raw : ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
+  } catch {
+    return ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
+  }
+}
+
+export function saveEngvoTeacherSentenceType(value: SentenceType): void {
+  if (typeof window === 'undefined') return
+  if (!isEngvoTeacherSentenceType(value)) return
+  try {
+    localStorage.setItem(ENGVO_TEACHER_SENTENCE_TYPE_STORAGE_KEY, value)
+  } catch {
+    // ignore
+  }
 }

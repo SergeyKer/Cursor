@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { hasAnyLearningHistory, resolveReturningHomeMenuView } from '@/lib/myPlan/returningHome'
+import {
+  hasAnyLearningHistory,
+  resolveReturningHomeMenuView,
+  shouldOpenMyPlanHome,
+} from '@/lib/myPlan/returningHome'
 
 describe('returningHome', () => {
   it('detects history from activity or progress or signals', () => {
@@ -11,37 +15,25 @@ describe('returningHome', () => {
     expect(hasAnyLearningHistory({ lastActiveDate: null, lessonProgressCount: 0, signalCount: 0 })).toBe(false)
   })
 
-  it('prefers bridge intents over myPlan', () => {
-    expect(
-      resolveReturningHomeMenuView({
-        myPlanHomeEnabled: true,
-        hasAnyHistory: true,
-        branchIntent: 'chat',
-      })
-    ).toBe('aiChat')
-    expect(
-      resolveReturningHomeMenuView({
-        myPlanHomeEnabled: true,
-        hasAnyHistory: true,
-        branchIntent: 'hub',
-      })
-    ).toBe('lessons')
+  it('bridge intents open chat or lessons only', () => {
+    expect(resolveReturningHomeMenuView({ branchIntent: 'chat' })).toBe('aiChat')
+    expect(resolveReturningHomeMenuView({ branchIntent: 'hub' })).toBe('lessons')
+    expect(resolveReturningHomeMenuView({ branchIntent: null })).toBeNull()
   })
 
-  it('opens myPlan for returning users when enabled', () => {
+  it('myPlan opens after audience on start screen, not on hydrate', () => {
     expect(
-      resolveReturningHomeMenuView({
+      shouldOpenMyPlanHome({
         myPlanHomeEnabled: true,
         hasAnyHistory: true,
-        branchIntent: null,
       })
-    ).toBe('myPlan')
+    ).toBe(true)
     expect(
-      resolveReturningHomeMenuView({
+      shouldOpenMyPlanHome({
         myPlanHomeEnabled: false,
         hasAnyHistory: true,
-        branchIntent: null,
       })
-    ).toBeNull()
+    ).toBe(false)
+    expect(resolveReturningHomeMenuView({ branchIntent: null })).toBeNull()
   })
 })

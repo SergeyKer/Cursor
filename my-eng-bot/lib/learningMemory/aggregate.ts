@@ -12,6 +12,7 @@ import {
 const SOURCE_LABEL: Record<LearningSource, string> = {
   chat: 'В общении',
   call: 'В звонке',
+  teacher: 'В преподавателе',
   translation: 'В переводе',
   guided_dialogue: 'В диалоге',
   practice: 'В практике',

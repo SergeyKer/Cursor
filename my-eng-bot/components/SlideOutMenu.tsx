@@ -19,6 +19,8 @@ import type {
   EngvoXaiCallVoice,
   EngvoXaiVoiceRotationMode,
 } from '@/lib/engvo/constants'
+import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import type { SentenceType, TenseId } from '@/lib/types'
 import type { ChatPatternId } from '@/lib/chatPattern'
 import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
 import type { RewardsState } from '@/lib/rewardsState'
@@ -50,12 +52,19 @@ interface SlideOutMenuProps {
   engvoXaiVoiceRotationMode?: EngvoXaiVoiceRotationMode
   engvoCefrLevel?: EngvoCefrLevel
   engvoSpeechSpeedPreset?: EngvoSpeechSpeedPresetId
+  engvoSessionKind?: EngvoVoiceSessionKind
+  engvoTeacherTense?: TenseId
+  engvoTeacherSentenceType?: SentenceType
+  engvoSettingsLocked?: boolean
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
   onEngvoXaiVoiceChange?: (voice: EngvoXaiCallVoice) => void
   onEngvoXaiVoiceRotationModeChange?: (mode: EngvoXaiVoiceRotationMode) => void
   onEngvoLevelChange?: (level: EngvoCefrLevel) => void
   onEngvoSpeechSpeedChange?: (preset: EngvoSpeechSpeedPresetId) => void
+  onEngvoSessionKindChange?: (kind: EngvoVoiceSessionKind) => void
+  onEngvoTeacherTenseChange?: (tense: TenseId) => void
+  onEngvoTeacherSentenceTypeChange?: (sentenceType: SentenceType) => void
   practiceTtsSpeedDefaultIndex?: number
   onPracticeTtsSpeedDefaultChange?: (index: number) => void
   chatPatternId?: ChatPatternId
@@ -154,12 +163,19 @@ export default function SlideOutMenu({
   engvoXaiVoiceRotationMode,
   engvoCefrLevel,
   engvoSpeechSpeedPreset,
+  engvoSessionKind,
+  engvoTeacherTense,
+  engvoTeacherSentenceType,
+  engvoSettingsLocked,
   onEngvoProviderChange,
   onEngvoVoiceChange,
   onEngvoXaiVoiceChange,
   onEngvoXaiVoiceRotationModeChange,
   onEngvoLevelChange,
   onEngvoSpeechSpeedChange,
+  onEngvoSessionKindChange,
+  onEngvoTeacherTenseChange,
+  onEngvoTeacherSentenceTypeChange,
   practiceTtsSpeedDefaultIndex,
   onPracticeTtsSpeedDefaultChange,
   chatPatternId,
@@ -307,12 +323,19 @@ export default function SlideOutMenu({
         engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}
         engvoCefrLevel={engvoCefrLevel}
         engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
+        engvoSessionKind={engvoSessionKind}
+        engvoTeacherTense={engvoTeacherTense}
+        engvoTeacherSentenceType={engvoTeacherSentenceType}
+        engvoSettingsLocked={engvoSettingsLocked}
         onEngvoProviderChange={onEngvoProviderChange}
         onEngvoVoiceChange={onEngvoVoiceChange}
         onEngvoXaiVoiceChange={onEngvoXaiVoiceChange}
         onEngvoXaiVoiceRotationModeChange={onEngvoXaiVoiceRotationModeChange}
         onEngvoLevelChange={onEngvoLevelChange}
         onEngvoSpeechSpeedChange={onEngvoSpeechSpeedChange}
+        onEngvoSessionKindChange={onEngvoSessionKindChange}
+        onEngvoTeacherTenseChange={onEngvoTeacherTenseChange}
+        onEngvoTeacherSentenceTypeChange={onEngvoTeacherSentenceTypeChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
         onPracticeTtsSpeedDefaultChange={onPracticeTtsSpeedDefaultChange}
         chatPatternId={chatPatternId}

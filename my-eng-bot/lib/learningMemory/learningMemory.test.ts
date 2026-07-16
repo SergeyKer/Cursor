@@ -44,6 +44,27 @@ describe('learningMemory', () => {
     expect(mapLearningSource({ mode: 'dialogue' })).toBe('guided_dialogue')
   })
 
+  it('labels teacher source in attention zones', () => {
+    vi.stubGlobal('window', { localStorage: memoryStorage() })
+    vi.stubGlobal('localStorage', (window as unknown as { localStorage: Storage }).localStorage)
+    saveLearningSignal({
+      source: 'teacher',
+      detector: 'teacher_correction',
+      utteranceHash: hashUtterance('i go yesterday'),
+      rawTopicIds: ['teacher-errors'],
+      rawTopicTitles: ['Преподаватель'],
+      lessonIdHint: null,
+      skillTagIds: ['teacher-errors'],
+      snippet: { original: 'i go yesterday', corrected: 'I went yesterday' },
+    })
+    const signals = listLearningSignals()
+    expect(signals).toHaveLength(1)
+    expect(signals[0]?.source).toBe('teacher')
+    const zones = getAttentionZones(signals, loadSkillMasteryMap())
+    expect(zones.length).toBeGreaterThan(0)
+    expect(zones[0]?.sourceHint).toBe('В преподавателе')
+  })
+
   it('filters language note statuses', () => {
     expect(shouldSaveLanguageNoteSignal('needs_fix', 'I go to school yesterday')).toBe(true)
     expect(shouldSaveLanguageNoteSignal('needs_better', 'I go to school yesterday')).toBe(false)

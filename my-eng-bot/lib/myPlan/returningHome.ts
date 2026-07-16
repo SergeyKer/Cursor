@@ -15,16 +15,19 @@ export function hasAnyLearningHistory(params: {
 }
 
 /**
- * Returning home after hydrate. Explicit bridge intents win over myPlan.
- * Returns null when caller should keep default view.
+ * Deep-link / bridge intents only. My Plan opens from the start screen after audience.
  */
 export function resolveReturningHomeMenuView(params: {
-  myPlanHomeEnabled: boolean
-  hasAnyHistory: boolean
   branchIntent: StartBranchIntent | undefined | null
-}): ReturningHomeMenuView | null {
+}): Extract<ReturningHomeMenuView, 'aiChat' | 'lessons'> | null {
   if (params.branchIntent === 'chat') return 'aiChat'
   if (params.branchIntent === 'hub') return 'lessons'
-  if (params.myPlanHomeEnabled && params.hasAnyHistory) return 'myPlan'
   return null
+}
+
+export function shouldOpenMyPlanHome(params: {
+  myPlanHomeEnabled: boolean
+  hasAnyHistory: boolean
+}): boolean {
+  return params.myPlanHomeEnabled && params.hasAnyHistory
 }

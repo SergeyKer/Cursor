@@ -28,6 +28,25 @@ export const ENGVO_WELCOME_LINES_ADULT = [
   'Здравствуйте. Нажмите зелёную кнопку звонка - я здесь для спокойной практики английского.',
 ] as const
 
+/** Teacher mode: short RU invite to start an exercise (not free chat). */
+export const ENGVO_TEACHER_WELCOME_LINES_A1 = [
+  'Нажми зелёную кнопку. Начнём упражнение.',
+  'Готов? Нажми зелёную трубку - начнём практику перевода.',
+  'Нажми зелёную кнопку с трубкой. Будем переводить вслух.',
+] as const
+
+export const ENGVO_TEACHER_WELCOME_LINES_CHILD = [
+  'Привет! Нажми зелёную трубку - начнём упражнение на перевод.',
+  'Привет! Когда будешь готов, нажми зелёную кнопку - будем переводить вместе.',
+  'Здравствуй! Нажми зелёную кнопку - начнём практику.',
+] as const
+
+export const ENGVO_TEACHER_WELCOME_LINES_ADULT = [
+  'Здравствуйте. Нажмите зелёную трубку — начнём упражнение.',
+  'Здравствуйте. Нажмите зелёную кнопку звонка — начнём практику перевода вслух.',
+  'Здравствуйте. Нажмите зелёную трубку, когда будете готовы к упражнению.',
+] as const
+
 const STORAGE_KEY = 'myeng-engvo-welcome-rotation-v2'
 
 type RotationKey = 'a1' | 'child' | 'adult'
@@ -145,4 +164,21 @@ export function consumeNextEngvoWelcomeMessage(audience: Audience, level?: Engvo
   })
 
   return line
+}
+
+/** Fixed short welcome for teacher format (separate from free-call rotation). */
+export function consumeNextEngvoTeacherWelcomeMessage(
+  audience: Audience,
+  level?: EngvoCefrLevel
+): string {
+  if (level === 'a1') {
+    const i = Math.floor(Math.random() * ENGVO_TEACHER_WELCOME_LINES_A1.length)
+    return ENGVO_TEACHER_WELCOME_LINES_A1[i]!
+  }
+  if (audience === 'child') {
+    const i = Math.floor(Math.random() * ENGVO_TEACHER_WELCOME_LINES_CHILD.length)
+    return ENGVO_TEACHER_WELCOME_LINES_CHILD[i]!
+  }
+  const i = Math.floor(Math.random() * ENGVO_TEACHER_WELCOME_LINES_ADULT.length)
+  return ENGVO_TEACHER_WELCOME_LINES_ADULT[i]!
 }
