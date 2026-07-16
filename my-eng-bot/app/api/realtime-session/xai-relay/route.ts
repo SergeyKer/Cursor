@@ -16,7 +16,6 @@ import {
   ENGVO_XAI_RELAY_READY_EVENT,
 } from '@/lib/engvo/xaiRelay'
 import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE } from '@/lib/engvo/errors'
-import { engvoServerDebugLog } from '@/lib/engvo/debugSession79b473Server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -140,10 +139,8 @@ export async function GET(request: NextRequest) {
     let upstream: WebSocket | null = null
     let closed = false
     let upstreamOpen = false
-    let clientSessionUpdateSeen = false
     const pendingClientFrames: WebSocketData[] = []
     let pendingClientBytes = 0
-    const bufferedUpstreamFrames: WebSocketData[] = []
 
     const shutdown = (code: number, reason: string, errorMessage?: string) => {
       if (closed) return
@@ -157,6 +154,9 @@ export async function GET(request: NextRequest) {
         const frame = pendingClientFrames.shift()
         if (!frame) break
         pendingClientBytes -= messageByteLength(frame)
+        if (isClientSessionUpdateFrame(frame)) {
+          console.info('[engvo][xai-relay] client_session_update_forwarded')
+        }
         if (!forwardWithBackpressure(upstream, frame)) {
           shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
           return
@@ -195,27 +195,10 @@ export async function GET(request: NextRequest) {
       )
     }, XAI_RELAY_UPSTREAM_TIMEOUT_MS)
 
-    const flushBufferedUpstreamFrames = () => {
-      while (bufferedUpstreamFrames.length > 0) {
-        const frame = bufferedUpstreamFrames.shift()
-        if (!frame) break
-        if (!forwardWithBackpressure(clientWs, frame)) {
-          shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
-          return
-        }
-      }
-    }
-
     upstream.on('open', () => {
       clearTimeout(upstreamTimeout)
       upstreamOpen = true
       console.info('[engvo][xai-relay] upstream_open', { model })
-      engvoServerDebugLog({
-        location: 'xai-relay/route.ts:upstream-open',
-        message: 'upstream xAI ws open',
-        data: { model, pendingClientFrames: pendingClientFrames.length },
-        hypothesisId: 'H3',
-      })
       try {
         clientWs.send(JSON.stringify({ type: ENGVO_XAI_RELAY_READY_EVENT }))
       } catch {
@@ -233,20 +216,6 @@ export async function GET(request: NextRequest) {
         asString.includes('session.update.acknowledged')
       ) {
         console.info('[engvo][xai-relay] upstream_session_ack')
-        engvoServerDebugLog({
-          location: 'xai-relay/route.ts:upstream-ack',
-          message: 'upstream session ack',
-          data: {
-            clientSessionUpdateSeen,
-            bufferedUpstreamFrames: bufferedUpstreamFrames.length,
-            preview: asString.slice(0, 120),
-          },
-          hypothesisId: 'H5',
-        })
-      }
-      if (!clientSessionUpdateSeen) {
-        bufferedUpstreamFrames.push(data as WebSocketData)
-        return
       }
       forwardWithBackpressure(clientWs, data as WebSocketData)
     })
@@ -266,26 +235,16 @@ export async function GET(request: NextRequest) {
 
     clientWs.on('message', (data: WebSocketData) => {
       if (closed) return
-      const sawSessionUpdate = !clientSessionUpdateSeen && isClientSessionUpdateFrame(data)
-      if (sawSessionUpdate) {
-        clientSessionUpdateSeen = true
-        engvoServerDebugLog({
-          location: 'xai-relay/route.ts:client-session-update',
-          message: 'client session.update seen',
-          data: { bufferedUpstreamFrames: bufferedUpstreamFrames.length },
-          hypothesisId: 'H1',
-        })
-      }
       if (upstreamOpen && upstream?.readyState === WebSocket.OPEN) {
+        if (isClientSessionUpdateFrame(data)) {
+          console.info('[engvo][xai-relay] client_session_update_forwarded')
+        }
         if (!forwardWithBackpressure(upstream, data)) {
           shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
-          return
         }
-        if (sawSessionUpdate) flushBufferedUpstreamFrames()
         return
       }
       enqueueClientFrame(data)
-      if (sawSessionUpdate && upstreamOpen) flushBufferedUpstreamFrames()
     })
 
     clientWs.on('error', (error) => {

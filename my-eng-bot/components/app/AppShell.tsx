@@ -292,7 +292,6 @@ import {
   recordEngvoDebugSessionUpdate,
   resetEngvoDebugTimingState,
 } from '@/lib/engvo/debugTiming'
-import { engvoClientDebugLog } from '@/lib/engvo/debugSession79b473Client'
 import {
   connectEngvoXaiRealtime,
   getEngvoStopPlaybackEvents,
@@ -2056,12 +2055,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         refreshEngvoSessionBootstrapRef()
         clearEngvoTimeout(engvoSessionAckTimeoutRef)
         console.info('[engvo] session-ack', parsed.type)
-        engvoClientDebugLog({
-          location: 'AppShell.tsx:session-ack',
-          message: 'session ack received',
-          data: { type: parsed.type },
-          hypothesisId: 'H5',
-        })
+        if (engvoActiveProviderRef.current === 'xai') {
+          engvoXaiTransportRef.current?.startMicCapture()
+        }
         engvoSessionStartedRef.current = true
         setEngvoErrorText(null)
         setEngvoCallPhase('listening')
@@ -2633,16 +2629,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               clearEngvoTimeout(engvoSessionAckTimeoutRef)
               if (!engvoSessionStartedRef.current) {
                 engvoSessionAckTimeoutRef.current = window.setTimeout(() => {
-                  engvoClientDebugLog({
-                    location: 'AppShell.tsx:session-ack-timeout',
-                    message: 'session ack timeout',
-                    data: {
-                      transport: xaiTransportMode,
-                      sessionStarted: engvoSessionStartedRef.current,
-                    },
-                    hypothesisId: 'H5',
-                  })
-                  setEngvoSessionError('Grok не подтвердил Realtime-сессию. Попробуйте ещё раз.')
+                  console.warn('[engvo] session-ack-timeout', { transport: xaiTransportMode })
+                  setEngvoSessionError(
+                    `Grok не подтвердил Realtime-сессию (${xaiTransportMode}). Попробуйте ещё раз.`
+                  )
                 }, ENGVO_SESSION_ACK_TIMEOUT_MS)
               }
             },

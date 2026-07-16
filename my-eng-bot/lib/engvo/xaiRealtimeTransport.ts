@@ -16,7 +16,6 @@ import {
   floatTo16BitPCM,
 } from '@/lib/engvo/pcm'
 import type { EngvoXaiTransportMode } from '@/lib/engvo/xaiTransportMode'
-import { engvoClientDebugLog } from '@/lib/engvo/debugSession79b473Client'
 
 export { shouldSendOutputAudioBufferClear } from '@/lib/engvo/constants'
 export { ENGVO_XAI_RELAY_READY_EVENT } from '@/lib/engvo/xaiRelay'
@@ -32,6 +31,7 @@ export type EngvoXaiTransportHandlers = {
 
 export type EngvoXaiTransport = {
   send: (payload: Record<string, unknown>) => boolean
+  startMicCapture: () => void
   clearLocalPlayback: () => void
   disconnect: () => void
   getRemoteMediaStream: () => MediaStream | null
@@ -177,18 +177,13 @@ export function connectEngvoXaiRealtime(params: {
     if (audioContext.state === 'suspended') {
       void audioContext.resume().catch(() => {})
     }
-    engvoClientDebugLog({
-      location: 'xaiRealtimeTransport.ts:ws-open',
-      message: 'browser ws open',
-      data: { transport },
-      hypothesisId: 'H2',
-    })
+    console.info('[engvo][xai] ws-open', { transport })
     if (transport === 'relay') {
-      // Wait for upstream xAI before session.update / mic (server sends relay.ready).
+      // Wait for upstream xAI before session.update (server sends relay.ready).
       return
     }
+    // Mic starts after session ack from AppShell — not on open.
     params.handlers.onOpen?.()
-    startMicCapture()
   })
 
   ws.addEventListener('message', (event) => {
@@ -197,14 +192,8 @@ export function connectEngvoXaiRealtime(params: {
     try {
       const parsed = JSON.parse(raw) as { type?: string; delta?: string }
       if (parsed.type === ENGVO_XAI_RELAY_READY_EVENT) {
-        engvoClientDebugLog({
-          location: 'xaiRealtimeTransport.ts:relay-ready',
-          message: 'relay ready received',
-          data: { transport },
-          hypothesisId: 'H3',
-        })
+        console.info('[engvo][xai] relay-ready', { transport })
         params.handlers.onOpen?.()
-        startMicCapture()
         return
       }
       if (
@@ -238,6 +227,7 @@ export function connectEngvoXaiRealtime(params: {
         return false
       }
     },
+    startMicCapture,
     clearLocalPlayback,
     disconnect: () => {
       closed = true
