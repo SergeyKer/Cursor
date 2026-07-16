@@ -1,8 +1,6 @@
 import type { NextRequest } from 'next/server'
-import {
-  experimental_upgradeWebSocket,
-  type WebSocketData,
-} from '@/lib/vercel/experimentalUpgradeWebSocket'
+import { experimental_upgradeWebSocket } from '@vercel/functions'
+import type { RawData } from 'ws'
 import WebSocket from 'ws'
 import { HttpsProxyAgent } from 'https-proxy-agent'
 import { ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT } from '@/lib/engvo/pcm'
@@ -21,6 +19,8 @@ import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE } from '@/lib/engvo/errors'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
+
+type WebSocketData = RawData
 
 function normalizeKey(raw: string): string {
   return raw.replace(/^["'\s]+|["'\s]+$/g, '')

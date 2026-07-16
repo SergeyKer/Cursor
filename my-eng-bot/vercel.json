@@ -2,6 +2,7 @@
   "framework": "nextjs",
   "buildCommand": "npm test && npm run build",
   "regions": ["iad1"],
+  "fluid": true,
   "functions": {
     "app/api/realtime-session/xai-relay/route.ts": {
       "maxDuration": 300
