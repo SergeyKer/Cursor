@@ -13,5 +13,11 @@ export const featureFlags = {
   homeMascotVisible: process.env.NEXT_PUBLIC_FEATURE_HOME_MASCOT_VISIBLE === 'true',
   /** Быстрый тест: меню + /test. По умолчанию включён. */
   quickTestV1: process.env.NEXT_PUBLIC_FEATURE_QUICK_TEST_V1 !== 'false',
+  /** Тихий assess ошибок в chat/call. Default on; =false только kill-switch. */
+  silentAssessV1: process.env.NEXT_PUBLIC_FEATURE_SILENT_ASSESS_V1 !== 'false',
+  /** Returning → домашний экран «Мой план». Default on. */
+  myPlanHomeV1: process.env.NEXT_PUBLIC_FEATURE_MY_PLAN_HOME_V1 !== 'false',
+  /** Сырой лог learning signals в UI. Default off (localhost может форсить). */
+  learningMemoryDebugV1: process.env.NEXT_PUBLIC_FEATURE_LEARNING_MEMORY_DEBUG_V1 === 'true',
 } as const
 

@@ -136,6 +136,8 @@ import { computeCorePercent, resolveMedalFromCoreXp, type LessonMedalTierOrNull 
 import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/lessonBadges'
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, loadLessonProgressMap, saveLessonProgress } from '@/lib/lessonProgressStorage'
+import { listLearningSignals } from '@/lib/learningMemory'
+import { hasAnyLearningHistory, resolveReturningHomeMenuView } from '@/lib/myPlan/returningHome'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -220,6 +222,12 @@ import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { LanguageNote } from '@/lib/languageNote/types'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
+import {
+  recordAssistantTurnLearningSignal,
+  recordLanguageNoteSignal,
+  recordLessonOrPracticeResolved,
+  scheduleSilentAssess,
+} from '@/lib/learningMemory'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -2332,6 +2340,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 return insertEngvoUserMessage(prev, transcript, insertBeforeAssistant)
               })
               bumpEngvoGoal()
+              // Final coalesced user turn only — never on partials / near-duplicate coalesce.
+              scheduleSilentAssess({
+                text: transcript,
+                provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
+                openAiChatPreset: settings.openAiChatPreset,
+                audience: settings.audience,
+                mode: 'engvo',
+                source: 'call',
+                recentAssistantText:
+                  [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? null,
+              })
             }
           }
           setEngvoCallPhase('assistantPending')
@@ -2481,6 +2500,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       bumpEngvoGoal,
       settings.audience,
       settings.topic,
+      settings.provider,
+      settings.openAiChatPreset,
       scheduleEngvoSessionUpdateRetry,
       stopEngvoPlayback,
       engvoCallPhase,
@@ -3412,6 +3433,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       incrementUsageToday()
       const { content: main, translation } = parseContentWithTranslation(response.content)
       setMessages((prev) => [...prev, { role: 'assistant', content: main, translation, dialogueCorrect: response.dialogueCorrect }])
+      const lastUser = [...toSend].reverse().find((m) => m.role === 'user')
+      if (lastUser?.content) {
+        recordAssistantTurnLearningSignal({
+          mode: settings.mode,
+          engvoVoiceMode,
+          tenses: settings.tenses,
+          topic: settings.topic,
+          lastUserText: lastUser.content,
+          assistantContent: main,
+          dialogueCorrect: response.dialogueCorrect,
+        })
+      }
       void fetchUsage()
     } catch (e) {
       console.error(e)
@@ -3436,7 +3469,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLoading(false)
       setRetryMessage(null)
     }
-  }, [messages, sendToApi, fetchUsage])
+  }, [messages, sendToApi, fetchUsage, settings.mode, settings.tenses, settings.topic, engvoVoiceMode])
 
   const ensureFirstMessage = useCallback(async () => {
     if (firstMessageInFlightRef.current) return
@@ -3783,6 +3816,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           }
         }
         saveLessonProgress(merged)
+        recordLessonOrPracticeResolved({ lessonId })
         return
       }
 
@@ -5479,10 +5513,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             : {}),
         })
         setSettings(mergedSettings)
+        const hasHistory = hasAnyLearningHistory({
+          lastActiveDate: rewards.progress.lastActiveDate,
+          lessonProgressCount: Object.keys(loadLessonProgressMap()).length,
+          signalCount: listLearningSignals().length,
+        })
         if (entryBridge?.audienceChosen) {
           setHomeAudienceChosen(true)
-          if (entryBridge.branchIntent === 'chat') setHomeMenuView('aiChat')
-          if (entryBridge.branchIntent === 'hub') setHomeMenuView('lessons')
+          const view = resolveReturningHomeMenuView({
+            myPlanHomeEnabled: featureFlags.myPlanHomeV1,
+            hasAnyHistory: hasHistory,
+            branchIntent: entryBridge.branchIntent,
+          })
+          if (view) setHomeMenuView(view)
+        } else if (featureFlags.myPlanHomeV1 && hasHistory) {
+          setHomeAudienceChosen(true)
+          setHomeMenuView('myPlan')
         }
         setDialogStarted(false)
         setMenuOpen(false)
@@ -5538,9 +5584,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
     )
     setHomeAudienceChosen(true)
-    if (entryBridge.branchIntent === 'chat') setHomeMenuView('aiChat')
-    if (entryBridge.branchIntent === 'hub') setHomeMenuView('lessons')
-  }, [storageLoaded, entryBridge?.audience, entryBridge?.audienceChosen, entryBridge?.branchIntent])
+    const hasHistory = hasAnyLearningHistory({
+      lastActiveDate: rewardsState.progress.lastActiveDate,
+      lessonProgressCount: Object.keys(loadLessonProgressMap()).length,
+      signalCount: listLearningSignals().length,
+    })
+    const view = resolveReturningHomeMenuView({
+      myPlanHomeEnabled: featureFlags.myPlanHomeV1,
+      hasAnyHistory: hasHistory,
+      branchIntent: entryBridge.branchIntent,
+    })
+    if (view) setHomeMenuView(view)
+  }, [
+    storageLoaded,
+    entryBridge?.audience,
+    entryBridge?.audienceChosen,
+    entryBridge?.branchIntent,
+    rewardsState.progress.lastActiveDate,
+  ])
 
   useEffect(() => {
     if (!storageLoaded || !homeAudienceChosen) return
@@ -5774,6 +5835,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     })
     setPracticeProgressRevision((n) => n + 1)
 
+    recordLessonOrPracticeResolved({ lessonId: practiceSession.session.lessonId })
+
     if (resolved.activityNeeded || resolved.globalXpToAward > 0 || resolved.coinMilestones.length > 0) {
       setRewardsState((prev) => {
         let next = resolved.activityNeeded ? withDailyActivity(prev) : prev
@@ -5930,6 +5993,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
       setMessages(nextMessages)
       if (settings.mode === 'communication') {
+        const recentAssistant = [...messages].reverse().find((m) => m.role === 'assistant')
+        scheduleSilentAssess({
+          text,
+          provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
+          openAiChatPreset: settings.openAiChatPreset,
+          audience: settings.audience,
+          mode: 'communication',
+          source: 'chat',
+          communicationVoiceInputMode,
+          recentAssistantText: recentAssistant?.content ?? null,
+        })
         const indicatorLang = getExpectedCommunicationReplyLang(nextMessages, {
           inputPreference: nextCommunicationExpectedLang ?? settings.communicationInputExpectedLang,
           voiceInputMode: communicationVoiceInputMode,
@@ -5991,6 +6065,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             webSearchTriggered: response.webSearchTriggered,
           },
         ])
+        recordAssistantTurnLearningSignal({
+          mode: settings.mode,
+          engvoVoiceMode,
+          tenses: settings.tenses,
+          topic: settings.topic,
+          lastUserText: text,
+          assistantContent: main,
+          dialogueCorrect: response.dialogueCorrect,
+        })
         if (settings.mode === 'communication') {
           bumpCommunicationGoal()
         }
@@ -7662,6 +7745,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         const next = [...prev]
         next[messageIndex] = { ...current, languageNote: note }
         return next
+      })
+
+      recordLanguageNoteSignal({
+        note,
+        mode: settings.mode,
+        engvoVoiceMode,
+        voiceMode: noteVoiceMode,
       })
 
       setFooterSheetContext(

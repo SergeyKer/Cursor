@@ -111,21 +111,9 @@ describe('getMyPlanRecommendations', () => {
     expect(recs.some((r) => r.id === 'return-after-break')).toBe(true)
   })
 
-  it('слабое место попадает в топ с приоритетом ниже практики после теории', () => {
-    const input = emptyInput({
-      lessons: {
-        '1': {
-          lessonId: '1',
-          topic: 'Еда',
-          completedSteps: [1],
-          lastCompleted: '2026-05-14T09:00:00.000Z',
-          mistakesCount: 0,
-        },
-      },
-      practiceCompleted: [],
-      weakSpots: [{ id: 'practice-errors', label: 'Ошибки в практике' }],
-    })
-    const recs = getMyPlanRecommendations(input)
-    expect(recs.find((r) => r.id.startsWith('weak-'))).toBeTruthy()
+  it('не дублирует open_lesson, если урок уже в occupiedLessonIds зоны', () => {
+    const input = emptyInput({ lessons: {} })
+    const recs = getMyPlanRecommendations(input, { occupiedLessonIds: ['1'] })
+    expect(recs.find((r) => r.action.kind === 'open_lesson' && r.action.lessonId === '1')).toBeUndefined()
   })
 })

@@ -58,12 +58,17 @@ function bothModeGoalsCompleted(input: MyPlanInput): boolean {
 
 /**
  * Детерминированные рекомендации (топ-3 после сортировки по priority).
+ * occupiedLessonIds — уроки уже занятые активными чипами «Зон внимания» (без дубля CTA).
  */
-export function getMyPlanRecommendations(input: MyPlanInput): MyPlanRecommendation[] {
+export function getMyPlanRecommendations(
+  input: MyPlanInput,
+  options?: { occupiedLessonIds?: string[] }
+): MyPlanRecommendation[] {
+  const occupied = new Set(options?.occupiedLessonIds?.filter(Boolean) ?? [])
   const out: MyPlanRecommendation[] = []
 
   const incomplete = pickIncompleteLesson(input)
-  if (incomplete) {
+  if (incomplete && !occupied.has(incomplete.lessonId)) {
     const title = incomplete.topic?.trim() || `Урок ${incomplete.lessonId}`
     out.push({
       id: 'continue-lesson',
@@ -136,7 +141,7 @@ export function getMyPlanRecommendations(input: MyPlanInput): MyPlanRecommendati
   }
 
   const next = pickNextLessonInProgram(input)
-  if (next) {
+  if (next && !occupied.has(next.id)) {
     out.push({
       id: `next-lesson-${next.id}`,
       priority: 6,

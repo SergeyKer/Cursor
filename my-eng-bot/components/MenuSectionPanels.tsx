@@ -126,6 +126,12 @@ import type { RewardsState } from '@/lib/rewardsState'
 import { createDefaultRewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
+import {
+  detectModeGap,
+  getAttentionZones,
+  listLearningSignals,
+  loadSkillMasteryMap,
+} from '@/lib/learningMemory'
 import MyPlanPanel from '@/components/MyPlanPanel'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
@@ -1108,10 +1114,25 @@ export default function MenuSectionPanels({
     }
   }, [rewardsState])
 
+  const myPlanAttentionZones = React.useMemo(() => {
+    if (menuView !== 'myPlan') return []
+    return getAttentionZones(listLearningSignals(), loadSkillMasteryMap())
+  }, [menuView])
+
+  const myPlanModeGap = React.useMemo(() => {
+    if (menuView !== 'myPlan') return null
+    return detectModeGap(listLearningSignals())
+  }, [menuView])
+
   const myPlanRecommendations = React.useMemo(() => {
     if (menuView !== 'myPlan') return []
-    return getMyPlanRecommendations(buildMyPlanLiveInput(settings, rewardsState ?? null))
-  }, [menuView, settings, rewardsState])
+    const occupiedLessonIds = myPlanAttentionZones
+      .filter((z) => z.chipActive && z.lessonId)
+      .map((z) => z.lessonId!)
+    return getMyPlanRecommendations(buildMyPlanLiveInput(settings, rewardsState ?? null), {
+      occupiedLessonIds,
+    })
+  }, [menuView, settings, rewardsState, myPlanAttentionZones])
 
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
@@ -3861,6 +3882,8 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
         {menuView === 'myPlan' && (
           <MyPlanPanel
             recommendations={myPlanRecommendations}
+            attentionZones={myPlanAttentionZones}
+            modeGap={myPlanModeGap}
             settings={settings}
             onOpenLearningLesson={onOpenLearningLesson}
             onOpenPracticeSession={onOpenPracticeSession}

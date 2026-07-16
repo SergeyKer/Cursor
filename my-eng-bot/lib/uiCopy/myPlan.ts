@@ -1,0 +1,15 @@
+export const MY_PLAN_COPY = {
+  zonesTitle: 'Зоны внимания',
+  zonesLead: 'То, что сейчас важнее закрепить (не музей старых ошибок).',
+  zonesEmpty: 'Пока тихо: тем для закрепления ещё не накопили.',
+  zonesEmptyHint: 'Позанимайтесь — здесь появятся живые зоны.',
+  openLesson: 'Открыть урок',
+  startPractice: 'Запустить практику',
+  gapTitle: 'Разрыв режимов',
+  gapReason: 'В диалоге лучше, в звонке сбиваетесь — закрепим.',
+  debugTitle: 'Debug: сигналы',
+  debugShow: 'Показать лог памяти',
+  debugHide: 'Скрыть лог',
+  debugClear: 'Очистить memory',
+  debugEmpty: 'Сигналов пока нет.',
+} as const

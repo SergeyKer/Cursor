@@ -15,6 +15,8 @@ import {
 } from '@/lib/practice/practiceAnswerPanelLock'
 import { resolvePracticeRetryPolicy } from '@/lib/practice/practiceRetryPolicy'
 import type { Audience } from '@/lib/types'
+import { recordPracticeWrongSignal } from '@/lib/learningMemory'
+import { getLessonTopicCatalog } from '@/lib/lessonCatalog'
 import { practiceStorage, type PracticeStorage } from '@/lib/practice/storage/practiceStorage'
 import { resolvePracticeFlowStateForSession } from '@/lib/practice/practiceSessionFlow'
 import {
@@ -405,6 +407,16 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
           feedbackTone: answerFeedbackTone,
           startedAt: questionStartedAtRef.current,
         })
+
+        if (!isCorrect) {
+          const tagIds = getLessonTopicCatalog().find((c) => c.id === session.lessonId)?.tagIds
+          recordPracticeWrongSignal({
+            lessonId: session.lessonId,
+            userAnswer: cleanAnswer,
+            targetAnswer: questionToValidate.targetAnswer,
+            tagIds,
+          })
+        }
 
         setSession((current) => {
           if (!current) return current
