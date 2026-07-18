@@ -6,6 +6,7 @@ import type LessonBriefingScreenComponent from '@/components/LessonBriefingScree
 import type LessonExtraTipsScreenComponent from '@/components/LessonExtraTipsScreen'
 import type LessonIntroScreenComponent from '@/components/LessonIntroScreen'
 import type LessonStepRendererComponent from '@/components/LessonStepRenderer'
+import type ReferenceSheetScreenComponent from '@/components/ReferenceSheetScreen'
 import type VocabularyByLevelScreenComponent from '@/components/vocabulary/VocabularyByLevelScreen'
 import type VocabularyWorldsScreenComponent from '@/components/vocabulary/VocabularyWorldsScreen'
 
@@ -37,6 +38,11 @@ export const LessonStepRenderer = branchNamed<ComponentProps<typeof LessonStepRe
   import('@/components/branches/LessonBranch').then((m) => ({
     default: m.LessonStepRenderer,
   })) as Promise<{ default: ComponentType<ComponentProps<typeof LessonStepRendererComponent>> }>
+)
+export const ReferenceSheetScreen = branchNamed<ComponentProps<typeof ReferenceSheetScreenComponent>>(() =>
+  import('@/components/branches/LessonBranch').then((m) => ({
+    default: m.ReferenceSheetScreen,
+  })) as Promise<{ default: ComponentType<ComponentProps<typeof ReferenceSheetScreenComponent>> }>
 )
 
 export const PracticeScreen = branchDynamic(() => import('@/components/branches/PracticeBranch'))

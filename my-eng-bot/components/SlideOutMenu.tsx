@@ -80,6 +80,8 @@ interface SlideOutMenuProps {
   engvoVoiceMode?: boolean
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
+  /** Открыть шпаргалку справочника. */
+  onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
   /** Сгенерировать новый вариант урока через LLM. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
@@ -189,6 +191,7 @@ export default function SlideOutMenu({
   chatActive = false,
   engvoVoiceMode = false,
   onOpenLearningLesson,
+  onOpenReferenceTopic,
   onGenerateLearningLesson,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
@@ -349,6 +352,7 @@ export default function SlideOutMenu({
         onGoHome={onGoHome}
         onCloseMenu={open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}
+        onOpenReferenceTopic={onOpenReferenceTopic}
         onGenerateLearningLesson={onGenerateLearningLesson}
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
@@ -383,6 +387,7 @@ export default function SlideOutMenu({
                 selectedLessonId: lessonMenuContext.selectedLessonId,
                 practiceMode: lessonMenuContext.practiceMode,
                 referenceExerciseType: lessonMenuContext.referenceExerciseType,
+                catalogBrowseIntent: lessonMenuContext.catalogBrowseIntent,
               }
             : null
         }

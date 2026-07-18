@@ -12,6 +12,7 @@ export type ActiveBranchInput = {
   isLessonTipsActive: boolean
   isLessonBriefingActive: boolean
   isTutorLessonPending: boolean
+  isReferenceSheetActive?: boolean
 }
 
 export function resolveActiveBranch(input: ActiveBranchInput): BranchId | null {
@@ -24,7 +25,8 @@ export function resolveActiveBranch(input: ActiveBranchInput): BranchId | null {
     input.isLessonIntroActive ||
     input.isLessonTipsActive ||
     input.isLessonBriefingActive ||
-    input.isTutorLessonPending
+    input.isTutorLessonPending ||
+    input.isReferenceSheetActive
   ) {
     return 'lesson'
   }

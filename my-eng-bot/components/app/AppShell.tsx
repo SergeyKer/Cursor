@@ -411,12 +411,18 @@ import {
   LessonExtraTipsScreen,
   LessonIntroScreen,
   LessonStepRenderer,
+  ReferenceSheetScreen,
   MenuSectionPanels,
   PracticeScreen,
   VocabularyByLevelScreen,
   VocabularyWorldsScreen,
 } from '@/lib/start/appBranchComponents'
 import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
+import { buildReferenceSheetByLessonId } from '@/lib/reference/buildReferenceSheet'
+import {
+  consumeOpenReferenceLessonId,
+  readReferenceLessonIdFromSearch,
+} from '@/lib/reference/openReferenceIntent'
 
 import SlideOutMenu from '@/components/SlideOutMenu'
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
@@ -817,7 +823,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [coinForgivenessHelpOverlay, setCoinForgivenessHelpOverlay] = useState<LessonOverlayState | null>(
     null
   )
-  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'briefing' | 'lesson'>('intro')
+  const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'briefing' | 'lesson' | 'reference'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
   const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   /** Счётчик входа на intro: сбрасывает stagger без remount (key остаётся lessonId). */
@@ -4044,6 +4050,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         theoryLessonSource: meta?.theoryLessonSource ?? null,
         theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
         practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+        catalogBrowseIntent: meta?.catalogBrowseIntent ?? prev?.catalogBrowseIntent ?? 'lesson',
       }))
       setActiveLearningLessonId(lessonId)
       setMessages(structuredLesson ? [] : [{ role: 'assistant', content: lesson.theoryIntro }])
@@ -4059,6 +4066,88 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     },
     [abandonPracticeSession, bumpFooterSessionContext, bumpLessonIntroRevealSession, menuOpen]
   )
+
+  const openReferenceTopic = useCallback(
+    async (lessonId: string, lessonsPanel: LessonsPanel = 'theory', meta?: LearningLessonMenuMeta) => {
+      if (!featureFlags.referenceV1) return
+      const sheet = buildReferenceSheetByLessonId(lessonId)
+      if (!sheet) return
+      if (!getLearningLessonById(lessonId) && !getStructuredLessonById(lessonId)) return
+      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
+      menuLessonGenerateCleanupRef.current?.()
+      menuLessonBgFetchEpochRef.current += 1
+      setStructuredLessonVariantRegenerating(false)
+      resetVariantPrepareRef.current()
+      abandonPracticeSession()
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setLoading(false)
+      setRetryMessage(null)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setActiveStructuredLessonRuntime(null)
+      setStructuredLessonLoadingId(null)
+      setMenuLessonBgError(null)
+      setPendingTutorLessonTitle(null)
+      setLessonOverlay(null)
+      setLessonReturnBriefingAckRunKey(null)
+      setLessonViewStage('reference')
+      setLessonTipsReturnStage('intro')
+      setLessonIntroDepth('quick')
+      setLessonExtraTipsStatus('idle')
+      setLessonExtraTipsState(null)
+      setLessonMenuContext((prev) => ({
+        menuView: 'lessons',
+        lessonsPanel,
+        selectedLessonId: lessonId,
+        activeGrammarCategoryId: meta?.activeGrammarCategoryId ?? null,
+        activeTheoryTagId: meta?.activeTheoryTagId ?? null,
+        theorySearchQuery: meta?.theorySearchQuery ?? null,
+        activeTheoryTagIds: meta?.activeTheoryTagIds ?? null,
+        theoryLessonSource: meta?.theoryLessonSource ?? null,
+        theoryTagBrowseLevel: meta?.theoryTagBrowseLevel ?? prev?.theoryTagBrowseLevel ?? null,
+        practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+        catalogBrowseIntent: 'reference',
+      }))
+      setActiveLearningLessonId(lessonId)
+      const structuredLesson = getStructuredLessonById(lessonId)
+      setMessages([])
+      if (structuredLesson) {
+        setStructuredLessonShuffleNonce((n) => n + 1)
+        setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
+      }
+      setLastStructuredLessonGlobalDelta(0)
+      bumpFooterSessionContext()
+    },
+    [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
+  )
+
+
+  React.useEffect(() => {
+    if (!storageLoaded || !featureFlags.referenceV1) return
+    if (dialogStarted) return
+    const fromQuery =
+      typeof window !== 'undefined' ? readReferenceLessonIdFromSearch(window.location.search) : null
+    const lessonId = fromQuery || consumeOpenReferenceLessonId()
+    if (!lessonId) return
+    if (fromQuery && typeof window !== 'undefined') {
+      try {
+        const url = new URL(window.location.href)
+        url.searchParams.delete('reference')
+        url.searchParams.delete('topic')
+        window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`)
+      } catch {
+        /* ignore */
+      }
+    }
+    void openReferenceTopic(lessonId, 'theory', { catalogBrowseIntent: 'reference' })
+  }, [storageLoaded, dialogStarted, openReferenceTopic])
 
   /** Меню «Начать урок»: всегда открывать intro с начала. */
   const openOrContinueLearningLesson = useCallback(
@@ -5530,6 +5619,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
         practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
         selectedLessonId: lessonMenuContext.selectedLessonId,
+        catalogBrowseIntent: lessonMenuContext.catalogBrowseIntent ?? null,
       },
     }
   }, [pendingHomeLessonMenuRestore, dialogStarted, homeMenuView, lessonMenuContext])
@@ -6651,6 +6741,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (activeLearningLessonId ? getStructuredLessonById(activeLearningLessonId)?.intro ?? null : null)
   const activeTutorIntent = activeStructuredLesson?.tutorIntent ?? activeLearningLesson?.tutorIntent ?? null
   const isTutorLessonPending = structuredLessonLoadingId === 'tutor' && Boolean(pendingTutorLessonTitle)
+  const activeReferenceSheet =
+    lessonViewStage === 'reference' && activeLearningLessonId
+      ? buildReferenceSheetByLessonId(activeLearningLessonId)
+      : null
+  const isReferenceSheetActive = Boolean(activeReferenceSheet && lessonViewStage === 'reference')
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isLessonBriefingActive = Boolean(activeStructuredLesson && activeLearningLesson && lessonViewStage === 'briefing')
@@ -6670,6 +6765,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         isLessonTipsActive,
         isLessonBriefingActive,
         isTutorLessonPending,
+        isReferenceSheetActive,
       }),
     [
       dialogStarted,
@@ -6680,6 +6776,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       isLessonIntroActive,
       isLessonTipsActive,
       isPracticeActive,
+      isReferenceSheetActive,
       isStructuredLessonActive,
       isTutorLessonPending,
       isVocabularyHubActive,
@@ -7475,7 +7572,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (isPracticeActive) return 'practice'
     if (isAccentActive) return 'accent'
     if (isStructuredLessonActive) return 'lesson'
-    if (isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive) return 'lesson-intro'
+    if (isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isReferenceSheetActive) return 'lesson-intro'
     if (dialogStarted && settings.mode === 'communication') return 'communication'
     if (dialogStarted && engvoVoiceMode) return 'engvo'
     if (isLessonActive) return 'lesson-learning'
@@ -8043,7 +8140,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     lessonPageTitleView: lessonPageTitleView != null,
     hasLessonHeaderProgress: Boolean(lessonHeaderProgressLabel),
     isLessonPreSteps:
-      isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isTutorLessonPending,
+      isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isTutorLessonPending || isReferenceSheetActive,
     hasHeaderMedal: lessonHeaderMedal != null,
   })
 
@@ -8546,6 +8643,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onChatPatternTuningChange={handleChatPatternTuningChange}
                     onChatPatternTuningReset={handleChatPatternTuningReset}
                     onOpenLearningLesson={openOrContinueLearningLesson}
+                    onOpenReferenceTopic={openReferenceTopic}
                     onOpenQuickTest={openQuickTest}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
@@ -8720,6 +8818,42 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     </p>
                   </div>
                 </div>
+              ) : isReferenceSheetActive && activeReferenceSheet ? (
+                <ReferenceSheetScreen
+                  key={`ref-${activeReferenceSheet.id}`}
+                  sheet={activeReferenceSheet}
+                  onBack={backToLessonList}
+                  onStartLesson={() => {
+                    void openLearningLesson(
+                      activeReferenceSheet.relatedLessonId,
+                      lessonMenuContext?.lessonsPanel ?? 'a2',
+                      {
+                        ...(lessonMenuContext
+                          ? {
+                              activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+                              activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                              theorySearchQuery: lessonMenuContext.theorySearchQuery,
+                              activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
+                              theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                              theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
+                            }
+                          : {}),
+                        catalogBrowseIntent: 'reference',
+                      }
+                    )
+                  }}
+                  onStartPractice={
+                    activeReferenceSheet.hasPractice
+                      ? () => {
+                          void openPracticeSession({
+                            lessonId: activeReferenceSheet.relatedLessonId,
+                            mode: 'challenge',
+                            entrySource: 'menu',
+                          })
+                        }
+                      : undefined
+                  }
+                />
               ) : isLessonIntroActive && activeLessonIntro ? (
                 <LessonIntroScreen
                   key={activeLessonIntroKey}
@@ -9022,6 +9156,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onChatPatternTuningReset={handleChatPatternTuningReset}
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
+        onOpenReferenceTopic={openReferenceTopic}
         onOpenQuickTest={openQuickTest}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}

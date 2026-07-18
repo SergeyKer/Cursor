@@ -13,6 +13,7 @@ const base = {
   isLessonTipsActive: false,
   isLessonBriefingActive: false,
   isTutorLessonPending: false,
+  isReferenceSheetActive: false,
 }
 
 describe('resolveActiveBranch', () => {

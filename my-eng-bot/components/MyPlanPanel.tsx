@@ -1,7 +1,10 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
+import { APP_BTN_SECONDARY_MENU, MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
+import { featureFlags } from '@/lib/featureFlags'
+import { isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
+import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import { pickQuickStartPracticeTopic, type LessonCatalogLevel } from '@/lib/lessonCatalog'
 import type { AttentionZone, LearningSignal } from '@/lib/learningMemory/types'
 import {
@@ -69,6 +72,7 @@ export interface MyPlanPanelProps {
   nowGoalLayout?: boolean
   showAdultPaywallHint?: boolean
   onOpenLearningLesson?: (lessonId: string) => void
+  onOpenReferenceTopic?: (lessonId: string) => void
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -99,6 +103,7 @@ export default function MyPlanPanel({
   nowGoalLayout = true,
   showAdultPaywallHint = false,
   onOpenLearningLesson,
+  onOpenReferenceTopic,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenVocabularyWorlds,
@@ -172,7 +177,8 @@ export default function MyPlanPanel({
           action.kind === 'resume_lesson' ||
           action.kind === 'open_lesson' ||
           action.kind === 'start_practice' ||
-          action.kind === 'reinforce_skill'
+          action.kind === 'reinforce_skill' ||
+          action.kind === 'open_reference'
             ? action.lessonId
             : undefined,
         skillTagId: action.kind === 'reinforce_skill' ? action.skillTagId : undefined,
@@ -183,6 +189,10 @@ export default function MyPlanPanel({
         case 'open_lesson':
           onMarkOpenedFromMyPlan?.()
           onOpenLearningLesson?.(action.lessonId)
+          return
+        case 'open_reference':
+          onMarkOpenedFromMyPlan?.()
+          onOpenReferenceTopic?.(action.lessonId)
           return
         case 'start_practice':
           await runPractice({
@@ -257,6 +267,7 @@ export default function MyPlanPanel({
       audience,
       onMarkOpenedFromMyPlan,
       onOpenLearningLesson,
+      onOpenReferenceTopic,
       onOpenVocabularyWorlds,
       resolvedMain?.goalType,
       runPractice,
@@ -405,7 +416,7 @@ export default function MyPlanPanel({
             {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
           </p>
         ) : null}
-        <div className="pt-3">
+        <div className="flex flex-col gap-2 pt-3">
           <button
             type="button"
             disabled={practiceBusy}
@@ -415,6 +426,33 @@ export default function MyPlanPanel({
           >
             {practiceBusy ? copy.busy : resolvedMain.buttonLabel}
           </button>
+          {featureFlags.referenceV1 &&
+          onOpenReferenceTopic &&
+          (() => {
+            const a = resolvedMain.action
+            const lessonId =
+              a.kind === 'resume_lesson' || a.kind === 'open_lesson' || a.kind === 'start_practice'
+                ? a.lessonId
+                : a.kind === 'reinforce_skill'
+                  ? a.lessonId
+                  : a.kind === 'open_reference'
+                    ? a.lessonId
+                    : null
+            if (!lessonId || !isReferenceLessonId(lessonId)) return null
+            return (
+              <button
+                type="button"
+                disabled={practiceBusy}
+                className={`${APP_BTN_SECONDARY_MENU} w-full min-h-[44px]`}
+                aria-label={REFERENCE_COPY.myPlanSecondary}
+                onClick={() =>
+                  void handleAction({ kind: 'open_reference', lessonId }, 'secondary')
+                }
+              >
+                {REFERENCE_COPY.myPlanSecondary}
+              </button>
+            )
+          })()}
         </div>
       </div>
 

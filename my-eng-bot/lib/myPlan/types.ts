@@ -20,6 +20,7 @@ export type MyPlanAction =
       generation: 'local' | 'ai'
       entrySource: PracticeEntrySource
     }
+  | { kind: 'open_reference'; lessonId: string }
 
 export type NowGoalType =
   | 'incomplete'
