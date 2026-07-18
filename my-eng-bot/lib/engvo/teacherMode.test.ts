@@ -6,6 +6,7 @@ import {
   pickOpeningSeed,
 } from '@/lib/engvo/openingSeeds'
 import {
+  buildEngvoTeacherDrillReclaimInstructions,
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
   TEACHER_RHYTHM_LOCK_MARKER,
@@ -251,9 +252,35 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/pending Скажи/i)
     expect(text).toMatch(/same Russian/i)
     expect(text).toMatch(/never silent wait/i)
+    expect(text).toMatch(/Incomplete topic→drill handoff/i)
     expect(text).toMatch(/no debate/i)
     expect(text).toMatch(/Хорошо, что спрашиваешь/)
     expect(text).toMatch(/Классно, что заметил/)
+  })
+
+  it('topic choice rules treat learner Russian as naming not drill', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'b1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/topic naming only/i)
+    expect(text).toMatch(/NOT the drill/i)
+    expect(text).toMatch(/NEW Russian drill/i)
+    expect(text).toMatch(/Here's the first sentence/i)
+  })
+
+  it('drill reclaim instructions force new Russian + translate', () => {
+    const text = buildEngvoTeacherDrillReclaimInstructions({
+      level: 'b1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/Incomplete teacher turn reclaim/i)
+    expect(text).toMatch(/NEW Russian drill/i)
+    expect(text).toMatch(/Do not re-ask the topic/i)
+    expect(text).toMatch(/Translate into English/i)
   })
 
   it('first turn does not include rhythm lock marker', () => {

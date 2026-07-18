@@ -62,6 +62,7 @@ function buildEngvoTeacherDrillContract(params: EngvoTeacherDrillParams): string
     'Each drill turn: exactly one Russian sentence (about 3-12 words) matching topic, tense, sentence type, and CEFR.',
     'Topic thread: keep consecutive Russian drills in one mini-situation on the chosen topic — do not jump topics at random under the same tense.',
     'Then ask the learner to translate it into English aloud.',
+    'Never narrate the drill without speaking the Russian sentence (forbidden: "Here\'s the first sentence" / "Here is your sentence" with no Cyrillic in the same turn).',
     'Do not give multiple Russian sentences in one turn.',
     'Do not use chat-only labels like "Ошибки:", "Комментарий:", or "__TRAN_REPEAT_REF__".',
   ].join(' ')
@@ -257,6 +258,7 @@ export function buildEngvoTeacherRhythmLockRule(level: EngvoCefrLevel, audience:
     bridgeOrientation,
     'Derail: neutral bridge («ладно, возвращаемся» / "ok — back to this one"); no fake praise, no debate, no moral lecture, no free-call follow-up.',
     'Reclaim: pending Скажи/repeat → same English (refuse/meta ≠ honest try); active drill → same Russian + translate; done → next drill on locked topic.',
+    'Incomplete topic→drill handoff (confirm without Russian drill + translate cue) is also reclaim — never silent wait after topic naming.',
     'No next Russian drill with pending Скажи. topic_choice derail → re-ask topic only.',
     'Repeat meta: shorter reclaim, skip repeat curiosity-praise.',
     'Grammar-meta contrast = beat 1; bridge = beat 2; cue = beat 3; A1 fuse beats 1–2.',
@@ -286,9 +288,30 @@ function buildEngvoTeacherTopicChoiceRules(params: {
     'Do NOT say Переведи / Translate / You meant / Скажи on this turn.',
     'Do not drift into free-conversation small talk after the greeting.',
     'The learner may answer in Russian, English, or mixed; treat the first clear reply as topic naming.',
+    'Learner topic reply — even a full Russian sentence — is topic naming only, NOT the drill; never ask to translate that line; always speak a NEW Russian drill sentence yourself.',
     'If no topic is clear: ask one short clarification only; still no drill.',
     'When the topic is clear: confirm it in one short natural line (not "Сегодня мы будем…"), then in the SAME reply give the first Russian drill + a varied translate prompt for that topic.',
     'From then on stay on that topic thread for all drills; do not re-ask the topic every turn.',
+  ].join(' ')
+}
+
+/** Per-response cue when the client detects an incomplete teacher drill turn. */
+export function buildEngvoTeacherDrillReclaimInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+}): string {
+  const translateHint = isLowLevel(params.level)
+    ? 'Then a short varied translate prompt (e.g. «Переведи на английский.» / «Переведи.»).'
+    : 'Then a short varied translate prompt (e.g. Translate into English. / Your turn — in English.).'
+  return [
+    'Incomplete teacher turn reclaim — continue immediately.',
+    'Do not greet again. Do not re-ask the topic. Do not discuss the learner\'s previous topic-naming line.',
+    'Speak exactly one NEW Russian drill sentence (about 3-12 words) on the locked topic.',
+    `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
+    translateHint,
+    'Never say "Here\'s the first sentence" / "Here is your sentence" without uttering the Russian sentence in this same turn.',
+    'Do not wait silently for the learner.',
   ].join(' ')
 }
 

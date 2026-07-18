@@ -8,6 +8,7 @@ import {
   resolveFreeOpeningPool,
 } from '@/lib/engvo/openingSeeds'
 import {
+  buildEngvoTeacherDrillReclaimInstructions,
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
 } from '@/lib/engvo/teacherPrompts'
@@ -204,6 +205,14 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
       : `The first question must be directly about ${topicName}.`,
     'Do not add extra filler, a second question, or harder vocabulary than the selected level allows.',
   ].join(' ')
+}
+
+export function buildEngvoTeacherDrillReclaimResponseInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+}): string {
+  return buildEngvoTeacherDrillReclaimInstructions(params)
 }
 
 export function buildEngvoContinuationResponseInstructions(params: {
