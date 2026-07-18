@@ -21,8 +21,8 @@ export const TEACHER_OPENING_SEEDS_B1_EN = [
 ] as const
 
 export const FREE_OPENING_SEEDS_ADULT = [
-  'Hi — good to hear you.',
-  'Hello. Let’s talk for a bit.',
+  'Hi — nice to hear you.',
+  'Hello. Let’s chat for a bit.',
   'Hi there. Ready when you are.',
 ] as const
 
@@ -73,8 +73,7 @@ export function buildPreferredOpeningInstruction(
   return [
     `Preferred opening this turn: "${seed}".`,
     'You may use a close natural variant of the same length and tone; then immediately do the next required step.',
-    'Do not add a second greeting.',
-    'Do not invent long small-talk.',
+    'Keep the greeting short; do not add a second greeting or a long preamble.',
     'The opening must not include a drill sentence, Переведи, Translate, Скажи, You meant, or the topic question itself.',
   ].join(' ')
 }

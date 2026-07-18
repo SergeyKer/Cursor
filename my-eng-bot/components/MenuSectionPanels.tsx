@@ -23,18 +23,10 @@ import {
   MENU_PRIMARY_CTA_CLASS,
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
-import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
 import {
-  countPracticeBadgeStats,
-  listPracticeBadgeShelf,
-  pickNearestPracticeBadgeGoal,
-  practiceBadgeRankEmoji,
-  resolvePracticeBadgeRankFromProgress,
-  PRACTICE_BADGE_DEFINITIONS,
-} from '@/lib/practice/practiceBadges'
-import { resolveLessonCardMedal, type LessonCardMedalDisplay } from '@/lib/lessonFooter'
+  resolveLessonCardMedal, type LessonCardMedalDisplay,
+} from '@/lib/lessonFooter'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
-import { aggregateMedals } from '@/lib/lessonScore'
 import {
   PRACTICE_TOPICS_BY_AUDIENCE,
   getLessonTopicById,
@@ -116,21 +108,14 @@ import {
   PRACTICE_TTS_SPEED_PRESETS,
 } from '@/lib/practice/practiceTtsSpeedPresets'
 import { DAILY_STREAK_GLYPH, DAILY_STREAK_LABEL } from '@/lib/gamificationGlyphs'
-import { formatStreakProgressCopy } from '@/lib/streakProgressCopy'
-import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
 import {
-  formatPracticeProgressBadge,
-  pickBestPracticeRewardOpportunity,
   pickDefaultLessonIdForMenu,
   resolveLessonMenuRewardIconsFromProgress,
 } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import LessonMenuRewardIcons from '@/components/LessonMenuRewardIcons'
 import type { LessonMenuRewardIconsState } from '@/lib/practice/pickBestPracticeRewardOpportunity'
-import { countTopicCupStats } from '@/lib/practice/topicCupStats'
-import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import { REFERENCE_EXERCISE_OPTIONS } from '@/lib/practice/referenceExerciseOptions'
 import type { RewardsState } from '@/lib/rewardsState'
-import { createDefaultRewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations, selectNowGoal } from '@/lib/myPlan/selectNowGoal'
 import { canUseAiReinforce } from '@/lib/entitlements'
@@ -141,6 +126,7 @@ import {
   loadSkillMasteryMap,
 } from '@/lib/learningMemory'
 import MyPlanPanel from '@/components/MyPlanPanel'
+import ProgressPanel from '@/components/ProgressPanel'
 
 const AdaptiveDailyHub = dynamic(() => import('@/components/adaptiveRetention/AdaptiveDailyHub'), { ssr: false })
 
@@ -449,14 +435,6 @@ const MENU_CHOICE_TEXT_CLASS =
 const MENU_ROW_LABEL_CLASS = `${MENU_CHOICE_TEXT_CLASS} leading-snug text-[var(--text)]`
 
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
-
-function getTodayDateString(): string {
-  const now = new Date()
-  const y = now.getFullYear()
-  const m = String(now.getMonth() + 1).padStart(2, '0')
-  const d = String(now.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
 
 export interface MenuSectionPanelsProps {
   menuView: MenuView
@@ -1100,51 +1078,6 @@ export default function MenuSectionPanels({
     setProfileSavedMessage('Профиль сохранён.')
     window.setTimeout(() => setProfileSavedMessage(null), 1800)
   }, [onRewardsStateChange, profileDraft, rewardsState])
-
-  const nextBestAction = React.useMemo(() => {
-    const communication = rewardsState?.modeGoals.communication
-    const engvo = rewardsState?.modeGoals.engvo
-    const today = getTodayDateString()
-    const activeToday = rewardsState?.progress.lastActiveDate === today
-    const streakText = activeToday
-      ? 'Серия дней на сегодня зафиксирована.'
-      : 'Закройте хотя бы одну цель сегодня, чтобы сохранить серию дней.'
-    if (communication?.status === 'in_progress' && !communication.completed) {
-      const left = Math.max(0, communication.goalTarget - communication.goalProgress)
-      return {
-        title: `Довести «Общение» до ${communication.goalTarget}/${communication.goalTarget}`,
-        detail: left > 0 ? `Осталось ${left} ответ(ов).` : 'Ещё один шаг до закрытия цикла.',
-        streak: streakText,
-      }
-    }
-    if (engvo?.status === 'in_progress' && !engvo.completed) {
-      const left = Math.max(0, engvo.goalTarget - engvo.goalProgress)
-      return {
-        title: `Довести «Звонок» до ${engvo.goalTarget}/${engvo.goalTarget}`,
-        detail: left > 0 ? `Осталось ${left} реплик.` : 'Ещё один шаг до закрытия цикла.',
-        streak: streakText,
-      }
-    }
-    if ((communication?.status === 'not_started' || communication?.status === 'abandoned') && communication) {
-      return {
-        title: 'Следующий лучший шаг: начать «Общение»',
-        detail: `Цель: ${communication.goalTarget} ответов за короткую сессию.`,
-        streak: streakText,
-      }
-    }
-    if ((engvo?.status === 'not_started' || engvo?.status === 'abandoned') && engvo) {
-      return {
-        title: 'Следующий лучший шаг: начать «Звонок»',
-        detail: `Цель: ${engvo.goalTarget} реплик за короткую сессию.`,
-        streak: streakText,
-      }
-    }
-    return {
-      title: 'Цели дня закрыты',
-      detail: 'Можно запустить новый цикл или перейти к уроку/практике.',
-      streak: streakText,
-    }
-  }, [rewardsState])
 
   const myPlanAttentionZones = React.useMemo(() => {
     if (menuView !== 'myPlan') return []
@@ -3712,315 +3645,15 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           />
         )}
 
-        {menuView === 'progress' && (() => {
-          const focusGoal = pickFocusModeGoal(rewardsState)
-          const goalPercent =
-            focusGoal && focusGoal.goalTarget > 0
-              ? Math.min(100, Math.round((focusGoal.goalProgress / focusGoal.goalTarget) * 100))
-              : 0
-          const dailyStreak = rewardsState?.progress.dailyStreak ?? 0
-          const bestDailyStreak = rewardsState?.progress.bestDailyStreak ?? dailyStreak
-          const streakProgressCopy = formatStreakProgressCopy(rewardsState ?? createDefaultRewardsState())
-          const lessonProgressRows = Object.values(loadLessonProgressMap())
-          const bestPracticeOpportunity = pickBestPracticeRewardOpportunity(lessonProgressRows)
-          return (
-          <div className="space-y-2">
-            {bestPracticeOpportunity ? (
-              <div className="rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-3">
-                <p className="text-[13px] font-medium text-[var(--status-info-text)]">Лучший заработок</p>
-                <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">{bestPracticeOpportunity.label}</p>
-                <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                  {bestPracticeOpportunity.reason === 'gems_pending'
-                    ? 'Золото уже есть - практика закрепит 💎.'
-                    : bestPracticeOpportunity.reason === 'gold_ring'
-                      ? featureFlags.practiceTopicCupsV1
-                        ? 'Золотая медаль + 5 зачётных Челленджей 11/12 - кубок темы 🏆.'
-                        : 'Золотая медаль + практики 📝 - лучший путь к камням.'
-                      : 'Практика по пройденному уроку даёт XP к уровню.'}
-                </p>
-                {onOpenPracticeSession ? (
-                  <button
-                    type="button"
-                    className={`${MENU_PRIMARY_CTA_CLASS} mt-2 w-full`}
-                    onClick={() =>
-                      void onOpenPracticeSession({
-                        lessonId: bestPracticeOpportunity.lessonId,
-                        mode: 'challenge',
-                        entrySource: 'menu',
-                      })
-                    }
-                  >
-                    Открыть Челлендж
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
-            <div className="grid grid-cols-3 gap-1.5">
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
-                <p className="emoji-line text-[18px] leading-none">{DAILY_STREAK_GLYPH}</p>
-                <p className="mt-0.5 text-[15px] font-semibold tabular-nums text-[var(--text)]">{dailyStreak}</p>
-                <p className="text-[10px] text-[var(--text-muted)]">{DAILY_STREAK_LABEL}</p>
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
-                <p className="emoji-line text-[18px] leading-none">⭐</p>
-                <p className="mt-0.5 text-[15px] font-semibold tabular-nums text-[var(--text)]">
-                  {rewardsState?.progress.level ?? 1}
-                </p>
-                <p className="text-[10px] text-[var(--text-muted)]">{rewardsState?.progress.totalXP ?? 0} XP</p>
-              </div>
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
-                <p className="text-[10px] font-medium text-[var(--text-muted)]">Цель дня</p>
-                <p className="mt-0.5 text-[12px] font-semibold leading-tight text-[var(--text)]">
-                  {focusGoal ? `${focusGoal.goalProgress}/${focusGoal.goalTarget}` : '-'}
-                </p>
-                <p className="text-[10px] text-[var(--text-muted)]">{focusGoal?.label ?? 'Готово'}</p>
-              </div>
-            </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-3">
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">{DAILY_STREAK_LABEL}</p>
-              <div className="mt-2 flex items-center gap-3">
-                <span className="emoji-line text-[32px] leading-none" aria-hidden>
-                  {DAILY_STREAK_GLYPH}
-                </span>
-                <div>
-                  <p className="text-[28px] font-bold tabular-nums leading-none text-[var(--text)]">{dailyStreak}</p>
-                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">Рекорд: {bestDailyStreak} дн.</p>
-                </div>
-              </div>
-              <p className="mt-2 text-[12px] text-[var(--text-muted)]">{nextBestAction.streak}</p>
-              {streakProgressCopy.bonusTodayLabel ? (
-                <p className="mt-2 text-[13px] font-medium text-[var(--text)]">
-                  Бонус за первый шаг сегодня: {streakProgressCopy.bonusTodayLabel}
-                </p>
-              ) : null}
-              {streakProgressCopy.introLine ? (
-                <p className="mt-2 text-[12px] text-[var(--text-muted)]">{streakProgressCopy.introLine}</p>
-              ) : null}
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">{streakProgressCopy.statusLine}</p>
-              {streakProgressCopy.nextThresholdLine ? (
-                <p className="mt-1 text-[12px] text-[var(--text-muted)]">{streakProgressCopy.nextThresholdLine}</p>
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">Общий прогресс</p>
-              <p className="emoji-line mt-1 text-[15px] font-semibold text-[var(--text)]">
-                Уровень {rewardsState?.progress.level ?? 1} • ⭐ {rewardsState?.progress.totalXP ?? 0}
-              </p>
-              <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-                До следующего уровня: {rewardsState?.progress.currentLevelXP ?? 0}/{rewardsState?.progress.xpToNextLevel ?? 100}
-              </p>
-            </div>
-            {(() => {
-              const lessonProgressMap = loadLessonProgressMap()
-              const medalList = Object.values(lessonProgressMap).map((row) => row.medal)
-              const medals = aggregateMedals(medalList, 4)
-              const badgesEarned = Object.values(lessonProgressMap).filter((row) => row.lessonBadgeEarned).length
-              const practiceRows = Object.values(lessonProgressMap).filter((row) => row.medal)
-              const cupStats = featureFlags.practiceTopicCupsV1 ? countTopicCupStats() : null
-              const practiceBadgeStats = countPracticeBadgeStats(getPracticeTopicProgress)
-              const nearestBadge = pickNearestPracticeBadgeGoal(getPracticeTopicProgress)
-              const practiceBadgeShelf = listPracticeBadgeShelf(getPracticeTopicProgress)
-              return (
-                <>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-                  <p className="text-[13px] font-medium text-[var(--text-muted)]">Бейджи практики</p>
-                  {nearestBadge ? (
-                    <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
-                      {nearestBadge.emoji} {nearestBadge.line}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-[13px] text-[var(--text-muted)]">Все ступени собраны.</p>
-                  )}
-                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                    Открыто {practiceBadgeStats.opened}/{practiceBadgeStats.total} · Золото{' '}
-                    {practiceBadgeStats.gold}/{practiceBadgeStats.total}
-                  </p>
-                  <ul className="mt-2 flex flex-wrap gap-2">
-                    {practiceBadgeShelf.map((item) => (
-                      <li
-                        key={item.lessonId}
-                        className="flex min-w-[4.5rem] flex-col items-center rounded-md border border-[var(--border)]/70 bg-[var(--menu-control-bg)] px-2 py-1.5"
-                        title={
-                          item.currentName ??
-                          item.nextName ??
-                          item.topicTitle
-                        }
-                      >
-                        <span
-                          className={`emoji-line text-[1.35rem] leading-none ${
-                            item.rank === 0 ? 'opacity-40 grayscale' : ''
-                          }`}
-                        >
-                          {item.emoji}
-                        </span>
-                        <span className="mt-0.5 text-[11px] font-medium text-[var(--text)]">
-                          {practiceBadgeRankEmoji(item.rank)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <ul className="mt-2 space-y-1.5 text-[12px] text-[var(--text-muted)]">
-                    {PRACTICE_BADGE_DEFINITIONS.map((definition) => {
-                      const progress = getPracticeTopicProgress(definition.lessonId)
-                      const rank = resolvePracticeBadgeRankFromProgress(progress)
-                      const topic = getLessonTopicById(definition.lessonId)?.title ?? definition.lessonId
-                      return (
-                        <li key={`pb-${definition.lessonId}`}>
-                          <p className="font-medium text-[var(--text)]">
-                            {definition.emoji} {topic}
-                          </p>
-                          <p className="mt-0.5">
-                            {definition.ranks.map((name, index) => {
-                              const step = (index + 1) as 1 | 2 | 3
-                              const done = rank >= step
-                              return (
-                                <span key={name} className="mr-2 inline-block">
-                                  {done ? '✓' : '·'} {name}
-                                </span>
-                              )
-                            })}
-                          </p>
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-                  <p className="text-[13px] font-medium text-[var(--text-muted)]">Практика по темам</p>
-                  {cupStats ? (
-                    <>
-                      <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
-                        🏆 тем: {cupStats.cups}/{cupStats.withMedal || 0}
-                      </p>
-                      <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                        Тема сдана 🏆 - золотая медаль в уроке и 5 зачётных Челленджей 11/12.
-                      </p>
-                    </>
-                  ) : null}
-                  {practiceRows.length === 0 ? (
-                    <p className="mt-1 text-[13px] text-[var(--text-muted)]">Сначала получите медаль в уроке.</p>
-                  ) : (
-                    <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
-                      {practiceRows.map((row) => {
-                        const topic = getLessonTopicById(row.lessonId)?.title ?? `Урок ${row.lessonId}`
-                        const practiceProgress = getPracticeTopicProgress(row.lessonId)
-                        return (
-                          <li key={`practice-${row.lessonId}`} className="flex items-center justify-between gap-2">
-                            <span>{topic}</span>
-                            <span className="emoji-line shrink-0 font-medium text-[var(--text)]">
-                              {formatPracticeProgressBadge(practiceProgress, row.medal)}
-                            </span>
-                          </li>
-                        )
-                      })}
-                    </ul>
-                  )}
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-                  <p className="text-[13px] font-medium text-[var(--text-muted)]">Награды уроков</p>
-                  <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
-                    🥇 {medals.gold} · 🥈 {medals.silver} · 🥉 {medals.bronze} · Золото {medals.gold}/4
-                  </p>
-                  {cupStats ? (
-                    <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
-                      Кубки тем: {cupStats.cups}/{cupStats.withMedal || 0}
-                    </p>
-                  ) : null}
-                  <p className="mt-1 text-[13px] text-[var(--text-muted)]">Бейджи: {badgesEarned}/4</p>
-                  <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
-                    {['1', '2', '3', '4'].map((lessonId) => {
-                      const progress = lessonProgressMap[lessonId]
-                      const topic = getLessonTopicById(lessonId)?.title ?? `Урок ${lessonId}`
-                      const badge = getLessonBadgeDefinition(lessonId)
-                      if (!progress) {
-                        return (
-                          <li key={lessonId}>
-                            {topic}: не начат
-                          </li>
-                        )
-                      }
-                      const cycleLabel =
-                        progress.cycle1Closed && !progress.medal
-                          ? ' · цикл 1 закрыт'
-                          : progress.cycle1Started && !progress.medal
-                            ? ' · в процессе'
-                            : ''
-                      return (
-                        <li key={lessonId}>
-                          {topic}: {progress.medal ?? (progress.cycle1Closed ? 'начат' : '-')} · {progress.corePercent ?? 0}% core
-                          {cycleLabel}
-                          {badge && !progress.lessonBadgeEarned ? ` · бейдж ${progress.lessonBadgeCriteriaMet?.length ?? 0}/3` : ''}
-                          {progress.lessonBadgeEarned ? ' · бейдж ✓' : ''}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-                </>
-              )
-            })()}
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">Цели режимов</p>
-              {(['communication', 'engvo'] as const).map((mode) => {
-                const goal = rewardsState?.modeGoals[mode]
-                const label = mode === 'communication' ? 'Общение' : 'Звонок'
-                const statusLabel =
-                  goal?.status === 'completed'
-                    ? 'Завершено'
-                    : goal?.status === 'in_progress'
-                      ? 'В процессе'
-                      : goal?.status === 'abandoned'
-                        ? 'Прервано'
-                        : 'Не начато'
-                return (
-                  <div key={mode} className="mt-1 rounded-md border border-[var(--border)]/70 bg-[var(--menu-control-bg)] px-2.5 py-2">
-                    <p className="text-[13px] text-[var(--text)]">
-                      {label}: {goal?.goalProgress ?? 0}/{goal?.goalTarget ?? 7}
-                    </p>
-                    <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
-                      Статус: {statusLabel}
-                      {goal?.assigned ? ' • Задание' : ''}
-                      {goal?.estimatedDurationMinutes ? ` • ~${goal.estimatedDurationMinutes} мин` : ''}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">Цель дня</p>
-              <p className="mt-1 text-[14px] font-semibold text-[var(--text)]">{nextBestAction.title}</p>
-              <p className="mt-1 text-[13px] text-[var(--text)]">{nextBestAction.detail}</p>
-              {focusGoal && focusGoal.goalTarget > 0 ? (
-                <div className="mt-2">
-                  <div className="h-2 overflow-hidden rounded-full bg-[var(--menu-control-bg)]">
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
-                      style={{ width: `${goalPercent}%` }}
-                      role="progressbar"
-                      aria-valuenow={focusGoal.goalProgress}
-                      aria-valuemin={0}
-                      aria-valuemax={focusGoal.goalTarget}
-                      aria-label={`${focusGoal.label}: ${focusGoal.goalProgress} из ${focusGoal.goalTarget}`}
-                    />
-                  </div>
-                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                    {focusGoal.label}: {focusGoal.goalProgress}/{focusGoal.goalTarget}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">Статистика</p>
-              <p className="mt-1 text-[13px] text-[var(--text)]">
-                Правильных ответов (диалог): {dialogueCorrectAnswers}
-              </p>
-              <p className="mt-0.5 text-[13px] text-[var(--text)]">
-                Запросов: {usage.limit > 0 ? `${usage.used} / ${usage.limit}` : `${usage.used}`}
-              </p>
-            </div>
-          </div>
-          )
-        })()}
+        {menuView === 'progress' && (
+          <ProgressPanel
+            rewardsState={rewardsState}
+            settings={settings}
+            usage={usage}
+            dialogueCorrectAnswers={dialogueCorrectAnswers}
+            onMenuViewChange={(view) => onMenuViewChange(view)}
+          />
+        )}
 
         {menuView === 'myPlan' && (
           <MyPlanPanel

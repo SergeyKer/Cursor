@@ -9,7 +9,12 @@ import {
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
 } from '@/lib/engvo/teacherPrompts'
+import {
+  TEACHER_EQUIVALENCE_GOLDEN_FRAGMENTS,
+  TEACHER_EQUIVALENCE_POLICY_MARKER,
+} from '@/lib/engvo/teacherEquivalencePolicy'
 import { buildEngvoFirstTurnResponseInstructions, buildEngvoRealtimeInstructions } from '@/lib/engvo/instructions'
+import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import { resolveEngvoTeacherPhase } from '@/lib/engvo/sessionKind'
 
 describe('extractTeacherCorrection', () => {
@@ -181,6 +186,32 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/After one brief frame-greeting, start drill/)
     expect(text).not.toMatch(/Start in drill phase immediately/)
   })
+
+  it('realtime teacher includes equivalence policy with golden school cases', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).toMatch(/accepted set/i)
+    expect(text).toMatch(/Never start an error turn with bare "Неправильно\."/)
+    for (const fragment of TEACHER_EQUIVALENCE_GOLDEN_FRAGMENTS) {
+      expect(text).toContain(fragment)
+    }
+  })
+
+  it('A1 equivalence block does not invite prep lectures', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).toMatch(/no prep lecture/i)
+  })
 })
 
 describe('instructions branching', () => {
@@ -213,6 +244,7 @@ describe('instructions branching', () => {
       kind: 'free_call',
     })
     expect(text).toMatch(/English only/i)
+    expect(text).not.toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
   })
 
   it('teacher realtime uses teacher block', () => {
@@ -225,6 +257,60 @@ describe('instructions branching', () => {
       sentenceType: 'general',
     })
     expect(text).toMatch(/You meant/)
+    expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+  })
+
+  it('teacher client realtime instructions include equivalence marker (parity)', () => {
+    const text = buildEngvoRealtimeInstructionsClient({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'travel',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+  })
+
+  it('free_call client realtime instructions exclude equivalence marker', () => {
+    const text = buildEngvoRealtimeInstructionsClient({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'travel',
+      kind: 'free_call',
+    })
+    expect(text).not.toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+  })
+
+  it('teacher realtime does not leak free-call conversational delivery', () => {
+    const text = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'travel',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).not.toContain('Conversational delivery:')
+    expect(text).not.toContain('[chuckle]')
+    expect(text).not.toContain('<soft>')
+    expect(text).toMatch(/Engvo Teacher/)
+  })
+
+  it('teacher first-turn keeps preferred opening without free-call delivery', () => {
+    const text = buildEngvoFirstTurnResponseInstructions({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'travel',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      openingSeedIndex: 0,
+    })
+    expect(text).toContain('Preferred opening this turn:')
+    expect(text).toContain('Keep the greeting short; do not add a second greeting or a long preamble.')
+    expect(text).not.toContain('Conversational delivery:')
+    expect(text).not.toContain('[pause]')
   })
 })
 

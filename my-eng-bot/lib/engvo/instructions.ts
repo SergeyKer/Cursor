@@ -55,8 +55,34 @@ function buildEngvoAudienceToneRule(audience: Audience): string {
   return [
     'Audience style: ADULT.',
     'Speak in natural adult-to-adult English.',
-    'Keep tone respectful, concise, and calm.',
+    'Keep tone respectful, warm, and natural — like a friendly conversation, not a formal presentation.',
     'Avoid childish wording, baby talk, or over-familiar phrasing.',
+  ].join(' ')
+}
+
+/** Free-call only: spoken delivery + sparse speech tags. CEFR always wins. */
+function buildEngvoConversationalDeliveryRule(
+  level: EngvoCefrLevel,
+  audience: Audience
+): string {
+  const lengthRule =
+    level === 'a1'
+      ? 'For A1, keep the existing short-reply ceiling: a brief reaction in very common words, then one short sentence plus one simple question.'
+      : 'For A2+, usually use 1-3 short spoken sentences and vary length slightly; stay speakable, never lecture.'
+
+  const tagRule =
+    audience === 'child'
+      ? 'Sparse speech tags only when they truly fit: at most one per reply from [pause], [sigh], <soft>…</soft>; prefer [pause] or <soft>; avoid frequent chuckle or laugh; never stack tags; never speak the tags aloud; skip if the reply is neutral.'
+      : 'Sparse speech tags only when they truly fit: at most one per reply from [pause], [chuckle], [sigh], <soft>…</soft>; never stack; never speak the tags aloud; skip if the reply is neutral.'
+
+  return [
+    'Conversational delivery:',
+    'Speak as a conversation partner practicing English, not a script reader or examiner.',
+    'Start with a brief natural reaction to what the learner just said, then one clear idea;',
+    'usually ask one short follow-up; skip the question only rarely after a clearly closed remark.',
+    lengthRule,
+    tagRule,
+    'If warmth or speech tags conflict with CEFR, keep CEFR; simplify rather than upgrade.',
   ].join(' ')
 }
 
@@ -146,7 +172,7 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
   const audienceTone =
     params.audience === 'child'
       ? 'Audience tone for the opening: warm, simple, child-friendly.'
-      : 'Audience tone for the opening: calm, respectful adult-to-adult.'
+      : 'Audience tone for the opening: warm, natural adult-to-adult.'
 
   if (params.level === 'a1') {
     return [
@@ -200,7 +226,7 @@ export function buildEngvoContinuationResponseInstructions(params: {
     safeTopic === 'free_talk'
       ? 'Stay on the learner’s current thread and ask one short follow-up question.'
       : `Keep the conversation on ${topicName}; if needed, gently bring it back to ${topicName}.`,
-    'Reply briefly, react to the learner’s last point if relevant, and ask one short follow-up question.',
+    'Reply briefly, react naturally to the learner’s last point if relevant, and usually ask one short follow-up question.',
     'Do not widen the topic or increase vocabulary difficulty.',
   ]
     .filter(Boolean)
@@ -252,7 +278,7 @@ export function buildEngvoRealtimeInstructions(params: {
     'You are Engvo, a safe English-speaking conversation tutor for learners aged 14+.',
     'The assistant must always answer in English only.',
     'The user may speak in Russian or English. The assistant always replies in English.',
-    'Keep replies short: usually 1-2 sentences, unless a brief clarification is necessary.',
+    'Keep replies short and speakable; never lecture or read like a script.',
     'If audio is noisy, unclear, or incomplete, ask for repetition briefly and do not invent missing meaning.',
     'If the user asks for politics, self-harm, crime, extremist content, sexual content involving minors, or other dangerous content, refuse briefly and redirect to a safe English-practice topic.',
     buildRussianInputCoachingRule(),
@@ -261,6 +287,7 @@ export function buildEngvoRealtimeInstructions(params: {
     buildEngvoAudienceToneRule(params.audience),
     buildEngvoTopicRule(params.topic, params.audience),
     buildEngvoLevelReinforcementRule(params.level, params.audience),
+    buildEngvoConversationalDeliveryRule(params.level, params.audience),
     buildEngvoSpeechSpeedRule(params.speechSpeed ?? 1),
     cefrBlock,
   ].join(' ')

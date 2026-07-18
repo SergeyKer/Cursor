@@ -4,6 +4,7 @@ import {
   pickOpeningSeed,
   resolveTeacherOpeningPool,
 } from '@/lib/engvo/openingSeeds'
+import { buildTeacherEquivalencePolicyBlock } from '@/lib/engvo/teacherEquivalencePolicy'
 import type { EngvoTeacherDrillParams } from '@/lib/engvo/sessionKind'
 import type { Audience, SentenceType, TenseId } from '@/lib/types'
 import { TENSES, SENTENCE_TYPES } from '@/lib/constants'
@@ -83,7 +84,8 @@ function buildEngvoTeacherVoiceStyleRules(level: EngvoCefrLevel, audience: Audie
     'Do not reuse the same praise or verdict opener two turns in a row.',
     'Anti-cliche: do not start every success with "Молодец", "Отлично", "Good", or "Well done" — vary openings (those words are allowed occasionally, not as a fixed plate).',
     'Praise and micro-reason: at most one short sentence each.',
-    'On errors use a supportive soft lead-in (e.g. "Почти.", "Чуть иначе.", "Close —") plus the reason — never a bare "Неверно." / "Wrong." / "Incorrect." alone.',
+    'On errors use a supportive soft lead-in (e.g. "Почти.", "Чуть иначе.", "Close —") plus the reason — never a bare "Неверно." / "Wrong." / "Incorrect." / "Неправильно." alone.',
+    'Never start an error turn with bare "Неправильно." or "Incorrect." with no soft lead-in and reason.',
     'Vary soft lead-ins; do not start every error with the same "Почти".',
   ].join(' ')
 }
@@ -117,9 +119,10 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
   if (isLowLevel(level)) {
     return [
       'Feedback turn order (A1/A2) — follow exactly:',
-      'SUCCESS (acceptable English): (1) one short live Russian reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill; (3) "Переведи на английский."',
+      'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live Russian reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill; (3) "Переведи на английский."',
+      'Soft-accepted (accepted but not canonical): SUCCESS path without "Скажи:" — details in Teacher equivalence policy.',
       buildSuccessPraiseExamples(level, audience),
-      'ERROR (wrong or incomplete, audio was clear): (1) soft lead-in + one micro-reason (what they said vs what is needed); (2) the correct English sentence; (3) exactly once "Скажи: <English>".',
+      'ERROR (outside accepted, audio was clear): (1) soft lead-in + one micro-reason (what they said vs what is needed); (2) the canonical English sentence; (3) exactly once "Скажи: <English>".',
       'Never pack the next Russian drill into the same turn as "Скажи:".',
       'Bare verdict without reason is forbidden.',
       'NEAR-MISS: warmer ("Почти — …"). FAR-MISS: calm and clear, no pressure.',
@@ -133,9 +136,10 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
 
   return [
     'Feedback turn order (B1+) — follow exactly:',
-    'SUCCESS (acceptable English): (1) one short live English reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill; (3) "Translate into English."',
+    'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live English reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill; (3) "Translate into English."',
+    'Soft-accepted (accepted but not canonical): SUCCESS path without You meant — details in Teacher equivalence policy.',
     buildSuccessPraiseExamples(level, audience),
-    'ERROR (wrong or incomplete, audio was clear): (1) soft lead-in + one short English micro-reason (what they said vs what is needed); (2) You meant: "<correct English>"; (3) ask once to say it (e.g. "Can you say that?").',
+    'ERROR (outside accepted, audio was clear): (1) soft lead-in + one short English micro-reason (what they said vs what is needed); (2) You meant: "<canonical English>"; (3) ask once to say it (e.g. "Can you say that?").',
     'Never pack the next Russian drill into the same turn as You meant / the repeat request.',
     'Bare "Incorrect." / "Wrong." without a reason is forbidden.',
     'NEAR-MISS: warmer ("Close — …"). FAR-MISS: calm and clear, no pressure.',
@@ -255,6 +259,7 @@ export function buildEngvoTeacherRealtimeInstructions(params: {
     buildEngvoTeacherDrillContract(drillParams),
     buildEngvoTeacherVoiceStyleRules(params.level, params.audience),
     buildEngvoTeacherFeedbackRules(params.level, params.audience),
+    buildTeacherEquivalencePolicyBlock(params.level),
     buildEngvoTeacherAntiLoopRule(),
     params.skipTopicChoice
       ? 'After one brief frame-greeting, start drill phase.'
