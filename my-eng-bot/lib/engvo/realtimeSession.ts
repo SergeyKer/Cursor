@@ -71,7 +71,8 @@ export function buildEngvoCallsApiSession(params: {
 /** Payload `session` for client `session.update` (GA shape: nested `audio`, top-level `model`). */
 export function buildEngvoClientSessionUpdate(params: {
   model: string
-  instructions: string
+  /** Omit on voice/speed-only updates so server SDP safety instructions stay intact. */
+  instructions?: string
   voice?: EngvoRealtimeVoice
   speed?: number
   inputAudioTranscription?: ReturnType<typeof buildEngvoInputAudioTranscriptionConfig> & {
@@ -91,9 +92,11 @@ export function buildEngvoClientSessionUpdate(params: {
   const session: Record<string, unknown> = {
     type: ENGVO_REALTIME_SESSION_TYPE,
     model: params.model,
-    instructions: params.instructions,
     output_modalities: ['audio'],
     audio,
+  }
+  if (typeof params.instructions === 'string') {
+    session.instructions = params.instructions
   }
   assertEngvoRealtimeSessionHasType(session)
   return session as EngvoRealtimeSessionBase & Record<string, unknown>
@@ -106,35 +109,39 @@ const ENGVO_XAI_PCM_FORMAT = {
 
 /** xAI Voice Agent `session.update` — PCM 24 kHz, language_hint ru, reasoning none. */
 export function buildEngvoXaiClientSessionUpdate(params: {
-  instructions: string
+  /** Omit on voice/speed-only updates when relay rewrite supplies canonical instructions. */
+  instructions?: string
   voice: EngvoXaiCallVoice
   speed?: number
 }): { type: 'session.update'; session: Record<string, unknown> } {
   const speed = clampEngvoRealtimeSpeed(params.speed ?? 1, 'xai')
-  return {
-    type: 'session.update',
-    session: {
-      instructions: params.instructions,
-      voice: params.voice,
-      audio: {
-        input: {
-          format: { ...ENGVO_XAI_PCM_FORMAT },
-          transcription: {
-            model: 'grok-transcribe',
-            language_hint: 'ru',
-          },
-          turn_detection: { ...ENGVO_XAI_SERVER_VAD_TURN_DETECTION },
+  const session: Record<string, unknown> = {
+    voice: params.voice,
+    audio: {
+      input: {
+        format: { ...ENGVO_XAI_PCM_FORMAT },
+        transcription: {
+          model: 'grok-transcribe',
+          language_hint: 'ru',
         },
-        output: {
-          format: { ...ENGVO_XAI_PCM_FORMAT },
-          voice: params.voice,
-          speed,
-        },
+        turn_detection: { ...ENGVO_XAI_SERVER_VAD_TURN_DETECTION },
       },
-      reasoning: {
-        effort: 'none',
+      output: {
+        format: { ...ENGVO_XAI_PCM_FORMAT },
+        voice: params.voice,
+        speed,
       },
     },
+    reasoning: {
+      effort: 'none',
+    },
+  }
+  if (typeof params.instructions === 'string') {
+    session.instructions = params.instructions
+  }
+  return {
+    type: 'session.update',
+    session,
   }
 }
 

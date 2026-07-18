@@ -55,7 +55,18 @@ export function resolveXaiRelayModel(modelParam: string | null | undefined): Xai
 /** Browser-side relay WebSocket URL (same origin). */
 export function buildEngvoXaiRelayWsUrl(
   model: string = ENGVO_XAI_MODEL,
-  locationLike?: Pick<Location, 'protocol' | 'host'>
+  locationLike?: Pick<Location, 'protocol' | 'host'>,
+  bootstrap?: {
+    audience?: string
+    level?: string
+    topic?: string
+    kind?: string
+    tense?: string
+    sentenceType?: string
+    speed?: number | string
+    skipTopicChoice?: boolean
+    topicPreset?: string | null
+  }
 ): string {
   const protocol =
     locationLike?.protocol === 'https:' || locationLike?.protocol === 'http:'
@@ -68,6 +79,19 @@ export function buildEngvoXaiRelayWsUrl(
   const host = locationLike?.host ?? (typeof window !== 'undefined' ? window.location.host : 'localhost:3000')
   const url = new URL(`${protocol}//${host}${ENGVO_XAI_RELAY_PATH}`)
   url.searchParams.set('model', resolveXaiRelayModel(model))
+  if (bootstrap) {
+    if (bootstrap.audience) url.searchParams.set('audience', bootstrap.audience)
+    if (bootstrap.level) url.searchParams.set('level', bootstrap.level)
+    if (bootstrap.topic) url.searchParams.set('topic', bootstrap.topic)
+    if (bootstrap.kind) url.searchParams.set('kind', bootstrap.kind)
+    if (bootstrap.tense) url.searchParams.set('tense', bootstrap.tense)
+    if (bootstrap.sentenceType) url.searchParams.set('sentenceType', bootstrap.sentenceType)
+    if (bootstrap.speed != null && bootstrap.speed !== '') {
+      url.searchParams.set('speed', String(bootstrap.speed))
+    }
+    if (bootstrap.skipTopicChoice) url.searchParams.set('skipTopicChoice', '1')
+    if (bootstrap.topicPreset?.trim()) url.searchParams.set('topicPreset', bootstrap.topicPreset.trim())
+  }
   return url.toString()
 }
 

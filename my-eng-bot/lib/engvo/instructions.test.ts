@@ -17,6 +17,8 @@ describe('buildEngvoRealtimeInstructions', () => {
 
     expect(result).toContain('14+')
     expect(result).toContain('always answer in English only')
+    expect(result).toContain('AI_SAFETY:refuse_adult_18plus')
+    expect(result).toContain('AI_SAFETY:anti_exfiltration')
     expect(result).toContain('Audience style: ADULT.')
     expect(result).toContain('CEFR lexical ceiling (A2)')
     expect(result).toContain('Active conversation topic: Travel.')

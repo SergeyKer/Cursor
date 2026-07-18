@@ -1954,20 +1954,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         payload.speed ?? engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset, provider),
         provider
       )
-      const instructions = buildEngvoRealtimeInstructionsClient({
-        audience: settings.audience,
-        level: payload.level ?? engvoCefrLevel,
-        topic: settings.topic,
-        speechSpeed,
-        kind: engvoSessionKind,
-        tense: engvoTeacherTense,
-        sentenceType: engvoTeacherSentenceType,
-      })
+      // Voice/speed-only: omit instructions so OpenAI keeps SDP/server safety text.
+      const policyUpdate = payload.level != null
+      const instructions = policyUpdate
+        ? buildEngvoRealtimeInstructionsClient({
+            audience: settings.audience,
+            level: payload.level ?? engvoCefrLevel,
+            topic: settings.topic,
+            speechSpeed,
+            kind: engvoSessionKind,
+            tense: engvoTeacherTense,
+            sentenceType: engvoTeacherSentenceType,
+          })
+        : undefined
       if (provider === 'xai') {
         const voice = (payload.voice as EngvoXaiCallVoice | undefined) ?? engvoXaiVoice
         return sendEngvoRealtimeEvent(
           buildEngvoXaiClientSessionUpdate({
-            instructions,
+            ...(instructions ? { instructions } : {}),
             voice,
             speed: speechSpeed,
           })
@@ -1979,7 +1983,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           model: ENGVO_REALTIME_MODEL,
           voice: (payload.voice as EngvoRealtimeVoice | undefined) ?? engvoRealtimeVoice,
           speed: speechSpeed,
-          instructions,
+          ...(instructions ? { instructions } : {}),
           inputAudioTranscription: {
             ...buildEngvoInputAudioTranscriptionConfig(),
             ...(engvoSessionKind === 'teacher' ? {} : { language: 'ru' }),
@@ -2778,6 +2782,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           model: ENGVO_XAI_MODEL,
           mediaStream,
           audioContext,
+          relayBootstrap: {
+            audience: settings.audience,
+            level: engvoCefrLevel,
+            topic: settings.topic,
+            kind: engvoSessionKind,
+            tense: engvoTeacherTense,
+            sentenceType: engvoTeacherSentenceType,
+            speed: speechSpeedForCall,
+          },
           handlers: {
             onEvent: (raw) => {
               void handleEngvoRealtimeMessage(raw)

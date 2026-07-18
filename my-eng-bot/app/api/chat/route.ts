@@ -34,6 +34,8 @@ import {
   shouldRequestAllOpenAiWebSearchSources,
 } from '@/lib/openAiWebSearchShared'
 import { getCommunicationWebSearchDecision } from '@/lib/webSearchContext'
+import { buildAiSafetyRulesBlock } from '@/lib/ai/safetyPolicy'
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
 import {
   buildCommunicationEnglishContinuationFallback,
   buildCommunicationFallbackMessage,
@@ -605,7 +607,7 @@ ${buildCommunicationMixLearningRule(communicationVoiceInputMode)}
 - Persona voice in Russian (communication mode only): use masculine self-reference forms only. Correct examples: "я понял", "я готов", "я рад", "я постараюсь помочь". Never use feminine variants or mixed forms like "понял(-а)", "готов(а)", "рад(а)".
 - Allow both Russian and English conversation freely. You may vary length and detail for follow-ups, but you MUST keep the same Russian address register for the whole chat: CHILD audience -> always informal "ты" (never "вы"), and every Russian sentence must stay in correct singular second-person grammar like "ты пошёл", "ты спросил", "у тебя есть"; ADULT audience -> always "вы" (never informal "ты"). Do not change register because the user asked for steps, a task, or structured instructions, and do not compose the sentence in plural/formal form first.
 - Clarification: use a clarifying question ONLY for truly unintelligible input (random/noise text, no recoverable intent). Do not use clarification for mixed learner input when meaning can be inferred.
-- 18+ restriction: if the user requests sexual/erotic/pornographic content or any 18+ material, refuse politely and suggest a neutral, safe alternative (helpful general info or a topic change). Never provide explicit content.
+- ${buildAiSafetyRulesBlock({ channel: 'communication', audience })}
 
 When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
@@ -796,7 +798,9 @@ CRITICAL DIALOGUE PLAN RULE: In dialogue training mode, NEVER expand the convers
 
 Never use "Tell me" or other English instruction phrases. After a correction, use "Повтори: " + the correct English sentence and keep it separate from the \"Комментарий\" line.
 
-Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line - in Russian when correcting mistakes; absent when a correct answer goes straight to the next question only.`
+Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line - in Russian when correcting mistakes; absent when a correct answer goes straight to the next question only.
+
+${buildAiSafetyRulesBlock({ channel: 'dialogue', audience })}`
 }
 
 /** Паттерны утечки инструкций: модель выводит описание шагов вместо ответа пользователю. */
@@ -6482,8 +6486,23 @@ function buildTranslationRepeatExitComment(seed: string): string {
   return pool[pickDeterministicIndex(seed, pool.length)] ?? pool[0]!
 }
 
+const CHAT_RATE_BUCKETS = new Map<string, { count: number; resetAt: number }>()
+
 export async function POST(req: NextRequest) {
   try {
+    if (
+      !checkIpRateLimit({
+        buckets: CHAT_RATE_BUCKETS,
+        ip: clientIpFromRequest(req.headers),
+        windowMs: 60_000,
+        max: 90,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'rate_limit', userMessage: 'Слишком много запросов. Подождите.' },
+        { status: 429 }
+      )
+    }
     const body = await req.json()
     const messages: ChatMessage[] = normalizeIncomingMessages(body.messages)
     const provider: Provider = body.provider === 'openai' ? 'openai' : 'openrouter'

@@ -1,26 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { buildEngvoRealtimeInstructions } from '@/lib/engvo/instructions'
-import {
-  ENGVO_DEFAULT_LEVEL,
-  ENGVO_DEFAULT_VOICE,
-  ENGVO_REALTIME_MODEL,
-  clampEngvoRealtimeSpeed,
-  isEngvoCefrLevel,
-  isEngvoRealtimeVoice,
-} from '@/lib/engvo/constants'
+import { ENGVO_DEFAULT_VOICE, ENGVO_REALTIME_MODEL, isEngvoRealtimeVoice } from '@/lib/engvo/constants'
 import { resolveEngvoRealtimeUserMessage } from '@/lib/engvo/errors'
 import { buildEngvoCallsApiSession } from '@/lib/engvo/realtimeSession'
-import {
-  ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
-  ENGVO_DEFAULT_TEACHER_TENSE,
-  isEngvoTeacherSentenceType,
-  isEngvoTeacherTense,
-  isEngvoVoiceSessionKind,
-  type EngvoVoiceSessionKind,
-} from '@/lib/engvo/sessionKind'
-import { TOPICS } from '@/lib/constants'
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
-import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
+import type { Audience } from '@/lib/types'
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
+import { resolveEngvoRealtimeInstructionParams } from '@/lib/engvo/resolveRealtimeInstructionParams'
 
 export const runtime = 'nodejs'
 
@@ -28,6 +14,7 @@ export const runtime = 'nodejs'
 const OPENAI_REALTIME_CALLS_URL = 'https://api.openai.com/v1/realtime/calls'
 const EGRESS_IP_URL = 'https://api.ipify.org?format=json'
 const EGRESS_GEO_URL = 'http://ip-api.com/json'
+const SDP_RATE_BUCKETS = new Map<string, { count: number; resetAt: number }>()
 
 function normalizeKey(raw: string): string {
   return raw.replace(/^["'\s]+|["'\s]+$/g, '')
@@ -84,6 +71,20 @@ async function resolveServerEgressInfo(): Promise<EgressInfo> {
 
 export async function POST(req: NextRequest) {
   try {
+    if (
+      !checkIpRateLimit({
+        buckets: SDP_RATE_BUCKETS,
+        ip: clientIpFromRequest(req.headers),
+        windowMs: 60_000,
+        max: 30,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'rate_limit', userMessage: 'Слишком много запросов. Подождите.' },
+        { status: 429 }
+      )
+    }
+
     const key = normalizeKey(process.env.OPENAI_API_KEY ?? '')
     if (!key) {
       return NextResponse.json({ error: 'На сервере не задан OPENAI_API_KEY' }, { status: 500 })
@@ -108,36 +109,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'SDP offer is required' }, { status: 400 })
     }
 
-    const audience: Audience = body.audience === 'child' ? 'child' : 'adult'
     const requestedVoice = body.voice ?? ''
-    const requestedLevel = body.level ?? ''
-    const requestedTopic = body.topic ?? ''
     const voice = isEngvoRealtimeVoice(requestedVoice) ? requestedVoice : ENGVO_DEFAULT_VOICE
-    const level = isEngvoCefrLevel(requestedLevel) ? requestedLevel : ENGVO_DEFAULT_LEVEL
-    const topicIds = new Set<TopicId>(TOPICS.map((item) => item.id))
-    const topic = topicIds.has(requestedTopic as TopicId) ? (requestedTopic as TopicId) : 'free_talk'
-    const speechSpeed =
-      typeof body.speed === 'number' && Number.isFinite(body.speed) ? clampEngvoRealtimeSpeed(body.speed) : 1
-    const kind: EngvoVoiceSessionKind = isEngvoVoiceSessionKind(body.kind ?? '')
-      ? (body.kind as EngvoVoiceSessionKind)
-      : 'free_call'
-    const tense: TenseId = isEngvoTeacherTense(body.tense ?? '')
-      ? (body.tense as TenseId)
-      : ENGVO_DEFAULT_TEACHER_TENSE
-    const sentenceType: SentenceType = isEngvoTeacherSentenceType(body.sentenceType ?? '')
-      ? (body.sentenceType as SentenceType)
-      : ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
-    const instructions = buildEngvoRealtimeInstructions({
-      audience,
-      level,
-      topic,
-      speechSpeed,
-      kind,
-      tense,
-      sentenceType,
+    const instructionParams = resolveEngvoRealtimeInstructionParams({
+      audience: body.audience,
+      level: body.level,
+      topic: body.topic,
+      speed: body.speed,
+      kind: body.kind,
+      tense: body.tense,
+      sentenceType: body.sentenceType,
       skipTopicChoice: body.skipTopicChoice === true,
       topicPreset: typeof body.topicPreset === 'string' ? body.topicPreset : null,
     })
+    const instructions = buildEngvoRealtimeInstructions(instructionParams)
 
     const form = new FormData()
     form.append('sdp', sdp)
@@ -148,7 +133,7 @@ export async function POST(req: NextRequest) {
           model: ENGVO_REALTIME_MODEL,
           voice,
           instructions,
-          speed: speechSpeed,
+          speed: instructionParams.speechSpeed,
         })
       )
     )

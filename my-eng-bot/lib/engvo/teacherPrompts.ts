@@ -8,6 +8,7 @@ import { buildTeacherEquivalencePolicyBlock } from '@/lib/engvo/teacherEquivalen
 import type { EngvoTeacherDrillParams } from '@/lib/engvo/sessionKind'
 import type { Audience, SentenceType, TenseId } from '@/lib/types'
 import { TENSES, SENTENCE_TYPES } from '@/lib/constants'
+import { buildAiSafetyRulesBlock } from '@/lib/ai/safetyPolicy'
 
 function tenseLabel(tense: TenseId): string {
   return TENSES.find((t) => t.id === tense)?.label ?? tense
@@ -373,7 +374,7 @@ export function buildEngvoTeacherRealtimeInstructions(params: {
       : buildEngvoTeacherTopicChoiceRules({ level: params.level, audience: params.audience }),
     buildSpeechPaceHint(params.speechSpeed ?? 1),
     'If audio is unclear, ask briefly to repeat; do not invent meaning.',
-    'Refuse unsafe content briefly and return to a safe practice topic.',
+    buildAiSafetyRulesBlock({ channel: 'teacher', audience: params.audience }),
     'Keep turns short and speakable.',
   ].join(' ')
 }

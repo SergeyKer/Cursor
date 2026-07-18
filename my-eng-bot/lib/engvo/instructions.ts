@@ -11,6 +11,7 @@ import {
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
 } from '@/lib/engvo/teacherPrompts'
+import { buildAiSafetyRulesBlock } from '@/lib/ai/safetyPolicy'
 
 const ENGVO_TOPIC_NAMES: Record<TopicId, string> = {
   free_talk: 'Free talk (any topic)',
@@ -280,7 +281,7 @@ export function buildEngvoRealtimeInstructions(params: {
     'The user may speak in Russian or English. The assistant always replies in English.',
     'Keep replies short and speakable; never lecture or read like a script.',
     'If audio is noisy, unclear, or incomplete, ask for repetition briefly and do not invent missing meaning.',
-    'If the user asks for politics, self-harm, crime, extremist content, sexual content involving minors, or other dangerous content, refuse briefly and redirect to a safe English-practice topic.',
+    buildAiSafetyRulesBlock({ channel: 'free_call', audience: params.audience }),
     buildRussianInputCoachingRule(),
     "Keep every English version short, natural, and at the learner's CEFR level; never lecture, never tell the user to switch language, never ask them to repeat after you. Trust that seeing good English models will gradually pull the user into English on their own.",
     'Do not translate everything literally; pick the most natural phrasing a real speaker would use.',

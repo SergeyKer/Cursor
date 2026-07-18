@@ -21,6 +21,29 @@ describe('xaiRelay', () => {
     ).toBe('wss://my-eng-bot.vercel.app/api/realtime-session/xai-relay?model=grok-voice-latest')
   })
 
+  it('appends session bootstrap query params for relay rewrite', () => {
+    const url = buildEngvoXaiRelayWsUrl(
+      'grok-voice-latest',
+      { protocol: 'https:', host: 'example.com' },
+      {
+        audience: 'adult',
+        level: 'a2',
+        topic: 'travel',
+        kind: 'teacher',
+        tense: 'present_simple',
+        sentenceType: 'general',
+        speed: 0.9,
+      }
+    )
+    const parsed = new URL(url)
+    expect(parsed.searchParams.get('model')).toBe('grok-voice-latest')
+    expect(parsed.searchParams.get('audience')).toBe('adult')
+    expect(parsed.searchParams.get('level')).toBe('a2')
+    expect(parsed.searchParams.get('topic')).toBe('travel')
+    expect(parsed.searchParams.get('kind')).toBe('teacher')
+    expect(parsed.searchParams.get('speed')).toBe('0.9')
+  })
+
   it('builds upstream xAI URL', () => {
     expect(buildXaiUpstreamWsUrl('grok-voice-latest')).toBe(
       'wss://api.x.ai/v1/realtime?model=grok-voice-latest'

@@ -20,6 +20,11 @@ import {
   type EngvoXaiRelayForwardPayload,
 } from '@/lib/engvo/xaiRelay'
 import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE } from '@/lib/engvo/errors'
+import {
+  isEngvoXaiRelayRewriteInstructionsEnabled,
+  resolveRelayBootstrapFromSearchParams,
+  rewriteXaiRelaySessionUpdateInstructions,
+} from '@/lib/engvo/rewriteXaiSessionUpdateInstructions'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -112,6 +117,8 @@ export async function GET(request: NextRequest) {
     return new Response(ENGVO_XAI_MISSING_KEY_USER_MESSAGE, { status: 500 })
   }
 
+  const rewriteEnabled = isEngvoXaiRelayRewriteInstructionsEnabled()
+  const bootstrap = resolveRelayBootstrapFromSearchParams(request.nextUrl.searchParams)
   const upstreamUrl = buildXaiUpstreamWsUrl(model)
 
   return experimental_upgradeWebSocket((clientWs) => {
@@ -120,6 +127,20 @@ export async function GET(request: NextRequest) {
     let upstreamOpen = false
     const pendingClientFrames: EngvoXaiRelayForwardPayload[] = []
     let pendingClientBytes = 0
+
+    const maybeRewriteSessionUpdateFrame = (
+      frame: EngvoXaiRelayForwardPayload
+    ): EngvoXaiRelayForwardPayload => {
+      if (!rewriteEnabled || frame.binary) return frame
+      const asString =
+        typeof frame.payload === 'string' ? frame.payload : frame.payload.toString('utf8')
+      if (!isRelaySessionUpdatePayload(asString)) return frame
+      const rewritten = rewriteXaiRelaySessionUpdateInstructions({
+        payload: asString,
+        bootstrap,
+      })
+      return { payload: rewritten, binary: false }
+    }
 
     const shutdown = (code: number, reason: string, errorMessage?: string) => {
       if (closed) return
@@ -133,13 +154,15 @@ export async function GET(request: NextRequest) {
         const frame = pendingClientFrames.shift()
         if (!frame) break
         pendingClientBytes -= relayForwardPayloadByteLength(frame)
-        if (isRelaySessionUpdatePayload(frame.payload)) {
+        const toSend = maybeRewriteSessionUpdateFrame(frame)
+        if (isRelaySessionUpdatePayload(toSend.payload)) {
           console.info('[engvo][xai-relay] client_session_update_forwarded', {
-            binary: frame.binary,
-            typeofPayload: typeof frame.payload,
+            binary: toSend.binary,
+            typeofPayload: typeof toSend.payload,
+            rewriteEnabled,
           })
         }
-        if (!forwardEncoded(upstream, frame)) {
+        if (!forwardEncoded(upstream, toSend)) {
           shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
           return
         }
@@ -230,13 +253,15 @@ export async function GET(request: NextRequest) {
       if (closed) return
       const frame = encodeRelayForwardPayload(data, isBinary)
       if (upstreamOpen && upstream?.readyState === WebSocket.OPEN) {
-        if (isRelaySessionUpdatePayload(frame.payload)) {
+        const toSend = maybeRewriteSessionUpdateFrame(frame)
+        if (isRelaySessionUpdatePayload(toSend.payload)) {
           console.info('[engvo][xai-relay] client_session_update_forwarded', {
-            binary: frame.binary,
-            typeofPayload: typeof frame.payload,
+            binary: toSend.binary,
+            typeofPayload: typeof toSend.payload,
+            rewriteEnabled,
           })
         }
-        if (!forwardEncoded(upstream, frame)) {
+        if (!forwardEncoded(upstream, toSend)) {
           shutdown(XAI_RELAY_CLOSE_INTERNAL, 'forward_failed')
         }
         return

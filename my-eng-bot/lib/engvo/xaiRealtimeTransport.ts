@@ -56,11 +56,25 @@ export function connectEngvoXaiRealtime(params: {
   /** Owned by AppShell; must be resumed in the same user gesture as getUserMedia. */
   audioContext: AudioContext
   handlers: EngvoXaiTransportHandlers
+  /** Session bootstrap for relay URL (server may rewrite instructions when flag is on). */
+  relayBootstrap?: {
+    audience?: string
+    level?: string
+    topic?: string
+    kind?: string
+    tense?: string
+    sentenceType?: string
+    speed?: number | string
+    skipTopicChoice?: boolean
+    topicPreset?: string | null
+  }
 }): EngvoXaiTransport {
   const model = params.model ?? ENGVO_XAI_MODEL
   const transport = params.transport ?? (params.token ? 'direct' : 'relay')
   const wsUrl =
-    transport === 'relay' ? buildEngvoXaiRelayWsUrl(model) : buildXaiDirectRealtimeWsUrl(model)
+    transport === 'relay'
+      ? buildEngvoXaiRelayWsUrl(model, undefined, params.relayBootstrap)
+      : buildXaiDirectRealtimeWsUrl(model)
   const ws =
     transport === 'direct' && params.token
       ? new WebSocket(wsUrl, [`xai-client-secret.${params.token}`])

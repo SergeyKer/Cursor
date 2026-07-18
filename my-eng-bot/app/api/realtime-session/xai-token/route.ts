@@ -15,10 +15,12 @@ import {
 import { fetchWithProxyFallback } from '@/lib/proxyFetch'
 import type { Audience, TopicId } from '@/lib/types'
 import { TOPICS } from '@/lib/constants'
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
 
 export const runtime = 'nodejs'
 
 const XAI_CLIENT_SECRETS_URL = 'https://api.x.ai/v1/realtime/client_secrets'
+const XAI_TOKEN_RATE_BUCKETS = new Map<string, { count: number; resetAt: number }>()
 
 function normalizeKey(raw: string): string {
   return raw.replace(/^["'\s]+|["'\s]+$/g, '')
@@ -26,6 +28,20 @@ function normalizeKey(raw: string): string {
 
 export async function POST(req: NextRequest) {
   try {
+    if (
+      !checkIpRateLimit({
+        buckets: XAI_TOKEN_RATE_BUCKETS,
+        ip: clientIpFromRequest(req.headers),
+        windowMs: 60_000,
+        max: 30,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'rate_limit', userMessage: 'Слишком много запросов. Подождите.' },
+        { status: 429 }
+      )
+    }
+
     const key = normalizeKey(process.env.XAI_API_KEY ?? '')
     if (!key) {
       return NextResponse.json(
