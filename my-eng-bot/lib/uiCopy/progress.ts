@@ -79,7 +79,7 @@ const SECTIONS = {
   },
 } as const
 
-export type ProgressCopy = (typeof SECTIONS)['child']
+export type ProgressCopy = (typeof SECTIONS)[ProgressAudience]
 
 export function progressCopy(audience: ProgressAudience = 'adult'): ProgressCopy {
   return SECTIONS[audience === 'child' ? 'child' : 'adult']
