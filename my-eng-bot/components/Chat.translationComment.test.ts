@@ -7,6 +7,7 @@ import {
 } from '@/lib/translationSupportFallback'
 import { stripWrappingQuotes } from '@/lib/translationProtocolLines'
 import {
+  buildAssistantSectionsForEngvoCallRepeatTest,
   buildAssistantSectionsForTranslationDrillWithInvitationTest,
   buildAssistantSectionsForTranslationErrorRepeatTest,
   buildAssistantSectionsForTranslationJunkRepeatTest,
@@ -613,5 +614,38 @@ describe('stripTranslationMainMetaPrefixes', () => {
   it('убирает и "На следующую тему:", и "Следующий вопрос:" подряд', () => {
     const raw = 'Переведи далее: На следующую тему: Следующий вопрос: Какой твой любимый сериал?'
     expect(stripTranslationMainMetaPrefixes(raw)).toBe('Какой твой любимый сериал?')
+  })
+})
+
+describe('engvo call repeat UI', () => {
+  it('в звонке Engvo emerald-карточка без label «Скажи»', () => {
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: 'We have been to the hotel.',
+      isEngvoCall: true,
+    })
+    const repeat = sections.find((s) => s.key === 'repeat')
+    expect(repeat?.tone).toBe('emerald')
+    expect(repeat?.label).toBe('')
+    expect(repeat?.text).toBe('We have been to the hotel.')
+  })
+
+  it('вне звонка communication оставляет label «Скажи»', () => {
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: 'We have been to the hotel.',
+      isEngvoCall: false,
+    })
+    expect(sections.find((s) => s.key === 'repeat')?.label).toBe('Скажи')
+  })
+
+  it('в звонке Engvo mainAfter не превращает «Say:» в «: »', () => {
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: 'We have been to the hotel.',
+      isEngvoCall: true,
+      showOnlyRepeat: false,
+      mainAfter: 'Say: We have been to the hotel.',
+    })
+    const after = sections.find((s) => s.key === 'main-after')
+    expect(after?.text).toBe('We have been to the hotel.')
+    expect(after?.text).not.toMatch(/^:\s/)
   })
 })

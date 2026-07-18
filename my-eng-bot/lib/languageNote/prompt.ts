@@ -238,6 +238,8 @@ export function buildLanguageNoteSystemPrompt(
     '- EN-anchor = phrase or pattern the learner can repeat (How are you?, I like + -ing, meat / meet).',
     '- Two anchor types: functional phrase (Hello / Hi, How are you?) OR grammar/lexis pattern (just + Past, food / foods).',
     '- Forbidden situative-only or category-only titles without EN: Приветствия, Как дела?, Еда, Вопросы, Greetings, Food.',
+    '- Forbidden school/category labels even with RU gloss: Subject-verb agreement, Present Perfect, «согласование подлежащего…». Prefer speakable pattern: "children + like — без -s" (good) vs "Subject-verb agreement — …" (bad).',
+    '- title max ~56 characters total (short anchors fit the chip).',
     '- Minor typos: fix in correct; explain in reasons only if among the top meaning-breaking fixes; need not become their own chip.',
     '- id: stable latin slug.',
     '',

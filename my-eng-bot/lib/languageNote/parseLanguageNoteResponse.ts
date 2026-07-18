@@ -163,6 +163,47 @@ export function sanitizeChangedHighlights(params: {
   return out
 }
 
+const TOPIC_TITLE_EM_DASH_SEP = ' — '
+
+/** Обрезка по последнему пробелу / — / - в пределах max (не mid-word). */
+function clipAtWordBoundary(text: string, max: number): string {
+  if (text.length <= max) return text
+  const slice = text.slice(0, max)
+  const breakAt = Math.max(slice.lastIndexOf(' '), slice.lastIndexOf('—'), slice.lastIndexOf('-'))
+  if (breakAt > Math.floor(max / 2)) {
+    return slice.slice(0, breakAt).trimEnd()
+  }
+  return slice.trimEnd()
+}
+
+/**
+ * Клип title чипа «Что повторить».
+ * Сначала укорачивает RU gloss после « — », сохраняя EN-якорь; иначе — по границе слова.
+ */
+export function clipTopicTitle(
+  title: string,
+  max = LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS
+): string {
+  const trimmed = title.trim()
+  if (trimmed.length <= max) return trimmed
+
+  const sepIdx = trimmed.indexOf(TOPIC_TITLE_EM_DASH_SEP)
+  if (sepIdx >= 0) {
+    const en = trimmed.slice(0, sepIdx).trimEnd()
+    const ru = trimmed.slice(sepIdx + TOPIC_TITLE_EM_DASH_SEP.length).trimStart()
+    const prefix = `${en}${TOPIC_TITLE_EM_DASH_SEP}`
+    if (prefix.length >= max) {
+      return clipAtWordBoundary(trimmed, max)
+    }
+    const ruBudget = max - prefix.length
+    const clippedRu = clipAtWordBoundary(ru, ruBudget)
+    if (clippedRu) return `${prefix}${clippedRu}`
+    return en.length <= max ? en : clipAtWordBoundary(en, max)
+  }
+
+  return clipAtWordBoundary(trimmed, max)
+}
+
 function normalizeTopics(raw: unknown): LanguageNoteReviewTopic[] {
   if (!Array.isArray(raw)) return []
   const out: LanguageNoteReviewTopic[] = []
@@ -177,7 +218,7 @@ function normalizeTopics(raw: unknown): LanguageNoteReviewTopic[] {
     if (!id || !title) continue
     if (seen.has(id)) continue
     seen.add(id)
-    out.push({ id, title: title.slice(0, LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS) })
+    out.push({ id, title: clipTopicTitle(title) })
     if (out.length >= LANGUAGE_NOTE_MAX_TOPICS) break
   }
   return out

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { parseLanguageNoteResponse } from '@/lib/languageNote/parseLanguageNoteResponse'
+import { LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS } from '@/lib/languageNote/types'
 
 describe('parseLanguageNoteResponse', () => {
   it('parses fenced JSON and caps reviewTopics', () => {
@@ -50,6 +51,60 @@ ${JSON.stringify({
     )
     expect(note).not.toBeNull()
     expect(note!.reviewTopics).toEqual([{ id: 'like-ing', title }])
+  })
+
+  it('clips long bilingual reviewTopic by shortening RU gloss, keeps EN intact', () => {
+    const title =
+      'Subject-verb agreement — согласование подлежащего и сказуемого'
+    expect(title.length).toBeGreaterThan(LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS)
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'My children likes cola.',
+        correct: 'My children like cola.',
+        correctHighlights: ['like'],
+        correctReasons: ['После children нужна форма like: likes → like.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'sva', title }],
+        lessonId: null,
+      }),
+      'My children likes cola.'
+    )
+    expect(note).not.toBeNull()
+    const clipped = note!.reviewTopics[0]!.title
+    expect(clipped.length).toBeLessThanOrEqual(LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS)
+    expect(clipped.startsWith('Subject-verb agreement — ')).toBe(true)
+    expect(clipped).not.toMatch(/сказ$/)
+  })
+
+  it('clips title without em dash on word boundary', () => {
+    const title = 'verylongwordandthen more words that exceed the topic title limit here'
+    expect(title.length).toBeGreaterThan(LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS)
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'He go school every day',
+        correct: 'He goes to school every day.',
+        correctHighlights: ['goes'],
+        correctReasons: ['После he нужна форма goes: go → goes.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'long-no-dash', title }],
+        lessonId: null,
+      }),
+      'He go school every day'
+    )
+    expect(note).not.toBeNull()
+    expect(note!.reviewTopics.length).toBe(1)
+    const clipped = note!.reviewTopics[0]!.title
+    expect(clipped.length).toBeLessThanOrEqual(LANGUAGE_NOTE_MAX_TOPIC_TITLE_CHARS)
+    expect(clipped).not.toMatch(/\s$/)
+    expect(clipped.includes(' ')).toBe(true)
   })
 
   it('nulls unknown lessonId and drops missing highlights', () => {

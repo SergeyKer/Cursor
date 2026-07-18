@@ -400,6 +400,8 @@ function buildAssistantSections(params: {
   mode: 'dialogue' | 'translation' | 'communication'
   /** Первое задание в чате - «Переведи:»; далее - «Переведи далее:». */
   translationHeadingWelcome?: boolean
+  /** Звонок Engvo: emerald-карточка без UI-label «Скажи:» (маркер в тексте модели для парсера остаётся). */
+  isEngvoCall?: boolean
 }): AssistantSection[] {
   const {
     comment,
@@ -419,6 +421,7 @@ function buildAssistantSections(params: {
     mainAfter,
     mode,
     translationHeadingWelcome = true,
+    isEngvoCall = false,
   } = params
 
   if (mode === 'translation' && translationProtocolStatus === 'junk_repeat') {
@@ -538,7 +541,8 @@ function buildAssistantSections(params: {
   }
   const isTranslationErrorCoach = isTranslationErrorRepeat || (mode === 'translation' && translationErrorCoachUi)
   const hideEnglishRepeatCard = isTranslationErrorCoach
-  const repeatLabel = mode === 'dialogue' ? 'Повтори' : 'Скажи'
+  const repeatLabel = isEngvoCall ? '' : mode === 'dialogue' ? 'Повтори' : 'Скажи'
+  const repeatMarkerReplacement = repeatLabel ? `${repeatLabel}: ` : ''
   if (showOnlyRepeat && repeatTextForCard && !isTranslationErrorCoach) {
     sections.push({
       key: 'repeat',
@@ -580,7 +584,7 @@ function buildAssistantSections(params: {
       key: 'main-after',
       tone: 'neutral',
       label: assistantMainHeadingLabel(),
-      text: mainAfter.replace(/\b(Say|Скажи|Повтори|Repeat):\s*/gi, `${repeatLabel}: `),
+      text: mainAfter.replace(/\b(Say|Скажи|Повтори|Repeat):\s*/gi, repeatMarkerReplacement),
       emphasizeMainText: hideAiLabel,
     })
   }
@@ -688,6 +692,30 @@ export function buildAssistantSectionsForTranslationJunkRepeatTest(options: {
     mainAfter: '',
     mode: 'translation',
     translationHeadingWelcome: false,
+  })
+}
+
+/** Узкий экспорт для тестов: emerald-повтор в звонке Engvo - без UI-label «Скажи». */
+export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
+  repeatTextForCard: string
+  isEngvoCall?: boolean
+  showOnlyRepeat?: boolean
+  mainAfter?: string
+}): AssistantSection[] {
+  return buildAssistantSections({
+    comment: null,
+    translationErrorCoachUi: false,
+    translationProtocolStatus: 'prompt_only',
+    translationSuccessPraiseCard: false,
+    showOnlyRepeat: options.showOnlyRepeat ?? true,
+    hidePromptBlocks: false,
+    repeatTextForCard: options.repeatTextForCard,
+    mainBefore: '',
+    hideRussianNonQuestionMainBefore: false,
+    invitationText: null,
+    mainAfter: options.mainAfter ?? '',
+    mode: 'communication',
+    isEngvoCall: options.isEngvoCall ?? true,
   })
 }
 
@@ -3046,6 +3074,7 @@ function MessageBubble({
         mainAfter,
         mode,
         translationHeadingWelcome: translationMainDrillHeadingWelcome,
+        isEngvoCall,
       })
 
   React.useLayoutEffect(() => {
