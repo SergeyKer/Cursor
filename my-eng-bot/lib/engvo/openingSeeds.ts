@@ -2,22 +2,22 @@ import type { EngvoCefrLevel } from '@/lib/engvo/constants'
 import type { Audience } from '@/lib/types'
 
 export const TEACHER_OPENING_SEEDS_ADULT_RU = [
-  'Здравствуйте. Сегодня переводим вслух.',
-  'Добрый день. Начнём практику перевода.',
-  'Здравствуйте. Давайте потренируем фразы вслух.',
-  'Здравствуйте. Сейчас короткое упражнение на перевод.',
+  'Здравствуйте — давайте потренируем вслух.',
+  'Добрый день. Готовы к короткой практике?',
+  'Здравствуйте. Сейчас несколько фраз вслух.',
+  'Рад вас слышать. Начнём с перевода вслух.',
 ] as const
 
 export const TEACHER_OPENING_SEEDS_CHILD_RU = [
-  'Привет! Сегодня будем переводить.',
-  'Привет! Давай потренируем английский вслух.',
-  'Здравствуй! Сейчас короткое упражнение.',
+  'Привет! Давай потренируем вслух.',
+  'Привет! Сейчас пару фраз по-английски.',
+  'Здравствуй! Готов чуть попрактиковаться?',
 ] as const
 
 export const TEACHER_OPENING_SEEDS_B1_EN = [
-  'Hi. We’ll translate out loud today.',
-  'Hello — short translation practice.',
-  'Good to hear you. Let’s translate a few lines.',
+  'Hi — let’s practice out loud.',
+  'Hello. Ready for a few lines out loud?',
+  'Good to hear you. Let’s translate a few aloud.',
 ] as const
 
 export const FREE_OPENING_SEEDS_ADULT = [

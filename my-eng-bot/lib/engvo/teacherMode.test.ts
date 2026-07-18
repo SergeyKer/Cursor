@@ -135,9 +135,14 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/AFTER a successful repeat/i)
     expect(text).toMatch(/Unclear or noisy audio is not an error/)
     expect(text).toMatch(/experienced voice translation tutor/i)
+    expect(text).toMatch(/Teacher live delivery:/)
+    expect(text).toMatch(/Topic thread:/)
+    expect(text).toMatch(/always Russian/i)
+    expect(text).toMatch(/one honest try/i)
+    expect(text).not.toMatch(/same mistake repeats next/i)
   })
 
-  it('B1+ requires micro-reason before You meant', () => {
+  it('B1+ requires conversational micro-reason before You meant', () => {
     const text = buildEngvoTeacherRealtimeInstructions({
       audience: 'adult',
       level: 'b1',
@@ -148,6 +153,14 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/micro-reason/i)
     expect(text).toMatch(/Bare "Incorrect\." \/ "Wrong\." without a reason is forbidden/)
     expect(text).toMatch(/Never pack the next Russian drill into the same turn as You meant/)
+    expect(text).toMatch(/contrast of forms/i)
+    expect(text).toMatch(/The article is missing/)
+    expect(text).toMatch(/Anti-cliche/)
+    expect(text).toMatch(/Try that/)
+    expect(text).toMatch(/Teacher live delivery:/)
+    expect(text).toMatch(/always Russian/i)
+    expect(text).not.toMatch(/same mistake repeats next/i)
+    expect(text).not.toContain('Conversational delivery:')
   })
 
   it('adult A2 success examples stay adult-oriented', () => {
@@ -171,7 +184,19 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/plain words/i)
     expect(text).toMatch(/avoid heavy grammar labels/i)
     expect(text).toMatch(/Супер, так и нужно/)
+    expect(text).toMatch(/play-coach/i)
     expect(text).not.toMatch(/время на месте/)
+  })
+
+  it('adult B1 uses peer-coach voice', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'b1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/peer-coach/i)
+    expect(text).not.toMatch(/play-coach/i)
   })
 
   it('realtime skipTopicChoice greets then drills', () => {
@@ -292,8 +317,7 @@ describe('instructions branching', () => {
       sentenceType: 'general',
     })
     expect(text).not.toContain('Conversational delivery:')
-    expect(text).not.toContain('[chuckle]')
-    expect(text).not.toContain('<soft>')
+    expect(text).toMatch(/Teacher live delivery:/)
     expect(text).toMatch(/Engvo Teacher/)
   })
 
@@ -310,7 +334,7 @@ describe('instructions branching', () => {
     expect(text).toContain('Preferred opening this turn:')
     expect(text).toContain('Keep the greeting short; do not add a second greeting or a long preamble.')
     expect(text).not.toContain('Conversational delivery:')
-    expect(text).not.toContain('[pause]')
+    expect(text).toMatch(/conversationally/i)
   })
 })
 
