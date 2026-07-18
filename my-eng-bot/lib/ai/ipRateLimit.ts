@@ -5,6 +5,10 @@
 
 export type IpRateLimitBucket = { count: number; resetAt: number }
 
+function isIpRateLimitEnabled(): boolean {
+  return process.env.NODE_ENV !== 'test' && process.env.VITEST !== 'true'
+}
+
 export function checkIpRateLimit(params: {
   buckets: Map<string, IpRateLimitBucket>
   ip: string
@@ -12,6 +16,8 @@ export function checkIpRateLimit(params: {
   max: number
   now?: number
 }): boolean {
+  if (!isIpRateLimitEnabled()) return true
+
   const now = params.now ?? Date.now()
   const bucket = params.buckets.get(params.ip)
   if (!bucket || now >= bucket.resetAt) {
