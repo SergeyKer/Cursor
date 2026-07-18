@@ -132,7 +132,8 @@ import { REFERENCE_EXERCISE_OPTIONS } from '@/lib/practice/referenceExerciseOpti
 import type { RewardsState } from '@/lib/rewardsState'
 import { createDefaultRewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
-import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
+import { getMyPlanRecommendations, selectNowGoal } from '@/lib/myPlan/selectNowGoal'
+import { canUseAiReinforce } from '@/lib/entitlements'
 import {
   detectModeGap,
   getAttentionZones,
@@ -550,6 +551,8 @@ export interface MenuSectionPanelsProps {
   onOpenVocabularyByLevel?: () => void | Promise<void>
   /** Практика по теме из adaptive-хаба («Сегодня, темы и свои списки»). */
   onOpenAdaptivePracticeTopic?: (topic: string) => void
+  /** Пометить, что сессия открыта из «Мой план» (return loop). */
+  onMarkOpenedFromMyPlan?: () => void
   onOpenTutorLesson?: (request: {
     requestedTopic: string
     originalQuery?: string
@@ -641,6 +644,7 @@ export default function MenuSectionPanels({
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
   onOpenAdaptivePracticeTopic,
+  onMarkOpenedFromMyPlan,
   onOpenTutorLesson,
   onAdaptiveFooterViewChange,
   onPracticeTheoryTagFilterPersist,
@@ -1152,14 +1156,29 @@ export default function MenuSectionPanels({
     return detectModeGap(listLearningSignals())
   }, [menuView])
 
-  const myPlanRecommendations = React.useMemo(() => {
-    if (menuView !== 'myPlan') return []
-    const occupiedLessonIds = myPlanAttentionZones
-      .filter((z) => z.chipActive && z.lessonId)
-      .map((z) => z.lessonId!)
-    return getMyPlanRecommendations(buildMyPlanLiveInput(settings, rewardsState ?? null), {
-      occupiedLessonIds,
+  const myPlanNow = React.useMemo(() => {
+    if (menuView !== 'myPlan') {
+      return { mainTask: null, secondary: [] as ReturnType<typeof selectNowGoal>['secondary'], status: { dailyStreak: 0, level: 1, totalXP: 0 }, flat: [] as ReturnType<typeof getMyPlanRecommendations> }
+    }
+    const input = buildMyPlanLiveInput(settings, rewardsState ?? null, {
+      attentionZones: myPlanAttentionZones,
+      canUseAiReinforce: canUseAiReinforce(),
     })
+    if (!featureFlags.myPlanNowGoalV1) {
+      const flat = getMyPlanRecommendations(input)
+      return {
+        mainTask: flat[0] ?? null,
+        secondary: flat.slice(1),
+        status: {
+          dailyStreak: input.rewards.dailyStreak,
+          level: input.rewards.level ?? rewardsState?.progress.level ?? 1,
+          totalXP: input.rewards.totalXP ?? rewardsState?.progress.totalXP ?? 0,
+        },
+        flat,
+      }
+    }
+    const now = selectNowGoal(input)
+    return { ...now, flat: [] as ReturnType<typeof getMyPlanRecommendations> }
   }, [menuView, settings, rewardsState, myPlanAttentionZones])
 
   const isChild = settings.audience === 'child'
@@ -4005,14 +4024,21 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
 
         {menuView === 'myPlan' && (
           <MyPlanPanel
-            recommendations={myPlanRecommendations}
+            mainTask={myPlanNow.mainTask}
+            secondary={myPlanNow.secondary}
+            recommendations={featureFlags.myPlanNowGoalV1 ? undefined : myPlanNow.flat}
+            status={myPlanNow.status}
             attentionZones={myPlanAttentionZones}
             modeGap={myPlanModeGap}
             settings={settings}
+            nowGoalLayout={featureFlags.myPlanNowGoalV1}
+            showAdultPaywallHint={!canUseAiReinforce()}
             onOpenLearningLesson={onOpenLearningLesson}
             onOpenPracticeSession={onOpenPracticeSession}
+            onGeneratePracticeSession={onGeneratePracticeSession}
             onOpenVocabularyWorlds={onOpenVocabularyWorlds}
-            onMenuViewChange={() => onMenuViewChange('lessons')}
+            onMenuViewChange={onMenuViewChange}
+            onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
           />
         )}
       </div>

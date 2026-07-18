@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { extractTeacherCorrection } from '@/lib/learningMemory/teacherCorrection'
 import {
+  TEACHER_OPENING_SEEDS_ADULT_RU,
+  TEACHER_OPENING_SEEDS_B1_EN,
+  pickOpeningSeed,
+} from '@/lib/engvo/openingSeeds'
+import {
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
 } from '@/lib/engvo/teacherPrompts'
@@ -32,6 +37,16 @@ describe('extractTeacherCorrection', () => {
   })
 })
 
+describe('pickOpeningSeed', () => {
+  it('uses deterministic index when provided', () => {
+    expect(pickOpeningSeed(TEACHER_OPENING_SEEDS_ADULT_RU, 0)).toBe(TEACHER_OPENING_SEEDS_ADULT_RU[0])
+    expect(pickOpeningSeed(TEACHER_OPENING_SEEDS_ADULT_RU, 1)).toBe(TEACHER_OPENING_SEEDS_ADULT_RU[1])
+    expect(pickOpeningSeed(TEACHER_OPENING_SEEDS_ADULT_RU, TEACHER_OPENING_SEEDS_ADULT_RU.length)).toBe(
+      TEACHER_OPENING_SEEDS_ADULT_RU[0]
+    )
+  })
+})
+
 describe('teacher prompts', () => {
   it('first turn asks for topic when not skipTopicChoice', () => {
     const text = buildEngvoTeacherFirstTurnResponseInstructions({
@@ -39,12 +54,18 @@ describe('teacher prompts', () => {
       level: 'a2',
       tense: 'present_simple',
       sentenceType: 'general',
+      openingSeedIndex: 0,
     })
     expect(text.toLowerCase()).toMatch(/о чём|поговорить|topic/)
+    expect(text).toContain('Preferred opening this turn:')
+    expect(text).toContain(TEACHER_OPENING_SEEDS_ADULT_RU[0]!)
+    expect(text).toMatch(/brief frame-greeting/i)
+    expect(text).not.toMatch(/Do not small-talk/)
+    expect(text).not.toMatch(/Do not greet with free-conversation/)
     expect(text).not.toMatch(/Start immediately with one Russian drill/)
   })
 
-  it('first turn drills immediately with skipTopicChoice', () => {
+  it('first turn greets then drills with skipTopicChoice', () => {
     const text = buildEngvoTeacherFirstTurnResponseInstructions({
       audience: 'adult',
       level: 'b1',
@@ -52,9 +73,34 @@ describe('teacher prompts', () => {
       sentenceType: 'general',
       skipTopicChoice: true,
       topicPreset: 'travel',
+      openingSeedIndex: 0,
     })
     expect(text).toMatch(/travel/i)
     expect(text).toMatch(/Translate into English/i)
+    expect(text).toContain(TEACHER_OPENING_SEEDS_B1_EN[0]!)
+    expect(text).toMatch(/After the frame-greeting/i)
+    expect(text).not.toMatch(/Do not small-talk/)
+    expect(text).not.toMatch(/Start immediately with one Russian drill/)
+  })
+
+  it('varies preferred opening by seed index', () => {
+    const a = buildEngvoTeacherFirstTurnResponseInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      openingSeedIndex: 0,
+    })
+    const b = buildEngvoTeacherFirstTurnResponseInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      openingSeedIndex: 1,
+    })
+    expect(a).toContain(TEACHER_OPENING_SEEDS_ADULT_RU[0]!)
+    expect(b).toContain(TEACHER_OPENING_SEEDS_ADULT_RU[1]!)
+    expect(a).not.toEqual(b)
   })
 
   it('realtime teacher instructions omit anti-translator free-call rule', () => {
@@ -68,6 +114,73 @@ describe('teacher prompts', () => {
     expect(text).not.toMatch(/do not switch to translator mode/)
     expect(text).toMatch(/Скажи/)
   })
+
+  it('A1/A2 requires micro-reason, soft error tone, and turn order', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/micro-reason/i)
+    expect(text).toMatch(/Bare verdict without reason is forbidden/)
+    expect(text).toMatch(/Never pack the next Russian drill into the same turn as "Скажи:"/)
+    expect(text).toMatch(/Anti-cliche/)
+    expect(text).toMatch(/soft lead-in/i)
+    expect(text).toMatch(/AFTER a successful repeat/i)
+    expect(text).toMatch(/Unclear or noisy audio is not an error/)
+    expect(text).toMatch(/experienced voice translation tutor/i)
+  })
+
+  it('B1+ requires micro-reason before You meant', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'b1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/You meant/)
+    expect(text).toMatch(/micro-reason/i)
+    expect(text).toMatch(/Bare "Incorrect\." \/ "Wrong\." without a reason is forbidden/)
+    expect(text).toMatch(/Never pack the next Russian drill into the same turn as You meant/)
+  })
+
+  it('adult A2 success examples stay adult-oriented', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/Да, так и говорят/)
+    expect(text).not.toMatch(/Супер, так и нужно/)
+  })
+
+  it('child A1 uses plain terminology and child praise pool', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'child',
+      level: 'a1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/plain words/i)
+    expect(text).toMatch(/avoid heavy grammar labels/i)
+    expect(text).toMatch(/Супер, так и нужно/)
+    expect(text).not.toMatch(/время на месте/)
+  })
+
+  it('realtime skipTopicChoice greets then drills', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      skipTopicChoice: true,
+      topicPreset: 'food',
+    })
+    expect(text).toMatch(/After one brief frame-greeting, start drill/)
+    expect(text).not.toMatch(/Start in drill phase immediately/)
+  })
 })
 
 describe('instructions branching', () => {
@@ -77,6 +190,7 @@ describe('instructions branching', () => {
       level: 'a2',
       topic: 'travel',
       kind: 'free_call',
+      openingSeedIndex: 0,
     })
     const teacher = buildEngvoFirstTurnResponseInstructions({
       audience: 'adult',
@@ -85,6 +199,7 @@ describe('instructions branching', () => {
       kind: 'teacher',
       tense: 'present_simple',
       sentenceType: 'general',
+      openingSeedIndex: 0,
     })
     expect(free).not.toEqual(teacher)
     expect(teacher).toMatch(/topic_choice|О чём|поговорить/i)

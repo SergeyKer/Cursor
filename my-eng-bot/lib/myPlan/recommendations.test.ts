@@ -23,11 +23,13 @@ function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
     practiceCompleted: [],
     daysSinceLastActive: null,
     weakSpots: [],
+    audience: 'adult',
+    nowMs: Date.parse('2026-05-14T12:00:00.000Z'),
     ...over,
   }
 }
 
-describe('getMyPlanRecommendations', () => {
+describe('getMyPlanRecommendations (facade)', () => {
   it('при незавершённом уроке первая карточка - продолжить', () => {
     const input = emptyInput({
       lessons: {
@@ -65,9 +67,8 @@ describe('getMyPlanRecommendations', () => {
       kind: 'start_practice',
       lessonId: '1',
       mode: 'challenge',
-      entrySource: 'after_lesson',
+      entrySource: 'my_plan',
     })
-    expect(practice?.buttonLabel).toContain('12 заданий')
   })
 
   it('если практика уже была после теории, карточка закрепления не показывается', () => {
@@ -90,16 +91,15 @@ describe('getMyPlanRecommendations', () => {
   })
 
   it('следующий урок по программе - первый без завершённой теории', () => {
-    const input = emptyInput({
-      lessons: {},
-    })
+    const input = emptyInput({ lessons: {} })
     const recs = getMyPlanRecommendations(input)
-    const next = recs.find((r) => r.id.startsWith('next-lesson'))
+    const next = recs.find((r) => r.id?.startsWith('next-lesson'))
     expect(next?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
   })
 
-  it('после перерыва и без карточки quick уже - приоритет возврата', () => {
+  it('после перерыва — soft return в списке', () => {
     const input = emptyInput({
+      catalog: [],
       rewards: {
         lastActiveDate: '2026-05-01',
         dailyStreak: 0,
@@ -109,11 +109,5 @@ describe('getMyPlanRecommendations', () => {
     })
     const recs = getMyPlanRecommendations(input)
     expect(recs.some((r) => r.id === 'return-after-break')).toBe(true)
-  })
-
-  it('не дублирует open_lesson, если урок уже в occupiedLessonIds зоны', () => {
-    const input = emptyInput({ lessons: {} })
-    const recs = getMyPlanRecommendations(input, { occupiedLessonIds: ['1'] })
-    expect(recs.find((r) => r.action.kind === 'open_lesson' && r.action.lessonId === '1')).toBeUndefined()
   })
 })

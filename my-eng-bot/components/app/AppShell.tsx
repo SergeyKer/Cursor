@@ -788,6 +788,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
   /** Откуда запущен урок: боковое меню или встроенный блок на главной. */
   const lessonMenuLaunchSurfaceRef = React.useRef<'slide' | 'home'>('home')
+  /** Session from My Plan: return to myPlan after exit. */
+  const openedFromMyPlanRef = React.useRef(false)
+  const markOpenedFromMyPlan = React.useCallback(() => {
+    openedFromMyPlanRef.current = true
+  }, [])
   /** Одноразовое восстановление панели уроков в боковом меню после «Назад». */
   const restoreLessonMenuOnNextOpenRef = React.useRef(false)
   /** Одноразовое восстановление встроенного меню уроков на главной после «Назад». */
@@ -5523,6 +5528,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const backToLessonList = useCallback(() => {
     const launchSurface = lessonMenuLaunchSurfaceRef.current
+    const fromMyPlan = openedFromMyPlanRef.current
+    if (fromMyPlan) openedFromMyPlanRef.current = false
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     setDialogStarted(false)
@@ -5537,9 +5544,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     // Сохраняем контекст ветки уроков, чтобы "Назад" возвращал в тот же раздел.
-    resetStructuredLessonSession({ keepLessonMenuContext: true })
+    resetStructuredLessonSession({ keepLessonMenuContext: !fromMyPlan })
     setFooterTransitionText(null)
     bumpFooterSessionContext()
+    if (fromMyPlan) {
+      setHomeMenuView('myPlan')
+      if (launchSurface === 'slide') {
+        setMenuOpen(true)
+        return
+      }
+      setMenuOpen(false)
+      return
+    }
     if (launchSurface === 'slide') {
       restoreLessonMenuOnNextOpenRef.current = true
       setHomeMenuView('lessons')
@@ -8528,6 +8544,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onOpenVocabularyWorlds={openVocabularyWorlds}
                     onOpenVocabularyByLevel={openVocabularyByLevel}
                     onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
+                    onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
                     onOpenTutorLesson={openTutorLesson}
                     onAdaptiveFooterViewChange={setAdaptiveFooterView}
                     onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
@@ -9004,6 +9021,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenVocabularyWorlds={openVocabularyWorlds}
         onOpenVocabularyByLevel={openVocabularyByLevel}
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
+        onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
         onOpenTutorLesson={openTutorLesson}
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
         onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}

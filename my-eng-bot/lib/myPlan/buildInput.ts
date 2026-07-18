@@ -26,6 +26,8 @@ function mapRewards(state: RewardsState): MyPlanInput['rewards'] {
   return {
     lastActiveDate: state.progress.lastActiveDate,
     dailyStreak: state.progress.dailyStreak,
+    level: state.progress.level,
+    totalXP: state.progress.totalXP,
     modeGoals: {
       communication: { completed: state.modeGoals.communication.completed },
       engvo: { completed: state.modeGoals.engvo.completed },
@@ -42,7 +44,14 @@ function mapPracticeSessions(): MyPlanPracticeSessionSlice[] {
 }
 
 /** Сбор входа на клиенте из существующих сторов (без дублирования «бог-состояния»). */
-export function buildMyPlanLiveInput(settings: Settings, rewardsProp?: RewardsState | null): MyPlanInput {
+export function buildMyPlanLiveInput(
+  settings: Settings,
+  rewardsProp?: RewardsState | null,
+  extras?: {
+    attentionZones?: MyPlanInput['attentionZones']
+    canUseAiReinforce?: boolean
+  }
+): MyPlanInput {
   const rewards = rewardsProp ?? loadRewardsState()
   const snapshot = buildLearnerSnapshot(settings)
   const weakSpots = snapshot.weakSpots.map((w) => ({ id: w.id, label: w.label }))
@@ -62,5 +71,8 @@ export function buildMyPlanLiveInput(settings: Settings, rewardsProp?: RewardsSt
     practiceCompleted: mapPracticeSessions(),
     daysSinceLastActive: snapshot.daysSinceLastActive,
     weakSpots,
+    audience: settings.audience === 'child' ? 'child' : 'adult',
+    attentionZones: extras?.attentionZones,
+    canUseAiReinforce: extras?.canUseAiReinforce,
   }
 }

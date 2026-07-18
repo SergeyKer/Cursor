@@ -28,6 +28,7 @@ export type PracticeEntrySource =
   | 'after_lesson'
   | 'tutor_after_lesson'
   | 'quick_test'
+  | 'my_plan'
 export type PracticeGenerationSource = 'local' | 'ai_generated'
 
 export interface PracticeExerciseMetadata {

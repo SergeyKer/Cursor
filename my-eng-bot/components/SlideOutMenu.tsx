@@ -120,6 +120,8 @@ interface SlideOutMenuProps {
   onOpenVocabularyWorlds?: () => Promise<void> | void
   onOpenVocabularyByLevel?: () => Promise<void> | void
   onOpenAdaptivePracticeTopic?: (topic: string) => void
+  /** Сессия из «Мой план» — return loop. */
+  onMarkOpenedFromMyPlan?: () => void
   /** Футер приложения при «Мой путь» в меню уроков. */
   onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
   /** Открыть урок из ветки «Репетитор». */
@@ -202,6 +204,7 @@ export default function SlideOutMenu({
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
   onOpenAdaptivePracticeTopic,
+  onMarkOpenedFromMyPlan,
   onAdaptiveFooterViewChange,
   onOpenTutorLesson,
   onPracticeTheoryTagFilterPersist,
@@ -361,6 +364,7 @@ export default function SlideOutMenu({
         onOpenVocabularyWorlds={onOpenVocabularyWorlds}
         onOpenVocabularyByLevel={onOpenVocabularyByLevel}
         onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
+        onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
         onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
         onOpenTutorLesson={onOpenTutorLesson}
         onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}

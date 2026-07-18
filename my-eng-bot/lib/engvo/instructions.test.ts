@@ -79,14 +79,17 @@ describe('buildEngvoRealtimeInstructions', () => {
     )
   })
 
-  it('builds A1-specific first-turn instruction with strict simplicity', () => {
+  it('builds A1-specific first-turn instruction with warm seed greeting', () => {
     const result = buildEngvoFirstTurnResponseInstructions({
       audience: 'child',
       level: 'a1',
       topic: 'hobbies',
+      openingSeedIndex: 0,
     })
 
-    expect(result).toContain('very short greeting')
+    expect(result).toContain('Preferred opening this turn:')
+    expect(result).toContain('Hi! Let’s talk.')
+    expect(result).toContain('one warm short greeting')
     expect(result).toContain('Present Simple')
     expect(result).toContain('Hobbies and interests')
     expect(result).toContain('Do not add extra filler')
@@ -97,12 +100,33 @@ describe('buildEngvoRealtimeInstructions', () => {
       audience: 'child',
       level: 'a2',
       topic: 'hobbies',
+      openingSeedIndex: 0,
     })
 
-    expect(result).toContain('exactly one short greeting and one short question')
+    expect(result).toContain('one warm short greeting')
+    expect(result).toContain('Preferred opening this turn:')
+    expect(result).toContain('Hi! Let’s talk a little.')
     expect(result).toContain('For A2, use very common everyday words')
     expect(result).toContain('The first question must be directly about Hobbies and interests.')
     expect(result).toContain('Do not add extra filler')
+  })
+
+  it('varies free-call preferred opening by seed index', () => {
+    const a = buildEngvoFirstTurnResponseInstructions({
+      audience: 'adult',
+      level: 'b1',
+      topic: 'free_talk',
+      openingSeedIndex: 0,
+    })
+    const b = buildEngvoFirstTurnResponseInstructions({
+      audience: 'adult',
+      level: 'b1',
+      topic: 'free_talk',
+      openingSeedIndex: 1,
+    })
+    expect(a).toContain('Hi — good to hear you.')
+    expect(b).toContain('Hello. Let’s talk for a bit.')
+    expect(a).not.toEqual(b)
   })
 
   it('builds a continuation instruction that keeps CEFR and topic stable', () => {

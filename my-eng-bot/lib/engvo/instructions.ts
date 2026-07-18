@@ -3,6 +3,11 @@ import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
 import { clampEngvoRealtimeSpeed, type EngvoCefrLevel } from '@/lib/engvo/constants'
 import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
 import {
+  buildPreferredOpeningInstruction,
+  pickOpeningSeed,
+  resolveFreeOpeningPool,
+} from '@/lib/engvo/openingSeeds'
+import {
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
 } from '@/lib/engvo/teacherPrompts'
@@ -119,6 +124,7 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
   sentenceType?: SentenceType
   skipTopicChoice?: boolean
   topicPreset?: string | null
+  openingSeedIndex?: number
 }): string {
   if (params.kind === 'teacher') {
     return buildEngvoTeacherFirstTurnResponseInstructions({
@@ -128,15 +134,25 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
       topicPreset: params.topicPreset,
       tense: params.tense ?? 'present_simple',
       sentenceType: params.sentenceType ?? 'general',
+      openingSeedIndex: params.openingSeedIndex,
     })
   }
 
   const safeTopic = sanitizeEngvoTopicForAudience(params.topic, params.audience)
   const topicName = ENGVO_TOPIC_NAMES[safeTopic] ?? 'the selected topic'
+  const pool = resolveFreeOpeningPool(params.level, params.audience)
+  const seed = pickOpeningSeed(pool, params.openingSeedIndex)
+  const preferred = buildPreferredOpeningInstruction(seed)
+  const audienceTone =
+    params.audience === 'child'
+      ? 'Audience tone for the opening: warm, simple, child-friendly.'
+      : 'Audience tone for the opening: calm, respectful adult-to-adult.'
 
   if (params.level === 'a1') {
     return [
-      'Start the call in English with exactly one very short greeting (about 5-7 words) and one very simple question (about 5-8 words).',
+      'Start the call in English with one warm short greeting, then exactly one very simple question.',
+      preferred,
+      audienceTone,
       'Use only Present Simple / be / have and everyday concrete words from the session CEFR limits.',
       'Match the active audience style and vocabulary limits from the session instructions.',
       safeTopic === 'free_talk'
@@ -149,7 +165,9 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
   const lowLevel = params.level === 'a2'
 
   return [
-    'Start the call in English with exactly one short greeting and one short question.',
+    'Start the call in English with one warm short greeting, then exactly one short question.',
+    preferred,
+    audienceTone,
     'Match the active audience style, CEFR, and vocabulary limits from the session instructions.',
     lowLevel
       ? 'For A2, use very common everyday words, short sentences, and avoid broad or abstract openers.'

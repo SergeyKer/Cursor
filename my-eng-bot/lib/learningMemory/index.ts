@@ -28,6 +28,12 @@ export {
   saveSkillMasteryMap,
 } from '@/lib/learningMemory/storage'
 export {
+  getLearningMemoryStoragePort,
+  resetLearningMemoryStoragePort,
+  setLearningMemoryStoragePort,
+  type LearningMemoryStoragePort,
+} from '@/lib/learningMemory/port'
+export {
   buildSkillMasteryFromSignals,
   detectModeGap,
   getAttentionZones,

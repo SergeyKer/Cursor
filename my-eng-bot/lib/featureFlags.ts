@@ -17,6 +17,10 @@ export const featureFlags = {
   silentAssessV1: process.env.NEXT_PUBLIC_FEATURE_SILENT_ASSESS_V1 !== 'false',
   /** Returning → домашний экран «Мой план». Default on. */
   myPlanHomeV1: process.env.NEXT_PUBLIC_FEATURE_MY_PLAN_HOME_V1 !== 'false',
+  /** Новый layout + selectNowGoal. Default on; =false откат к старому списку. */
+  myPlanNowGoalV1: process.env.NEXT_PUBLIC_FEATURE_MY_PLAN_NOW_GOAL_V1 !== 'false',
+  /** AI reinforce из Мой план. Default off до Premium. */
+  aiReinforceV1: process.env.NEXT_PUBLIC_FEATURE_AI_REINFORCE_V1 === 'true',
   /** Сырой лог learning signals в UI. Default off (localhost может форсить). */
   learningMemoryDebugV1: process.env.NEXT_PUBLIC_FEATURE_LEARNING_MEMORY_DEBUG_V1 === 'true',
 } as const
