@@ -8,6 +8,7 @@ import {
 import {
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
+  TEACHER_RHYTHM_LOCK_MARKER,
 } from '@/lib/engvo/teacherPrompts'
 import {
   TEACHER_EQUIVALENCE_GOLDEN_FRAGMENTS,
@@ -237,6 +238,34 @@ describe('teacher prompts', () => {
     expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
     expect(text).toMatch(/no prep lecture/i)
   })
+
+  it('realtime teacher includes rhythm lock with soft bridge and reclaim paths', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toContain(TEACHER_RHYTHM_LOCK_MARKER)
+    expect(text).toMatch(/soft bridge/i)
+    expect(text).toMatch(/pending Скажи/i)
+    expect(text).toMatch(/same Russian/i)
+    expect(text).toMatch(/never silent wait/i)
+    expect(text).toMatch(/no debate/i)
+    expect(text).toMatch(/Хорошо, что спрашиваешь/)
+    expect(text).toMatch(/Классно, что заметил/)
+  })
+
+  it('first turn does not include rhythm lock marker', () => {
+    const text = buildEngvoTeacherFirstTurnResponseInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      openingSeedIndex: 0,
+    })
+    expect(text).not.toContain(TEACHER_RHYTHM_LOCK_MARKER)
+  })
 })
 
 describe('instructions branching', () => {
@@ -270,6 +299,7 @@ describe('instructions branching', () => {
     })
     expect(text).toMatch(/English only/i)
     expect(text).not.toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).not.toContain(TEACHER_RHYTHM_LOCK_MARKER)
   })
 
   it('teacher realtime uses teacher block', () => {
@@ -283,6 +313,7 @@ describe('instructions branching', () => {
     })
     expect(text).toMatch(/You meant/)
     expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).toContain(TEACHER_RHYTHM_LOCK_MARKER)
   })
 
   it('teacher client realtime instructions include equivalence marker (parity)', () => {
@@ -295,6 +326,7 @@ describe('instructions branching', () => {
       sentenceType: 'general',
     })
     expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).toContain(TEACHER_RHYTHM_LOCK_MARKER)
   })
 
   it('free_call client realtime instructions exclude equivalence marker', () => {
@@ -305,6 +337,7 @@ describe('instructions branching', () => {
       kind: 'free_call',
     })
     expect(text).not.toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).not.toContain(TEACHER_RHYTHM_LOCK_MARKER)
   })
 
   it('teacher realtime does not leak free-call conversational delivery', () => {

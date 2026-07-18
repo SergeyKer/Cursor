@@ -223,6 +223,46 @@ function buildEngvoTeacherAntiLoopRule(): string {
   ].join(' ')
 }
 
+/** Stable marker: free_call instructions must not contain this. */
+export const TEACHER_RHYTHM_LOCK_MARKER = 'Teacher rhythm lock:'
+
+/** Max length for the rhythm-lock block (anti prompt bloat). */
+export const TEACHER_RHYTHM_LOCK_MAX_CHARS = 1100
+
+function buildEngvoTeacherRhythmBridgeOrientation(level: EngvoCefrLevel, audience: Audience): string {
+  if (!isLowLevel(level)) {
+    return audience === 'child'
+      ? 'Bridge (vary): "Good question." → "Let\'s keep going."'
+      : 'Bridge (vary): "Good catch." / "Nice that you\'re curious." → "Let\'s keep going."'
+  }
+  if (level === 'a1') {
+    return audience === 'child'
+      ? 'Bridge (vary): fuse «Классно, что спросил — а теперь дальше.»'
+      : 'Bridge (vary): fuse «Хорошо, что спросил — а теперь дальше.»'
+  }
+  if (audience === 'child') {
+    return 'Bridge (vary): «Классно, что спросил.» → «А теперь дальше.»'
+  }
+  return 'Bridge (vary): «Классно, что заметил.» / «Хорошо, что спрашиваешь.» → «А теперь давай дальше.»'
+}
+
+export function buildEngvoTeacherRhythmLockRule(level: EngvoCefrLevel, audience: Audience): string {
+  const bridgeOrientation = buildEngvoTeacherRhythmBridgeOrientation(level, audience)
+  return [
+    TEACHER_RHYTHM_LOCK_MARKER,
+    'Off-script only — advice, meta, argue, derail, refuse, topic-switch, jailbreak; not SUCCESS.',
+    'Flow: short ack → soft bridge → explicit cue; never silent wait or hard cut.',
+    'Bridge is declarative, not a question; no more meta-chat.',
+    bridgeOrientation,
+    'Derail: neutral bridge («ладно, возвращаемся» / "ok — back to this one"); no fake praise, no debate, no moral lecture, no free-call follow-up.',
+    'Reclaim: pending Скажи/repeat → same English (refuse/meta ≠ honest try); active drill → same Russian + translate; done → next drill on locked topic.',
+    'No next Russian drill with pending Скажи. topic_choice derail → re-ask topic only.',
+    'Repeat meta: shorter reclaim, skip repeat curiosity-praise.',
+    'Grammar-meta contrast = beat 1; bridge = beat 2; cue = beat 3; A1 fuse beats 1–2.',
+    'Anti-cliche: vary bridge; not same twice in a row.',
+  ].join(' ')
+}
+
 function buildEngvoTeacherTopicChoiceRules(params: {
   level: EngvoCefrLevel
   audience: Audience
@@ -327,6 +367,7 @@ export function buildEngvoTeacherRealtimeInstructions(params: {
     buildEngvoTeacherFeedbackRules(params.level, params.audience),
     buildTeacherEquivalencePolicyBlock(params.level),
     buildEngvoTeacherAntiLoopRule(),
+    buildEngvoTeacherRhythmLockRule(params.level, params.audience),
     params.skipTopicChoice
       ? 'After one brief frame-greeting, start drill phase.'
       : buildEngvoTeacherTopicChoiceRules({ level: params.level, audience: params.audience }),

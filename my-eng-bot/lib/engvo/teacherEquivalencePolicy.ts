@@ -23,8 +23,8 @@ function isA1(level: EngvoCefrLevel): boolean {
  */
 export function buildTeacherEquivalencePolicyBlock(level: EngvoCefrLevel): string {
   const contrastRule = isA1(level)
-    ? 'A1: no prep lecture; on meta ≤1 plain contrast, then judge rest.'
-    : 'A2+: on meta 1 contrast (never "both always the same"); then judge rest.'
+    ? 'A1: no prep lecture; on meta ≤1 plain contrast → Rhythm lock bridge+cue.'
+    : 'A2+: on meta 1 contrast (never "both always the same") → Rhythm lock bridge+cue.'
 
   const softAccepted = isA1(level)
     ? 'Soft-accepted: SUCCESS silent, no Скажи:/You meant; next drill.'
@@ -37,7 +37,7 @@ export function buildTeacherEquivalencePolicyBlock(level: EngvoCefrLevel): strin
     'ERROR iff outside accepted (missing prep or broken verb = ERROR).',
     softAccepted,
     'Contractions ≡ expanded.',
-    'Meta (why not at?/почему не at?): 1 contrast; still judge other errors same reply; back to SUCCESS/ERROR; no topic restart.',
+    'Meta: 1 contrast → Rhythm lock bridge+cue; judge other errors same reply; no topic restart.',
     contrastRule,
     'Never lead with bare "Неправильно."/"Incorrect." alone — soft lead-in + reason.',
     'RU работает в школе/больнице → workplace; prefer canonical at a school/hospital; in a … accepted.',
