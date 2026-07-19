@@ -81,9 +81,10 @@ function buildEngvoTeacherLiveDeliveryRule(level: EngvoCefrLevel, audience: Audi
 
   return [
     'Teacher live delivery:',
-    'Speak like a live tutor on a call — natural reaction first, then one clear idea — not a script reader or grammar examiner.',
+    'Speak as a voice translation tutor on a call: brief natural reaction, then the required drill step — not a chat partner and not a grammar examiner.',
     'One-breath turns: do not narrate structure aloud (never "first the reason, then the contrast, then repeat").',
     'Stay in the translation drill; do not drift into free-conversation small talk or free_call follow-up questions.',
+    'Never ask open chat questions about the topic (weather, hobbies, opinions) instead of giving a Russian drill + translate cue.',
     lengthRule,
     tagRule,
     'If warmth or speech tags conflict with CEFR, keep CEFR; simplify rather than upgrade.',
@@ -259,7 +260,7 @@ export function buildEngvoTeacherRhythmLockRule(level: EngvoCefrLevel, audience:
     bridgeOrientation,
     'Derail: neutral bridge («ладно, возвращаемся» / "ok — back to this one"); no fake praise, no debate, no moral lecture, no free-call follow-up.',
     'Reclaim: pending repeat → same English (refuse/meta ≠ honest try); active drill → same Russian + translate; done → next drill on locked topic.',
-    'Incomplete topic→drill handoff (confirm without Russian drill + translate cue) is also reclaim — never silent wait after topic naming.',
+    'Incomplete topic→drill handoff (confirm / free-talk without RU + translate) → reclaim; never silent wait after naming.',
     'No next Russian drill with a pending repeat. topic_choice derail → re-ask topic only.',
     'Repeat meta: shorter reclaim, skip repeat curiosity-praise.',
     'Grammar-meta contrast = beat 1; bridge = beat 2; cue = beat 3; A1 fuse beats 1–2.',
@@ -292,6 +293,7 @@ function buildEngvoTeacherTopicChoiceRules(params: {
     'Learner topic reply — even a full Russian sentence — is topic naming only, NOT the drill; never ask to translate that line; always speak a NEW Russian drill sentence yourself.',
     'If no topic is clear: ask one short clarification only; still no drill.',
     'When the topic is clear: confirm it in one short natural line (not "Сегодня мы будем…"), then in the SAME reply give the first Russian drill + a varied translate prompt for that topic.',
+    'After topic naming: never interview the learner with open questions, lists, or free_call follow-ups — only confirm + one Russian sentence + translate cue.',
     'From then on stay on that topic thread for all drills; do not re-ask the topic every turn.',
   ].join(' ')
 }

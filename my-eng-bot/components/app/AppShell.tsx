@@ -268,9 +268,15 @@ import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
 import {
   buildEngvoContinuationResponseInstructions,
   buildEngvoFirstTurnResponseInstructions,
+  buildEngvoFreeCallLengthReclaimResponseInstructions,
   buildEngvoTeacherDrillReclaimResponseInstructions,
 } from '@/lib/engvo/instructions'
+import { isTooLongFreeCallAssistantTurn } from '@/lib/engvo/freeCallTurnCompleteness'
 import { isIncompleteTeacherAssistantTurn } from '@/lib/engvo/teacherDrillCompleteness'
+import {
+  resolveTeacherDetectPhase,
+  shouldAllowTeacherDrillReclaim,
+} from '@/lib/engvo/teacherHandoffReclaim'
 import { extractTeacherCallRepeatPrompt } from '@/lib/engvo/teacherRepeatAntiLoop'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import {
@@ -1024,8 +1030,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const engvoTeacherUserFinalCountRef = React.useRef(0)
   const engvoTeacherAwaitingFirstDrillRef = React.useRef(false)
   const engvoTeacherReclaimUsedThisUserTurnRef = React.useRef(false)
+  const engvoTeacherReclaimAttemptsThisUserTurnRef = React.useRef(0)
   const engvoTeacherReclaimInFlightRef = React.useRef(false)
+  const engvoFreeCallUserFinalCountRef = React.useRef(0)
+  const engvoFreeCallReclaimUsedThisUserTurnRef = React.useRef(false)
+  const engvoFreeCallReclaimInFlightRef = React.useRef(false)
   const maybeReclaimTeacherDrillRef = React.useRef<(rawText: string) => boolean>(() => false)
+  const maybeReclaimFreeCallLengthRef = React.useRef<(rawText: string) => boolean>(() => false)
   const engvoSessionKindRef = React.useRef<EngvoVoiceSessionKind>(ENGVO_DEFAULT_SESSION_KIND)
   engvoSessionKindRef.current = engvoSessionKind
   const [practiceTtsSpeedDefaultIndex, setPracticeTtsSpeedDefaultIndex] = useState(0)
@@ -1518,7 +1529,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       return [...withoutDial, msg]
     })
     resetEngvoAssistantTurn()
-    const reclaimStarted = maybeReclaimTeacherDrillRef.current(rawText)
+    const reclaimStarted =
+      maybeReclaimTeacherDrillRef.current(rawText) ||
+      maybeReclaimFreeCallLengthRef.current(rawText)
     if (!reclaimStarted) {
       setEngvoCallPhase('listening')
     }
@@ -1616,7 +1629,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return nextMessages
       })
       resetEngvoAssistantTurn()
-      const reclaimStarted = maybeReclaimTeacherDrillRef.current(rawText)
+      const reclaimStarted =
+        maybeReclaimTeacherDrillRef.current(rawText) ||
+        maybeReclaimFreeCallLengthRef.current(rawText)
       if (!reclaimStarted) {
         setEngvoCallPhase('listening')
       }
@@ -1853,7 +1868,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherReclaimAttemptsThisUserTurnRef.current = 0
     engvoTeacherReclaimInFlightRef.current = false
+    engvoFreeCallUserFinalCountRef.current = 0
+    engvoFreeCallReclaimUsedThisUserTurnRef.current = false
+    engvoFreeCallReclaimInFlightRef.current = false
     engvoLastFinalUserTranscriptRef.current = ''
     setEngvoCallPhase('ended')
     setEngvoErrorText(null)
@@ -1964,9 +1983,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoTeacherReclaimInFlightRef.current = false
       }
 
+      const detectPhase = resolveTeacherDetectPhase({
+        phase: engvoTeacherPhaseRef.current,
+        userFinalCount: engvoTeacherUserFinalCountRef.current,
+        awaitingFirstDrill: engvoTeacherAwaitingFirstDrillRef.current,
+      })
+      if (
+        detectPhase === 'drill' &&
+        engvoTeacherPhaseRef.current !== 'drill' &&
+        engvoTeacherAwaitingFirstDrillRef.current
+      ) {
+        engvoTeacherPhaseRef.current = 'drill'
+      }
+
       const result = isIncompleteTeacherAssistantTurn({
         text: rawText,
-        phase: engvoTeacherPhaseRef.current,
+        phase: detectPhase,
         awaitingFirstDrill: engvoTeacherAwaitingFirstDrillRef.current,
       })
 
@@ -1976,15 +2008,32 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       if (!result.incomplete) return false
 
-      if (wasReclaimResponse || engvoTeacherReclaimUsedThisUserTurnRef.current) {
+      if (engvoTeacherUserFinalCountRef.current < 1) {
         console.info('[engvo] teacher-reclaim', {
-          skip: 'reclaim_budget',
+          skip: 'greeting',
           reason: result.reason,
           preview: rawText.slice(0, 80),
         })
         return false
       }
 
+      const allow = shouldAllowTeacherDrillReclaim({
+        userFinalCount: engvoTeacherUserFinalCountRef.current,
+        awaitingFirstDrill: engvoTeacherAwaitingFirstDrillRef.current,
+        attemptsThisUserTurn: engvoTeacherReclaimAttemptsThisUserTurnRef.current,
+        usedThisUserTurn: engvoTeacherReclaimUsedThisUserTurnRef.current,
+      })
+      if (!allow) {
+        console.info('[engvo] teacher-reclaim', {
+          skip: engvoTeacherAwaitingFirstDrillRef.current ? 'reclaim_failed' : 'reclaim_budget',
+          reason: result.reason,
+          attempts: engvoTeacherReclaimAttemptsThisUserTurnRef.current,
+          preview: rawText.slice(0, 80),
+        })
+        return false
+      }
+
+      engvoTeacherReclaimAttemptsThisUserTurnRef.current += 1
       engvoTeacherReclaimUsedThisUserTurnRef.current = true
       engvoTeacherReclaimInFlightRef.current = true
       if (engvoActiveProviderRef.current === 'xai') {
@@ -2012,6 +2061,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
       console.info('[engvo] teacher-reclaim', {
         reason: result.reason,
+        attempt: engvoTeacherReclaimAttemptsThisUserTurnRef.current,
         preview: rawText.slice(0, 80),
         sent,
       })
@@ -2025,6 +2075,69 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [engvoCefrLevel, engvoTeacherSentenceType, engvoTeacherTense, engvoSpeechSpeedPreset, engvoXaiVoice, sendEngvoRealtimeEvent]
   )
   maybeReclaimTeacherDrillRef.current = maybeReclaimTeacherDrill
+
+  const maybeReclaimFreeCallLength = useCallback(
+    (rawText: string): boolean => {
+      if (engvoSessionKindRef.current !== 'free_call') return false
+
+      const wasReclaimResponse = engvoFreeCallReclaimInFlightRef.current
+      if (wasReclaimResponse) {
+        engvoFreeCallReclaimInFlightRef.current = false
+      }
+
+      const result = isTooLongFreeCallAssistantTurn({
+        text: rawText,
+        level: engvoCefrLevel,
+        userFinalCount: engvoFreeCallUserFinalCountRef.current,
+      })
+      if (!result.tooLong) return false
+
+      if (wasReclaimResponse || engvoFreeCallReclaimUsedThisUserTurnRef.current) {
+        console.info('[engvo] free-reclaim', {
+          skip: 'reclaim_budget',
+          reason: result.reason,
+          preview: rawText.slice(0, 80),
+        })
+        return false
+      }
+
+      engvoFreeCallReclaimUsedThisUserTurnRef.current = true
+      engvoFreeCallReclaimInFlightRef.current = true
+      if (engvoActiveProviderRef.current === 'xai') {
+        engvoListenArmedRef.current = false
+        sendEngvoRealtimeEvent(
+          buildEngvoXaiClientSessionUpdate({
+            voice: engvoXaiVoice,
+            speed: clampEngvoRealtimeSpeed(engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset, 'xai'), 'xai'),
+            kind: engvoSessionKindRef.current,
+            createResponse: false,
+          })
+        )
+      }
+      setEngvoCallPhase('assistantPending')
+      const sent = sendEngvoRealtimeEvent({
+        type: 'response.create',
+        response: {
+          instructions: buildEngvoFreeCallLengthReclaimResponseInstructions({
+            level: engvoCefrLevel,
+          }),
+        },
+      })
+      console.info('[engvo] free-reclaim', {
+        reason: result.reason,
+        preview: rawText.slice(0, 80),
+        sent,
+      })
+      if (!sent) {
+        engvoFreeCallReclaimInFlightRef.current = false
+        setEngvoCallPhase('listening')
+        return false
+      }
+      return true
+    },
+    [engvoCefrLevel, engvoSpeechSpeedPreset, engvoXaiVoice, sendEngvoRealtimeEvent]
+  )
+  maybeReclaimFreeCallLengthRef.current = maybeReclaimFreeCallLength
 
   const buildCurrentXaiSessionUpdate = useCallback(
     (options?: { createResponse?: boolean; keyterms?: string[] }) => {
@@ -2409,6 +2522,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (engvoTeacherReclaimInFlightRef.current) {
           engvoTeacherReclaimInFlightRef.current = false
         }
+        if (engvoFreeCallReclaimInFlightRef.current) {
+          engvoFreeCallReclaimInFlightRef.current = false
+        }
         const hasActiveAssistantResponse = hasActiveEngvoAssistantResponse({
           responseId: engvoAssistantResponseIdRef.current,
           responseDone: engvoAssistantResponseDoneRef.current,
@@ -2478,10 +2594,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           typeof parsed.item_id === 'string'
         ) {
           const itemId = parsed.item_id
-          if (engvoActiveProviderRef.current === 'xai' && !engvoListenArmedRef.current) {
-            engvoCommittedUserItemIdsRef.current.add(itemId)
-            return
-          }
+          const isXaiUnarmed =
+            engvoActiveProviderRef.current === 'xai' && !engvoListenArmedRef.current
           if (isPartialUserTranscriptStatus((parsed as { status?: unknown }).status)) {
             const interim =
               (typeof parsed.transcript === 'string' ? parsed.transcript : '').trim() ||
@@ -2561,6 +2675,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             restorePhaseAfterNoiseReject('listening')
             return
           }
+          if (isXaiUnarmed) {
+            engvoCommittedUserItemIdsRef.current.add(itemId)
+            if (transcript) {
+              console.info('[engvo] unarmed-user-bubble', { preview: transcript.slice(0, 80) })
+              setEngvoUserInterimText('')
+              setMessages((prev) =>
+                insertEngvoUserMessage(prev, transcript, false)
+              )
+            }
+            restorePhaseAfterNoiseReject('listening')
+            return
+          }
           engvoCommittedUserItemIdsRef.current.add(itemId)
           setEngvoCallPhase('userFinalizing')
           if (transcript) {
@@ -2602,9 +2728,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               })
               bumpEngvoGoal()
               engvoLastFinalUserTranscriptRef.current = transcript
+              if (engvoSessionKindRef.current === 'free_call') {
+                engvoFreeCallUserFinalCountRef.current += 1
+                engvoFreeCallReclaimUsedThisUserTurnRef.current = false
+              }
               if (engvoSessionKindRef.current === 'teacher') {
                 engvoTeacherUserFinalCountRef.current += 1
                 engvoTeacherReclaimUsedThisUserTurnRef.current = false
+                engvoTeacherReclaimAttemptsThisUserTurnRef.current = 0
                 if (
                   engvoTeacherPhaseRef.current === 'topic_choice' &&
                   engvoTeacherUserFinalCountRef.current >= 1
@@ -2656,8 +2787,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           Date.now() - engvoLastUserCoalescedAtRef.current < ENGVO_XAI_USER_COALESCE_WINDOW_MS
         // Cancel only a *second* response after coalesce (active or already committed for this turn).
         // Teacher drill reclaim is an intentional second response.create — never cancel it.
+        const reclaimInFlight =
+          engvoTeacherReclaimInFlightRef.current || engvoFreeCallReclaimInFlightRef.current
         if (
-          !engvoTeacherReclaimInFlightRef.current &&
+          !reclaimInFlight &&
           coalescedRecently &&
           responseId &&
           responseId !== engvoAssistantResponseIdRef.current &&
@@ -2667,7 +2800,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           sendEngvoRealtimeEvent({ type: 'response.cancel' })
           return
         }
-        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) {
+        if (
+          !reclaimInFlight &&
+          hasActiveAssistantTurn &&
+          responseId &&
+          responseId !== activeResponseId
+        ) {
           engvoIgnoredResponseIdsRef.current.add(responseId)
           return
         }
@@ -2715,7 +2853,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             commitEngvoAssistantText(fallbackText, id)
             if (
               engvoActiveProviderRef.current === 'xai' &&
-              !engvoTeacherReclaimInFlightRef.current
+              !engvoTeacherReclaimInFlightRef.current &&
+              !engvoFreeCallReclaimInFlightRef.current
             ) {
               armEngvoXaiListen()
             }
@@ -2753,7 +2892,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             commitEngvoAssistantText(fallbackText, id)
             if (
               engvoActiveProviderRef.current === 'xai' &&
-              !engvoTeacherReclaimInFlightRef.current
+              !engvoTeacherReclaimInFlightRef.current &&
+              !engvoFreeCallReclaimInFlightRef.current
             ) {
               armEngvoXaiListen()
             }
@@ -2782,7 +2922,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (
           engvoActiveProviderRef.current === 'xai' &&
           !reclaimStarted &&
-          !engvoTeacherReclaimInFlightRef.current
+          !engvoTeacherReclaimInFlightRef.current &&
+          !engvoFreeCallReclaimInFlightRef.current
         ) {
           armEngvoXaiListen()
         }
@@ -2855,7 +2996,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherReclaimAttemptsThisUserTurnRef.current = 0
     engvoTeacherReclaimInFlightRef.current = false
+    engvoFreeCallUserFinalCountRef.current = 0
+    engvoFreeCallReclaimUsedThisUserTurnRef.current = false
+    engvoFreeCallReclaimInFlightRef.current = false
     engvoLastFinalUserTranscriptRef.current = ''
     setEngvoCallPhase('connecting')
     setEngvoErrorText(null)
@@ -3418,7 +3563,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherReclaimAttemptsThisUserTurnRef.current = 0
     engvoTeacherReclaimInFlightRef.current = false
+    engvoFreeCallUserFinalCountRef.current = 0
+    engvoFreeCallReclaimUsedThisUserTurnRef.current = false
+    engvoFreeCallReclaimInFlightRef.current = false
   }, [])
 
   const handleEngvoTeacherTenseChange = useCallback(
@@ -3966,7 +4115,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherReclaimAttemptsThisUserTurnRef.current = 0
     engvoTeacherReclaimInFlightRef.current = false
+    engvoFreeCallUserFinalCountRef.current = 0
+    engvoFreeCallReclaimUsedThisUserTurnRef.current = false
+    engvoFreeCallReclaimInFlightRef.current = false
     engvoLastFinalUserTranscriptRef.current = ''
     setLoading(false)
     setSearchingInternet(false)

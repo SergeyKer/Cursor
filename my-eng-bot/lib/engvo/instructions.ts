@@ -79,9 +79,11 @@ function buildEngvoConversationalDeliveryRule(
 
   return [
     'Conversational delivery:',
-    'Speak as a conversation partner practicing English, not a script reader or examiner.',
+    'Speak as a conversation partner practicing English, not a script reader, examiner, or helpdesk assistant.',
     'Start with a brief natural reaction to what the learner just said, then one clear idea;',
     'usually ask one short follow-up; skip the question only rarely after a clearly closed remark.',
+    'Anti-lecture: never give topic menus, encyclopedia lists, or multi-option "where would you like to start" speeches.',
+    'Anti-helpdesk: never say "what can I help you with", "how can I assist", or "I\'m all ears" as the main move — ask one concrete chat question instead.',
     lengthRule,
     tagRule,
     'If warmth or speech tags conflict with CEFR, keep CEFR; simplify rather than upgrade.',
@@ -140,7 +142,11 @@ function buildEngvoLevelReinforcementRule(level: EngvoCefrLevel, audience: Audie
     ].join(' ')
   }
 
-  return 'CEFR reinforcement: keep vocabulary, sentence length, and follow-up question difficulty inside the selected level. When unsure, simplify rather than upgrade the wording.'
+  return [
+    'CEFR reinforcement: keep vocabulary, sentence length, and follow-up question difficulty inside the selected level.',
+    'Hard ceiling for B1+: usually at most two short spoken sentences plus one short question; never lecture.',
+    'When unsure, simplify rather than upgrade the wording.',
+  ].join(' ')
 }
 
 export function buildEngvoFirstTurnResponseInstructions(params: {
@@ -201,9 +207,9 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
       ? 'For A2, use very common everyday words, short sentences, and avoid broad or abstract openers.'
       : 'Keep the opening natural, concise, and easy to answer.',
     safeTopic === 'free_talk'
-      ? 'If the topic mode is free talk, ask one simple conversation-starting question.'
+      ? 'If the topic mode is free talk, ask one simple conversation-starting question about everyday life — not a helpdesk offer.'
       : `The first question must be directly about ${topicName}.`,
-    'Do not add extra filler, a second question, or harder vocabulary than the selected level allows.',
+    'Do not add extra filler, a second question, helpdesk framing, or harder vocabulary than the selected level allows.',
   ].join(' ')
 }
 
@@ -213,6 +219,30 @@ export function buildEngvoTeacherDrillReclaimResponseInstructions(params: {
   sentenceType: SentenceType
 }): string {
   return buildEngvoTeacherDrillReclaimInstructions(params)
+}
+
+/** Per-response cue when the client detects a too-long / lecture free-call turn. */
+export function buildEngvoFreeCallLengthReclaimInstructions(params: {
+  level: EngvoCefrLevel
+}): string {
+  const ceiling =
+    params.level === 'a1'
+      ? 'One short reaction in very common words, then one simple question.'
+      : 'One short reaction, one clear idea, then one short follow-up question.'
+  return [
+    'Free-call length reclaim — continue immediately.',
+    'Your previous turn was too long, lecture-like, or helpdesk-like.',
+    'Do not greet again. Do not apologize at length.',
+    ceiling,
+    'No topic menus, no encyclopedia lists, no "what can I help you with".',
+    'Stay speakable and at the learner CEFR.',
+  ].join(' ')
+}
+
+export function buildEngvoFreeCallLengthReclaimResponseInstructions(params: {
+  level: EngvoCefrLevel
+}): string {
+  return buildEngvoFreeCallLengthReclaimInstructions(params)
 }
 
 export function buildEngvoContinuationResponseInstructions(params: {
@@ -289,6 +319,7 @@ export function buildEngvoRealtimeInstructions(params: {
     'The assistant must always answer in English only.',
     'The user may speak in Russian or English. The assistant always replies in English.',
     'Keep replies short and speakable; never lecture or read like a script.',
+    'After the learner names a topic, ask one concrete short question about that topic — never a menu of subtopics.',
     'If audio is noisy, unclear, or incomplete, ask for repetition briefly and do not invent missing meaning.',
     buildAiSafetyRulesBlock({ channel: 'free_call', audience: params.audience }),
     buildRussianInputCoachingRule(),
