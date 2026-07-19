@@ -73,16 +73,6 @@ describe('callMessageOrder', () => {
     ])
   })
 
-  it('xAI replace gate rejects unrelated rewrite of last user bubble', () => {
-    const messages: ChatMessage[] = [{ role: 'user', content: 'I go' }]
-    expect(
-      updateLastEngvoUserMessage(messages, 'We went home yesterday', { requireReplaceGate: true })
-    ).toEqual(messages)
-    expect(
-      updateLastEngvoUserMessage(messages, 'I go home', { requireReplaceGate: true })
-    ).toEqual([{ role: 'user', content: 'I go home' }])
-  })
-
   it('does not create a user bubble when none exists', () => {
     const messages: ChatMessage[] = [{ role: 'assistant', content: 'Hello!' }]
     expect(updateLastEngvoUserMessage(messages, 'Hi')).toEqual(messages)

@@ -64,19 +64,16 @@ describe('Engvo xAI voices and clamp', () => {
 })
 
 describe('buildEngvoXaiClientSessionUpdate', () => {
-  it('includes language_hint ru by default, reasoning none, pcm formats, no openai-only fields', () => {
+  it('includes language_hint ru, reasoning none, pcm formats, no openai-only fields', () => {
     const event = buildEngvoXaiClientSessionUpdate({
       instructions: 'Speak English.',
       voice: 'eve',
       speed: 0.8,
-      kind: 'free_call',
-      createResponse: true,
     })
     expect(event.type).toBe('session.update')
     const session = event.session as {
       voice: string
       reasoning: { effort: string }
-      instructions: string
       audio: {
         input: {
           transcription: { model: string; language_hint: string }
@@ -93,39 +90,15 @@ describe('buildEngvoXaiClientSessionUpdate', () => {
     expect(session.audio.input.format.rate).toBe(24_000)
     expect(session.audio.input.turn_detection).toEqual({
       type: 'server_vad',
-      threshold: 0.65,
+      threshold: 0.78,
       prefix_padding_ms: 300,
-      silence_duration_ms: 700,
+      silence_duration_ms: 900,
       create_response: true,
       interrupt_response: false,
     })
-    expect(session.instructions).toContain('Unclear-audio policy (xAI):')
     expect(session.audio.output.speed).toBe(0.8)
     expect(session.audio.output.voice).toBe('eve')
     expect(session).not.toHaveProperty('output_modalities')
-  })
-
-  it('uses en hint and teacher VAD for drill with createResponse false', () => {
-    const event = buildEngvoXaiClientSessionUpdate({
-      voice: 'eve',
-      kind: 'teacher',
-      teacherPhase: 'drill',
-      createResponse: false,
-      keyterms: ['She goes', 'goes'],
-    })
-    const session = event.session as {
-      audio: {
-        input: {
-          transcription: { language_hint: string; keyterms?: string[] }
-          turn_detection: { threshold: number; silence_duration_ms: number; create_response: boolean }
-        }
-      }
-    }
-    expect(session.audio.input.transcription.language_hint).toBe('en')
-    expect(session.audio.input.transcription.keyterms).toEqual(['She goes', 'goes'])
-    expect(session.audio.input.turn_detection.threshold).toBe(0.55)
-    expect(session.audio.input.turn_detection.silence_duration_ms).toBe(500)
-    expect(session.audio.input.turn_detection.create_response).toBe(false)
   })
 })
 

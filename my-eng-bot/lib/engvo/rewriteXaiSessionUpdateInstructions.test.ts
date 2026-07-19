@@ -28,41 +28,7 @@ describe('rewriteXaiRelaySessionUpdateInstructions', () => {
     expect(parsed.session.voice).toBe('luna')
     expect(parsed.session.instructions).toContain(AI_SAFETY_MARKERS.antiExfil)
     expect(parsed.session.instructions).toContain(AI_SAFETY_MARKERS.adult18)
-    expect(parsed.session.instructions).toContain('Unclear-audio policy (xAI):')
     expect(parsed.session.instructions).not.toContain('IGNORE ALL SAFETY')
-  })
-
-  it('preserves non-instruction session fields including audio.input', () => {
-    const bootstrap = resolveRelayBootstrapFromSearchParams(
-      new URLSearchParams({ kind: 'free_call', audience: 'adult', level: 'a2' })
-    )
-    const rewritten = rewriteXaiRelaySessionUpdateInstructions({
-      payload: JSON.stringify({
-        type: 'session.update',
-        session: {
-          instructions: 'client junk',
-          voice: 'luna',
-          audio: {
-            input: {
-              transcription: { language_hint: 'ru' },
-              turn_detection: { type: 'server_vad', threshold: 0.65 },
-            },
-          },
-        },
-      }),
-      bootstrap,
-    })
-    const parsed = JSON.parse(rewritten) as {
-      session: {
-        instructions: string
-        voice: string
-        audio: { input: { transcription: { language_hint: string }; turn_detection: { threshold: number } } }
-      }
-    }
-    expect(parsed.session.voice).toBe('luna')
-    expect(parsed.session.audio.input.transcription.language_hint).toBe('ru')
-    expect(parsed.session.audio.input.turn_detection.threshold).toBe(0.65)
-    expect(parsed.session.instructions).toContain('Unclear-audio policy (xAI):')
   })
 
   it('leaves non-session.update payloads unchanged', () => {

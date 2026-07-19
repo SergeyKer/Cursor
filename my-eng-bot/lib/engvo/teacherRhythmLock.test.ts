@@ -18,7 +18,8 @@ describe('buildEngvoTeacherRhythmLockRule', () => {
 
   it('includes reclaim priorities and anti-meta-farm', () => {
     const text = buildEngvoTeacherRhythmLockRule('a2', 'adult')
-    expect(text).toMatch(/pending repeat/i)
+    // Restored voice baseline (cb633dc): "pending Скажи/repeat"; post-f81a545 used "pending repeat".
+    expect(text).toMatch(/pending (?:Скажи\/)?repeat/i)
     expect(text).toMatch(/same Russian/i)
     expect(text).toMatch(/locked topic/i)
     expect(text).toMatch(/skip repeat curiosity-praise/i)

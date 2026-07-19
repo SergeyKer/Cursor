@@ -63,35 +63,11 @@ export function engvoVoiceTranscriptIsLikelyNoise(text: string): boolean {
   return false
 }
 
-/**
- * Teacher (xAI): short Latin/Cyrillic lexical tokens outside the filler set are not noise.
- * Default / free_call: same as engvoVoiceTranscriptIsLikelyNoise.
- */
-export function engvoVoiceTranscriptIsLikelyNoiseForKind(
-  text: string,
-  kind: 'free_call' | 'teacher' = 'free_call'
-): boolean {
-  if (kind !== 'teacher') return engvoVoiceTranscriptIsLikelyNoise(text)
-  const n = lettersAndDigitsNormalized(text)
-  if (!n) return true
-  if (ENGVO_NOISE_TRANSCRIPTS.has(n)) return true
-  if (/^[кх]+$/u.test(n) && n.length <= 8) return true
-  if (/^[hm]+$/u.test(n) && n.length <= 6) return true
-  // Short EN/RU lexical attempt (e.g. I, am, yes, ok, go) — keep for teacher drills.
-  if (n.length >= 1 && n.length < 6 && /[\p{Script=Latin}\p{Script=Cyrillic}]/u.test(text)) {
-    return false
-  }
-  return engvoVoiceTranscriptIsLikelyNoise(text)
-}
-
 /** `true`, если транскрипт можно показать пользователю в чате звонка. */
-export function shouldShowEngvoVoiceUserTranscript(
-  text: string,
-  kind: 'free_call' | 'teacher' = 'free_call'
-): boolean {
+export function shouldShowEngvoVoiceUserTranscript(text: string): boolean {
   const t = text.trim()
   if (!t) return false
   if (!engvoVoiceTranscriptHasOnlyLatinOrCyrillicLetters(t)) return false
-  if (engvoVoiceTranscriptIsLikelyNoiseForKind(t, kind)) return false
+  if (engvoVoiceTranscriptIsLikelyNoise(t)) return false
   return true
 }

@@ -242,40 +242,28 @@ export function buildEngvoInputAudioTranscriptionConfig(): {
   }
 }
 
-/** Порог активации server VAD (0–1): выше - меньше ложных срабатываний на кашель/шум. OpenAI only. */
+/** Порог активации server VAD (0–1): выше - меньше ложных срабатываний на кашель/шум. */
 export const ENGVO_VAD_THRESHOLD = 0.72
 
-/** Тишина (мс) перед концом реплики пользователя. OpenAI only — не менять для xAI. */
+/** xAI PCM без WebRTC AEC: чуть выше порог против TV/улицы (silence не удлиняем). */
+export const ENGVO_XAI_VAD_THRESHOLD = 0.78
+
+/** Тишина (мс) перед концом реплики пользователя. */
 export const ENGVO_VAD_SILENCE_DURATION_MS = 900
-
-/**
- * @deprecated Use ENGVO_XAI_FREE_CALL_VAD_THRESHOLD / ENGVO_XAI_TEACHER_VAD_THRESHOLD.
- * Kept as alias of free-call threshold for any lingering imports.
- */
-export const ENGVO_XAI_VAD_THRESHOLD = 0.65
-
-/** xAI free_call server VAD (rollback: raise toward 0.72 if too many false barge-ins). */
-export const ENGVO_XAI_FREE_CALL_VAD_THRESHOLD = 0.65
-
-/** xAI teacher server VAD — softer for short EN answers. */
-export const ENGVO_XAI_TEACHER_VAD_THRESHOLD = 0.55
-
-/** xAI free_call silence before end of user turn (ms). */
-export const ENGVO_XAI_FREE_CALL_SILENCE_DURATION_MS = 700
-
-/** xAI teacher silence before end of user turn (ms). */
-export const ENGVO_XAI_TEACHER_SILENCE_DURATION_MS = 500
 
 /** Окно склейки почти одинаковых user-реплик на xAI (мс). */
 export const ENGVO_XAI_USER_COALESCE_WINDOW_MS = 2_500
 
-/** Задержка перед response.cancel при перебивании озвучки Engvo (мс). OpenAI + xAI free_call. */
+/** Force commit после speech_stopped, если server VAD завис в шуме (мс). */
+export const ENGVO_XAI_FORCE_COMMIT_AFTER_SPEECH_STOPPED_MS = 2_000
+
+/** Force commit max utterance после speech_started (мс). */
+export const ENGVO_XAI_FORCE_COMMIT_MAX_UTTERANCE_MS = 7_000
+
+/** Задержка перед response.cancel при перебивании озвучки Engvo (мс). */
 export const ENGVO_INTERRUPT_DEBOUNCE_MS = 400
 
-/** xAI teacher barge-in debounce (мс). */
-export const ENGVO_XAI_TEACHER_INTERRUPT_DEBOUNCE_MS = 200
-
-/** Server VAD для Engvo Realtime (OpenAI); прерывание ответа только на клиенте. */
+/** Server VAD для Engvo Realtime; прерывание ответа только на клиенте (избегаем гонки с авто-interrupt сервера). */
 export const ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION = {
   type: 'server_vad' as const,
   threshold: ENGVO_VAD_THRESHOLD,
@@ -285,15 +273,12 @@ export const ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION = {
   interrupt_response: false,
 }
 
-/**
- * @deprecated Prefer resolveEngvoXaiVadTurnDetection from xaiListenPolicy.
- * Default free_call shape for backward-compatible spreads.
- */
+/** Server VAD для xAI Voice Agent (шумнее mic path). */
 export const ENGVO_XAI_SERVER_VAD_TURN_DETECTION = {
   type: 'server_vad' as const,
-  threshold: ENGVO_XAI_FREE_CALL_VAD_THRESHOLD,
+  threshold: ENGVO_XAI_VAD_THRESHOLD,
   prefix_padding_ms: 300,
-  silence_duration_ms: ENGVO_XAI_FREE_CALL_SILENCE_DURATION_MS,
+  silence_duration_ms: ENGVO_VAD_SILENCE_DURATION_MS,
   create_response: true,
   interrupt_response: false,
 }

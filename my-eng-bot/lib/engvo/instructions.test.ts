@@ -24,8 +24,6 @@ describe('buildEngvoRealtimeInstructions', () => {
     expect(result).toContain('Active conversation topic: Travel.')
     expect(result).toContain('respectful, warm, and natural')
     expect(result).toContain('Conversational delivery:')
-    expect(result).toContain('Anti-lecture:')
-    expect(result).toContain('Anti-helpdesk:')
     expect(result).toContain('[pause]')
     expect(result).toContain('[chuckle]')
     expect(result).toContain('If warmth or speech tags conflict with CEFR, keep CEFR')

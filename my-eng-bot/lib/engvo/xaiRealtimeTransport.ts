@@ -27,8 +27,6 @@ export type EngvoXaiTransportHandlers = {
   onError?: (message: string) => void
   onPlaybackActiveChange?: (active: boolean) => void
   onRemoteStream?: (stream: MediaStream | null) => void
-  /** Fired when a mic PCM chunk is skipped due to WS backpressure. */
-  onUplinkDrop?: (totalDrops: number) => void
 }
 
 export type EngvoXaiTransport = {
@@ -37,7 +35,6 @@ export type EngvoXaiTransport = {
   clearLocalPlayback: () => void
   disconnect: () => void
   getRemoteMediaStream: () => MediaStream | null
-  getUplinkDropCount: () => number
 }
 
 export function buildXaiDirectRealtimeWsUrl(model: string = ENGVO_XAI_MODEL): string {
@@ -93,7 +90,6 @@ export function connectEngvoXaiRealtime(params: {
   const activeSources = new Set<AudioBufferSourceNode>()
   let playbackActive = false
   let graphReady = false
-  let uplinkDropCount = 0
 
   const setPlaybackActive = (active: boolean) => {
     if (playbackActive === active) return
@@ -161,11 +157,7 @@ export function connectEngvoXaiRealtime(params: {
     processor = ctx.createScriptProcessor(ENGVO_XAI_SCRIPT_PROCESSOR_BUFFER, 1, 1)
     processor.onaudioprocess = (event) => {
       if (closed || ws.readyState !== WebSocket.OPEN) return
-      if (ws.bufferedAmount > ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT) {
-        uplinkDropCount += 1
-        params.handlers.onUplinkDrop?.(uplinkDropCount)
-        return
-      }
+      if (ws.bufferedAmount > ENGVO_XAI_WS_BUFFERED_AMOUNT_LIMIT) return
       const input = event.inputBuffer.getChannelData(0)
       const boosted = applyInputGain(input)
       const down = downsampleToRate(boosted, ctx.sampleRate, ENGVO_XAI_PCM_SAMPLE_RATE)
@@ -349,7 +341,6 @@ export function connectEngvoXaiRealtime(params: {
       graphReady = false
     },
     getRemoteMediaStream: () => mediaStreamDest?.stream ?? null,
-    getUplinkDropCount: () => uplinkDropCount,
   }
 }
 

@@ -3,7 +3,6 @@ import {
   resolveEngvoRealtimeInstructionParams,
   type EngvoRealtimeInstructionParams,
 } from '@/lib/engvo/resolveRealtimeInstructionParams'
-import { appendEngvoXaiUnclearAudioRule } from '@/lib/engvo/xaiListenPolicy'
 
 export function isEngvoXaiRelayRewriteInstructionsEnabled(
   env: Record<string, string | undefined> = process.env
@@ -29,9 +28,7 @@ export function rewriteXaiRelaySessionUpdateInstructions(params: {
     return params.payload
   }
 
-  const instructions = appendEngvoXaiUnclearAudioRule(
-    buildEngvoRealtimeInstructions(params.bootstrap)
-  )
+  const instructions = buildEngvoRealtimeInstructions(params.bootstrap)
   const next = {
     ...parsed,
     session: {

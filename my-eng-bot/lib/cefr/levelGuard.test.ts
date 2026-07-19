@@ -53,18 +53,4 @@ describe('applyCefrOutputGuard', () => {
     expect(result.content).toContain('Скажи:')
     expect(result.content.toLowerCase()).not.toContain('additionally')
   })
-
-  it('does not leave a dangling or after sentence_len trim', () => {
-    const lecture =
-      'Nature is endlessly fascinating. The intricate web of ecosystems, the raw power of weather and geology, the quiet intelligence of plants and animals, or something else entirely today.'
-    const result = applyCefrOutputGuard({
-      mode: 'communication',
-      content: lecture,
-      level: 'a1',
-      audience: 'adult',
-      communicationTargetLang: 'en',
-    })
-    expect(result.content.toLowerCase().trim().endsWith(' or')).toBe(false)
-    expect(result.content.toLowerCase().trim().endsWith(', or')).toBe(false)
-  })
 })

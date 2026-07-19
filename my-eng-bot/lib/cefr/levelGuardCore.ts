@@ -104,19 +104,12 @@ function splitRoughEnglishSentences(segment: string): string[] {
   return parts.length > 0 ? parts : [trimmed]
 }
 
-function stripDanglingEnglishTail(text: string): string {
-  return text
-    .replace(/[,;:]?\s*\b(?:or|and|but)\s*$/i, '')
-    .replace(/[,;:]\s*$/u, '')
-    .trim()
-}
-
 function trimSingleEnglishClause(clause: string, maxWords: number): string {
   if (!/[A-Za-z]/.test(clause)) return clause
   const words = clause.split(/\s+/)
   if (words.length <= maxWords) return clause
   const keep = words.slice(0, maxWords).join(' ')
-  return stripDanglingEnglishTail(keep)
+  return keep.replace(/[,;:]\s*$/, '').trim()
 }
 
 function trimLongEnglishSentences(
@@ -133,11 +126,7 @@ function trimLongEnglishSentences(
     .map((line) => {
       if (!/[A-Za-z]/.test(line)) return line
       const sentences = splitRoughEnglishSentences(line)
-      return sentences
-        .map((s) => trimSingleEnglishClause(s, maxWords))
-        .map((s) => stripDanglingEnglishTail(s))
-        .filter(Boolean)
-        .join(' ')
+      return sentences.map((s) => trimSingleEnglishClause(s, maxWords)).join(' ')
     })
     .join('\n')
 }
