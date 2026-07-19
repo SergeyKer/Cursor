@@ -52,6 +52,11 @@ import {
   type EngvoCefrLevel,
   type EngvoRealtimeVoice,
 } from '@/lib/engvo/constants'
+import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import {
+  extractTeacherCallRepeatPrompt,
+  stripTeacherRepeatMarkers,
+} from '@/lib/engvo/teacherRepeatAntiLoop'
 import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
 import { resolveEngvoMeterFlags } from '@/lib/engvo/meterFlags'
 import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
@@ -162,6 +167,8 @@ interface ChatProps {
   appColumnAnchorRef?: React.RefObject<HTMLDivElement>
   engvo?: {
     active: boolean
+    /** Teacher vs free_call — UI anti-loop visuals only for teacher. */
+    sessionKind?: EngvoVoiceSessionKind
     callPhase: EngvoCallPhase
     realtimeVoice: EngvoRealtimeVoice
     cefrLevel: EngvoCefrLevel
@@ -402,6 +409,8 @@ function buildAssistantSections(params: {
   translationHeadingWelcome?: boolean
   /** Звонок Engvo: emerald-карточка без UI-label «Скажи:» (маркер в тексте модели для парсера остаётся). */
   isEngvoCall?: boolean
+  /** Только Teacher-звонок: lead-in виден, тон ERROR-повтора ≠ success emerald. */
+  isEngvoTeacherCall?: boolean
 }): AssistantSection[] {
   const {
     comment,
@@ -422,6 +431,7 @@ function buildAssistantSections(params: {
     mode,
     translationHeadingWelcome = true,
     isEngvoCall = false,
+    isEngvoTeacherCall = false,
   } = params
 
   if (mode === 'translation' && translationProtocolStatus === 'junk_repeat') {
@@ -543,10 +553,11 @@ function buildAssistantSections(params: {
   const hideEnglishRepeatCard = isTranslationErrorCoach
   const repeatLabel = isEngvoCall ? '' : mode === 'dialogue' ? 'Повтори' : 'Скажи'
   const repeatMarkerReplacement = repeatLabel ? `${repeatLabel}: ` : ''
+  const repeatTone: SectionTone = isEngvoTeacherCall ? 'correction' : 'emerald'
   if (showOnlyRepeat && repeatTextForCard && !isTranslationErrorCoach) {
     sections.push({
       key: 'repeat',
-      tone: 'emerald',
+      tone: repeatTone,
       label: repeatLabel,
       text: stripWrappingQuotes(repeatTextForCard),
       singleLine: true,
@@ -571,7 +582,7 @@ function buildAssistantSections(params: {
   if (!showOnlyRepeat && repeatTextForCard && !hideEnglishRepeatCard) {
     sections.push({
       key: 'repeat-inline',
-      tone: 'emerald',
+      tone: repeatTone,
       label: repeatLabel,
       text: stripWrappingQuotes(repeatTextForCard),
       singleLine: true,
@@ -699,7 +710,9 @@ export function buildAssistantSectionsForTranslationJunkRepeatTest(options: {
 export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
   repeatTextForCard: string
   isEngvoCall?: boolean
+  isEngvoTeacherCall?: boolean
   showOnlyRepeat?: boolean
+  mainBefore?: string
   mainAfter?: string
 }): AssistantSection[] {
   return buildAssistantSections({
@@ -710,12 +723,13 @@ export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
     showOnlyRepeat: options.showOnlyRepeat ?? true,
     hidePromptBlocks: false,
     repeatTextForCard: options.repeatTextForCard,
-    mainBefore: '',
+    mainBefore: options.mainBefore ?? '',
     hideRussianNonQuestionMainBefore: false,
     invitationText: null,
     mainAfter: options.mainAfter ?? '',
     mode: 'communication',
     isEngvoCall: options.isEngvoCall ?? true,
+    isEngvoTeacherCall: options.isEngvoTeacherCall ?? false,
   })
 }
 
@@ -1862,6 +1876,7 @@ export default function Chat({
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
   const typingDelayTimerRef = useRef<number | null>(null)
   const isEngvoActive = Boolean(engvo?.active)
+  const isEngvoTeacherCall = isEngvoActive && engvo?.sessionKind === 'teacher'
   const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
   /** Нижний bootstrap-индикатор Engvo: родитель может на один кадр отставать от messages - не показываем, если пузырь уже в ленте. */
   const engvoBootstrapTypingActive =
@@ -2264,6 +2279,7 @@ export default function Chat({
                       bubblePosition={bubblePosition}
                       engvoSlideEnter={feedSlideEnter}
                       isEngvoCall={isEngvoActive}
+                      isEngvoTeacherCall={isEngvoTeacherCall}
                       engvoCallInProgress={engvoCallInProgress}
                       communicationVoiceInputMode={communicationVoiceInputMode}
                       onRequestTranslation={onRequestTranslation}
@@ -2688,6 +2704,7 @@ function MessageBubble({
   bubblePosition,
   engvoSlideEnter = false,
   isEngvoCall = false,
+  isEngvoTeacherCall = false,
   engvoCallInProgress = false,
   communicationVoiceInputMode,
   onRequestTranslation,
@@ -2710,6 +2727,8 @@ function MessageBubble({
   engvoSlideEnter?: boolean
   /** Активен звонок Engvo - показываем «Перевод_звонок», скрываем обычную «Перевод». */
   isEngvoCall?: boolean
+  /** Teacher voice call only — ERROR repeat UI (lead-in + correction tone). */
+  isEngvoTeacherCall?: boolean
   /** Live Engvo call (before hang-up) — language-note `?` stays hidden. */
   engvoCallInProgress?: boolean
   communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
@@ -2745,7 +2764,7 @@ function MessageBubble({
   /** На ошибке перевода не показываем «Переведи далее:» - только «Переведи:» для того же задания. */
   let translationMainDrillHeadingWelcome = translationHeadingWelcome
   const isTranslationMode = mode === 'translation' && !isUser
-  const { mainBefore, invitation: invitationText, mainAfter } =
+  const { mainBefore: splitMainBefore, invitation: invitationText, mainAfter } =
     isTranslationMode && displayText
       ? splitTranslationInvitation(displayText)
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
@@ -2753,11 +2772,23 @@ function MessageBubble({
 
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) - блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
-  const repeatPrompt = !isUser && !isTranslationMode ? extractRepeatPrompt(mainBefore) : null
-  // Если это похвала (ответ правильный), игнорируем "Скажи:" даже если модель его вывела.
-  // Иначе UI может зациклиться на повторении.
-  const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
+  const lineStartRepeat = !isUser && !isTranslationMode ? extractRepeatPrompt(splitMainBefore) : null
+  const teacherInlineRepeat =
+    !lineStartRepeat && isEngvoTeacherCall && !isUser && !isTranslationMode
+      ? extractTeacherCallRepeatPrompt(splitMainBefore)
+      : null
+  const effectiveRepeatPrompt = isCorrectAnswerPraise
+    ? null
+    : lineStartRepeat
+      ? { repeatText: lineStartRepeat.repeatText }
+      : teacherInlineRepeat
+        ? { repeatText: teacherInlineRepeat.repeatText }
+        : null
   let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
+  let mainBefore = splitMainBefore
+  if (isEngvoTeacherCall && effectiveRepeatPrompt && !isCorrectAnswerPraise) {
+    mainBefore = teacherInlineRepeat?.leadIn ?? stripTeacherRepeatMarkers(splitMainBefore)
+  }
 
   const errorLike = !isUser && isErrorLikeAssistantMessage(visibleContent)
   const isEngvoCallFinishedLine =
@@ -2970,7 +3001,7 @@ function MessageBubble({
       ? (effectiveComment?.trim() || null)
       : null
   const translationSuccessPraiseCard = Boolean(translationPraiseDisplayText)
-  const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
+  const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard) && !isEngvoTeacherCall
   // Источник истины: в error-repeat показываем только коррекционные карточки.
   const hideTranslationPromptBlocks =
     (isTranslationMode &&
@@ -3075,6 +3106,7 @@ function MessageBubble({
         mode,
         translationHeadingWelcome: translationMainDrillHeadingWelcome,
         isEngvoCall,
+        isEngvoTeacherCall,
       })
 
   React.useLayoutEffect(() => {

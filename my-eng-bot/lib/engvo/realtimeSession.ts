@@ -4,10 +4,15 @@ import {
   ENGVO_REALTIME_SERVER_VAD_TURN_DETECTION,
   ENGVO_XAI_MODEL,
   ENGVO_XAI_PCM_SAMPLE_RATE,
-  ENGVO_XAI_SERVER_VAD_TURN_DETECTION,
   type EngvoRealtimeVoice,
   type EngvoXaiCallVoice,
 } from '@/lib/engvo/constants'
+import type { EngvoTeacherPhase, EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import {
+  appendEngvoXaiUnclearAudioRule,
+  resolveEngvoXaiLanguageHint,
+  resolveEngvoXaiVadTurnDetection,
+} from '@/lib/engvo/xaiListenPolicy'
 
 function buildEngvoAudioOutput(params: {
   voice: EngvoRealtimeVoice
@@ -107,24 +112,39 @@ const ENGVO_XAI_PCM_FORMAT = {
   rate: ENGVO_XAI_PCM_SAMPLE_RATE,
 }
 
-/** xAI Voice Agent `session.update` — PCM 24 kHz, language_hint ru, reasoning none. */
+/** xAI Voice Agent `session.update` — PCM 24 kHz, kind/phase hint+VAD, reasoning none. */
 export function buildEngvoXaiClientSessionUpdate(params: {
   /** Omit on voice/speed-only updates when relay rewrite supplies canonical instructions. */
   instructions?: string
   voice: EngvoXaiCallVoice
   speed?: number
+  kind?: EngvoVoiceSessionKind
+  teacherPhase?: EngvoTeacherPhase | null
+  /** When omitted, defaults to true (legacy). Pass false until listenArmed. */
+  createResponse?: boolean
+  keyterms?: string[]
 }): { type: 'session.update'; session: Record<string, unknown> } {
   const speed = clampEngvoRealtimeSpeed(params.speed ?? 1, 'xai')
+  const kind = params.kind ?? 'free_call'
+  const createResponse = params.createResponse ?? true
+  const languageHint = resolveEngvoXaiLanguageHint({
+    kind,
+    teacherPhase: params.teacherPhase,
+  })
+  const transcription: Record<string, unknown> = {
+    model: 'grok-transcribe',
+    language_hint: languageHint,
+  }
+  if (params.keyterms && params.keyterms.length > 0) {
+    transcription.keyterms = params.keyterms.slice(0, 100)
+  }
   const session: Record<string, unknown> = {
     voice: params.voice,
     audio: {
       input: {
         format: { ...ENGVO_XAI_PCM_FORMAT },
-        transcription: {
-          model: 'grok-transcribe',
-          language_hint: 'ru',
-        },
-        turn_detection: { ...ENGVO_XAI_SERVER_VAD_TURN_DETECTION },
+        transcription,
+        turn_detection: resolveEngvoXaiVadTurnDetection({ kind, createResponse }),
       },
       output: {
         format: { ...ENGVO_XAI_PCM_FORMAT },
@@ -137,7 +157,7 @@ export function buildEngvoXaiClientSessionUpdate(params: {
     },
   }
   if (typeof params.instructions === 'string') {
-    session.instructions = params.instructions
+    session.instructions = appendEngvoXaiUnclearAudioRule(params.instructions)
   }
   return {
     type: 'session.update',

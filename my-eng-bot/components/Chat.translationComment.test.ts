@@ -648,4 +648,20 @@ describe('engvo call repeat UI', () => {
     expect(after?.text).toBe('We have been to the hotel.')
     expect(after?.text).not.toMatch(/^:\s/)
   })
+
+  it('в Teacher-звонке ERROR-повтор: lead-in + correction tone, не emerald-only', () => {
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: 'I have taken the skewers off the fire.',
+      isEngvoCall: true,
+      isEngvoTeacherCall: true,
+      showOnlyRepeat: false,
+      mainBefore: 'Чуть иначе.',
+    })
+    expect(sections.find((s) => s.key === 'main')?.text).toBe('Чуть иначе.')
+    const repeat = sections.find((s) => s.key === 'repeat-inline')
+    expect(repeat?.tone).toBe('correction')
+    expect(repeat?.label).toBe('')
+    expect(repeat?.text).toMatch(/skewers off/i)
+    expect(sections.some((s) => s.key === 'repeat' && s.tone === 'emerald')).toBe(false)
+  })
 })

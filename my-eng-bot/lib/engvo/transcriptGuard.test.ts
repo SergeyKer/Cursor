@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { engvoVoiceTranscriptIsLikelyNoise, shouldShowEngvoVoiceUserTranscript } from './transcriptGuard'
+import {
+  engvoVoiceTranscriptIsLikelyNoise,
+  engvoVoiceTranscriptIsLikelyNoiseForKind,
+  shouldShowEngvoVoiceUserTranscript,
+} from './transcriptGuard'
 
 describe('shouldShowEngvoVoiceUserTranscript', () => {
   it('allows Russian, English, and mixed ru+en', () => {
@@ -37,5 +41,29 @@ describe('shouldShowEngvoVoiceUserTranscript', () => {
 describe('engvoVoiceTranscriptIsLikelyNoise', () => {
   it('treats repeated cough-like consonants as noise', () => {
     expect(engvoVoiceTranscriptIsLikelyNoise('кхкх')).toBe(true)
+  })
+})
+
+describe('engvoVoiceTranscriptIsLikelyNoiseForKind', () => {
+  it('keeps short EN/RU lexical tokens for teacher', () => {
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('I', 'teacher')).toBe(false)
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('go', 'teacher')).toBe(false)
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('am', 'teacher')).toBe(false)
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('да', 'teacher')).toBe(false)
+  })
+
+  it('still treats filler as noise for teacher', () => {
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('hm', 'teacher')).toBe(true)
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('uh', 'teacher')).toBe(true)
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('кхе', 'teacher')).toBe(true)
+  })
+
+  it('defaults free_call to the strict noise helper', () => {
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('hm', 'free_call')).toBe(
+      engvoVoiceTranscriptIsLikelyNoise('hm')
+    )
+    expect(engvoVoiceTranscriptIsLikelyNoiseForKind('кхкх')).toBe(
+      engvoVoiceTranscriptIsLikelyNoise('кхкх')
+    )
   })
 })

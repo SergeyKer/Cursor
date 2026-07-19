@@ -1,5 +1,8 @@
 import { ENGVO_CALL_FINISHED_ASSISTANT_TEXT } from '@/lib/engvo/constants'
+import { shouldReplaceEngvoUserTranscript } from '@/lib/engvo/xaiListenPolicy'
 import type { ChatMessage } from '@/lib/types'
+
+export { shouldReplaceEngvoUserTranscript }
 
 export function withoutEngvoServiceLines(messages: ChatMessage[]): ChatMessage[] {
   return messages.filter((message) => !message.engvoServiceLine)
@@ -46,8 +49,15 @@ export function insertEngvoUserMessage(
   return [...withoutDial.slice(0, -1), userMessage, last]
 }
 
-/** Replace content of the last user bubble (e.g. Grok partial → final transcript). No-op if none. */
-export function updateLastEngvoUserMessage(messages: ChatMessage[], content: string): ChatMessage[] {
+/**
+ * Replace content of the last user bubble.
+ * When `requireReplaceGate` is true (xAI), only prefix/near-equal updates apply.
+ */
+export function updateLastEngvoUserMessage(
+  messages: ChatMessage[],
+  content: string,
+  options?: { requireReplaceGate?: boolean }
+): ChatMessage[] {
   const trimmed = content.trim()
   if (!trimmed) return messages
 
@@ -55,6 +65,12 @@ export function updateLastEngvoUserMessage(messages: ChatMessage[], content: str
     const message = messages[i]
     if (message?.role !== 'user' || message.engvoServiceLine) continue
     if (message.content === trimmed) return messages
+    if (
+      options?.requireReplaceGate &&
+      !shouldReplaceEngvoUserTranscript(message.content, trimmed)
+    ) {
+      return messages
+    }
     const next = [...messages]
     next[i] = { ...message, content: trimmed }
     return next
