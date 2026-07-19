@@ -2081,6 +2081,8 @@ html[data-theme='glass3'] {
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
   padding: 16px 18px 18px;
 }
 

@@ -54,6 +54,7 @@ describe('footer sheet CSS guards', () => {
     )
     expect(css).toMatch(/\.footer-sheet-panel[\s\S]*border-top:\s*1px solid var\(--footer-sheet-divider\)/)
     expect(css).toMatch(/\.footer-sheet__body[\s\S]*overflow-y:\s*auto/)
+    expect(css).toMatch(/\.footer-sheet__body[\s\S]*touch-action:\s*pan-y/)
   })
 
   it('fixes language-note sheet height and wider body inset', () => {

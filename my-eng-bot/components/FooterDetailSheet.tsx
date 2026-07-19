@@ -21,6 +21,10 @@ import {
   type FooterSheetContext,
 } from '@/lib/footerSheet'
 import {
+  readFooterSheetBodyScrollMetrics,
+  shouldDelegateFooterSheetTouchToBodyScroll,
+} from '@/lib/footerSheetScroll'
+import {
   footerSheetBackdropOpacity,
   shouldDismissFooterSheet,
   shouldStartFooterSheetSwipe,
@@ -139,12 +143,11 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
       onClose()
     }
 
-    const isBodyScrollAtTop = () => (bodyRef.current?.scrollTop ?? 0) <= 0
-
     const handleTouchStart = (event: React.TouchEvent) => {
       if (!context || closing) return
       swipeStartYRef.current = event.touches[0]?.clientY ?? null
       swipeActiveRef.current = false
+      dragDeltaRef.current = 0
     }
 
     const handleTouchMove = (event: React.TouchEvent) => {
@@ -154,16 +157,27 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
 
       const deltaY = touchY - swipeStartYRef.current
       const startedFromBody = bodyRef.current?.contains(event.target as Node) ?? false
+      const metrics = readFooterSheetBodyScrollMetrics(bodyRef.current)
 
-      if (!swipeActiveRef.current && startedFromBody && !isBodyScrollAtTop() && deltaY < 0) {
+      if (
+        !swipeActiveRef.current &&
+        shouldDelegateFooterSheetTouchToBodyScroll({ startedFromBody, deltaY, metrics })
+      ) {
         swipeStartYRef.current = null
         return
       }
+
+      if (swipeActiveRef.current && deltaY <= 0) {
+        resetInlineSwipeStyles()
+        return
+      }
+
       if (deltaY <= 0) return
       if (!swipeActiveRef.current && !shouldStartFooterSheetSwipe(deltaY)) return
 
       swipeActiveRef.current = true
       dragDeltaRef.current = deltaY
+      event.preventDefault()
       const panel = panelRef.current
       const backdrop = backdropRef.current
       if (panel) {
@@ -178,9 +192,10 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
     const handleTouchEnd = () => {
       if (!context || swipeStartYRef.current === null) return
       const deltaY = dragDeltaRef.current
+      const wasSwipeActive = swipeActiveRef.current
       swipeStartYRef.current = null
 
-      if (swipeActiveRef.current && shouldDismissFooterSheet(deltaY)) {
+      if (wasSwipeActive && shouldDismissFooterSheet(deltaY)) {
         handleClose()
         return
       }

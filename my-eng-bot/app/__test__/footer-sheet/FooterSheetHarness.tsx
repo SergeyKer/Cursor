@@ -7,13 +7,40 @@ import FooterDetailSheet, { type FooterDetailSheetHandle } from '@/components/Fo
 import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
 import {
   buildFooterSheetContext,
+  buildLanguageNoteFooterSheetContext,
   shouldCloseFooterSheetOnRowPress,
   type FooterSheetContext,
   type FooterSheetSource,
 } from '@/lib/footerSheet'
+import type { LanguageNote } from '@/lib/languageNote/types'
 import type { Theme } from '@/lib/theme'
 
 const THEMES: Theme[] = ['basic', 'bubble2', 'glass1']
+
+const LONG_REASON =
+  'Палец тянет текст вниз в середине контента — панель не должна ехать вместе со скроллом. '
+
+function buildLongHarnessNote(): LanguageNote {
+  const reasons = Array.from({ length: 12 }, (_, i) => `${LONG_REASON}Блок ${i + 1}.`)
+  return {
+    status: 'needs_fix',
+    original: 'I watch final of the Football World Cup 2026.',
+    correct: 'I watched the final of the Football World Cup 2026.',
+    correctHighlights: ['watched', 'the'],
+    correctReasons: reasons.slice(0, 3),
+    better: 'I saw the World Cup final in 2026.',
+    betterHighlights: ['saw'],
+    betterReasons: [reasons[0]!],
+    betterAlternatives: ['I caught the World Cup final in 2026.'],
+    reviewTopics: [
+      { id: 'past-simple', title: 'Past Simple' },
+      { id: 'articles', title: 'Артикли' },
+      { id: 'watch-see', title: 'watch vs see' },
+    ],
+    lessonId: null,
+    lessonTitle: null,
+  }
+}
 
 function isHarnessTheme(value: string | null): value is Theme {
   return value != null && (THEMES as string[]).includes(value)
@@ -24,23 +51,32 @@ export default function FooterSheetHarness() {
   const themeParam = searchParams.get('theme')
   const sourceParam = searchParams.get('source')
   const openParam = searchParams.get('open')
+  const longParam = searchParams.get('long')
 
   const theme = isHarnessTheme(themeParam) ? themeParam : 'bubble2'
   const source: FooterSheetSource = sourceParam === 'static' ? 'static' : 'dynamic'
   const initiallyOpen = openParam === '1'
+  const longContent = longParam === '1'
 
   const appColumnRef = useRef<HTMLDivElement | null>(null)
   const footerSheetRef = useRef<FooterDetailSheetHandle>(null)
-  const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(() =>
-    initiallyOpen
-      ? buildFooterSheetContext({
-          source,
-          dynamicText: 'Подсказка урока',
-          staticText: '⭐ 2008 · ⚡ 1',
-          typingKey: 'harness-footer',
-        })
-      : null
-  )
+  const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(() => {
+    if (!initiallyOpen) return null
+    if (longContent) {
+      return buildLanguageNoteFooterSheetContext({
+        status: 'ready',
+        messageIndex: 0,
+        originalText: 'I watch final of the Football World Cup 2026.',
+        note: buildLongHarnessNote(),
+      })
+    }
+    return buildFooterSheetContext({
+      source,
+      dynamicText: 'Подсказка урока',
+      staticText: '⭐ 2008 · ⚡ 1',
+      typingKey: 'harness-footer',
+    })
+  })
   const columnBounds = useAppColumnBounds(appColumnRef, {
     remeasureWhen: Boolean(footerSheetContext),
   })
@@ -89,7 +125,8 @@ export default function FooterSheetHarness() {
         }}
       >
         <p className="text-sm text-[var(--text)]">
-          Theme: {theme}. Source: {source}. Open: {initiallyOpen ? 'yes' : 'no'}.
+          Theme: {theme}. Source: {source}. Open: {initiallyOpen ? 'yes' : 'no'}. Long:{' '}
+          {longContent ? 'yes' : 'no'}.
         </p>
       </main>
 

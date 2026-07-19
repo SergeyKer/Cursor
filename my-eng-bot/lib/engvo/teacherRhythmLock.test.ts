@@ -18,7 +18,7 @@ describe('buildEngvoTeacherRhythmLockRule', () => {
 
   it('includes reclaim priorities and anti-meta-farm', () => {
     const text = buildEngvoTeacherRhythmLockRule('a2', 'adult')
-    expect(text).toMatch(/pending Скажи/i)
+    expect(text).toMatch(/pending repeat/i)
     expect(text).toMatch(/same Russian/i)
     expect(text).toMatch(/locked topic/i)
     expect(text).toMatch(/skip repeat curiosity-praise/i)
