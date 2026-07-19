@@ -3,6 +3,7 @@ import {
   hasRussianDrillPayload,
   hasTranslateInvite,
   isIncompleteTeacherAssistantTurn,
+  looksLikeInterview,
   stripTranslateInvite,
 } from '@/lib/engvo/teacherDrillCompleteness'
 
@@ -131,5 +132,48 @@ describe('teacherDrillCompleteness', () => {
     })
     expect(r.incomplete).toBe(false)
     expect(r.isCompleteDrill).toBe(true)
+  })
+
+  it('looksLikeInterview catches content interview, not short praise', () => {
+    expect(looksLikeInterview('Where do you usually go?')).toBe(true)
+    expect(looksLikeInterview('Tell me about your trips.')).toBe(true)
+    expect(looksLikeInterview('Расскажите, куда вы ездите?')).toBe(true)
+    expect(looksLikeInterview("Good — you've got it.")).toBe(false)
+  })
+
+  it('marks post-first-drill interview as missing_drill', () => {
+    for (const text of [
+      'Where do you usually go?',
+      'Tell me about your trips.',
+      'Расскажите, куда вы ездите?',
+    ]) {
+      const r = isIncompleteTeacherAssistantTurn({
+        text,
+        phase: 'drill',
+        awaitingFirstDrill: false,
+      })
+      expect(r.incomplete).toBe(true)
+      expect(r.reason).toBe('missing_drill')
+    }
+  })
+
+  it('does not treat short warm close as missing_drill', () => {
+    const r = isIncompleteTeacherAssistantTurn({
+      text: "Good — you've got it.",
+      phase: 'drill',
+      awaitingFirstDrill: false,
+    })
+    expect(r.incomplete).toBe(false)
+    expect(r.reason).toBeNull()
+  })
+
+  it('keeps awaiting-first-drill interview as no_first_drill', () => {
+    const r = isIncompleteTeacherAssistantTurn({
+      text: 'Where do you usually go?',
+      phase: 'drill',
+      awaitingFirstDrill: true,
+    })
+    expect(r.incomplete).toBe(true)
+    expect(r.reason).toBe('no_first_drill')
   })
 })

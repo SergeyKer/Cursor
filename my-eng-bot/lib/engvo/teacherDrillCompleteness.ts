@@ -1,6 +1,9 @@
 import type { EngvoTeacherPhase } from '@/lib/engvo/sessionKind'
 
-export type TeacherDrillIncompleteReason = 'no_first_drill' | 'invite_without_ru'
+export type TeacherDrillIncompleteReason =
+  | 'no_first_drill'
+  | 'invite_without_ru'
+  | 'missing_drill'
 
 export type TeacherDrillCompletenessResult = {
   incomplete: boolean
@@ -18,6 +21,16 @@ const ERROR_REPEAT_MARKER_RE =
 
 const INVITE_ONLY_LINE_RE =
   /^(?:translate(?:\s+into\s+english)?|your\s+turn(?:\s*[—–-]?\s*in\s+english)?|go\s+ahead(?:\s*[—–-]?\s*(?:in\s+)?english)?|переведи(?:те)?(?:\s+на\s+английский(?:\s+язык)?)?|твоя\s+очередь(?:\s*[—–-]?\s*на\s+английском)?)\.?$/iu
+
+/**
+ * Content-interview turns after the first drill (not praise-only, not ERROR).
+ * Narrow on purpose — do not treat every EN turn without RU as incomplete.
+ */
+const INTERVIEW_EN_RE =
+  /\b(?:where|what|how|why|when|tell\s+me|do\s+you|did\s+you|have\s+you|are\s+you)\b/iu
+
+const INTERVIEW_RU_RE =
+  /(?:расскаж|поведай|а\s+что\s+ты|куда\s+ты|что\s+ты\s+обычно)/iu
 
 /** Strip translate-invite lines/phrases so remaining Cyrillic is drill payload. */
 export function stripTranslateInvite(text: string): string {
@@ -52,6 +65,19 @@ export function hasRussianDrillPayload(text: string): boolean {
 
 export function hasErrorRepeatMarkers(text: string): boolean {
   return ERROR_REPEAT_MARKER_RE.test(text)
+}
+
+/** True when the turn looks like a topic/experience interview, not a drill. */
+export function looksLikeInterview(text: string): boolean {
+  const t = text.trim()
+  if (!t) return false
+  if (INTERVIEW_RU_RE.test(t)) return true
+  if (!INTERVIEW_EN_RE.test(t)) return false
+  // Require question shape or interview-verb lead so praise with "how" does not fire.
+  if (/[?]/.test(t)) return true
+  if (/\b(?:tell\s+me|do\s+you|did\s+you|have\s+you|are\s+you)\b/iu.test(t)) return true
+  // Where/What/How/Why/When as sentence start (common interview without "?")
+  return /(?:^|[.!?]\s*)(?:where|what|how|why|when)\b/iu.test(t)
 }
 
 /**
@@ -89,6 +115,10 @@ export function isIncompleteTeacherAssistantTurn(params: {
 
   if (invite && !payload) {
     return { incomplete: true, reason: 'invite_without_ru', isCompleteDrill: false }
+  }
+
+  if (!isCompleteDrill && looksLikeInterview(text)) {
+    return { incomplete: true, reason: 'missing_drill', isCompleteDrill: false }
   }
 
   return { incomplete: false, reason: null, isCompleteDrill }

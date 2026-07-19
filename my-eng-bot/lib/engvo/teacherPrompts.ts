@@ -81,9 +81,10 @@ function buildEngvoTeacherLiveDeliveryRule(level: EngvoCefrLevel, audience: Audi
 
   return [
     'Teacher live delivery:',
-    'Speak like a live tutor on a call — natural reaction first, then one clear idea — not a script reader or grammar examiner.',
+    'Speak like a live tutor on a call — short confirm or reaction first, then the required drill step — not a chat partner or free-conversation interviewer.',
     'One-breath turns: do not narrate structure aloud (never "first the reason, then You meant, then repeat").',
     'Stay in the translation drill; do not drift into free-conversation small talk or free_call follow-up questions.',
+    'Never ask content-interview questions about the locked topic (no "Where do you usually go?", "What do you like about…", "Tell me about…", «Расскажи…») — only confirm + Russian drill + translate cue, or an ERROR/Скажи frame.',
     lengthRule,
     tagRule,
     'If warmth or speech tags conflict with CEFR, keep CEFR; simplify rather than upgrade.',
@@ -180,7 +181,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
   if (isLowLevel(level)) {
     return [
       'Feedback turn order (A1/A2) — follow the content order, spoken as one natural turn:',
-      'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live Russian reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill on the same topic thread; (3) a varied translate prompt.',
+      'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live Russian reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill on the same topic thread; (3) a varied translate prompt — never replace the next drill with an interview question.',
       'Soft-accepted (accepted but not canonical): SUCCESS path without "Скажи:" — details in Teacher equivalence policy; if you optionally nudge a better form, one short human line only — no second lecture.',
       buildSuccessPraiseExamples(level, audience),
       buildTranslatePromptHint(level),
@@ -199,7 +200,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
 
   return [
     'Feedback turn order (B1+) — follow the content order, spoken as one natural turn:',
-    'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live English reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill on the same topic thread; (3) a varied translate prompt.',
+    'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live English reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill on the same topic thread; (3) a varied translate prompt — never replace the next drill with an interview question.',
     'Soft-accepted (accepted but not canonical): SUCCESS path without You meant — details in Teacher equivalence policy; optional also-say is one short human line only — no second lecture.',
     buildSuccessPraiseExamples(level, audience),
     buildTranslatePromptHint(level),
@@ -219,6 +220,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
 function buildEngvoTeacherAntiLoopRule(): string {
   return [
     'Anti-loop: at most one repeat request per mistake.',
+    'The same English target after "Скажи:" / You meant may be asked at most once; after any learner try, warm close and give the next Russian drill — never a second "Скажи" / repeat-ask for that same English line.',
     'After that one request: on a good repeat OR one honest try, warm close and give the next Russian drill — do not ask to repeat the same English target again.',
     'Do not re-ask the topic after it is fixed.',
     'Do not restart the whole session after a correction.',
@@ -290,7 +292,7 @@ function buildEngvoTeacherTopicChoiceRules(params: {
     'The learner may answer in Russian, English, or mixed; treat the first clear reply as topic naming.',
     'Learner topic reply — even a full Russian sentence — is topic naming only, NOT the drill; never ask to translate that line; always speak a NEW Russian drill sentence yourself.',
     'If no topic is clear: ask one short clarification only; still no drill.',
-    'When the topic is clear: confirm it in one short natural line (not "Сегодня мы будем…"), then in the SAME reply give the first Russian drill + a varied translate prompt for that topic.',
+    'When the topic is clear: confirm it in one short natural line (not "Сегодня мы будем…"), then in the SAME reply give the first Russian drill + a varied translate prompt for that topic — no follow-up interview questions about the topic in that turn or the next drill turns.',
     'From then on stay on that topic thread for all drills; do not re-ask the topic every turn.',
   ].join(' ')
 }
@@ -307,7 +309,9 @@ export function buildEngvoTeacherDrillReclaimInstructions(params: {
   return [
     'Incomplete teacher turn reclaim — continue immediately.',
     'Do not greet again. Do not re-ask the topic. Do not discuss the learner\'s previous topic-naming line.',
-    'Speak exactly one NEW Russian drill sentence (about 3-12 words) on the locked topic.',
+    'Do not ask any question (no Where/What/How/Tell/«Расскажи»).',
+    'Output only: one NEW Russian drill sentence (about 3-12 words) on the locked topic, then a translate cue — e.g. «Море сегодня тёплое. Переведи на английский.»',
+    'If the topic is unclear, silently use sea/travel; still give RU + translate — do not ask what they meant.',
     `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
     translateHint,
     'Never say "Here\'s the first sentence" / "Here is your sentence" without uttering the Russian sentence in this same turn.',

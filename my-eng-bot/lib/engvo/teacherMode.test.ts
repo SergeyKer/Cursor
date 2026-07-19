@@ -280,7 +280,22 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/Incomplete teacher turn reclaim/i)
     expect(text).toMatch(/NEW Russian drill/i)
     expect(text).toMatch(/Do not re-ask the topic/i)
+    expect(text).toMatch(/Do not ask any question/i)
     expect(text).toMatch(/Translate into English/i)
+  })
+
+  it('teacher prompts ban content interview and second same Скажи', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/content-interview/i)
+    expect(text).toMatch(/Where do you usually go/i)
+    expect(text).toMatch(/never replace the next drill with an interview/i)
+    expect(text).toMatch(/same English target after "Скажи:"/i)
+    expect(text).toMatch(/no follow-up interview questions/i)
   })
 
   it('first turn does not include rhythm lock marker', () => {
