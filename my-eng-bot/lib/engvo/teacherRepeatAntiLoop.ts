@@ -24,15 +24,33 @@ const YOU_MEANT_CHUNK_RE =
   /you\s*mean(?:t)?\s*:\s*["“]?[^"”\n]+["”]?/gi
 const SKAZHI_CHUNK_RE = /скажи\s*:\s*[^.!?\n]+[.!?]?/gi
 const SAY_CHUNK_RE = /(?:^|[.!?]\s*)say\s*:\s*[^.!?\n]+[.!?]?/gi
+const EN_CONTRAST_CHUNK_RE =
+  /\bso:\s*["“]?[^"“”]+?["”]?\s*[—–\-]+\s*not(?:\s+just)?\s*:?[^.!?\n]*/gi
+const RU_CONTRAST_CHUNK_RE =
+  /(?:^|[^\p{L}\p{N}])так:\s*["“]?[^"“”]+?["”]?\s*[—–\-]+\s*не\s*так\s*:?[^.!?\n]*/giu
 
-/** Remove Скажи / Say / You meant chunks; keep soft lead-in if any. */
+function tidyStripped(text: string): string {
+  return text.replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim()
+}
+
+/** Remove Скажи / Say / You meant chunks; keep soft lead-in and contrast speech. */
 export function stripTeacherRepeatMarkers(text: string): string {
   let out = text
     .replace(YOU_MEANT_CHUNK_RE, ' ')
     .replace(SKAZHI_CHUNK_RE, ' ')
     .replace(SAY_CHUNK_RE, ' ')
-  out = out.replace(/\s{2,}/g, ' ').replace(/\s+([,.!?])/g, '$1').trim()
-  return out
+  return tidyStripped(out)
+}
+
+/**
+ * Anti-loop block only: also drop contrast frames so a second repeat target
+ * does not remain visible after the one-try policy fires.
+ */
+export function stripTeacherRepeatPayload(text: string): string {
+  let out = stripTeacherRepeatMarkers(text)
+    .replace(EN_CONTRAST_CHUNK_RE, ' ')
+    .replace(RU_CONTRAST_CHUNK_RE, ' ')
+  return tidyStripped(out)
 }
 
 export function hasTeacherRepeatMarker(text: string): boolean {
@@ -105,7 +123,7 @@ export function applyAssistantAntiLoopPolicy(
   if (state.repeatConsumed && state.pendingTarget && corrected) {
     return {
       state,
-      displayText: stripTeacherRepeatMarkers(text),
+      displayText: stripTeacherRepeatPayload(text),
       shouldAntiLoopReclaim: true,
       blocked: true,
       armed: false,

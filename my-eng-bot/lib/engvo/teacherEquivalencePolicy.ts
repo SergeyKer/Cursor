@@ -27,12 +27,12 @@ export function buildTeacherEquivalencePolicyBlock(level: EngvoCefrLevel): strin
     : 'A2+: on meta 1 contrast (never "both always the same") → Rhythm lock bridge+cue.'
 
   const softAccepted = isA1(level)
-    ? 'Soft-accepted: SUCCESS silent, no Скажи:/You meant; next drill.'
-    : 'Soft-accepted: SUCCESS; optional "also say …"; no Скажи:/You meant; next drill.'
+    ? 'Soft-accepted: SUCCESS silent, no Скажи:/so-not ERROR; next drill.'
+    : 'Soft-accepted: SUCCESS; optional also-say; no Скажи:/so-not ERROR; next drill.'
 
   return [
     TEACHER_EQUIVALENCE_POLICY_MARKER,
-    'Fix one canonical English per drill for Скажи:/You meant.',
+    'Fix one canonical English per drill (A1–A2: Скажи:; B1+: so: … — not:).',
     'accepted = canonical + same-meaning variants only if grammar intact (3sg works not work; tense; type; prep/article from set).',
     'ERROR iff outside accepted (missing prep or broken verb = ERROR).',
     softAccepted,
@@ -42,7 +42,7 @@ export function buildTeacherEquivalencePolicyBlock(level: EngvoCefrLevel): strin
     'Never lead with bare "Неправильно."/"Incorrect." alone — soft lead-in + reason.',
     'RU работает в школе/больнице → workplace; prefer canonical at a school/hospital; in a … accepted.',
     'Bank: school at=canonical in=accepted no-prep=ERROR; at/in school (student)≠at a school (job); time in/on/at; like/love want/would like both OK unless register targeted.',
-    'Golden: "My sister works school" → ERROR → "My sister works at a school." + Скажи:.',
+    'Golden: "My sister works school" → ERROR → "My sister works at a school." + Скажи:/so-not.',
     'Golden: "My sister works at a school" vs canonical in → SUCCESS soft, not ERROR.',
     'Golden: "... work at a school. Почему не at?" → at/in OK + fix work→works; never only "both always fine".',
   ].join(' ')

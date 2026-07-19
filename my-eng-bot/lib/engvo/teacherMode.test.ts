@@ -42,6 +42,43 @@ describe('extractTeacherCorrection', () => {
   it('returns null without markers', () => {
     expect(extractTeacherCorrection('Молодец! Я люблю путешествовать. Переведи на английский.').corrected).toBeNull()
   })
+
+  it('parses B1+ contrast so:/not without You meant', () => {
+    const r = extractTeacherCorrection(
+      'Close — so: I have a cat — not: I have cat. Try that.'
+    )
+    expect(r.marker).toBe('contrast')
+    expect(r.corrected).toBe('I have a cat')
+  })
+
+  it('parses contrast with not just and em-dash', () => {
+    const r = extractTeacherCorrection(
+      'Almost — so: I\'ve never seen such a clear sea — not just so clear. Your turn.'
+    )
+    expect(r.marker).toBe('contrast')
+    expect(r.corrected?.toLowerCase()).toContain('never seen such a clear sea')
+  })
+
+  it('prefers legacy You meant when both markers present', () => {
+    const r = extractTeacherCorrection(
+      'Close — so: I have a cat — not: I have cat. You meant: "I have a cat." Try that.'
+    )
+    expect(r.marker).toBe('you_meant')
+    expect(r.corrected).toMatch(/I have a cat/i)
+  })
+
+  it('does not parse SUCCESS or bare so as contrast', () => {
+    expect(
+      extractTeacherCorrection(
+        "Good — you've got it. Мы никогда не видели такого чистого моря. Your turn — in English."
+      ).corrected
+    ).toBeNull()
+    expect(
+      extractTeacherCorrection('Natural. Завтра пляж пустой. Translate into English.').corrected
+    ).toBeNull()
+    expect(extractTeacherCorrection('So, next one.').corrected).toBeNull()
+    expect(extractTeacherCorrection('So what do you think?').corrected).toBeNull()
+  })
 })
 
 describe('pickOpeningSeed', () => {
@@ -144,17 +181,20 @@ describe('teacher prompts', () => {
     expect(text).not.toMatch(/same mistake repeats next/i)
   })
 
-  it('B1+ requires conversational micro-reason before You meant', () => {
+  it('B1+ requires conversational so:/not contrast without You meant protocol', () => {
     const text = buildEngvoTeacherRealtimeInstructions({
       audience: 'adult',
       level: 'b1',
       tense: 'present_simple',
       sentenceType: 'general',
     })
-    expect(text).toMatch(/You meant/)
+    expect(text).toMatch(/so:\s*<canonical>/i)
+    expect(text).toMatch(/never say You meant/i)
+    expect(text).not.toMatch(/Use "You meant/)
+    expect(text).not.toMatch(/You meant: "<canonical/)
     expect(text).toMatch(/micro-reason/i)
     expect(text).toMatch(/Bare "Incorrect\." \/ "Wrong\." without a reason is forbidden/)
-    expect(text).toMatch(/Never pack the next Russian drill into the same turn as You meant/)
+    expect(text).toMatch(/Never pack the next Russian drill into the same turn as the so:\/not/)
     expect(text).toMatch(/contrast of forms/i)
     expect(text).toMatch(/The article is missing/)
     expect(text).toMatch(/Anti-cliche/)
@@ -163,6 +203,18 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/always Russian/i)
     expect(text).not.toMatch(/same mistake repeats next/i)
     expect(text).not.toContain('Conversational delivery:')
+  })
+
+  it('child B1+ uses same English so:/not ERROR path', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'child',
+      level: 'b1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/so:\s*<canonical>/i)
+    expect(text).toMatch(/never say You meant/i)
+    expect(text).not.toMatch(/Use "You meant/)
   })
 
   it('adult A2 success examples stay adult-oriented', () => {
@@ -249,7 +301,7 @@ describe('teacher prompts', () => {
     })
     expect(text).toContain(TEACHER_RHYTHM_LOCK_MARKER)
     expect(text).toMatch(/soft bridge/i)
-    expect(text).toMatch(/pending Скажи/i)
+    expect(text).toMatch(/pending repeat/i)
     expect(text).toMatch(/same Russian/i)
     expect(text).toMatch(/never silent wait/i)
     expect(text).toMatch(/Incomplete topic→drill handoff/i)
@@ -338,7 +390,9 @@ describe('instructions branching', () => {
       tense: 'present_simple',
       sentenceType: 'general',
     })
-    expect(text).toMatch(/You meant/)
+    expect(text).toMatch(/so:\s*<canonical>/i)
+    expect(text).toMatch(/never say You meant/i)
+    expect(text).not.toMatch(/Use "You meant/)
     expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
     expect(text).toContain(TEACHER_RHYTHM_LOCK_MARKER)
   })

@@ -48,7 +48,7 @@ function buildEngvoTeacherLanguageRule(level: EngvoCefrLevel, audience: Audience
     'Language for this teacher session (B1+):',
     'Give instructions, praise, and feedback in English at the learner CEFR — short, common words; not academic metalanguage.',
     'The drill sentence for translation is always Russian.',
-    'Use "You meant: \\"...\\"" for corrections and ask for one repeat in English.',
+    'On ERROR: put the canonical English once inside so: <canonical> — not: <learner bit>, then ask once to repeat — never say You meant / You mean.',
   ].join(' ')
 }
 
@@ -82,7 +82,7 @@ function buildEngvoTeacherLiveDeliveryRule(level: EngvoCefrLevel, audience: Audi
   return [
     'Teacher live delivery:',
     'Speak like a live tutor on a call — natural reaction first, then one clear idea — not a script reader or grammar examiner.',
-    'One-breath turns: do not narrate structure aloud (never "first the reason, then You meant, then repeat").',
+    'One-breath turns: do not narrate structure aloud (never "first the reason, then the contrast, then repeat").',
     'Stay in the translation drill; do not drift into free-conversation small talk or free_call follow-up questions.',
     lengthRule,
     tagRule,
@@ -114,7 +114,7 @@ function buildEngvoTeacherVoiceStyleRules(level: EngvoCefrLevel, audience: Audie
     'On errors use a supportive soft lead-in (e.g. "Почти.", "Чуть иначе.", "Close —") plus a conversational contrast reason — never a bare "Неверно." / "Wrong." / "Incorrect." / "Неправильно." alone.',
     'Never start an error turn with bare "Неправильно." or "Incorrect." with no soft lead-in and reason.',
     'Vary soft lead-ins; do not start every error with the same "Почти".',
-    'Marker is not the emotion: do not open an ERROR turn with "You meant" or "Скажи"; lead with reaction + contrast, then the marker.',
+    'Marker is not the emotion: do not open an ERROR turn with "Скажи" or a bare contrast frame; lead with reaction, then the contrast (B1+: so:/not; A1/A2: then Скажи).',
   ].join(' ')
 }
 
@@ -169,8 +169,9 @@ function buildRepeatAskHint(level: EngvoCefrLevel): string {
     return 'After the English model, say exactly once "Скажи: <English>" — that marker is required; vary only the soft lead-in and contrast before it.'
   }
   return [
-    'After You meant: "<canonical English>", ask once to say it — vary the ask (orientation, not a whitelist): "Try that." / "Your turn." / "That line." / "Go ahead — that version." / occasionally "Can you say that?".',
+    'After the required so: <canonical> — not: <bit> contrast, ask once to say it — vary the ask (orientation, not a whitelist): "Try that." / "Your turn." / "That line." / "Go ahead — that version." / occasionally "Can you say that?".',
     'Anti-cliche: do not close every ERROR with the same repeat-ask phrase.',
+    'Never say You meant or You mean. Never say the full canonical English twice in one turn.',
   ].join(' ')
 }
 
@@ -200,18 +201,18 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
   return [
     'Feedback turn order (B1+) — follow the content order, spoken as one natural turn:',
     'SUCCESS (English in the accepted set for this drill — see Teacher equivalence policy): (1) one short live English reaction calibrated to near/solid/strong for this phrase only; (2) next Russian drill on the same topic thread; (3) a varied translate prompt.',
-    'Soft-accepted (accepted but not canonical): SUCCESS path without You meant — details in Teacher equivalence policy; optional also-say is one short human line only — no second lecture.',
+    'Soft-accepted (accepted but not canonical): SUCCESS path without so:/not ERROR frame and without You meant — details in Teacher equivalence policy; optional also-say is one short human line only — no second lecture; do not use so: … — not: on soft-accepted.',
     buildSuccessPraiseExamples(level, audience),
     buildTranslatePromptHint(level),
-    'ERROR (outside accepted, audio was clear): (1) soft lead-in + one short conversational English micro-reason via contrast of forms; (2) You meant: "<canonical English>"; (3) ask once to say it with a varied repeat-ask.',
+    'ERROR (outside accepted, audio was clear): (1) soft lead-in + one short conversational English micro-reason via the required contrast frame so: <canonical> — not: <learner bit> (canonical once only); (2) ask once to say it with a varied repeat-ask.',
     buildRepeatAskHint(level),
-    'Never pack the next Russian drill into the same turn as You meant / the repeat request.',
+    'Never pack the next Russian drill into the same turn as the so:/not contrast / the repeat request.',
     'Bare "Incorrect." / "Wrong." without a reason is forbidden.',
     'NEAR-MISS: warmer ("Close — …"). FAR-MISS: calm and clear, no pressure.',
     'AFTER a successful repeat (or one honest try): (1) brief warm fix without cliche plate; (2) next Russian drill + varied translate prompt; (3) do not re-loop the same English — move on after one honest try.',
     buildAfterRepeatExamples(level, audience),
     microReason,
-    'ERROR orientation (not a whitelist): "Close — so: I have just had a shower — not: I have just had shower. You meant: \\"I have just had a shower.\\" Try that." — never "The article is missing. You meant: \\"…\\". Can you say that?" as a fixed plate.',
+    'ERROR orientation (not a whitelist): "Close — so: I have just had a shower — not: I have just had shower. Try that." — never "The article is missing. You meant: \\"…\\". Can you say that?" and never a second copy of the canonical after the contrast.',
     'Unclear or noisy audio is not an error: ask briefly to repeat; do not invent meaning and do not mark it wrong.',
   ].join(' ')
 }
@@ -257,9 +258,9 @@ export function buildEngvoTeacherRhythmLockRule(level: EngvoCefrLevel, audience:
     'Bridge is declarative, not a question; no more meta-chat.',
     bridgeOrientation,
     'Derail: neutral bridge («ладно, возвращаемся» / "ok — back to this one"); no fake praise, no debate, no moral lecture, no free-call follow-up.',
-    'Reclaim: pending Скажи/repeat → same English (refuse/meta ≠ honest try); active drill → same Russian + translate; done → next drill on locked topic.',
+    'Reclaim: pending repeat → same English (refuse/meta ≠ honest try); active drill → same Russian + translate; done → next drill on locked topic.',
     'Incomplete topic→drill handoff (confirm without Russian drill + translate cue) is also reclaim — never silent wait after topic naming.',
-    'No next Russian drill with pending Скажи. topic_choice derail → re-ask topic only.',
+    'No next Russian drill with a pending repeat. topic_choice derail → re-ask topic only.',
     'Repeat meta: shorter reclaim, skip repeat curiosity-praise.',
     'Grammar-meta contrast = beat 1; bridge = beat 2; cue = beat 3; A1 fuse beats 1–2.',
     'Anti-cliche: vary bridge; not same twice in a row.',
@@ -285,7 +286,7 @@ function buildEngvoTeacherTopicChoiceRules(params: {
     ask,
     'You may briefly offer 2-3 everyday topic examples, spoken naturally (no numbered chat list required).',
     'Do NOT give a Russian drill sentence yet.',
-    'Do NOT say Переведи / Translate / You meant / Скажи on this turn.',
+    'Do NOT say Переведи / Translate / You meant / Скажи / so: … — not: on this turn.',
     'Do not drift into free-conversation small talk after the greeting.',
     'The learner may answer in Russian, English, or mixed; treat the first clear reply as topic naming.',
     'Learner topic reply — even a full Russian sentence — is topic naming only, NOT the drill; never ask to translate that line; always speak a NEW Russian drill sentence yourself.',

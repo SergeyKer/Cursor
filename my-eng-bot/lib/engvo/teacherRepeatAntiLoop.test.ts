@@ -50,6 +50,31 @@ describe('teacherRepeatAntiLoop', () => {
     expect(second.displayText).not.toMatch(/You meant/i)
   })
 
+  it('arms and blocks on contrast-only ERROR (no You meant)', () => {
+    let state = createTeacherRepeatAntiLoopState()
+    const first = applyAssistantAntiLoopPolicy(
+      state,
+      'Close — so: I have a cat — not: I have cat. Try that.'
+    )
+    expect(first.armed).toBe(true)
+    expect(first.state.pendingTarget).toContain('cat')
+    const got = extractTeacherCallRepeatPrompt(
+      'Close — so: I have a cat — not: I have cat. Try that.'
+    )
+    expect(got?.repeatText).toBe('I have a cat')
+    expect(got?.leadIn).toMatch(/so:\s*I have a cat/i)
+    expect(got?.leadIn).not.toMatch(/You meant/i)
+
+    state = noteUserFinal(first.state)
+    const second = applyAssistantAntiLoopPolicy(
+      state,
+      'Still off. so: I have a cat — not: I have cat. Go ahead.'
+    )
+    expect(second.blocked).toBe(true)
+    expect(second.displayText).not.toMatch(/\bso:/i)
+    expect(second.displayText).not.toMatch(/I have a cat/i)
+  })
+
   it('allows a new Скажи after complete drill resets', () => {
     let state = createTeacherRepeatAntiLoopState()
     state = applyAssistantAntiLoopPolicy(state, 'Скажи: I have a cat.').state

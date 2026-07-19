@@ -1,4 +1,5 @@
 import type { EngvoTeacherPhase } from '@/lib/engvo/sessionKind'
+import { extractTeacherCorrection } from '@/lib/learningMemory/teacherCorrection'
 
 export type TeacherDrillIncompleteReason = 'no_first_drill' | 'invite_without_ru'
 
@@ -12,9 +13,6 @@ export type TeacherDrillCompletenessResult = {
 /** `\b` is ASCII-only; use explicit edges for Cyrillic invites. */
 const TRANSLATE_INVITE_RE =
   /(?:\btranslate\b|\byour\s+turn\b|\bgo\s+ahead\b[\s\S]{0,40}?\benglish\b|(?:^|[^\p{L}\p{N}])переведи(?:те)?(?=$|[^\p{L}\p{N}])|(?:^|[^\p{L}\p{N}])твоя\s+очередь(?=$|[^\p{L}\p{N}])|(?:^|[^\p{L}\p{N}])на\s+английск(?:ий|ом)(?=$|[^\p{L}\p{N}]))/iu
-
-const ERROR_REPEAT_MARKER_RE =
-  /(?:\byou\s+meant\b|\byou\s+mean\b|(?:^|[^\p{L}\p{N}])скажи\s*:)/iu
 
 const INVITE_ONLY_LINE_RE =
   /^(?:translate(?:\s+into\s+english)?|your\s+turn(?:\s*[—–-]?\s*in\s+english)?|go\s+ahead(?:\s*[—–-]?\s*(?:in\s+)?english)?|переведи(?:те)?(?:\s+на\s+английский(?:\s+язык)?)?|твоя\s+очередь(?:\s*[—–-]?\s*на\s+английском)?)\.?$/iu
@@ -50,8 +48,9 @@ export function hasRussianDrillPayload(text: string): boolean {
   return /[А-Яа-яЁё]{3,}/u.test(stripped)
 }
 
+/** ERROR/repeat turns: same source of truth as card, keyterms, anti-loop. */
 export function hasErrorRepeatMarkers(text: string): boolean {
-  return ERROR_REPEAT_MARKER_RE.test(text)
+  return Boolean(extractTeacherCorrection(text).corrected)
 }
 
 /**
