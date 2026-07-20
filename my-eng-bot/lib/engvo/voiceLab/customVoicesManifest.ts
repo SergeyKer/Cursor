@@ -10,7 +10,7 @@ export type EngvoCustomVoicesManifest = {
   voices: EngvoCustomVoiceEntry[]
 }
 
-const CUSTOM_VOICE_ID_RE = /^[a-z0-9]{8}$/
+const CUSTOM_VOICE_ID_RE = /^[a-z0-9]{8,16}$/
 
 export function isEngvoCustomVoiceIdFormat(value: string): boolean {
   return CUSTOM_VOICE_ID_RE.test(value.trim())

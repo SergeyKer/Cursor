@@ -10,8 +10,10 @@ describe('custom voices allowlist', () => {
 
   it('validates custom id format', () => {
     expect(isEngvoCustomVoiceIdFormat('nlbqfwie')).toBe(true)
+    expect(isEngvoCustomVoiceIdFormat('vhui8mnvu0yd')).toBe(true)
     expect(isEngvoCustomVoiceIdFormat('LUNA')).toBe(false)
     expect(isEngvoCustomVoiceIdFormat('short')).toBe(false)
+    expect(isEngvoCustomVoiceIdFormat('toolongvoiceidxxx')).toBe(false)
   })
 
   it('allows built-in via isEngvoAllowedXaiVoice; unknown custom not in empty manifest', () => {

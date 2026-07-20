@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     const name = body.name?.trim() ?? ''
     if (!isEngvoCustomVoiceIdFormat(voiceId)) {
       return NextResponse.json(
-        { error: 'invalid_voice_id', userMessage: 'voice_id должен быть 8 символов [a-z0-9].' },
+        { error: 'invalid_voice_id', userMessage: 'voice_id: 8–16 символов [a-z0-9].' },
         { status: 400 }
       )
     }

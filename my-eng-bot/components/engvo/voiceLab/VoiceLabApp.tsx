@@ -531,8 +531,8 @@ export default function VoiceLabApp() {
               className={`${fieldClass} font-mono`}
               value={registerId}
               onChange={(e) => setRegisterId(e.target.value)}
-              placeholder="nlbqfwie"
-              maxLength={8}
+              placeholder="abc123xyz456"
+              maxLength={16}
             />
           </label>
           <label className={labelClass}>

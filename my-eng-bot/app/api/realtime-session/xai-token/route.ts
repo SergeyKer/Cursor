@@ -7,6 +7,7 @@ import {
   isEngvoAllowedXaiVoice,
   ENGVO_DEFAULT_LEVEL,
 } from '@/lib/engvo/constants'
+import { isEngvoCustomVoiceIdFormat } from '@/lib/engvo/voiceLab/customVoicesManifest'
 import {
   ENGVO_XAI_MISSING_KEY_USER_MESSAGE,
   ENGVO_XAI_TOKEN_USER_MESSAGE,
@@ -75,7 +76,32 @@ export async function POST(req: NextRequest) {
     void level
     void topic
     void speechSpeed
-    void voice
+
+    // Custom voices are team-scoped. Manifest allowlist alone is not enough — the API key
+    // must own the voice, or Realtime silently synthesizes a built-in female fallback.
+    if (isEngvoAllowedXaiVoice(requestedVoice) && isEngvoCustomVoiceIdFormat(requestedVoice)) {
+      let ownedOk = false
+      try {
+        const owned = await fetchWithProxyFallback(
+          `https://api.x.ai/v1/custom-voices/${requestedVoice}`,
+          { headers: { Authorization: `Bearer ${key}` } }
+        )
+        ownedOk = owned.ok
+        await owned.text().catch(() => '')
+      } catch {
+        ownedOk = false
+      }
+      if (!ownedOk) {
+        return NextResponse.json(
+          {
+            error: 'custom_voice_unavailable_for_api_key',
+            userMessage:
+              'Custom voice недоступен для XAI_API_KEY (не та team или неверный voice_id). Sample в Console смотрит на логин; звонок Engvo — на API-ключ и ID в манифесте.',
+          },
+          { status: 403 }
+        )
+      }
+    }
 
     const upstream = await fetchWithProxyFallback(XAI_CLIENT_SECRETS_URL, {
       method: 'POST',

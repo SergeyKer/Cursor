@@ -96,4 +96,20 @@ describe('POST /api/realtime-session/xai-token', () => {
     expect(data.userMessage).toBeTruthy()
     expect(JSON.stringify(data)).not.toContain('xai-test-secret-key-do-not-leak')
   })
+
+  it('blocks custom voice when API key does not own it (404)', async () => {
+    const manifest = await import('@/data/engvo-custom-voices.json')
+    const customId = manifest.voices[0]?.voiceId
+    expect(customId).toMatch(/^[a-z0-9]{8,16}$/)
+
+    fetchMock.mockResolvedValue(new Response('{"error":"not found"}', { status: 404 }))
+    const res = await POST(makeRequest({ voice: customId }) as never)
+    const data = (await res.json()) as { error?: string; userMessage?: string }
+    expect(res.status).toBe(403)
+    expect(data.error).toBe('custom_voice_unavailable_for_api_key')
+    expect(data.userMessage).toMatch(/XAI_API_KEY/)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const [url] = fetchMock.mock.calls[0] as [string]
+    expect(url).toContain(`/v1/custom-voices/${customId}`)
+  })
 })
