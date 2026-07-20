@@ -1,3 +1,9 @@
 {
-  "voices": []
+  "voices": [
+    {
+      "voiceId": "vhui8mnv",
+      "name": "Engvo 1",
+      "createdAt": "2026-07-20T10:13:00.000Z"
+    }
+  ]
 }
