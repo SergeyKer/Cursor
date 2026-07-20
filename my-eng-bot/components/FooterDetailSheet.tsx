@@ -25,7 +25,9 @@ import {
   shouldDelegateFooterSheetTouchToBodyScroll,
 } from '@/lib/footerSheetScroll'
 import {
+  clampFooterSheetDragDelta,
   footerSheetBackdropOpacity,
+  isFooterSheetSwipeOwned,
   shouldDismissFooterSheet,
   shouldStartFooterSheetSwipe,
 } from '@/lib/footerSheetSwipe'
@@ -68,6 +70,33 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
     const swipeActiveRef = useRef(false)
     const dragDeltaRef = useRef(0)
     const hadContextRef = useRef(false)
+    const closingRef = useRef(closing)
+    const contextRef = useRef(context)
+    const bodyOverflowRef = useRef<string | null>(null)
+    const bodyTouchActionRef = useRef<string | null>(null)
+
+    closingRef.current = closing
+    contextRef.current = context
+
+    const unlockBodyScroll = useCallback(() => {
+      if (bodyOverflowRef.current === null) return
+      const body = bodyRef.current
+      if (body) {
+        body.style.overflow = bodyOverflowRef.current
+        body.style.touchAction = bodyTouchActionRef.current ?? ''
+      }
+      bodyOverflowRef.current = null
+      bodyTouchActionRef.current = null
+    }, [])
+
+    const lockBodyScroll = useCallback(() => {
+      const body = bodyRef.current
+      if (!body || bodyOverflowRef.current !== null) return
+      bodyOverflowRef.current = body.style.overflow
+      bodyTouchActionRef.current = body.style.touchAction
+      body.style.overflow = 'hidden'
+      body.style.touchAction = 'none'
+    }, [])
 
     const resetInlineSwipeStyles = useCallback(() => {
       const panel = panelRef.current
@@ -79,10 +108,11 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
       if (backdrop) {
         backdrop.style.opacity = ''
       }
+      unlockBodyScroll()
       swipeActiveRef.current = false
       dragDeltaRef.current = 0
       swipeStartYRef.current = null
-    }, [])
+    }, [unlockBodyScroll])
 
     const handleClose = useCallback(() => {
       if (!context || closing) return
@@ -108,6 +138,7 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
         hadContextRef.current = false
         setOpen(false)
         setClosing(false)
+        unlockBodyScroll()
         return
       }
 
@@ -125,7 +156,7 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
         setOpen(true)
       })
       return () => cancelAnimationFrame(frame)
-    }, [context])
+    }, [context, unlockBodyScroll])
 
     useEffect(() => {
       if (!context) return
@@ -135,6 +166,72 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
       window.addEventListener('keydown', onKeyDown)
       return () => window.removeEventListener('keydown', onKeyDown)
     }, [context, handleClose])
+
+    const applyDragStyles = useCallback((clampedDelta: number) => {
+      const panel = panelRef.current
+      const backdrop = backdropRef.current
+      if (panel) {
+        panel.style.transition = 'none'
+        panel.style.transform = `translateY(${clampedDelta}px)`
+      }
+      if (backdrop) {
+        backdrop.style.opacity = String(footerSheetBackdropOpacity(clampedDelta))
+      }
+    }, [])
+
+    const processTouchMove = useCallback(
+      (touchY: number, target: EventTarget | null, event: { preventDefault: () => void }) => {
+        if (!contextRef.current || closingRef.current || swipeStartYRef.current === null) return
+
+        const deltaY = touchY - swipeStartYRef.current
+        const swipeOwned = isFooterSheetSwipeOwned(swipeActiveRef.current)
+        const startedFromBody = bodyRef.current?.contains(target as Node) ?? false
+        const metrics = readFooterSheetBodyScrollMetrics(bodyRef.current)
+
+        if (
+          !swipeOwned &&
+          shouldDelegateFooterSheetTouchToBodyScroll({ startedFromBody, deltaY, metrics })
+        ) {
+          swipeStartYRef.current = null
+          return
+        }
+
+        if (!swipeOwned) {
+          if (deltaY <= 0) return
+          if (!shouldStartFooterSheetSwipe(deltaY)) return
+          swipeActiveRef.current = true
+          lockBodyScroll()
+        }
+
+        const clampedDelta = clampFooterSheetDragDelta(deltaY)
+        dragDeltaRef.current = clampedDelta
+        event.preventDefault()
+        applyDragStyles(clampedDelta)
+      },
+      [applyDragStyles, lockBodyScroll]
+    )
+
+    useEffect(() => {
+      if (!context) {
+        unlockBodyScroll()
+        return
+      }
+
+      const panel = panelRef.current
+      if (!panel) return
+
+      const onTouchMove = (event: TouchEvent) => {
+        const touchY = event.touches[0]?.clientY
+        if (touchY == null) return
+        processTouchMove(touchY, event.target, event)
+      }
+
+      panel.addEventListener('touchmove', onTouchMove, { passive: false })
+      return () => {
+        panel.removeEventListener('touchmove', onTouchMove)
+        unlockBodyScroll()
+      }
+    }, [context, processTouchMove, unlockBodyScroll])
 
     const handlePanelTransitionEnd = (event: React.TransitionEvent<HTMLDivElement>) => {
       if (event.target !== event.currentTarget) return
@@ -150,49 +247,10 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
       dragDeltaRef.current = 0
     }
 
-    const handleTouchMove = (event: React.TouchEvent) => {
-      if (!context || closing || swipeStartYRef.current === null) return
-      const touchY = event.touches[0]?.clientY
-      if (touchY == null) return
-
-      const deltaY = touchY - swipeStartYRef.current
-      const startedFromBody = bodyRef.current?.contains(event.target as Node) ?? false
-      const metrics = readFooterSheetBodyScrollMetrics(bodyRef.current)
-
-      if (
-        !swipeActiveRef.current &&
-        shouldDelegateFooterSheetTouchToBodyScroll({ startedFromBody, deltaY, metrics })
-      ) {
-        swipeStartYRef.current = null
-        return
-      }
-
-      if (swipeActiveRef.current && deltaY <= 0) {
-        resetInlineSwipeStyles()
-        return
-      }
-
-      if (deltaY <= 0) return
-      if (!swipeActiveRef.current && !shouldStartFooterSheetSwipe(deltaY)) return
-
-      swipeActiveRef.current = true
-      dragDeltaRef.current = deltaY
-      event.preventDefault()
-      const panel = panelRef.current
-      const backdrop = backdropRef.current
-      if (panel) {
-        panel.style.transition = 'none'
-        panel.style.transform = `translateY(${deltaY}px)`
-      }
-      if (backdrop) {
-        backdrop.style.opacity = String(footerSheetBackdropOpacity(deltaY))
-      }
-    }
-
     const handleTouchEnd = () => {
       if (!context || swipeStartYRef.current === null) return
       const deltaY = dragDeltaRef.current
-      const wasSwipeActive = swipeActiveRef.current
+      const wasSwipeActive = isFooterSheetSwipeOwned(swipeActiveRef.current)
       swipeStartYRef.current = null
 
       if (wasSwipeActive && shouldDismissFooterSheet(deltaY)) {
@@ -270,7 +328,6 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
           aria-busy={isLanguageNote && context.languageNoteStatus === 'loading' ? true : undefined}
           onTransitionEnd={handlePanelTransitionEnd}
           onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchEnd}
         >
