@@ -84,6 +84,10 @@ describe('voice heavy-path regression (2026-07-19)', () => {
     expect(b1).not.toMatch(/use so:\/not instead/i)
     // Baseline orientation example with so:/not + You meant remains OK.
     expect(b1).toMatch(/You meant/)
+    // Slim ERROR: one full canonical after marker; contrast uses differing fragment only.
+    expect(b1).toMatch(/Never restate the full canonical English/)
+    expect(b1).toMatch(/differing fragment/)
+    expect(a2).toMatch(/Never restate the full canonical English/)
   })
 
   it('R3: forbidden heavy-path modules must not exist or be imported', () => {

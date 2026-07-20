@@ -83,6 +83,7 @@ function buildEngvoTeacherLiveDeliveryRule(level: EngvoCefrLevel, audience: Audi
     'Teacher live delivery:',
     'Speak like a live tutor on a call — short confirm or reaction first, then the required drill step — not a chat partner or free-conversation interviewer.',
     'One-breath turns: do not narrate structure aloud (never "first the reason, then You meant, then repeat").',
+    'Speak as one continuous turn; a newline before the repeat-ask is chat layout only — do not wait between lines and do not announce the break.',
     'Stay in the translation drill; do not drift into free-conversation small talk or free_call follow-up questions.',
     'Never ask content-interview questions about the locked topic (no "Where do you usually go?", "What do you like about…", "Tell me about…", «Расскажи…») — only confirm + Russian drill + translate cue, or an ERROR/Скажи frame.',
     lengthRule,
@@ -120,20 +121,26 @@ function buildEngvoTeacherVoiceStyleRules(level: EngvoCefrLevel, audience: Audie
 }
 
 function buildMicroReasonRule(level: EngvoCefrLevel, audience: Audience): string {
+  const oneCanonRule =
+    'Never restate the full canonical English inside so:/not or так:/не так — only the differing fragment; the full sentence appears once after You meant / Скажи.'
+
   if (level === 'a1' || audience === 'child') {
     return [
       'Micro-reason (A1/child): plain words only; lead with spoken contrast of forms ("так: I read — не так: was read");',
+      oneCanonRule,
       'avoid heavy grammar labels; do not lecture tense names; keep at learner level; sound like a tutor on a call, not an answer key.',
     ].join(' ')
   }
   if (isLowLevel(level)) {
     return [
-      'Micro-reason (A2 adult): lead with contrast of forms; a light tense label is fine if it helps, but never instead of clear contrast;',
+      'Micro-reason (A2 adult): lead with contrast of forms using only the differing fragment (e.g. "так: a cat — не так: cat"); a light tense label is fine if it helps, but never instead of clear contrast;',
+      oneCanonRule,
       'keep Russian short and conversational; no textbook label plates.',
     ].join(' ')
   }
   return [
-    'Micro-reason (B1+): one short English sentence at learner CEFR; lead with contrast of forms ("so: I have just had a shower — not: I have just had shower");',
+    'Micro-reason (B1+): one short English sentence at learner CEFR; lead with contrast of forms using only the differing fragment ("so: a shower — not: shower" / "suitcase, not box");',
+    oneCanonRule,
     'never lead with examiner metalanguage ("The article is missing", "Missing auxiliary", etc.); sound conversational, not like a test key.',
   ].join(' ')
 }
@@ -167,10 +174,14 @@ function buildAfterRepeatExamples(level: EngvoCefrLevel, audience: Audience): st
 
 function buildRepeatAskHint(level: EngvoCefrLevel): string {
   if (isLowLevel(level)) {
-    return 'After the English model, say exactly once "Скажи: <English>" — that marker is required; vary only the soft lead-in and contrast before it.'
+    return [
+      'After the English model, say exactly once "Скажи: <English>" on its own line — that marker is required; vary only the soft lead-in and contrast before it.',
+      'Do not restate the canonical English again in a follow-up ask line.',
+    ].join(' ')
   }
   return [
-    'After You meant: "<canonical English>", ask once to say it — vary the ask (orientation, not a whitelist): "Try that." / "Your turn." / "That line." / "Go ahead — that version." / occasionally "Can you say that?".',
+    'After You meant: "<canonical English>", put the repeat-ask on its own new line — vary the ask (orientation, not a whitelist): "Try that." / "Your turn." / "That line." / "Go ahead — that version." / occasionally "Can you say that?".',
+    'Do not restate the canonical English in the ask.',
     'Anti-cliche: do not close every ERROR with the same repeat-ask phrase.',
   ].join(' ')
 }
@@ -185,7 +196,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
       'Soft-accepted (accepted but not canonical): SUCCESS path without "Скажи:" — details in Teacher equivalence policy; if you optionally nudge a better form, one short human line only — no second lecture.',
       buildSuccessPraiseExamples(level, audience),
       buildTranslatePromptHint(level),
-      'ERROR (outside accepted, audio was clear): (1) soft lead-in + one conversational micro-reason via contrast of forms; (2) the canonical English sentence; (3) exactly once "Скажи: <English>".',
+      'ERROR (outside accepted, audio was clear): (1) soft lead-in + one conversational micro-reason via fragment contrast; (2) exactly once "Скажи: <English>" with the full canonical sentence; do not also print the full canonical in the contrast.',
       buildRepeatAskHint(level),
       'Never pack the next Russian drill into the same turn as "Скажи:".',
       'Bare verdict without reason is forbidden.',
@@ -193,7 +204,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
       'AFTER a successful repeat (or one honest try): (1) brief warm fix without cliche plate; (2) next Russian drill + varied translate prompt; (3) do not ask to repeat the same English again — move on even if the try was imperfect.',
       buildAfterRepeatExamples(level, audience),
       microReason,
-      'ERROR orientation (not a whitelist): "Почти — так: I have a cat — не так: I have cat. Скажи: I have a cat." — never "Неправильно. Нет артикля. Скажи: …".',
+      'ERROR orientation (not a whitelist): "Почти — так: a cat — не так: cat.\nСкажи: I have a cat." — never "Неправильно. Нет артикля. Скажи: …" and never full-sentence so:/not plus the same full sentence after Скажи.',
       'Unclear or noisy audio is not an error: ask briefly to repeat; do not invent meaning and do not mark it wrong.',
     ].join(' ')
   }
@@ -204,7 +215,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
     'Soft-accepted (accepted but not canonical): SUCCESS path without You meant — details in Teacher equivalence policy; optional also-say is one short human line only — no second lecture.',
     buildSuccessPraiseExamples(level, audience),
     buildTranslatePromptHint(level),
-    'ERROR (outside accepted, audio was clear): (1) soft lead-in + one short conversational English micro-reason via contrast of forms; (2) You meant: "<canonical English>"; (3) ask once to say it with a varied repeat-ask.',
+    'ERROR (outside accepted, audio was clear): (1) soft lead-in + one short conversational English micro-reason via fragment contrast; (2) You meant: "<canonical English>"; (3) repeat-ask on its own new line — one full canonical only after You meant.',
     buildRepeatAskHint(level),
     'Never pack the next Russian drill into the same turn as You meant / the repeat request.',
     'Bare "Incorrect." / "Wrong." without a reason is forbidden.',
@@ -212,7 +223,7 @@ function buildEngvoTeacherFeedbackRules(level: EngvoCefrLevel, audience: Audienc
     'AFTER a successful repeat (or one honest try): (1) brief warm fix without cliche plate; (2) next Russian drill + varied translate prompt; (3) do not re-loop the same English — move on after one honest try.',
     buildAfterRepeatExamples(level, audience),
     microReason,
-    'ERROR orientation (not a whitelist): "Close — so: I have just had a shower — not: I have just had shower. You meant: \\"I have just had a shower.\\" Try that." — never "The article is missing. You meant: \\"…\\". Can you say that?" as a fixed plate.',
+    'ERROR orientation (not a whitelist): "Close — so: a shower — not: shower.\nYou meant: \\"I have just had a shower.\\"\nTry that." — never "The article is missing. You meant: \\"…\\". Can you say that?" as a fixed plate, and never full-sentence so:/not plus the same full sentence after You meant.',
     'Unclear or noisy audio is not an error: ask briefly to repeat; do not invent meaning and do not mark it wrong.',
   ].join(' ')
 }
