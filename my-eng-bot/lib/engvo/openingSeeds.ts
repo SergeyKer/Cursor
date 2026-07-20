@@ -74,6 +74,6 @@ export function buildPreferredOpeningInstruction(
     `Preferred opening this turn: "${seed}".`,
     'You may use a close natural variant of the same length and tone; then immediately do the next required step.',
     'Keep the greeting short; do not add a second greeting or a long preamble.',
-    'The opening must not include a drill sentence, Переведи, Translate, Скажи, You meant, or the topic question itself.',
+    'The opening must not include a drill sentence, Переведи, Translate, Скажи, Say, You meant, or the topic question itself.',
   ].join(' ')
 }

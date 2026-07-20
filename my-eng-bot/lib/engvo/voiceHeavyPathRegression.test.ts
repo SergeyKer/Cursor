@@ -63,7 +63,7 @@ describe('voice heavy-path regression (2026-07-19)', () => {
     }
   })
 
-  it('R2: ERROR contract stays You meant / Скажи (orientation so:/not example allowed)', () => {
+  it('R2: ERROR contract stays Say / Скажи (orientation so:/not example allowed)', () => {
     const a2 = buildEngvoTeacherRealtimeInstructions({
       audience: 'adult',
       level: 'a2',
@@ -77,14 +77,14 @@ describe('voice heavy-path regression (2026-07-19)', () => {
       sentenceType: 'general',
     })
     expect(a2).toMatch(/Скажи/)
-    expect(b1).toMatch(/You meant/)
-    // Must not migrate primary ERROR frame away from You meant/Скажи.
+    expect(b1).toMatch(/Say:\s*"/)
+    // Must not migrate primary ERROR frame to so:/not.
     expect(b1).not.toMatch(/instead of You meant/i)
     expect(b1).not.toMatch(/instead of\s+Скажи/i)
     expect(b1).not.toMatch(/use so:\/not instead/i)
-    // Baseline orientation example with so:/not + You meant remains OK.
-    expect(b1).toMatch(/You meant/)
-    // Slim ERROR: one full canonical after marker; contrast uses differing fragment only.
+    // Primary B1+ marker is Say; slim one-canon from block 1 remains.
+    expect(b1).toMatch(/do not use You meant as the ERROR marker/i)
+    expect(b1).toMatch(/Do not add a second repeat-ask after Say/)
     expect(b1).toMatch(/Never restate the full canonical English/)
     expect(b1).toMatch(/differing fragment/)
     expect(a2).toMatch(/Never restate the full canonical English/)
@@ -113,6 +113,13 @@ describe('voice heavy-path regression (2026-07-19)', () => {
   })
 
   it('R5: ERROR not incomplete; post-first-drill Where… is missing_drill', () => {
+    expect(
+      isIncompleteTeacherAssistantTurn({
+        text: 'Close — so: sea — not: the sea. Say: "I go to the sea."',
+        phase: 'drill',
+        awaitingFirstDrill: false,
+      }).incomplete
+    ).toBe(false)
     expect(
       isIncompleteTeacherAssistantTurn({
         text: 'Close — You meant: "I go to the sea." Try that.',

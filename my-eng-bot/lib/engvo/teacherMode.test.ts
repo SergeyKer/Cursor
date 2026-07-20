@@ -144,21 +144,22 @@ describe('teacher prompts', () => {
     expect(text).not.toMatch(/same mistake repeats next/i)
   })
 
-  it('B1+ requires conversational micro-reason before You meant', () => {
+  it('B1+ requires conversational micro-reason before Say', () => {
     const text = buildEngvoTeacherRealtimeInstructions({
       audience: 'adult',
       level: 'b1',
       tense: 'present_simple',
       sentenceType: 'general',
     })
-    expect(text).toMatch(/You meant/)
+    expect(text).toMatch(/Say:\s*"/)
     expect(text).toMatch(/micro-reason/i)
     expect(text).toMatch(/Bare "Incorrect\." \/ "Wrong\." without a reason is forbidden/)
-    expect(text).toMatch(/Never pack the next Russian drill into the same turn as You meant/)
+    expect(text).toMatch(/Never pack the next Russian drill into the same turn as Say/)
     expect(text).toMatch(/contrast of forms/i)
     expect(text).toMatch(/The article is missing/)
     expect(text).toMatch(/Anti-cliche/)
-    expect(text).toMatch(/Try that/)
+    expect(text).toMatch(/Do not add a second repeat-ask after Say/)
+    expect(text).not.toMatch(/\nTry that\."/)
     expect(text).toMatch(/Teacher live delivery:/)
     expect(text).toMatch(/always Russian/i)
     expect(text).not.toMatch(/same mistake repeats next/i)
@@ -353,7 +354,7 @@ describe('instructions branching', () => {
       tense: 'present_simple',
       sentenceType: 'general',
     })
-    expect(text).toMatch(/You meant/)
+    expect(text).toMatch(/Say:\s*"/)
     expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
     expect(text).toContain(TEACHER_RHYTHM_LOCK_MARKER)
   })

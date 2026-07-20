@@ -97,7 +97,14 @@ describe('teacherDrillCompleteness', () => {
     expect(r.incomplete).toBe(false)
   })
 
-  it('does not reclaim ERROR with You meant / Скажи', () => {
+  it('does not reclaim ERROR with Say / You meant / Скажи', () => {
+    expect(
+      isIncompleteTeacherAssistantTurn({
+        text: 'Close — so: sea — not: the sea. Say: "I go to the sea."',
+        phase: 'drill',
+        awaitingFirstDrill: false,
+      }).incomplete
+    ).toBe(false)
     expect(
       isIncompleteTeacherAssistantTurn({
         text: 'Close — You meant: "I go to the sea." Try that.',

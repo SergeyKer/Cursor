@@ -17,7 +17,7 @@ const TRANSLATE_INVITE_RE =
   /(?:\btranslate\b|\byour\s+turn\b|\bgo\s+ahead\b[\s\S]{0,40}?\benglish\b|(?:^|[^\p{L}\p{N}])переведи(?:те)?(?=$|[^\p{L}\p{N}])|(?:^|[^\p{L}\p{N}])твоя\s+очередь(?=$|[^\p{L}\p{N}])|(?:^|[^\p{L}\p{N}])на\s+английск(?:ий|ом)(?=$|[^\p{L}\p{N}]))/iu
 
 const ERROR_REPEAT_MARKER_RE =
-  /(?:\byou\s+meant\b|\byou\s+mean\b|(?:^|[^\p{L}\p{N}])скажи\s*:)/iu
+  /(?:\byou\s+meant\b|\byou\s+mean\b|\bsay\s*:|(?:^|[^\p{L}\p{N}])скажи\s*:)/iu
 
 const INVITE_ONLY_LINE_RE =
   /^(?:translate(?:\s+into\s+english)?|your\s+turn(?:\s*[—–-]?\s*in\s+english)?|go\s+ahead(?:\s*[—–-]?\s*(?:in\s+)?english)?|переведи(?:те)?(?:\s+на\s+английский(?:\s+язык)?)?|твоя\s+очередь(?:\s*[—–-]?\s*на\s+английском)?)\.?$/iu

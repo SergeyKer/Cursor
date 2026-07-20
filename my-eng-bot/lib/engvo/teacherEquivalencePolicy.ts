@@ -27,12 +27,12 @@ export function buildTeacherEquivalencePolicyBlock(level: EngvoCefrLevel): strin
     : 'A2+: on meta 1 contrast (never "both always the same") → Rhythm lock bridge+cue.'
 
   const softAccepted = isA1(level)
-    ? 'Soft-accepted: SUCCESS silent, no Скажи:/You meant; next drill.'
-    : 'Soft-accepted: SUCCESS; optional "also say …"; no Скажи:/You meant; next drill.'
+    ? 'Soft-accepted: SUCCESS silent, no Скажи:/Say:; next drill.'
+    : 'Soft-accepted: SUCCESS; optional one-line cleaner form (not a Say:/Скажи: marker); no Скажи:/Say:; next drill.'
 
   return [
     TEACHER_EQUIVALENCE_POLICY_MARKER,
-    'Fix one canonical English per drill for Скажи:/You meant.',
+    'Fix one canonical English per drill for Скажи:/Say:.',
     'accepted = canonical + same-meaning variants only if grammar intact (3sg works not work; tense; type; prep/article from set).',
     'ERROR iff outside accepted (missing prep or broken verb = ERROR).',
     softAccepted,
