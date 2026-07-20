@@ -27,23 +27,23 @@ export function buildTeacherEquivalencePolicyBlock(level: EngvoCefrLevel): strin
     : 'A2+: on meta 1 contrast (never "both always the same") → Rhythm lock bridge+cue.'
 
   const softAccepted = isA1(level)
-    ? 'Soft-accepted: SUCCESS silent, no Скажи:/Say:; next drill.'
-    : 'Soft-accepted: SUCCESS; optional one-line cleaner form (not a Say:/Скажи: marker); no Скажи:/Say:; next drill.'
+    ? 'Soft-accepted: SUCCESS silent when all content slots present; no Скажи:/Say:; next drill.'
+    : 'Soft-accepted: SUCCESS when all content slots present; optional cleaner line (not Say:/Скажи:); next drill.'
 
   return [
     TEACHER_EQUIVALENCE_POLICY_MARKER,
     'Fix one canonical English per drill for Скажи:/Say:.',
-    'accepted = canonical + same-meaning variants only if grammar intact (3sg works not work; tense; type; prep/article from set).',
-    'ERROR iff outside accepted (missing prep or broken verb = ERROR).',
+    'accepted = canonical + same-meaning if grammar intact and all Russian drill content slots are kept.',
+    'ERROR iff outside accepted (missing prep, broken verb, or omitted content slot from the Russian drill = ERROR).',
     softAccepted,
     'Contractions ≡ expanded.',
-    'Meta: 1 contrast → Rhythm lock bridge+cue; judge other errors same reply; no topic restart.',
+    'Meta: 1 contrast → Rhythm lock bridge+cue; no topic restart.',
     contrastRule,
-    'Never lead with bare "Неправильно."/"Incorrect." alone — soft lead-in + reason.',
-    'RU работает в школе/больнице → workplace; prefer canonical at a school/hospital; in a … accepted.',
-    'Bank: school at=canonical in=accepted no-prep=ERROR; at/in school (student)≠at a school (job); time in/on/at; like/love want/would like both OK unless register targeted.',
+    'Never bare "Неправильно."/"Incorrect." — soft lead-in + reason.',
+    'Content coverage: keep every RU drill slot (place/object/time/frequency) in EN (synonyms OK: forest/woods). Omitted content slot → ERROR → Say:/Скажи: full canonical — never SUCCESS/Natural. Orientation: ходим в лес без forest → ERROR → Say: "We often go to the forest for mushrooms." (never Natural.).',
+    'RU школа/больница → at a canonical; in a accepted.',
+    'Bank: school at=canonical in=accepted no-prep=ERROR.',
     'Golden: "My sister works school" → ERROR → "My sister works at a school." + Скажи:.',
-    'Golden: "My sister works at a school" vs canonical in → SUCCESS soft, not ERROR.',
-    'Golden: "... work at a school. Почему не at?" → at/in OK + fix work→works; never only "both always fine".',
+    'Golden: at vs in → soft SUCCESS; work at a school → works + at/in OK.',
   ].join(' ')
 }

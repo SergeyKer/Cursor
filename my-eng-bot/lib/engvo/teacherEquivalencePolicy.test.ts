@@ -46,4 +46,14 @@ describe('buildTeacherEquivalencePolicyBlock', () => {
     expect(a2).not.toMatch(/then judge rest/i)
     expect(a1.length).toBeLessThanOrEqual(a2.length)
   })
+
+  it('requires content coverage for Russian drill slots', () => {
+    const text = buildTeacherEquivalencePolicyBlock('b1')
+    expect(text).toMatch(/omitted content slot/i)
+    expect(text).toMatch(/Content coverage/i)
+    expect(text).toMatch(/all content slots present/i)
+    expect(text).toMatch(/forest/)
+    expect(text).toMatch(/never SUCCESS\/Natural/i)
+    expect(text).toMatch(/all Russian drill content slots are kept/i)
+  })
 })
