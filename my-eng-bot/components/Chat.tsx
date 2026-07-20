@@ -16,6 +16,10 @@ import {
   stripWrappingQuotes,
 } from '@/lib/translationProtocolLines'
 import {
+  splitEngvoAssistantRepeatCue,
+  type EngvoAssistantRepeatCue,
+} from '@/lib/engvo/assistantRepeatCue'
+import {
   stripCheckEmojisForPrefixedCard,
   stripLeadingBulbEmojisForPrefixedCard,
 } from '@/lib/normalizeCommentBulbEmoji'
@@ -192,6 +196,8 @@ type AssistantSection = {
   trailingAction?: 'speak'
   /** Без префикса «Переведи:»/«Переведи далее:», но с тем же акцентом, что у основного блока ассистента. */
   emphasizeMainText?: boolean
+  /** Engvo call ERROR: correction + bold Say:/Скажи: in one bubble (UI-only). */
+  engvoRepeatCue?: EngvoAssistantRepeatCue
 }
 
 /**
@@ -402,6 +408,8 @@ function buildAssistantSections(params: {
   translationHeadingWelcome?: boolean
   /** Звонок Engvo: emerald-карточка без UI-label «Скажи:» (маркер в тексте модели для парсера остаётся). */
   isEngvoCall?: boolean
+  /** Engvo ERROR with correction + Say:/Скажи: — one bubble, bold marker in UI. */
+  engvoRepeatCue?: EngvoAssistantRepeatCue | null
 }): AssistantSection[] {
   const {
     comment,
@@ -422,7 +430,11 @@ function buildAssistantSections(params: {
     mode,
     translationHeadingWelcome = true,
     isEngvoCall = false,
+    engvoRepeatCue = null,
   } = params
+  const hasEngvoCorrectionCue = Boolean(
+    isEngvoCall && engvoRepeatCue?.correction.trim() && engvoRepeatCue.repeatText.trim()
+  )
 
   if (mode === 'translation' && translationProtocolStatus === 'junk_repeat') {
     const junkEarly = translationJunkComment?.trim() ?? ''
@@ -562,13 +574,15 @@ function buildAssistantSections(params: {
       key: 'main',
       tone: 'neutral',
       label: assistantMainHeadingLabel(),
-      text: mainDisplay,
+      text: hasEngvoCorrectionCue ? engvoRepeatCue!.correction : mainDisplay,
       // Для уроков/теории с \n рендерим как многострочный блок.
-      singleLine: !mainDisplay.includes('\n'),
+      // Engvo correction+Say: always multi-line (marker on its own line).
+      singleLine: hasEngvoCorrectionCue ? false : !mainDisplay.includes('\n'),
       emphasizeMainText: hideAiLabel,
+      engvoRepeatCue: hasEngvoCorrectionCue ? engvoRepeatCue! : undefined,
     })
   }
-  if (!showOnlyRepeat && repeatTextForCard && !hideEnglishRepeatCard) {
+  if (!showOnlyRepeat && repeatTextForCard && !hideEnglishRepeatCard && !hasEngvoCorrectionCue) {
     sections.push({
       key: 'repeat-inline',
       tone: 'emerald',
@@ -701,6 +715,8 @@ export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
   isEngvoCall?: boolean
   showOnlyRepeat?: boolean
   mainAfter?: string
+  mainBefore?: string
+  engvoRepeatCue?: EngvoAssistantRepeatCue | null
 }): AssistantSection[] {
   return buildAssistantSections({
     comment: null,
@@ -710,12 +726,13 @@ export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
     showOnlyRepeat: options.showOnlyRepeat ?? true,
     hidePromptBlocks: false,
     repeatTextForCard: options.repeatTextForCard,
-    mainBefore: '',
+    mainBefore: options.mainBefore ?? '',
     hideRussianNonQuestionMainBefore: false,
     invitationText: null,
     mainAfter: options.mainAfter ?? '',
     mode: 'communication',
     isEngvoCall: options.isEngvoCall ?? true,
+    engvoRepeatCue: options.engvoRepeatCue ?? null,
   })
 }
 
@@ -2753,11 +2770,16 @@ function MessageBubble({
 
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) - блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
-  const repeatPrompt = !isUser && !isTranslationMode ? extractRepeatPrompt(mainBefore) : null
-  // Если это похвала (ответ правильный), игнорируем "Скажи:" даже если модель его вывела.
-  // Иначе UI может зациклиться на повторении.
-  const effectiveRepeatPrompt = isCorrectAnswerPraise ? null : repeatPrompt
-  let repeatTextForCard = effectiveRepeatPrompt?.repeatText ?? null
+  let engvoRepeatCue: EngvoAssistantRepeatCue | null = null
+  let repeatTextForCard: string | null = null
+  if (!isUser && !isTranslationMode && !isCorrectAnswerPraise) {
+    if (isEngvoCall) {
+      engvoRepeatCue = splitEngvoAssistantRepeatCue(mainBefore)
+      if (engvoRepeatCue) repeatTextForCard = engvoRepeatCue.repeatText
+    } else {
+      repeatTextForCard = extractRepeatPrompt(mainBefore)?.repeatText ?? null
+    }
+  }
 
   const errorLike = !isUser && isErrorLikeAssistantMessage(visibleContent)
   const isEngvoCallFinishedLine =
@@ -2970,7 +2992,12 @@ function MessageBubble({
       ? (effectiveComment?.trim() || null)
       : null
   const translationSuccessPraiseCard = Boolean(translationPraiseDisplayText)
-  const showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
+  let showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
+  if (isEngvoCall && engvoRepeatCue) {
+    effectiveMainBefore = engvoRepeatCue.correction
+    // correction + Say/Скажи → one bubble; marker-only → emerald as before
+    showOnlyRepeat = !engvoRepeatCue.correction.trim()
+  }
   // Источник истины: в error-repeat показываем только коррекционные карточки.
   const hideTranslationPromptBlocks =
     (isTranslationMode &&
@@ -2978,7 +3005,11 @@ function MessageBubble({
     hideTranslationMainCardForErrorRepeat
 
   /** После разбора перевода: для «Перевод» в панели нужен актуальный repeat/тело задания. */
-  const textToTranslate = repeatTextForCard || rest || visibleContent
+  const engvoSpeakText =
+    isEngvoCall && engvoRepeatCue?.correction.trim()
+      ? [engvoRepeatCue.correction, `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`].join(' ')
+      : null
+  const textToTranslate = engvoSpeakText || repeatTextForCard || rest || visibleContent
 
   const stripRepeatLeadForSpeak = (raw: string) =>
     raw.replace(/^(Скажи|Say|Повтори|Repeat)\s*:?\s*/i, '').trim()
@@ -2996,7 +3027,7 @@ function MessageBubble({
             .filter((s): s is string => typeof s === 'string')
             .map((s) => s.trim())
             .find(Boolean) ?? ''
-        : (repeatTextForCard || rest || visibleContent || '').trim()
+        : (engvoSpeakText || repeatTextForCard || rest || visibleContent || '').trim()
       : ''
 
   const handleSpeak = () => {
@@ -3075,6 +3106,8 @@ function MessageBubble({
         mode,
         translationHeadingWelcome: translationMainDrillHeadingWelcome,
         isEngvoCall,
+        engvoRepeatCue:
+          isEngvoCall && engvoRepeatCue?.correction.trim() ? engvoRepeatCue : null,
       })
 
   React.useLayoutEffect(() => {
@@ -3252,6 +3285,7 @@ function MessageBubble({
                     onSpeak={section.trailingAction === 'speak' ? handleSpeak : undefined}
                     inlineMarkdownBold
                     emphasizeMainText={section.emphasizeMainText}
+                    engvoRepeatCue={section.engvoRepeatCue}
                   />
                 ))}
               </div>
@@ -3434,6 +3468,7 @@ function SectionCard({
   onSpeak,
   inlineMarkdownBold,
   emphasizeMainText,
+  engvoRepeatCue,
 }: {
   tone: SectionTone
   label: string
@@ -3448,6 +3483,8 @@ function SectionCard({
   inlineMarkdownBold?: boolean
   /** Режимы «Диалог» и «Общение»: без префикса, стиль как у основного блока ассистента. */
   emphasizeMainText?: boolean
+  /** Engvo call: correction + bold Say:/Скажи: in one bubble. */
+  engvoRepeatCue?: EngvoAssistantRepeatCue
 }) {
   const toneClass =
     tone === 'amber'
@@ -3502,7 +3539,23 @@ function SectionCard({
     iconOnlyLabelPattern.test(labelTrimmed)
   const isCompactServiceLine = singleLine && italic && !hasLabel
   const isTextItalic = textItalic ?? italic
-  const bodyContent = inlineMarkdownBold ? renderCommunicationBoldInline(textResolved as string) : textResolved
+  const engvoCueTitle = engvoRepeatCue
+    ? [engvoRepeatCue.correction, `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`]
+        .filter((s) => Boolean(s?.trim()))
+        .join('\n')
+    : null
+  const engvoCueBody = engvoRepeatCue ? (
+    <>
+      {engvoRepeatCue.correction}
+      {engvoRepeatCue.correction.trim() ? '\n' : null}
+      <strong className="font-semibold">{engvoRepeatCue.marker}:</strong>
+      {' '}
+      {engvoRepeatCue.repeatText}
+    </>
+  ) : null
+  const bodyContent =
+    engvoCueBody ??
+    (inlineMarkdownBold ? renderCommunicationBoldInline(textResolved as string) : textResolved)
   // Смотрим исходный text: при inlineMarkdownBold тело часто ReactNode, не string - иначе теряем pre-wrap.
   const preserveNewLines = singleLine && typeof textResolved === 'string' && textResolved.includes('\n')
 
@@ -3521,11 +3574,13 @@ function SectionCard({
             small ? 'text-[14px] leading-snug' : 'text-[15px] leading-[1.45]'
           } text-[var(--text)]`}
           title={
-            hasLabel
-              ? labelIsIconOnly
-                ? `${label} ${textResolved}`
-                : `${label}: ${textResolved}`
-              : textResolved
+            engvoCueTitle
+              ? engvoCueTitle
+              : hasLabel
+                ? labelIsIconOnly
+                  ? `${label} ${textResolved}`
+                  : `${label}: ${textResolved}`
+                : textResolved
           }
         >
           {hasLabel && (
@@ -3569,6 +3624,7 @@ function SectionCard({
             className={`${hasLabel ? 'mt-0.5' : ''} whitespace-pre-wrap break-words ${
               small ? 'text-xs leading-snug' : 'text-[15px] leading-[1.45]'
             } ${italic ? 'font-serif italic text-[var(--invitation)]' : 'font-sans text-[var(--text)]'}`}
+            title={engvoCueTitle ?? undefined}
           >
             {bodyContent}
           </p>

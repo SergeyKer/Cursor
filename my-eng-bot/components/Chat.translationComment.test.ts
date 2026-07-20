@@ -648,4 +648,39 @@ describe('engvo call repeat UI', () => {
     expect(after?.text).toBe('We have been to the hotel.')
     expect(after?.text).not.toMatch(/^:\s/)
   })
+
+  it('Engvo ERROR Say: one main bubble with cue, no repeat-inline', () => {
+    const cue = {
+      correction: 'Close — so: along the path — not: on a trail.',
+      marker: 'Say' as const,
+      repeatText: 'We walk along the path to the river.',
+    }
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: cue.repeatText,
+      isEngvoCall: true,
+      showOnlyRepeat: false,
+      mainBefore: cue.correction,
+      engvoRepeatCue: cue,
+    })
+    expect(sections.find((s) => s.key === 'main')?.engvoRepeatCue).toEqual(cue)
+    expect(sections.some((s) => s.key === 'repeat-inline')).toBe(false)
+    expect(sections.some((s) => s.key === 'repeat')).toBe(false)
+  })
+
+  it('Engvo ERROR Скажи: one main bubble keeps Cyrillic marker', () => {
+    const cue = {
+      correction: 'Почти — так: a cat — не так: cat.',
+      marker: 'Скажи' as const,
+      repeatText: 'I have a cat.',
+    }
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: cue.repeatText,
+      isEngvoCall: true,
+      showOnlyRepeat: false,
+      mainBefore: cue.correction,
+      engvoRepeatCue: cue,
+    })
+    expect(sections.find((s) => s.key === 'main')?.engvoRepeatCue?.marker).toBe('Скажи')
+    expect(sections.some((s) => s.key === 'repeat-inline')).toBe(false)
+  })
 })
