@@ -1961,6 +1961,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })
 
       if (result.isCompleteDrill) {
+        engvoTeacherPhaseRef.current = 'drill'
         engvoTeacherAwaitingFirstDrillRef.current = false
       }
 
@@ -1973,6 +1974,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           preview: rawText.slice(0, 80),
         })
         return false
+      }
+
+      if (engvoTeacherPhaseRef.current === 'topic_choice') {
+        engvoTeacherPhaseRef.current = 'drill'
+        engvoTeacherAwaitingFirstDrillRef.current = true
       }
 
       engvoTeacherReclaimUsedThisUserTurnRef.current = true

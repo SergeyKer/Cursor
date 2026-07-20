@@ -97,6 +97,39 @@ describe('teacherDrillCompleteness', () => {
     expect(r.incomplete).toBe(false)
   })
 
+  it('reclaims EN drill + Translate during topic_choice (premature drill)', () => {
+    const r = isIncompleteTeacherAssistantTurn({
+      text:
+        "I'll give you short drills in Present Perfect. We'll start with daily life. I've already finished my morning coffee. Translate that into English.",
+      phase: 'topic_choice',
+      awaitingFirstDrill: false,
+    })
+    expect(r.incomplete).toBe(true)
+    expect(r.reason).toBe('invite_without_ru')
+    expect(r.isCompleteDrill).toBe(false)
+  })
+
+  it('marks same EN+Translate incomplete as no_first_drill when awaiting first drill', () => {
+    const r = isIncompleteTeacherAssistantTurn({
+      text:
+        "I've already finished my morning coffee. Translate that into English.",
+      phase: 'drill',
+      awaitingFirstDrill: true,
+    })
+    expect(r.incomplete).toBe(true)
+    expect(r.reason).toBe('no_first_drill')
+  })
+
+  it('treats early RU + translate during topic_choice as complete drill', () => {
+    const r = isIncompleteTeacherAssistantTurn({
+      text: 'Завтра море тёплое. Переведи.',
+      phase: 'topic_choice',
+      awaitingFirstDrill: false,
+    })
+    expect(r.incomplete).toBe(false)
+    expect(r.isCompleteDrill).toBe(true)
+  })
+
   it('does not reclaim ERROR with Say / You meant / Скажи', () => {
     expect(
       isIncompleteTeacherAssistantTurn({

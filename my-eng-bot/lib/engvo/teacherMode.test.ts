@@ -283,6 +283,19 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/Do not re-ask the topic/i)
     expect(text).toMatch(/Do not ask any question/i)
     expect(text).toMatch(/Translate into English/i)
+    expect(text).toMatch(/English sentence as the drill/i)
+    expect(text).toMatch(/Russian Cyrillic only/i)
+  })
+
+  it('drill contract forbids English sentence as the line to translate', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'b1',
+      tense: 'present_perfect',
+      sentenceType: 'general',
+    })
+    expect(text).toMatch(/drill line must be Russian \(Cyrillic\)/i)
+    expect(text).toMatch(/English clause \+ "Translate into English\."/i)
   })
 
   it('teacher prompts ban content interview and second same Скажи', () => {

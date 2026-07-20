@@ -63,6 +63,7 @@ function buildEngvoTeacherDrillContract(params: EngvoTeacherDrillParams): string
     'Topic thread: keep consecutive Russian drills in one mini-situation on the chosen topic — do not jump topics at random under the same tense.',
     'Then ask the learner to translate it into English aloud.',
     'Never narrate the drill without speaking the Russian sentence (forbidden: "Here\'s the first sentence" / "Here is your sentence" with no Cyrillic in the same turn).',
+    'Never give an English sentence as the line to translate; the drill line must be Russian (Cyrillic). Forbidden: English clause + "Translate into English."',
     'Do not give multiple Russian sentences in one turn.',
     'Do not use chat-only labels like "Ошибки:", "Комментарий:", or "__TRAN_REPEAT_REF__".',
   ].join(' ')
@@ -321,6 +322,7 @@ export function buildEngvoTeacherDrillReclaimInstructions(params: {
     'Do not greet again. Do not re-ask the topic. Do not discuss the learner\'s previous topic-naming line.',
     'Do not ask any question (no Where/What/How/Tell/«Расскажи»).',
     'Output only: one NEW Russian drill sentence (about 3-12 words) on the locked topic, then a translate cue — e.g. «Море сегодня тёплое. Переведи на английский.»',
+    'If the previous turn used an English sentence as the drill, replace it — output Russian Cyrillic only, then translate cue.',
     'If the topic is unclear, silently use sea/travel; still give RU + translate — do not ask what they meant.',
     `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
     translateHint,

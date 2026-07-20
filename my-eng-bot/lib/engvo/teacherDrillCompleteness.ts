@@ -95,6 +95,18 @@ export function isIncompleteTeacherAssistantTurn(params: {
   }
 
   if (params.phase !== 'drill') {
+    // Premature drill during topic_choice: Translate/Переведи without Russian payload.
+    // Do not reclaim normal greetings (no translate invite).
+    if (params.phase === 'topic_choice') {
+      const invite = hasTranslateInvite(text)
+      const payload = hasRussianDrillPayload(text)
+      if (invite && !payload) {
+        return { incomplete: true, reason: 'invite_without_ru', isCompleteDrill: false }
+      }
+      if (invite && payload) {
+        return { incomplete: false, reason: null, isCompleteDrill: true }
+      }
+    }
     return { incomplete: false, reason: null, isCompleteDrill: false }
   }
 
