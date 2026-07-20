@@ -22,6 +22,9 @@ export const ENGVO_STATUS_IN_CALL = 'В эфире.'
 export const ENGVO_STATUS_IN_CALL_WITH = 'В эфире с'
 export const ENGVO_STATUS_SPEAKING = 'Engvo говорит…'
 export const ENGVO_STATUS_ENDED = 'Звонок завершён'
+/** Ended footer prefix; full text is `Звонок с ${voiceDisplayName} завершён`. */
+export const ENGVO_STATUS_ENDED_WITH = 'Звонок с'
+export const ENGVO_STATUS_ENDED_SUFFIX = 'завершён'
 
 export const ENGVO_STATUS_IDLE_ADULT = 'Нажмите зелёную трубку'
 export const ENGVO_STATUS_IDLE_CHILD = 'Нажми зелёную трубку'
@@ -76,6 +79,12 @@ export function formatEngvoInCallFooterText(voiceDisplayName?: string | null): s
   return `${ENGVO_STATUS_IN_CALL_WITH} ${name}`
 }
 
+export function formatEngvoEndedFooterText(voiceDisplayName?: string | null): string {
+  const name = voiceDisplayName?.trim()
+  if (!name) return ENGVO_STATUS_ENDED
+  return `${ENGVO_STATUS_ENDED_WITH} ${name} ${ENGVO_STATUS_ENDED_SUFFIX}`
+}
+
 export function getEngvoFooterView(params: {
   phase: EngvoCallPhase
   userInterimText: string
@@ -103,7 +112,7 @@ export function getEngvoFooterView(params: {
     return { text: formatEngvoInCallFooterText(params.voiceDisplayName), tone: 'neutral' }
   }
   if (params.phase === 'ended') {
-    return { text: ENGVO_STATUS_ENDED, tone: 'neutral' }
+    return { text: formatEngvoEndedFooterText(params.voiceDisplayName), tone: 'neutral' }
   }
   if (params.phase === 'idle') {
     return { text: getEngvoIdleStatusText(audience), tone: 'neutral' }

@@ -9,6 +9,7 @@ import {
   ENGVO_STATUS_IDLE_CHILD,
   ENGVO_STATUS_IN_CALL,
   ENGVO_STATUS_SPEAKING,
+  formatEngvoEndedFooterText,
   formatEngvoInCallFooterText,
   getEngvoBootstrapServiceIndicatorText,
   getEngvoFooterView,
@@ -75,6 +76,17 @@ describe('engvo state helpers', () => {
       text: ENGVO_STATUS_ENDED,
       tone: 'neutral',
     })
+    expect(
+      getEngvoFooterView({
+        phase: 'ended',
+        userInterimText: '',
+        audience: 'adult',
+        voiceDisplayName: 'Helix',
+      })
+    ).toEqual({
+      text: 'Звонок с Helix завершён',
+      tone: 'neutral',
+    })
     expect(getEngvoFooterView({ phase: 'error', userInterimText: '', audience: 'adult' })).toEqual({
       text: ENGVO_STATUS_ERROR_ADULT,
       tone: 'error',
@@ -123,6 +135,11 @@ describe('engvo state helpers', () => {
       text: ENGVO_STATUS_IN_CALL,
       tone: 'neutral',
     })
+  })
+
+  it('falls back to plain ended text without voice name', () => {
+    expect(formatEngvoEndedFooterText(null)).toBe(ENGVO_STATUS_ENDED)
+    expect(formatEngvoEndedFooterText('')).toBe(ENGVO_STATUS_ENDED)
   })
 
   it('maps chat bootstrap indicator without listening leak', () => {
