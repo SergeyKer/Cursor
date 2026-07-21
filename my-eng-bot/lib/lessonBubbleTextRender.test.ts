@@ -4,6 +4,7 @@ import {
   splitLeadingTaskImperative,
   splitTrailingTaskImperative,
   normalizeTranslatePromptPunctuation,
+  splitBubbleTitleBody,
 } from '@/lib/lessonBubbleTextRender'
 
 describe('lessonBubbleTextRender', () => {
@@ -103,6 +104,22 @@ describe('lessonBubbleTextRender', () => {
       expect(
         normalizeTranslatePromptPunctuation('Переведите на английский: "Я из России".')
       ).toBe('Переведите на английский: "Я из России"')
+    })
+  })
+
+  describe('splitBubbleTitleBody', () => {
+    it('splits first line as title and rest as body', () => {
+      expect(splitBubbleTitleBody('Суть\n• one\n• two')).toEqual({
+        title: 'Суть',
+        bodyLines: ['• one', '• two'],
+      })
+    })
+
+    it('returns empty body when only title', () => {
+      expect(splitBubbleTitleBody('📘 ТЕМА')).toEqual({
+        title: '📘 ТЕМА',
+        bodyLines: [],
+      })
     })
   })
 })

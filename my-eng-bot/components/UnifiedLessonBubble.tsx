@@ -2,7 +2,11 @@
 
 import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
 import { resolveDetachedSectionEnterStyle } from '@/lib/lessonBubbleEnterStyle'
-import { renderBubbleContent } from '@/lib/lessonBubbleTextRender'
+import {
+  renderBodyLine,
+  renderBubbleContent,
+  splitBubbleTitleBody,
+} from '@/lib/lessonBubbleTextRender'
 import type { Bubble } from '@/types/lesson'
 
 export type UnifiedLessonBubbleLayout = 'unified' | 'detached'
@@ -29,6 +33,39 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
 
 const lessonCardSurfaceClass =
   'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)]'
+
+function ReadingDetachedCardBody({
+  content,
+  emphasizeTaskInstructions,
+}: {
+  content: string
+  emphasizeTaskInstructions: boolean
+}) {
+  const { title, bodyLines } = splitBubbleTitleBody(content)
+  const bodyOptions = {
+    emphasizeTaskInstructions,
+    bulletStyle: 'dot' as const,
+  }
+
+  if (bodyLines.length === 0) {
+    return (
+      <div className="bg-white px-3 py-2.5">
+        <p className="break-words text-[15px] font-bold leading-tight text-[var(--text)]">{title}</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <div className="bg-white px-3 py-2.5">
+        <p className="break-words text-[15px] font-bold leading-tight text-[var(--text)]">{title}</p>
+      </div>
+      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3 py-2.5">
+        {bodyLines.map((line, i) => renderBodyLine(line, i, bodyOptions))}
+      </div>
+    </>
+  )
+}
 
 export default function UnifiedLessonBubble({
   bubbles,
@@ -64,12 +101,19 @@ export default function UnifiedLessonBubble({
                 bubbleIndex,
               })}
             >
-              <div className="px-3 py-2.5">
-                {renderBubbleContent(bubble.content, {
-                  emphasizeTaskInstructions: bubble.type === 'task',
-                  bulletStyle: 'dot',
-                })}
-              </div>
+              {isReadingEnter ? (
+                <ReadingDetachedCardBody
+                  content={bubble.content}
+                  emphasizeTaskInstructions={bubble.type === 'task'}
+                />
+              ) : (
+                <div className="px-3 py-2.5">
+                  {renderBubbleContent(bubble.content, {
+                    emphasizeTaskInstructions: bubble.type === 'task',
+                    bulletStyle: 'dot',
+                  })}
+                </div>
+              )}
             </section>
           )
         })}

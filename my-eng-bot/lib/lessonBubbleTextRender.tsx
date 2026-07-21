@@ -172,10 +172,15 @@ export function renderBodyLine(
   )
 }
 
-export function renderBubbleContent(content: string, options?: RenderBubbleContentOptions) {
-  const [title, ...body] = normalizeTranslatePromptPunctuation(content).split('\n')
+export function splitBubbleTitleBody(content: string): { title: string; bodyLines: string[] } {
+  const [title, ...bodyLines] = normalizeTranslatePromptPunctuation(content).split('\n')
+  return { title, bodyLines }
+}
 
-  if (body.length === 0) {
+export function renderBubbleContent(content: string, options?: RenderBubbleContentOptions) {
+  const { title, bodyLines } = splitBubbleTitleBody(content)
+
+  if (bodyLines.length === 0) {
     return (
       <div className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
         {options?.emphasizeTaskInstructions ? renderTaskInstructionText(title) : title}
@@ -189,7 +194,7 @@ export function renderBubbleContent(content: string, options?: RenderBubbleConte
         {title}
       </div>
       <div className="space-y-1.5">
-        {body.map((line, i) => renderBodyLine(line, i, options))}
+        {bodyLines.map((line, i) => renderBodyLine(line, i, options))}
       </div>
     </div>
   )
