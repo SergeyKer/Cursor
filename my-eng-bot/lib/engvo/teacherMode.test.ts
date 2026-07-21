@@ -7,6 +7,8 @@ import {
 } from '@/lib/engvo/openingSeeds'
 import {
   buildEngvoTeacherDrillReclaimInstructions,
+  buildEngvoTeacherDuplicateDrillReclaimInstructions,
+  buildEngvoTeacherRussianEchoReclaimInstructions,
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
   TEACHER_RHYTHM_LOCK_MARKER,
@@ -285,6 +287,33 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/Translate into English/i)
     expect(text).toMatch(/English sentence as the drill/i)
     expect(text).toMatch(/Russian Cyrillic only/i)
+  })
+
+  it('duplicate drill reclaim forbids repeating previous Russian', () => {
+    const text = buildEngvoTeacherDuplicateDrillReclaimInstructions({
+      level: 'b1',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      previousRussian: 'эта дорога ведет в город',
+    })
+    expect(text).toMatch(/Duplicate teacher drill reclaim/i)
+    expect(text).toMatch(/DIFFERENT/i)
+    expect(text).toMatch(/эта дорога ведет в город/i)
+    expect(text).toMatch(/Do not use Say:/i)
+  })
+
+  it('russian echo reclaim forces ERROR Say/Скажи without next drill', () => {
+    const text = buildEngvoTeacherRussianEchoReclaimInstructions({
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      previousRussian: 'мы идем в школу',
+    })
+    expect(text).toMatch(/Russian echo reclaim/i)
+    expect(text).toMatch(/ERROR/i)
+    expect(text).toMatch(/Скажи:/)
+    expect(text).toMatch(/Do NOT give a next Russian drill/i)
+    expect(text).toMatch(/мы идем в школу/i)
   })
 
   it('drill contract forbids English sentence as the line to translate', () => {

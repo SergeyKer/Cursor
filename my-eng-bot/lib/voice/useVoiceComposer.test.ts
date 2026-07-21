@@ -30,6 +30,10 @@ describe('useVoiceComposer helpers', () => {
     expect(appendVoiceText('Hello', 'world')).toBe('Hello world')
     expect(appendVoiceText('Hello ', 'world')).toBe('Hello world')
     expect(appendVoiceText('', 'world')).toBe('world')
+    expect(appendVoiceText('...start the drill.', 'Вот я иду по улице.')).toBe(
+      '...start the drill. Вот я иду по улице.'
+    )
+    expect(appendVoiceText("Let's", 'lock')).toBe("Let's lock")
   })
 
   it('builds display text from draft, final and interim parts', () => {

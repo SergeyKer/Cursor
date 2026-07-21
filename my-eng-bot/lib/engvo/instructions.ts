@@ -9,6 +9,8 @@ import {
 } from '@/lib/engvo/openingSeeds'
 import {
   buildEngvoTeacherDrillReclaimInstructions,
+  buildEngvoTeacherDuplicateDrillReclaimInstructions,
+  buildEngvoTeacherRussianEchoReclaimInstructions,
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
 } from '@/lib/engvo/teacherPrompts'
@@ -213,6 +215,24 @@ export function buildEngvoTeacherDrillReclaimResponseInstructions(params: {
   sentenceType: SentenceType
 }): string {
   return buildEngvoTeacherDrillReclaimInstructions(params)
+}
+
+export function buildEngvoTeacherDuplicateDrillReclaimResponseInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+  previousRussian: string
+}): string {
+  return buildEngvoTeacherDuplicateDrillReclaimInstructions(params)
+}
+
+export function buildEngvoTeacherRussianEchoReclaimResponseInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+  previousRussian: string
+}): string {
+  return buildEngvoTeacherRussianEchoReclaimInstructions(params)
 }
 
 export function buildEngvoContinuationResponseInstructions(params: {

@@ -190,7 +190,7 @@ const selfIntroVariants: SelfIntroVariant[] = [
 
 const selfIntroPostLesson = {
   interestingFact:
-    'В разговоре чаще говорят I’m happy, а I am from … звучит понятно, когда важно сказать, откуда вы.',
+    "В речи чаще I'm…; I am from … ясно звучит, когда важно сказать, откуда ты.",
   options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
 
@@ -817,31 +817,32 @@ export const introducingYourselfLesson: LessonData = {
     complexity: 'simple',
     quick: {
       why: [
-        'Без am фраза ломается: I Anna или I from Russia звучат неправильно.',
-        'I am from + место помогает назвать страну или город.',
-        'I am a/an + роль помогает коротко назвать профессию или статус.',
+        'После I ставь am (не is / are).',
+        'Дальше одно: имя, откуда (from + город/страна) или какой/кем ты.',
+        "I'm = I am — короче, то же самое (так чаще говорят).",
       ],
       how: [
-        'I am Maria. / I am from Russia.',
-        'I am a student. / I am an engineer.',
+        'I am + имя → I am Anna.',
+        'I am from + место → I am from Moscow.',
         "I am happy. / I'm happy.",
       ],
       examples: [
-        { en: 'I am Maria.', ru: 'Я Мария.', note: 'нужен am' },
-        { en: 'I am from Russia.', ru: 'Я из России.', note: 'страна' },
-        { en: 'I am a student.', ru: 'Я студент.', note: 'роль + a/an' },
+        { en: 'I am Anna.', ru: 'Я Анна.', note: 'кто я' },
+        { en: 'I am from Russia.', ru: 'Я из России.', note: 'откуда я' },
+        { en: 'I am happy.', ru: 'Я рад / счастлив.', note: 'какой я' },
       ],
-      takeaway: 'С I почти всегда нужен am; потом выбирай from, роль или настроение.',
+      takeaway: "Про себя — через I am: кто / откуда / какой. В речи часто I'm.",
     },
     details: {
       points: [
-        'Главная дыра новичка - пропуск am: I from Russia вместо I am from Russia.',
-        'После from пишут страну или город по-английски одним словом.',
-        'Перед профессией почти всегда нужен артикль a или an.',
+        'Без am нельзя: не I Anna, а I am Anna.',
+        'from + место сразу, без in: I am from Russia.',
+        'Кем ты — часто a или an: I am a student. / I am an engineer.',
       ],
       examples: [
-        { en: "I'm happy.", ru: 'Я счастлив.', note: 'настроение' },
-        { en: "I'm from Madrid.", ru: 'Я из Мадрида.', note: 'город' },
+        { en: "I'm from Madrid.", ru: 'Я из Мадрида.', note: "откуда; I'm = I am" },
+        { en: 'I am a teacher.', ru: 'Я учитель.', note: 'кем + a' },
+        { en: 'I am tired.', ru: 'Я устал.', note: 'какой я' },
       ],
     },
     deepDive: {
@@ -851,22 +852,24 @@ export const introducingYourselfLesson: LessonData = {
         'I am student вместо I am a student.',
       ],
       contrastNotes: [
-        'I am Maria - имя с am.',
-        'I am from Russia - место.',
-        'I am a doctor - роль с a/an.',
+        'I am Anna — кто.',
+        'I am from Russia — откуда.',
+        'I am a doctor — кем (a/an).',
       ],
-      selfCheckRule: 'Если начали с I, проверьте am; перед ролью отдельно проверьте a/an.',
+      selfCheckRule:
+        'Проверь три вещи: после I стоит am (не is); если «из» — есть from и нет in; если «кем» — есть a или an.',
     },
     learningPlan: {
       grammarFocus: ['I am + name/from/mood', 'I am a/an + role', 'am vs is/are'],
       contrastPair: ['I am happy.', "I'm happy."],
-      firstPracticeGoal: 'Не терять am и различать from / роль / mood.',
+      firstPracticeGoal:
+        "Скажи 3 фразы: кто / откуда / какой — например I am Anna. / I'm from Madrid. / I am happy.",
     },
   },
   variantId: baseSelfIntroVariant.id,
   finale: buildSelfIntroFinale(),
   repeatConfig: {
-    ruleSummary: 'Держим am после I и различаем from, роль (a/an) и настроение.',
+    ruleSummary: "После I — am (не is); кто / откуда / какой; кем — часто a/an; I'm = I am.",
     grammarFocus: ['I am + name/from/mood', 'I am a/an + role', 'am vs is/are'],
     sourceSituations: Array.from(new Set(selfIntroVariants.flatMap((variant) => variant.sourceSituations))),
     stepBlueprints: buildSelfIntroBlueprints(baseSelfIntroVariant),

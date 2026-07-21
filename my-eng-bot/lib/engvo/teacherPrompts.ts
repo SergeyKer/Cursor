@@ -331,6 +331,53 @@ export function buildEngvoTeacherDrillReclaimInstructions(params: {
   ].join(' ')
 }
 
+/** Per-response cue when SUCCESS re-posed the same Russian drill after an English attempt. */
+export function buildEngvoTeacherDuplicateDrillReclaimInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+  previousRussian: string
+}): string {
+  const prev = params.previousRussian.trim().slice(0, 80)
+  const translateHint = isLowLevel(params.level)
+    ? 'Then a short varied translate prompt (e.g. «Переведи на английский.» / «Переведи.»).'
+    : 'Then a short varied translate prompt (e.g. Translate into English. / Your turn — in English.).'
+  return [
+    'Duplicate teacher drill reclaim — continue immediately.',
+    'The previous Russian drill is already done after the learner\'s English attempt.',
+    `Do NOT repeat this Russian sentence: "${prev}".`,
+    'Output only: one DIFFERENT Russian drill sentence (about 3-12 words) on the locked topic, then a translate cue.',
+    'Do not greet again. Do not re-ask the topic. Do not ask any question (no Where/What/How/Tell/«Расскажи»).',
+    'Do not use Say: / Скажи: / You meant on this turn.',
+    `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
+    translateHint,
+    'Do not wait silently for the learner.',
+  ].join(' ')
+}
+
+/** Per-response cue when SUCCESS advanced after the learner echoed the Russian drill. */
+export function buildEngvoTeacherRussianEchoReclaimInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+  previousRussian: string
+}): string {
+  const prev = params.previousRussian.trim().slice(0, 80)
+  const sayHint = isLowLevel(params.level)
+    ? 'Output ERROR frame once: short lead-in that the reply was Russian, then exactly one line Скажи: <canonical English>.'
+    : 'Output ERROR frame once: short lead-in that the reply was Russian, then exactly one line Say: "<canonical English>".'
+  return [
+    'Russian echo reclaim — continue immediately.',
+    'The learner repeated the Russian drill instead of translating to English — that is ERROR, not SUCCESS.',
+    `Do NOT give a next Russian drill. Stay on this drill: "${prev}".`,
+    sayHint,
+    'Do not greet. Do not re-ask the topic. Do not ask interview questions.',
+    'Do not praise. Do not say Верно / That\'s it / Natural / next.',
+    `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
+    'Do not wait silently for the learner.',
+  ].join(' ')
+}
+
 export function buildEngvoTeacherFirstTurnResponseInstructions(params: {
   audience: Audience
   level: EngvoCefrLevel

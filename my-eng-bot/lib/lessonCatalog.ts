@@ -68,7 +68,7 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
   child: {
     '4': {
       short: 'Знакомство',
-      long: 'Говорим, как себя чувствуем, откуда мы и кем учимся или работаем.',
+      long: 'Кто мы, откуда мы и какие мы — через I am.',
     },
     '1': {
       short: 'Состояние и действие',
@@ -86,7 +86,7 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
   adult: {
     '4': {
       short: 'Представление о себе',
-      long: 'Коротко: настроение, страна и роль - I am / I am from.',
+      long: 'Кто я, откуда я и какой я — через I am / I am from.',
     },
     '1': {
       short: 'Состояние и действие',

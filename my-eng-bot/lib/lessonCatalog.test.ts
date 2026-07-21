@@ -43,7 +43,8 @@ describe('lessonCatalog', () => {
 
     expect(topic?.title).toBe('I am / I am from')
     expect(adult.short).toBe('Представление о себе')
-    expect(adult.long).toContain('настроение')
+    expect(adult.long).toMatch(/кто я/i)
+    expect(child.long).toContain('через I am')
     expect(child.short).toBe('Знакомство')
     expect(adult.short).not.toBe(topic?.title)
   })

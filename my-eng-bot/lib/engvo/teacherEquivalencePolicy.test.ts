@@ -56,4 +56,12 @@ describe('buildTeacherEquivalencePolicyBlock', () => {
     expect(text).toMatch(/never SUCCESS\/Natural/i)
     expect(text).toMatch(/all Russian drill content slots are kept/i)
   })
+
+  it('forbids RU echo of current drill as SUCCESS', () => {
+    const text = buildTeacherEquivalencePolicyBlock('a2')
+    expect(text).toMatch(/RU echo of current drill/i)
+    expect(text).toMatch(/Мы идём в школу/)
+    expect(text).toMatch(/We are going to school/)
+    expect(text).toMatch(/Meta \(не знаю\) ≠ echo/)
+  })
 })
