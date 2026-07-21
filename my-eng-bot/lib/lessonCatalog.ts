@@ -94,7 +94,7 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
     },
     '2': {
       short: 'Вопросы с Who',
-      long: 'Who is… / Who + глагол с -s и короткий ответ.',
+      long: 'Who + глагол с -s; короткий ответ с -s.',
     },
     '3': {
       short: 'Вложенные вопросы',
