@@ -1,11 +1,14 @@
 'use client'
 
 import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
-import { LESSON_CARD_ENTER_MS } from '@/lib/lessonRevealTiming'
+import { resolveDetachedSectionEnterStyle } from '@/lib/lessonBubbleEnterStyle'
 import { renderBubbleContent } from '@/lib/lessonBubbleTextRender'
 import type { Bubble } from '@/types/lesson'
 
 export type UnifiedLessonBubbleLayout = 'unified' | 'detached'
+
+/** `reading` — все карточки сразу, lesson-enter без both+delay hide. Default — прежний stagger/delay. */
+export type UnifiedLessonBubbleEnterMode = 'default' | 'reading'
 
 type UnifiedLessonBubbleProps = {
   bubbles: Bubble[]
@@ -14,6 +17,7 @@ type UnifiedLessonBubbleProps = {
   layout?: UnifiedLessonBubbleLayout
   /** Только для `detached`: сколько секций уже показано; скрытые остаются в layout (`opacity-0`). */
   visibleSectionCount?: number
+  enterMode?: UnifiedLessonBubbleEnterMode
 }
 
 /** Фоны горизонтальных полос внутри одной карточки урока (positive / info / task). */
@@ -31,11 +35,13 @@ export default function UnifiedLessonBubble({
   animateSections = true,
   layout = 'unified',
   visibleSectionCount,
+  enterMode = 'default',
 }: UnifiedLessonBubbleProps) {
   const cornerClass = LESSON_CARD_RADIUS_CLASS
+  const isReadingEnter = enterMode === 'reading'
 
   if (layout === 'detached') {
-    const useStaggeredReveal = visibleSectionCount !== undefined
+    const useStaggeredReveal = !isReadingEnter && visibleSectionCount !== undefined
 
     return (
       <div className="w-full min-w-0 space-y-2.5">
@@ -51,17 +57,12 @@ export default function UnifiedLessonBubble({
               className={`${shouldAnimate ? 'lesson-enter' : ''} ${lessonCardSurfaceClass} overflow-hidden ${cornerClass} ${
                 useStaggeredReveal && !isVisible ? 'pointer-events-none opacity-0' : ''
               }`}
-              style={
-                shouldAnimate
-                  ? {
-                      animationDelay: useStaggeredReveal ? '0ms' : `${bubbleIndex * 80}ms`,
-                      animationDuration: useStaggeredReveal
-                        ? `${LESSON_CARD_ENTER_MS}ms`
-                        : undefined,
-                      animationFillMode: 'both',
-                    }
-                  : undefined
-              }
+              style={resolveDetachedSectionEnterStyle({
+                enterMode,
+                shouldAnimate,
+                useStaggeredReveal,
+                bubbleIndex,
+              })}
             >
               <div className="px-3 py-2.5">
                 {renderBubbleContent(bubble.content, {

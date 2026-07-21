@@ -1,17 +1,12 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
+import LessonReadingShell from '@/components/LessonReadingShell'
 import LessonReturnBriefingFlowInfoStep from '@/components/LessonReturnBriefingFlowInfoStep'
-import { ChatBubbleFrame, getBubblePosition } from '@/components/chat/ChatBubble'
-import DialogComposerStack from '@/components/DialogComposerStack'
-import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
-import { useBriefingComposerEnter } from '@/hooks/useBriefingComposerEnter'
+import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
-import {
-  estimateLessonComposerMinHeight,
-} from '@/lib/lessonComposerLayout'
+import { estimateLessonComposerMinHeight } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonReturnBriefingPayload } from '@/lib/lessonReturnBriefingCopy'
 
@@ -34,15 +29,6 @@ export default function LessonBriefingScreen({
 }: LessonBriefingScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const prefersReducedMotion = usePrefersReducedMotion()
-  const {
-    cardEnterClassName,
-    actionsReady,
-    onBubbleAnimationEnd,
-    onCardAnimationEnd,
-  } = useBriefingComposerEnter({
-    resetKey: briefing.runKey,
-    prefersReducedMotion,
-  })
   const composerMinHeight = estimateLessonComposerMinHeight({
     panelKind: 'briefing',
     compact: false,
@@ -56,55 +42,35 @@ export default function LessonBriefingScreen({
   }, [briefing.runKey])
 
   return (
-    <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
-          <div
-            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
-            <DialogGlassScrollHost>
-              <div
-                ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
-              >
-                <ChatBubbleFrame
-                  role="assistant"
-                  position={getBubblePosition(undefined, 'assistant', undefined)}
-                  className="lesson-enter"
-                  rowClassName="mb-2.5"
-                  onAnimationEnd={onBubbleAnimationEnd}
-                >
-                  <UnifiedLessonBubble bubbles={briefing.bubbles} layout="detached" />
-                </ChatBubbleFrame>
-              </div>
-            </DialogGlassScrollHost>
-
-            <DialogComposerStack
-              className={CHAT_COMPOSER_STACK_TOP_CLASS}
-              style={{
-                paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
-                minHeight: composerMinHeight,
-              }}
-              contentMaxWidthClass="max-w-[22rem]"
-            >
-              <LessonReturnBriefingFlowInfoStep
-                runKey={briefing.runKey}
-                copy={briefing.copy}
-                actions={briefing.actions}
-                onContinue={onContinue}
-                onGenerateVariant={onGenerateVariant}
-                generateVariantBusy={generateVariantBusy}
-                generateVariantProgress={generateVariantProgress}
-                generateVariantLabel={generateVariantLabel}
-                enterClassName={cardEnterClassName}
-                actionsReady={actionsReady}
-                onCardEnterAnimationEnd={onCardAnimationEnd}
-              />
-            </DialogComposerStack>
-          </div>
-        </div>
-      </div>
-    </div>
+    <LessonReadingShell
+      scrollRef={scrollContainerRef}
+      scrollClassName={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper py-2.5 sm:py-3`}
+      composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
+      composerStyle={{
+        paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+        minHeight: composerMinHeight,
+      }}
+      composer={
+        <LessonReturnBriefingFlowInfoStep
+          runKey={briefing.runKey}
+          copy={briefing.copy}
+          actions={briefing.actions}
+          onContinue={onContinue}
+          onGenerateVariant={onGenerateVariant}
+          generateVariantBusy={generateVariantBusy}
+          generateVariantProgress={generateVariantProgress}
+          generateVariantLabel={generateVariantLabel}
+          enterClassName={prefersReducedMotion ? '' : 'lesson-enter'}
+          actionsReady={true}
+        />
+      }
+    >
+      <UnifiedLessonBubble
+        bubbles={briefing.bubbles}
+        layout="detached"
+        enterMode="reading"
+        animateSections={!prefersReducedMotion}
+      />
+    </LessonReadingShell>
   )
 }

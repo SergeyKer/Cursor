@@ -178,7 +178,6 @@ import type {
 import AppFooter from '@/components/AppFooter'
 import FooterDetailSheet, { type FooterDetailSheetHandle } from '@/components/FooterDetailSheet'
 import RewardPopup from '@/components/RewardPopup'
-import type { LessonIntroDepth } from '@/components/branches/LessonBranch'
 import type {
   LessonExtraTipsFooterStatus,
   LessonExtraTipsSavedState,
@@ -837,7 +836,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
   const [lessonViewStage, setLessonViewStage] = useState<'intro' | 'tips' | 'briefing' | 'lesson' | 'reference'>('intro')
   const [lessonTipsReturnStage, setLessonTipsReturnStage] = useState<'intro' | 'lesson'>('intro')
-  const [lessonIntroDepth, setLessonIntroDepth] = useState<LessonIntroDepth>('quick')
   /** Счётчик входа на intro: сбрасывает stagger без remount (key остаётся lessonId). */
   const [lessonIntroRevealSession, setLessonIntroRevealSession] = useState(0)
   const bumpLessonIntroRevealSession = useCallback(() => {
@@ -3864,7 +3862,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setLessonReturnBriefingAckRunKey(null)
     setLessonViewStage('intro')
     setLessonTipsReturnStage('intro')
-    setLessonIntroDepth('quick')
     setLessonIntroRevealSession(0)
     setLessonExtraTipsStatus('idle')
     setLessonExtraTipsState(null)
@@ -4226,7 +4223,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         bumpLessonIntroRevealSession()
       }
       setLessonTipsReturnStage('intro')
-      setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setLessonMenuContext((prev) => ({
@@ -4289,7 +4285,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLessonReturnBriefingAckRunKey(null)
       setLessonViewStage('reference')
       setLessonTipsReturnStage('intro')
-      setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setLessonMenuContext((prev) => ({
@@ -4454,7 +4449,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setLessonViewStage('intro')
         bumpLessonIntroRevealSession()
         setLessonTipsReturnStage('intro')
-        setLessonIntroDepth('quick')
         setLessonExtraTipsStatus('idle')
         setLessonExtraTipsState(null)
         setLessonMenuContext((prev) => ({
@@ -4657,7 +4651,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
-      setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setMessages([])
@@ -5474,7 +5467,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLessonOverlay(null)
       setLessonViewStage('intro')
       setLessonTipsReturnStage('intro')
-      setLessonIntroDepth('quick')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
       setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
@@ -7580,18 +7572,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [dialogStarted, greetingNonce, homeVoiceLine])
   const introFooterDynamicText = lessonMenuContext?.lessonsPanel === 'tutor'
     ? 'MyEng собрал тему. Разберём смысл.'
-    : lessonIntroDepth === 'deep'
-      ? 'Теперь видно нюансы и частые ошибки.'
-      : lessonIntroDepth === 'details'
-        ? 'Добавил чуть больше логики перед практикой.'
-        : 'Сначала коротко разберём смысл темы.'
+    : 'Сначала коротко разберём смысл темы.'
   const introFooterStaticText = lessonMenuContext?.lessonsPanel === 'tutor'
     ? 'Репетитор | Введение'
-    : lessonIntroDepth === 'deep'
-      ? 'Глубокое введение | 0/7 шагов'
-      : lessonIntroDepth === 'details'
-        ? 'Введение подробнее | 0/7 шагов'
-        : 'Введение | 0/7 шагов'
+    : 'Введение | 0/7 шагов'
   const tipsQuizAnsweredCount = lessonExtraTipsState ? Object.keys(lessonExtraTipsState.quizAnswers).length : 0
   const tipsFooterDynamicText =
     lessonExtraTipsStatus === 'cached'
@@ -7984,7 +7968,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : isPracticeActive
     ? practiceFooterView?.typingKey ?? 'practice-footer'
     : isLessonIntroActive
-      ? `${activeLearningLessonId ?? 'lesson'}:intro:${lessonIntroDepth}`
+      ? `${activeLearningLessonId ?? 'lesson'}:intro`
       : isLessonTipsActive
       ? `${activeLessonTipsKey}:tips:${lessonExtraTipsStatus}`
       : isLessonBriefingActive
@@ -9049,13 +9033,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   key={activeLessonIntroKey}
                   intro={activeLessonIntro}
                   introSessionKey={lessonIntroRevealSessionKey}
-                  depth={lessonIntroDepth}
                   loadingLesson={Boolean(structuredLessonLoadingId) || loading || !activeStructuredLesson}
-                  provider={settings.provider}
-                  openAiChatPreset={settings.openAiChatPreset}
                   audience={settings.audience}
-                  onShowDetails={() => setLessonIntroDepth('details')}
-                  onShowDeepDive={() => setLessonIntroDepth('deep')}
                   onStartLesson={enterLessonFromIntro}
                   onShowExtras={() => {
                     setLessonTipsReturnStage('intro')

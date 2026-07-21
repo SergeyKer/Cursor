@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import DialogComposerStack from '@/components/DialogComposerStack'
-import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
+import LessonReadingShell from '@/components/LessonReadingShell'
 import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -379,18 +378,46 @@ export default function LessonExtraTipsScreen({
   }
 
   return (
-    <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 w-full max-w-[30rem] flex-1 flex-col">
-          <div
-            className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
+    <LessonReadingShell
+      scrollRef={scrollAreaRef}
+      scrollClassName={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} scroll-smooth chat-feed-wallpaper py-2.5 sm:py-3`}
+      composerStackRef={composerStackRef}
+      composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
+      composerStyle={{
+        paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+        ...(tipsComposerMinHeight != null ? { minHeight: tipsComposerMinHeight } : {}),
+      }}
+      composer={
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={onBack}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:from-white hover:to-sky-100"
+            >
+              К уроку
+            </button>
+            <button
+              type="button"
+              onClick={handleGenerateMore}
+              disabled={loadingMore}
+              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[var(--chat-control-hover)] bg-[var(--chat-control-bg)] px-3 py-2 text-sm font-semibold text-[var(--chat-control-text)] shadow-sm transition hover:bg-[var(--chat-control-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loadingMore ? 'Генерирую...' : 'Ещё фишки'}
+            </button>
+          </div>
+          <ProgressCtaButton
+            onClick={onStartLesson}
+            disabled={loadingMore || footerVariantRegenerating}
+            busy={footerVariantRegenerating}
+            progress={footerVariantRegenerating ? variantPrepareProgress : null}
+            ghostLabel={footerVariantRegenerating ? variantPrepareLabel : undefined}
           >
-            <DialogGlassScrollHost>
-              <div
-                ref={scrollAreaRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} scroll-smooth chat-feed-wallpaper p-2.5 sm:p-3`}
-              >
+            {tipsPrimaryCtaLabel}
+          </ProgressCtaButton>
+        </div>
+      }
+    >
               <div className="lesson-enter mb-2.5 flex items-center gap-2 rounded-[1.25rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
                 <span className="shrink-0 text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-600">Фишки</span>
                 <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" aria-hidden />
@@ -792,50 +819,6 @@ export default function LessonExtraTipsScreen({
                   })}
                 </div>
               </section>
-            </div>
-            </DialogGlassScrollHost>
-
-            <DialogComposerStack
-              ref={composerStackRef}
-              className={CHAT_COMPOSER_STACK_TOP_CLASS}
-              style={{
-                paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
-                ...(tipsComposerMinHeight != null ? { minHeight: tipsComposerMinHeight } : {}),
-              }}
-              contentMaxWidthClass="max-w-[22rem]"
-            >
-              <div className="flex w-full flex-col gap-2">
-                <div className="flex w-full items-center justify-between gap-1.5 sm:gap-2">
-                  <button
-                    type="button"
-                    onClick={onBack}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:from-white hover:to-sky-100"
-                  >
-                    К уроку
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleGenerateMore}
-                    disabled={loadingMore}
-                    className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[var(--chat-control-hover)] bg-[var(--chat-control-bg)] px-3 py-2 text-sm font-semibold text-[var(--chat-control-text)] shadow-sm transition hover:bg-[var(--chat-control-hover)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {loadingMore ? 'Генерирую...' : 'Ещё фишки'}
-                  </button>
-                </div>
-                <ProgressCtaButton
-                  onClick={onStartLesson}
-                  disabled={loadingMore || footerVariantRegenerating}
-                  busy={footerVariantRegenerating}
-                  progress={footerVariantRegenerating ? variantPrepareProgress : null}
-                  ghostLabel={footerVariantRegenerating ? variantPrepareLabel : undefined}
-                >
-                  {tipsPrimaryCtaLabel}
-                </ProgressCtaButton>
-              </div>
-            </DialogComposerStack>
-          </div>
-        </div>
-      </div>
-    </div>
+    </LessonReadingShell>
   )
 }
