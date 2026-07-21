@@ -203,7 +203,7 @@ const itsTimeVariants: ItsTimeVariant[] = [
 
 const itsTimePostLesson = {
   interestingFact:
-    'В живой речи английского It is часто сокращают до It’s. It’s time to зовёт к действию (глагол), а It’s time for — к вещи или событию (существительное).',
+    "It's часто говорят вместо It is. Time to — к действию, time for — к событию.",
   options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
 
@@ -500,7 +500,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       question: formatTranslateQuestion(variant.step4AdjRu),
       correctAnswer: step4State,
       acceptedAnswers: withItIsAccepted(step4State),
-      hint: 'Шаблон: It is + прилагательное.',
+      hint: 'It is + прилагательное.',
       difficulty: 'easy' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -510,7 +510,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       question: formatTranslateQuestion(variant.step4VerbRu),
       correctAnswer: step4TimeTo,
       acceptedAnswers: withItIsAccepted(step4TimeTo),
-      hint: 'Шаблон: It is time to + глагол.',
+      hint: 'It is time to + глагол.',
       difficulty: 'medium' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -520,7 +520,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
       question: formatTranslateQuestion(variant.step4NounRu),
       correctAnswer: step4TimeFor,
       acceptedAnswers: withItIsAccepted(step4TimeFor),
-      hint: 'Шаблон: It is time for + существительное.',
+      hint: 'It is time for + существительное.',
       difficulty: 'hard' as const,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -584,7 +584,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         answerPolicy: 'strict',
         hint: 'Смотрите на слово после пропуска: это существительное или глагол?',
       },
-      footerDynamic: 'Правило 2: time to + V · time for + N',
+      footerDynamic: 'Правило 2: time to + глагол · time for + существительное',
       myEngComment: 'Отлично, держим контраст to / for.',
     },
     {
@@ -597,7 +597,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'В каждом кадре своя дыра: начало предложения, частица перед глаголом или перед существительным.',
+          content: 'В каждом кадре свой пропуск: начало предложения, частица перед глаголом или перед существительным.',
         },
         {
           type: 'task',
@@ -618,7 +618,7 @@ function buildItsTimeSteps(variant: ItsTimeVariant): LessonStep[] {
         })),
       },
       footerDynamic: "Практика: It's / to / for",
-      myEngComment: 'Одно слово — одна дыра.',
+      myEngComment: 'Одно слово — один пропуск.',
     },
     {
       stepNumber: 4,
@@ -814,32 +814,32 @@ export const itsTimeToLesson: LessonData = {
     complexity: 'simple',
     quick: {
       why: [
-        "It's помогает описать состояние: темно, холодно, поздно.",
-        "It's time to помогает сказать, что пора сделать действие.",
-        "It's time for помогает сказать, что пора nominalного события: обед, ужин, перерыв.",
+        "It's описывает ситуацию: It's cold / dark / late.",
+        "It's time to + глагол — пора сделать действие.",
+        "It's time for + существительное — пора события: lunch, break.",
       ],
       how: [
-        "It's + adjective: It's cold.",
-        "It's time to + verb: It's time to go.",
-        "It's time for + noun: It's time for lunch.",
+        "It's + adjective → It's cold.",
+        "It's time to + verb → It's time to go.",
+        "It's time for + noun → It's time for lunch.",
       ],
       examples: [
-        { en: "It's dark.", ru: 'Темно.', note: 'описали состояние' },
-        { en: "It's time to sleep.", ru: 'Пора спать.', note: 'time to + глагол' },
-        { en: "It's time for dinner.", ru: 'Пора ужинать.', note: 'time for + существительное' },
+        { en: "It's dark.", ru: 'Темно.', note: 'состояние' },
+        { en: "It's time to sleep.", ru: 'Пора спать.', note: 'пора + глагол' },
+        { en: "It's time for dinner.", ru: 'Пора ужинать.', note: 'пора + событие' },
       ],
-      takeaway: "Думай так: It's описывает, time to зовёт к глаголу, time for — к существительному.",
+      takeaway: "It's — ситуация; time to — глагол; time for — существительное.",
     },
     details: {
       points: [
-        "В It's cold слово cold не действие, а описание ситуации.",
-        "В It's time to go слово go — глагол, поэтому перед ним to.",
+        "В It's cold слово cold — не действие, а описание ситуации.",
+        "В It's time to go перед глаголом go нужен to.",
         "В It's time for lunch слово lunch — существительное, поэтому for.",
       ],
       examples: [
         { en: "It's hot.", ru: 'Жарко.', note: 'только состояние' },
         { en: "It's late. It's time to go.", ru: 'Поздно. Пора идти.', note: 'состояние + действие' },
-        { en: "It's time for a break.", ru: 'Пора на перерыв.', note: 'time for + noun' },
+        { en: "It's time for a break.", ru: 'Пора на перерыв.', note: 'пора + событие' },
       ],
     },
     deepDive: {
@@ -855,18 +855,17 @@ export const itsTimeToLesson: LessonData = {
         "It's time for lunch = пора обеда (существительное).",
       ],
       selfCheckRule:
-        'Если после «пора» можно спросить «что делать?» — time to + verb. Если «чего / какого события?» — time for + noun.',
+        'Проверь: если после «пора» можно спросить «что делать?» — time to + глагол; если «чего / какого события?» — time for + существительное.',
     },
     learningPlan: {
       grammarFocus: ['It is + adjective', 'It is time to + verb', 'It is time for + noun'],
-      firstPracticeGoal: 'Отличить состояние, действие (to + V) и событие (for + noun).',
+      firstPracticeGoal: "Скажи 3 фразы: It's late. / It's time to go. / It's time for lunch.",
     },
   },
   variantId: baseVariant.id,
   finale: buildItsTimeFinale(),
   repeatConfig: {
-    ruleSummary:
-      'Различаем It is + прилагательное, It is time to + глагол и It is time for + существительное.',
+    ruleSummary: "It's + состояние; time to + глагол; time for + существительное.",
     grammarFocus: ['It is + adjective', 'It is time to + verb', 'It is time for + noun'],
     sourceSituations: Array.from(
       new Set([

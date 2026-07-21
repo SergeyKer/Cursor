@@ -143,7 +143,7 @@ function toWhoLikesAnswerRu(subjectRu: string, verbBase: string, object: string)
 
 const whoLikesPostLesson = {
   interestingFact:
-    'В вопросах с Who в английском часто сразу используется форма глагола с -s, потому что вопрос строится вокруг одного неизвестного человека.',
+    'В Who-вопросах про одного человека глагол часто сразу с -s: Who likes…, Who works…',
   options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
 
@@ -576,7 +576,7 @@ function buildWhoLikesSteps(variant: WhoLikesVariant): LessonStep[] {
           acceptedAnswers: [stepVariant.correctAnswer],
         })),
       },
-      footerDynamic: 'Practice: Who + verb-s',
+      footerDynamic: 'Практика: Who + глагол с -s',
       myEngComment: 'Хорошо, короткий ритм вопроса.',
     },
     {
@@ -769,51 +769,57 @@ export const whoLikesLesson: LessonData = {
     complexity: 'simple',
     quick: {
       why: [
-        'Who-вопросы помогают спросить, кто это и кто делает действие.',
-        'В таком вопросе неизвестный человек обычно считается как he/she/it.',
-        'Поэтому в Present Simple глагол часто получает -s.',
+        'Who спрашивает про человека: кто это или кто делает действие.',
+        'Один неизвестный человек → глагол часто с -s (как he/she).',
+        'Ответ тоже с -s: Anna likes… (как she).',
       ],
       how: [
-        'Who is that?',
-        'Шаблон: Who + verb-s + noun?',
-        'Ответ: Name + verb-s + noun.',
+        'Who is …? → Who is that?',
+        'Who + глагол с -s + …? → Who likes music?',
+        'Ответ: Имя + глагол с -s → Anna likes tea.',
       ],
       examples: [
-        { en: 'Who likes music?', ru: 'Кто любит музыку?', note: 'после Who ставим likes' },
-        { en: 'Who is that?', ru: 'Кто это?', note: 'вопрос про человека' },
-        { en: 'Anna likes tea.', ru: 'Анна любит чай.', note: 'Anna = she' },
+        { en: 'Who likes music?', ru: 'Кто любит музыку?', note: 'вопрос: likes' },
+        { en: 'Who is that?', ru: 'Кто это?', note: 'кто человек' },
+        { en: 'Anna likes tea.', ru: 'Анна любит чай.', note: 'ответ с -s' },
       ],
-      takeaway: 'Who = человек; после Who в Present Simple часто нужен глагол с -s.',
+      takeaway: 'Who = человек; в вопросе и ответе часто нужен -s у глагола.',
     },
     details: {
       points: [
-        'Who is that? - базовый вопрос про человека.',
-        'Who + verb-s не просит do/does в начале.',
-        'Главная ошибка - убрать -s или спутать Who с What.',
+        'Who is that? — базовый вопрос «кто это».',
+        'Who likes… не начинается с do/does.',
+        'Частая ошибка: Who like… или What вместо Who про человека.',
       ],
       examples: [
         { en: 'Who works here?', ru: 'Кто работает здесь?', note: 'works, не work' },
-        { en: 'Who drinks coffee?', ru: 'Кто пьет кофе?', note: 'drinks, не drink' },
+        { en: 'Who drinks coffee?', ru: 'Кто пьёт кофе?', note: 'drinks' },
+        { en: 'Tom likes football.', ru: 'Том любит футбол.', note: 'ответ с -s' },
       ],
     },
     deepDive: {
       commonMistakes: [
         'Who like music? вместо Who likes music?',
         'What likes music? про человека вместо Who likes music?',
-        'Who does she like? - другая конструкция, не ядро этого урока.',
+        'Who does she like? — другая конструкция, не ядро этого урока.',
       ],
-      contrastNotes: ['Who likes music? = вопрос.', 'Anna likes music. = ответ.', 'Who is that? = кто это.'],
-      selfCheckRule: 'Если Who спрашивает про одного человека, проверь -s у глагола.',
+      contrastNotes: [
+        'Who likes music? — вопрос.',
+        'Anna likes music. — ответ.',
+        'Who is that? — кто это.',
+      ],
+      selfCheckRule:
+        'Проверь три вещи: вопрос про человека (Who, не What); если один человек — у глагола часто -s; в Who likes… нет do/does в начале.',
     },
     learningPlan: {
       grammarFocus: ['Who is that?', 'Who + verb-s', 'Name + verb-s', 'Who vs What'],
-      firstPracticeGoal: 'Увидеть Who is that? и форму verb-s после Who.',
+      firstPracticeGoal: 'Скажи 3 фразы: Who is that? / Who likes music? / Anna likes tea.',
     },
   },
   variantId: baseVariant.id,
   finale: buildWhoLikesFinale(),
   repeatConfig: {
-    ruleSummary: 'Строим subject-Who вопросы (Who is / Who + verb-s) и отвечаем Name + verb-s.',
+    ruleSummary: 'Who is… / Who + глагол с -s; ответ Имя + глагол с -s.',
     grammarFocus: ['Who is that?', 'Who + verb-s', 'Name + verb-s', 'Who vs What'],
     sourceSituations: Array.from(new Set(whoLikesVariants.flatMap((variant) => variant.sourceSituations))),
     stepBlueprints: buildWhoLikesBlueprints(baseVariant),

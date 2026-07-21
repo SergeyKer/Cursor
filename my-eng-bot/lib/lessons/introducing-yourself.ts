@@ -350,7 +350,7 @@ function buildSelfIntroPuzzleVariant(id: string, title: string, answer: string):
     correctOrder,
     correctAnswer: answer,
     successText: `Верно! ${answer}`,
-    errorText: 'Начни с I am, потом from, роль или настроение.',
+    errorText: 'Начни с I am, потом from, кем или какой.',
     hintText: buildPuzzleVariantHintText(correctOrder),
     hintFirstWord: correctOrder[0],
     myEngComment: 'Отлично. Берём следующий вариант.',
@@ -417,7 +417,7 @@ function buildSelfIntroStep6Variants(variant: SelfIntroVariant) {
       question: formatTranslateQuestion(`Я из ${variant.cityRu}, и ${variant.moodRu.replace(/\.$/, '').toLowerCase()}.`),
       correctAnswer: cityMoodSentence,
       acceptedAnswers: toCityMoodAccepted(variant.city, variant.feelingAdj),
-      hint: 'Две связанные части: from + город и настроение через and.',
+      hint: 'Две связанные части: from + город и какой ты через and.',
     },
   ])
 }
@@ -433,12 +433,12 @@ function buildSelfIntroSentencePuzzleVariants(
     ),
     buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_role`,
-      'Пазл 2/3: роль',
+      'Пазл 2/3: кем',
       toIAmRole(variant.rolePhrase)
     ),
     buildSelfIntroPuzzleVariant(
       `${variant.id}_puzzle_mood`,
-      'Пазл 3/3: настроение',
+      'Пазл 3/3: какой',
       toIAmMood(variant.feelingAdj)
     ),
   ]
@@ -481,7 +481,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       id: `${variant.id}_step3_medium`,
       question: `Дополните одним словом: "I ___ ${variant.rolePhrase}."`,
       correctAnswer: 'am',
-      hint: 'Перед ролью тоже нужен am: I am …',
+      hint: 'Перед «кем ты» тоже нужен am: I am …',
       difficulty: 'medium' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -490,7 +490,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       id: `${variant.id}_step3_hard`,
       question: `Дополните одним словом: "I ___ ${variant.feelingAdj}."`,
       correctAnswer: 'am',
-      hint: 'И в настроении после I ставим am.',
+      hint: 'И когда говоришь какой ты — после I тоже am.',
       difficulty: 'hard' as const,
       answerFormat: 'single_word' as const,
       answerPolicy: 'strict' as const,
@@ -503,7 +503,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       question: formatTranslateQuestion(`Я из ${variant.countryRu}.`),
       correctAnswer: toIAmFromPlace(variant.country),
       acceptedAnswers: toFromAccepted(variant.country),
-      hint: 'Шаблон: I am from + страна.',
+      hint: 'I am from + страна.',
       difficulty: 'easy' as ExerciseDifficulty,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -513,7 +513,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       question: formatTranslateQuestion(`Я ${variant.roleRu}.`),
       correctAnswer: toIAmRole(variant.rolePhrase),
       acceptedAnswers: [toIAmRole(variant.rolePhrase)],
-      hint: 'I am + артикль + роль.',
+      hint: 'I am + артикль + кем.',
       difficulty: 'medium' as ExerciseDifficulty,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -523,7 +523,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       question: formatTranslateQuestion(variant.moodRu),
       correctAnswer: toIAmMood(variant.feelingAdj),
       acceptedAnswers: toMoodAccepted(variant.feelingAdj),
-      hint: 'I am / I’m + прилагательное настроения.',
+      hint: "I am / I'm + какой ты (happy, tired…).",
       difficulty: 'hard' as ExerciseDifficulty,
       answerFormat: 'full_sentence' as const,
       answerPolicy: 'normalized' as const,
@@ -540,7 +540,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Сегодня коротко представимся: имя, откуда вы, роль и настроение.',
+          content: 'Сегодня коротко представимся: имя, откуда вы, кем ты и какой ты.',
         },
         {
           type: 'info',
@@ -570,11 +570,11 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Отдельно посмотрим на артикль перед ролью.',
+          content: 'Отдельно посмотрим на артикль перед «кем ты».',
         },
         {
           type: 'info',
-          content: 'В соседнем примере: I am a nurse. / I am an artist. - перед ролью часто нужен a или an.',
+          content: 'В соседнем примере: I am a nurse. / I am an artist. - перед «кем ты» часто нужен a или an.',
         },
         {
           type: 'task',
@@ -591,8 +591,8 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         answerPolicy: 'strict',
         hint: 'После I am перед работой или учёбой обычно нужен a или an.',
       },
-      footerDynamic: 'Theory: a/an + роль',
-      myEngComment: 'Отлично, теперь берем роль.',
+      footerDynamic: 'Theory: a/an + кем',
+      myEngComment: 'Отлично, теперь берём «кем ты».',
     },
     {
       stepNumber: 3,
@@ -604,7 +604,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Три пропуска: страна, роль и настроение - везде одно слово am.',
+          content: 'Три пропуска: страна, кем и какой - везде одно слово am.',
         },
         {
           type: 'task',
@@ -633,7 +633,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь три шаблона целиком: from, роль и настроение.',
+          content: 'Теперь три формулы целиком: откуда, кем и какой.',
         },
         {
           type: 'info',
@@ -657,7 +657,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
           acceptedAnswers: stepVariant.acceptedAnswers,
         })),
       },
-      footerDynamic: 'Практика: from / роль / mood',
+      footerDynamic: 'Практика: откуда / кем / какой',
       myEngComment: 'Хорошо идете, держим темп.',
     },
     {
@@ -670,7 +670,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
         },
         {
           type: 'info',
-          content: 'Три коротких пазла: страна, роль и настроение.',
+          content: 'Три коротких пазла: страна, кем и какой.',
         },
         {
           type: 'task',
@@ -697,7 +697,7 @@ function buildSelfIntroSteps(variant: SelfIntroVariant): LessonStep[] {
       bubbles: [
         {
           type: 'positive',
-          content: 'Финальная проверка: имя, город и город+настроение.',
+          content: 'Финальная проверка: имя, город и город + какой ты.',
         },
         {
           type: 'info',

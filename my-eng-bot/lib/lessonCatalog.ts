@@ -72,15 +72,15 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
     },
     '1': {
       short: 'Состояние и действие',
-      long: 'Говорим, как вокруг, и что пора делать.',
+      long: "Как вокруг и что пора делать — It's / time to / time for.",
     },
     '2': {
       short: 'Вопросы с Who',
-      long: 'Спрашиваем, кто что любит и делает.',
+      long: 'Спрашиваем, кто это и кто что делает — через Who.',
     },
     '3': {
       short: 'Вопрос внутри фразы',
-      long: 'Соединяем две мысли в одном предложении.',
+      long: 'Вопрос внутри фразы: I know what she likes.',
     },
   },
   adult: {
@@ -90,15 +90,15 @@ export const PRACTICE_TOPICS_BY_AUDIENCE: Record<Audience, Record<string, { shor
     },
     '1': {
       short: 'Состояние и действие',
-      long: 'Описываем состояние и говорим, что пора действовать.',
+      long: "It's + состояние; time to + глагол; time for + событие.",
     },
     '2': {
       short: 'Вопросы с Who',
-      long: 'Задаем вопросы с Who и строим короткие ответы.',
+      long: 'Who is… / Who + глагол с -s и короткий ответ.',
     },
     '3': {
       short: 'Вложенные вопросы',
-      long: 'Строим вложенные вопросы и утверждения с what/where/how.',
+      long: 'Встроенный вопрос: what/where/when + обычный порядок слов.',
     },
   },
 }

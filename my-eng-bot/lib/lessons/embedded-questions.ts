@@ -434,7 +434,7 @@ const embeddedQuestionVariants: EmbeddedQuestionVariant[] = [
 
 const embeddedQuestionsPostLesson = {
   interestingFact:
-    'Во встроенных вопросах английский обычно возвращается к обычному порядку слов: what she likes, where he lives, where the station is.',
+    'Во встроенном вопросе обычный порядок: what she likes, where he lives, where the station is.',
   options: DEFAULT_POST_LESSON_OPTIONS,
 } as const
 
@@ -871,7 +871,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
         answerPolicy: 'strict',
         hint: 'После do you know / tell me: what/where/when + he/she + глагол, без does.',
       },
-      footerDynamic: 'Теория: без инверсии внутри второй части',
+      footerDynamic: 'Теория: обычный порядок внутри второй части',
       myEngComment: 'Отлично, теперь правило видно чётко.',
     },
     {
@@ -940,7 +940,7 @@ function buildEmbeddedQuestionSteps(variant: EmbeddedQuestionVariant): LessonSte
       bubbles: [
         {
           type: 'positive',
-          content: 'Теперь соберите порядок слов руками: без лишней инверсии внутри второй части.',
+          content: 'Теперь соберите порядок слов руками: обычный порядок слов во второй части.',
         },
         {
           type: 'info',
@@ -1095,52 +1095,67 @@ export const embeddedQuestionsLesson: LessonData = {
     complexity: 'medium',
     quick: {
       why: [
-        'Встроенные вопросы нужны, когда вопрос встроен внутрь другой фразы.',
-        'Мы говорим мягче: не просто What does she like?, а I know what she likes.',
-        'Главный смысл: внутри второй части порядок слов становится обычным.',
+        'Иногда вопрос прячем внутрь другой фразы: I know what she likes.',
+        'После what/where/when/who внутри — обычный порядок: кто/что + глагол.',
+        'Не тащи прямой вопрос внутрь: не what does she like после I know.',
       ],
       how: [
-        'Шаблон: вводная фраза + вопросительное слово + подлежащее + глагол.',
-        'Правильно: I know what she likes.',
-        'Ошибка: I know what does she like.',
+        'I know / Tell me + what/where/when + кто/что + глагол → I know what she likes.',
+        'Do you know + what/where/when + кто/что + глагол → Do you know what she likes?',
+        'Прямой вопрос отдельно → What does she like?',
       ],
       examples: [
         { en: 'I know what she likes.', ru: 'Я знаю, что ей нравится.', note: 'what + she + likes' },
-        { en: 'Do you know what she likes?', ru: 'Ты знаешь, что ей нравится?', note: 'без does внутри второй части' },
-        { en: 'Tell me where the station is.', ru: 'Скажи мне, где станция.', note: 'обычный порядок слов' },
+        {
+          en: 'Do you know what she likes?',
+          ru: 'Ты знаешь, что ей нравится?',
+          note: 'снаружи вопрос, внутри без does',
+        },
+        { en: 'Tell me where the station is.', ru: 'Скажи, где станция.', note: 'where + station + is' },
       ],
-      takeaway: 'Думай так: первая часть задает вопрос, а внутри второй части порядок как в утверждении.',
+      takeaway: 'Снаружи вводная фраза; внутри после what/where/when — порядок как в утверждении.',
     },
     details: {
       points: [
-        'В прямом вопросе есть перестановка: What does she like?',
-        'Во встроенном вопросе перестановка исчезает: what she likes.',
-        'Does нужен только в первой части, если она сама вопрос: Do you know...?',
+        'Прямой вопрос: What does she like?',
+        'Встроенный: what she likes — без does внутри.',
+        'Do/Does только снаружи, если вводная сама вопрос: Do you know…?',
       ],
       examples: [
-        { en: 'Can you say when the lesson starts?', ru: 'Можешь сказать, когда начинается урок?', note: 'when + lesson + starts' },
+        {
+          en: 'Can you say when the lesson starts?',
+          ru: 'Можешь сказать, когда начинается урок?',
+          note: 'when + lesson + starts',
+        },
         { en: 'I know what Anna likes.', ru: 'Я знаю, что нравится Анне.', note: 'what + Anna + likes' },
+        { en: 'Do you know where he lives?', ru: 'Ты знаешь, где он живёт?', note: 'where + he + lives' },
       ],
     },
     deepDive: {
       commonMistakes: [
-        'I know what does she like.',
-        'Do you know what does she like?',
-        'Tell me where is the station.',
+        'I know what does she like вместо I know what she likes.',
+        'Do you know what does she like? вместо Do you know what she likes?',
+        'Tell me where is the station вместо Tell me where the station is.',
       ],
-      contrastNotes: ['What does she like? = прямой вопрос.', 'I know what she likes. = встроенный вопрос.'],
-      selfCheckRule: 'Если перед вопросительным словом уже есть вводная фраза, после него ставь подлежащее + глагол.',
+      contrastNotes: [
+        'What does she like? — прямой вопрос.',
+        'I know what she likes. — встроенный.',
+        'Do you know what she likes? — вопрос снаружи, внутри обычный порядок.',
+      ],
+      selfCheckRule:
+        'Проверь: после what/where/when/who внутри уже есть кто/что, потом глагол — без does/is вперёд подлежащего.',
     },
     learningPlan: {
       grammarFocus: ['встроенные вопросы', 'вопросительное слово + подлежащее + глагол', 'I know who he is'],
-      firstPracticeGoal: 'Убрать лишнюю инверсию внутри встроенного вопроса.',
+      firstPracticeGoal:
+        'Скажи 3 фразы: I know what she likes. / Do you know what she likes? / Tell me where the station is.',
     },
   },
   variantId: baseVariant.id,
   finale: buildEmbeddedQuestionsFinale(),
   repeatConfig: {
     ruleSummary:
-      'После do you know, tell me, can you say и I do not know во второй части используем обычный порядок слов: вопросительное слово + подлежащее + глагол.',
+      'После I know / Tell me / Do you know внутри: what/where/when + кто/что + глагол.',
     grammarFocus: [
       'Do you know what she likes',
       'Tell me where the station is',
