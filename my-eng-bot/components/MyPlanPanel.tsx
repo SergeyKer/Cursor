@@ -1,10 +1,8 @@
 'use client'
 
 import React, { useCallback, useEffect, useState } from 'react'
-import { APP_BTN_SECONDARY_MENU, MENU_PRIMARY_CTA_CLASS } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
-import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import { pickQuickStartPracticeTopic, type LessonCatalogLevel } from '@/lib/lessonCatalog'
 import type { AttentionZone, LearningSignal } from '@/lib/learningMemory/types'
 import {
@@ -19,8 +17,12 @@ import type { MyPlanAction, MyPlanRecommendation, MyPlanStatusSlice } from '@/li
 import {
   MY_PLAN_COPY,
   myPlanCopy,
+  myPlanInviteFromGoalType,
   myPlanLevelLine,
+  myPlanNowInvite,
   myPlanStreakLine,
+  myPlanTopicLine,
+  myPlanWhy,
 } from '@/lib/uiCopy/myPlan'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { Settings } from '@/lib/types'
@@ -32,6 +34,21 @@ function levelToCatalogLevel(level: Settings['level']): LessonCatalogLevel {
   }
   return 'A2'
 }
+
+const CHIP_CLASS =
+  'language-note-topic-chip w-fit max-w-full min-w-0 rounded-lg border px-2.5 py-1.5 text-left font-sans text-[13px] font-normal leading-snug break-words text-[var(--text)]'
+
+const NOW_CARD_SHELL =
+  'chat-section-surface w-full min-w-0 overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)]'
+
+const NOW_HEADER_TITLE =
+  'break-words text-[16px] font-semibold leading-snug text-[var(--chat-label-main)]'
+
+const NOW_PRIMARY_HIT =
+  'w-full min-w-0 bg-white px-4 py-2.5 text-left touch-manipulation transition-[filter,opacity] active:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-inset'
+
+const NOW_REFERENCE_LINK =
+  'w-full min-w-0 border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-2 text-left text-[13px] font-medium text-[var(--text-muted)] underline decoration-[var(--border)] underline-offset-2 touch-manipulation hover:text-[var(--text)] hover:decoration-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-inset'
 
 function AttentionTopicChip({
   zone,
@@ -45,7 +62,7 @@ function AttentionTopicChip({
     return (
       <button
         type="button"
-        className="language-note-topic-chip w-fit max-w-full rounded-lg border px-2.5 py-1 text-left font-sans text-[12px] font-normal leading-snug text-[var(--text-muted)]"
+        className={`${CHIP_CLASS} language-note-topic-chip--button touch-manipulation`}
         onClick={() => onOpenLesson(zone.lessonId!)}
         aria-label={`${MY_PLAN_COPY.openLesson}: ${zone.title}`}
       >
@@ -53,11 +70,28 @@ function AttentionTopicChip({
       </button>
     )
   }
-  return (
-    <div className="language-note-topic-chip w-fit max-w-full rounded-lg border px-2.5 py-1 font-sans text-[12px] font-normal leading-snug text-[var(--text-muted)]">
-      {label}
-    </div>
-  )
+  return <div className={CHIP_CLASS}>{label}</div>
+}
+
+function nowHeaderClass(goalType: MyPlanRecommendation['goalType'] | undefined): string {
+  const tint =
+    goalType === 'reinforce'
+      ? 'bg-[var(--chat-section-amber)]'
+      : 'bg-[var(--chat-section-slate)]'
+  return `${tint} px-4 py-3`
+}
+
+function referenceLessonIdFromAction(action: MyPlanAction): string | null {
+  if (
+    action.kind === 'resume_lesson' ||
+    action.kind === 'open_lesson' ||
+    action.kind === 'start_practice' ||
+    action.kind === 'reinforce_skill' ||
+    action.kind === 'open_reference'
+  ) {
+    return action.lessonId ?? null
+  }
+  return null
 }
 
 export interface MyPlanPanelProps {
@@ -116,6 +150,10 @@ export default function MyPlanPanel({
   const showDebug = isLearningMemoryDebugEnabled()
   const audience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
+  const titleClass =
+    audience === 'child'
+      ? 'break-words text-[18px] font-semibold leading-snug text-[var(--text)]'
+      : 'break-words text-[17px] font-semibold leading-snug text-[var(--text)]'
 
   const legacyList = !nowGoalLayout && recommendations ? recommendations : null
   const resolvedMain = legacyList ? legacyList[0] ?? null : mainTask
@@ -275,29 +313,31 @@ export default function MyPlanPanel({
     ]
   )
 
-  const debugZonesBlock = (
-    <div className="rounded-lg border border-[var(--border)]/60 bg-[var(--menu-card-bg)] px-3 py-2 opacity-80">
-      <p className="text-[12px] font-medium text-[var(--text-muted)]">{MY_PLAN_COPY.zonesTitle}</p>
-      <p className="mt-1 text-[11px] leading-snug text-[var(--text-muted)]">{MY_PLAN_COPY.zonesLead}</p>
+  const zonesBlock = (
+    <div className="w-full min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--menu-card-bg)] px-3 py-2.5 opacity-75">
+      <p className="text-[13px] font-medium text-[var(--text-muted)]">{MY_PLAN_COPY.zonesTitle}</p>
+      <p className="mt-1 break-words text-[12px] leading-snug text-[var(--text-muted)]">
+        {MY_PLAN_COPY.zonesLead}
+      </p>
       {attentionZones.length === 0 ? (
         <div className="mt-2 space-y-1">
-          <p className="text-[12px] text-[var(--text-muted)]">{MY_PLAN_COPY.zonesEmpty}</p>
-          <p className="text-[11px] text-[var(--text-muted)]">{MY_PLAN_COPY.zonesEmptyHint}</p>
+          <p className="break-words text-[13px] text-[var(--text-muted)]">{MY_PLAN_COPY.zonesEmpty}</p>
+          <p className="break-words text-[12px] text-[var(--text-muted)]">{MY_PLAN_COPY.zonesEmptyHint}</p>
         </div>
       ) : (
-        <ul className="mt-2 flex flex-col gap-2">
+        <ul className="mt-2 flex min-w-0 flex-col gap-2">
           {attentionZones.map((z) => (
-            <li key={z.skillTagId} className="space-y-0.5">
+            <li key={z.skillTagId} className="min-w-0 space-y-0.5">
               <AttentionTopicChip zone={z} onOpenLesson={onOpenLearningLesson} />
-              <p className="text-[11px] leading-snug text-[var(--text-muted)]">{z.sourceHint}</p>
+              <p className="break-words text-[12px] leading-snug text-[var(--text-muted)]">{z.sourceHint}</p>
             </li>
           ))}
         </ul>
       )}
       {modeGap ? (
         <div className="mt-2 border-t border-[var(--border)]/60 pt-2">
-          <p className="text-[12px] font-medium text-[var(--text-muted)]">{MY_PLAN_COPY.gapTitle}</p>
-          <p className="mt-1 text-[11px] leading-snug text-[var(--text-muted)]">
+          <p className="text-[13px] font-medium text-[var(--text-muted)]">{MY_PLAN_COPY.gapTitle}</p>
+          <p className="mt-1 break-words text-[12px] leading-snug text-[var(--text-muted)]">
             {MY_PLAN_COPY.gapReason} ({modeGap.title})
           </p>
         </div>
@@ -307,7 +347,7 @@ export default function MyPlanPanel({
 
   const debugLogBlock =
     showDebug ? (
-      <div className="rounded-lg border border-dashed border-[var(--border)] px-3 py-2.5 opacity-80">
+      <div className="w-full min-w-0 rounded-lg border border-dashed border-[var(--border)] px-3 py-2.5 opacity-80">
         <button
           type="button"
           className="text-[12px] text-[var(--text-muted)] underline"
@@ -327,7 +367,7 @@ export default function MyPlanPanel({
             ) : (
               <ul className="max-h-48 space-y-1 overflow-y-auto text-[11px] leading-snug text-[var(--text-muted)]">
                 {debugSignals.map((s) => (
-                  <li key={s.id} className="border-b border-[var(--border)] pb-1">
+                  <li key={s.id} className="break-words border-b border-[var(--border)] pb-1">
                     {s.at.slice(0, 19)} · {s.source}/{s.detector} · {s.skillTagIds.join(',')}
                     {s.snippet?.original ? ` · «${s.snippet.original}»` : ''}
                   </li>
@@ -352,8 +392,8 @@ export default function MyPlanPanel({
 
   const statusBlock =
     status ? (
-      <div className="px-1 py-1">
-        <p className="text-[13px] text-[var(--text-muted)]">
+      <div className="w-full min-w-0 py-0.5">
+        <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
           {myPlanStreakLine(status.dailyStreak, audience)}
           {' · '}
           {myPlanLevelLine(status.level, status.totalXP, audience)}
@@ -361,7 +401,7 @@ export default function MyPlanPanel({
         {onMenuViewChange ? (
           <button
             type="button"
-            className="mt-1 text-left text-[13px] text-[var(--text)] underline-offset-2 hover:underline"
+            className="mt-1 min-h-[40px] py-1 text-left text-[15px] font-medium text-[var(--text)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text)]"
             onClick={() => {
               trackMyPlanEvent('my_plan_progress_link', { audience })
               onMenuViewChange('progress')
@@ -373,112 +413,130 @@ export default function MyPlanPanel({
       </div>
     ) : null
 
+  const secondaryBlock =
+    resolvedSecondary.length > 0 ? (
+      <div className="w-full min-w-0 space-y-1.5">
+        <p className="text-[13px] font-medium text-[var(--text-muted)]">{copy.sectionMore}</p>
+        {resolvedSecondary.map((rec) => (
+          <button
+            key={rec.id}
+            type="button"
+            disabled={practiceBusy}
+            className="flex w-full min-h-[48px] min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5 text-left touch-manipulation disabled:opacity-60"
+            aria-label={rec.ariaLabel}
+            onClick={() => void handleAction(rec.action, 'secondary')}
+          >
+            <span className="min-w-0 flex-1 line-clamp-2 break-words text-[15px] font-medium leading-snug text-[var(--text)]">
+              {rec.title}
+            </span>
+            <span className="shrink-0 text-[var(--text-muted)]" aria-hidden>
+              →
+            </span>
+          </button>
+        ))}
+      </div>
+    ) : null
+
+  const showPaywall =
+    Boolean(resolvedMain) &&
+    showAdultPaywallHint &&
+    audience === 'adult' &&
+    resolvedMain?.goalType === 'reinforce' &&
+    !canUseAiReinforce()
+
+  const referenceLessonId =
+    resolvedMain && featureFlags.referenceV1 && onOpenReferenceTopic
+      ? (() => {
+          const lessonId = referenceLessonIdFromAction(resolvedMain.action)
+          return lessonId && isReferenceLessonId(lessonId) ? lessonId : null
+        })()
+      : null
+
   if (!resolvedMain) {
+    const emptyInvite = myPlanNowInvite('empty', audience)
+    const emptyTitle = myPlanTopicLine('lessons')
+    const emptyWhy = myPlanWhy('empty', audience)
     return (
-      <div className="space-y-3">
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-          <p className="text-[13px] font-medium text-[var(--text-muted)]">{copy.sectionNow}</p>
-          <p className="mt-1 text-[16px] font-semibold text-[var(--text)]">{copy.emptyTitle}</p>
-          <p className="mt-1 text-[14px] leading-snug text-[var(--text-muted)]">{copy.emptyBody}</p>
+      <div className="w-full min-w-0 space-y-3">
+        <section className={NOW_CARD_SHELL}>
+          <div className={nowHeaderClass(undefined)}>
+            <p className={NOW_HEADER_TITLE}>{emptyInvite}</p>
+          </div>
           {onMenuViewChange ? (
             <button
               type="button"
-              className={`${MENU_PRIMARY_CTA_CLASS} mt-3 w-full min-h-[48px]`}
+              className={`${NOW_PRIMARY_HIT} border-t border-[var(--chat-section-neutral-border)]`}
+              aria-label={`${emptyInvite}: ${emptyTitle}`}
               onClick={() => onMenuViewChange('lessons')}
             >
-              {copy.emptyCta}
+              <p className={titleClass}>{emptyTitle}</p>
+              <p className="mt-1.5 break-words text-[14px] leading-snug text-[var(--text-muted)]">
+                {emptyWhy}
+              </p>
             </button>
-          ) : null}
-        </div>
+          ) : (
+            <div className="border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-2.5">
+              <p className={titleClass}>{emptyTitle}</p>
+              <p className="mt-1.5 break-words text-[14px] leading-snug text-[var(--text-muted)]">
+                {emptyWhy}
+              </p>
+            </div>
+          )}
+        </section>
         {statusBlock}
-        {debugZonesBlock}
+        {zonesBlock}
         {debugLogBlock}
       </div>
     )
   }
 
+  const invite = myPlanInviteFromGoalType(resolvedMain.goalType, audience)
+
   return (
-    <div className="space-y-3">
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-3 shadow-[0_2px_8px_rgba(0,0,0,0.08)]">
-        <p className="text-[13px] font-medium uppercase tracking-wide text-[var(--text-muted)]">
-          {copy.sectionNow}
-        </p>
-        <p className="mt-1 text-[18px] font-semibold leading-snug text-[var(--text)]">{resolvedMain.title}</p>
-        <p className="mt-2 text-[14px] leading-snug text-[var(--text-muted)]">{resolvedMain.reasonLine}</p>
-        {resolvedMain.timeLabel ? (
-          <p className="mt-1 text-[13px] text-[var(--text-muted)]">{resolvedMain.timeLabel}</p>
-        ) : null}
-        {showAdultPaywallHint &&
-        audience === 'adult' &&
-        resolvedMain.goalType === 'reinforce' &&
-        !canUseAiReinforce() ? (
-          <p className="mt-2 text-[12px] leading-snug text-[var(--text-muted)]">
-            {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
+    <div className="w-full min-w-0 space-y-3">
+      <section className={NOW_CARD_SHELL}>
+        <div className={nowHeaderClass(resolvedMain.goalType)}>
+          <p className={NOW_HEADER_TITLE}>{invite}</p>
+        </div>
+        <button
+          type="button"
+          disabled={practiceBusy}
+          className={`${NOW_PRIMARY_HIT} border-t border-[var(--chat-section-neutral-border)]`}
+          aria-label={resolvedMain.ariaLabel}
+          onClick={() => void handleAction(resolvedMain.action, 'main')}
+        >
+          <p className={titleClass}>{resolvedMain.title}</p>
+          <p className="mt-1.5 break-words text-[14px] leading-snug text-[var(--text-muted)]">
+            {resolvedMain.reasonLine}
+            {resolvedMain.timeLabel ? ` · ${resolvedMain.timeLabel}` : ''}
           </p>
-        ) : null}
-        <div className="flex flex-col gap-2 pt-3">
+          {showPaywall ? (
+            <p className="mt-1.5 break-words text-[12px] leading-snug text-[var(--text-muted)]">
+              {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
+            </p>
+          ) : null}
+          {practiceBusy ? (
+            <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">{copy.busy}</p>
+          ) : null}
+        </button>
+        {referenceLessonId ? (
           <button
             type="button"
             disabled={practiceBusy}
-            className={`${MENU_PRIMARY_CTA_CLASS} w-full min-h-[48px]`}
-            aria-label={resolvedMain.ariaLabel}
-            onClick={() => void handleAction(resolvedMain.action, 'main')}
+            className={NOW_REFERENCE_LINK}
+            aria-label={copy.referenceLink}
+            onClick={() =>
+              void handleAction({ kind: 'open_reference', lessonId: referenceLessonId }, 'secondary')
+            }
           >
-            {practiceBusy ? copy.busy : resolvedMain.buttonLabel}
+            {copy.referenceLink}
           </button>
-          {featureFlags.referenceV1 &&
-          onOpenReferenceTopic &&
-          (() => {
-            const a = resolvedMain.action
-            const lessonId =
-              a.kind === 'resume_lesson' || a.kind === 'open_lesson' || a.kind === 'start_practice'
-                ? a.lessonId
-                : a.kind === 'reinforce_skill'
-                  ? a.lessonId
-                  : a.kind === 'open_reference'
-                    ? a.lessonId
-                    : null
-            if (!lessonId || !isReferenceLessonId(lessonId)) return null
-            return (
-              <button
-                type="button"
-                disabled={practiceBusy}
-                className={`${APP_BTN_SECONDARY_MENU} w-full min-h-[44px]`}
-                aria-label={REFERENCE_COPY.myPlanSecondary}
-                onClick={() =>
-                  void handleAction({ kind: 'open_reference', lessonId }, 'secondary')
-                }
-              >
-                {REFERENCE_COPY.myPlanSecondary}
-              </button>
-            )
-          })()}
-        </div>
-      </div>
+        ) : null}
+      </section>
 
-      {resolvedSecondary.length > 0 ? (
-        <div className="space-y-1.5">
-          <p className="px-1 text-[13px] font-medium text-[var(--text-muted)]">{copy.sectionMore}</p>
-          {resolvedSecondary.map((rec) => (
-            <button
-              key={rec.id}
-              type="button"
-              disabled={practiceBusy}
-              className="flex w-full min-h-[44px] items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5 text-left"
-              aria-label={rec.ariaLabel}
-              onClick={() => void handleAction(rec.action, 'secondary')}
-            >
-              <span className="text-[14px] font-medium leading-snug text-[var(--text)]">{rec.title}</span>
-              <span className="shrink-0 text-[var(--text-muted)]" aria-hidden>
-                →
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : null}
-
+      {secondaryBlock}
       {statusBlock}
-      {debugZonesBlock}
+      {zonesBlock}
       {debugLogBlock}
     </div>
   )

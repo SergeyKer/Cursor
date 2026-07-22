@@ -14,12 +14,11 @@ import {
   type NowGoalType,
 } from '@/lib/myPlan/types'
 import {
+  MY_PLAN_COPY,
   myPlanButton,
+  myPlanNowInvite,
   myPlanTimeLabel,
-  myPlanTitleIncomplete,
-  myPlanTitleNext,
-  myPlanTitlePractice,
-  myPlanTitleReinforce,
+  myPlanTopicLine,
   myPlanWhy,
   type MyPlanAudience,
 } from '@/lib/uiCopy/myPlan'
@@ -39,6 +38,19 @@ function isTheoryCompleted(p: { lastCompleted: string }): boolean {
 function catalogOrder(catalog: MyPlanInput['catalog'], lessonId: string): number {
   const row = catalog.find((t) => t.id === lessonId)
   return row?.order ?? 9999
+}
+
+/** EN title из каталога; fallback — progress.topic / zone.title. */
+function resolveDisplayTopic(
+  catalog: MyPlanInput['catalog'],
+  lessonId: string | null | undefined,
+  fallback?: string | null
+): string {
+  const fromCatalog = lessonId
+    ? catalog.find((t) => t.id === lessonId)?.title?.trim()
+    : ''
+  const fromFallback = fallback?.trim()
+  return fromCatalog || fromFallback || (lessonId ? `Урок ${lessonId}` : 'Урок')
 }
 
 function pickIncompleteLesson(input: MyPlanInput): MyPlanLessonProgressSlice | null {
@@ -117,19 +129,22 @@ function skillIdsOf(rec: MyPlanRecommendation): string[] {
 
 function buildIncomplete(
   incomplete: MyPlanLessonProgressSlice,
+  input: MyPlanInput,
   audience: MyPlanAudience
 ): MyPlanRecommendation {
-  const title = incomplete.topic?.trim() || `Урок ${incomplete.lessonId}`
+  const topic = resolveDisplayTopic(input.catalog, incomplete.lessonId, incomplete.topic)
+  const title = myPlanTopicLine('lesson', topic)
+  const invite = myPlanNowInvite('incomplete', audience)
   return {
     id: 'continue-lesson',
     priority: 1,
     goalType: 'incomplete',
-    title: myPlanTitleIncomplete(title, audience),
+    title,
     subtitle: '',
     reasonLine: myPlanWhy('incomplete', audience),
     action: { kind: 'resume_lesson', lessonId: incomplete.lessonId },
     buttonLabel: myPlanButton('incomplete', audience),
-    ariaLabel: `${myPlanButton('incomplete', audience)}: ${title}`,
+    ariaLabel: `${invite}: ${topic}`,
     timeLabel: myPlanTimeLabel('short', audience),
   }
 }
@@ -140,7 +155,10 @@ function buildReinforce(
   audience: MyPlanAudience
 ): MyPlanRecommendation {
   const canAi = Boolean(input.canUseAiReinforce)
-  const title = zone.title?.trim() || zone.skillTagId
+  const topic = zone.title?.trim() || zone.skillTagId
+  const title = myPlanTopicLine('topic', topic)
+  const invite = myPlanNowInvite('reinforce', audience)
+  const reasonLine = myPlanWhy('reinforce', audience, { errorCount: zone.errorCount })
   const generation = canAi && zone.lessonId ? 'ai' : 'local'
   const buttonKind = generation === 'ai' ? 'reinforce_ai' : 'reinforce_local'
 
@@ -151,9 +169,9 @@ function buildReinforce(
         id: `reinforce-${zone.skillTagId}`,
         priority: 2,
         goalType: 'reinforce',
-        title: myPlanTitleReinforce(title, audience),
+        title,
         subtitle: '',
-        reasonLine: myPlanWhy('reinforce', audience),
+        reasonLine,
         action: {
           kind: 'reinforce_skill',
           skillTagId: zone.skillTagId,
@@ -162,7 +180,7 @@ function buildReinforce(
           entrySource: 'my_plan',
         },
         buttonLabel: myPlanButton(buttonKind, audience),
-        ariaLabel: `${myPlanButton(buttonKind, audience)}: ${title}`,
+        ariaLabel: `${invite}: ${topic}`,
         timeLabel: myPlanTimeLabel(generation === 'ai' ? 'medium' : 'short', audience),
       }
     }
@@ -170,41 +188,43 @@ function buildReinforce(
       id: `reinforce-lesson-${zone.skillTagId}`,
       priority: 2,
       goalType: 'reinforce',
-      title: myPlanTitleReinforce(title, audience),
+      title,
       subtitle: '',
-      reasonLine: myPlanWhy('reinforce', audience),
+      reasonLine,
       action: { kind: 'open_lesson', lessonId: zone.lessonId },
       buttonLabel: myPlanButton('next', audience),
-      ariaLabel: `${myPlanButton('next', audience)}: ${title}`,
+      ariaLabel: `${invite}: ${topic}`,
       timeLabel: myPlanTimeLabel('medium', audience),
     }
   }
 
-  // Zone without lessonId — never a dead CTA: quick practice
   return {
     id: `reinforce-quick-${zone.skillTagId}`,
     priority: 2,
     goalType: 'reinforce',
-    title: myPlanTitleReinforce(title, audience),
+    title,
     subtitle: '',
-    reasonLine: myPlanWhy('reinforce', audience),
+    reasonLine,
     action: { kind: 'quick_practice', entrySource: 'my_plan' },
     buttonLabel: myPlanButton('reinforce_local', audience),
-    ariaLabel: `${myPlanButton('reinforce_local', audience)}: ${title}`,
+    ariaLabel: `${invite}: ${topic}`,
     timeLabel: myPlanTimeLabel('short', audience),
   }
 }
 
 function buildPracticeAfterTheory(
   latestTheory: MyPlanLessonProgressSlice,
+  input: MyPlanInput,
   audience: MyPlanAudience
 ): MyPlanRecommendation {
-  const topic = latestTheory.topic?.trim() || `Урок ${latestTheory.lessonId}`
+  const topic = resolveDisplayTopic(input.catalog, latestTheory.lessonId, latestTheory.topic)
+  const title = myPlanTopicLine('practice', topic)
+  const invite = myPlanNowInvite('practice_after_theory', audience)
   return {
     id: 'practice-after-theory',
     priority: 3,
     goalType: 'practice_after_theory',
-    title: myPlanTitlePractice(topic, audience),
+    title,
     subtitle: '',
     reasonLine: myPlanWhy('practice_after_theory', audience),
     action: {
@@ -214,37 +234,41 @@ function buildPracticeAfterTheory(
       entrySource: 'my_plan',
     },
     buttonLabel: myPlanButton('practice_after_theory', audience),
-    ariaLabel: `${myPlanButton('practice_after_theory', audience)}: ${topic}`,
+    ariaLabel: `${invite}: ${topic}`,
     timeLabel: myPlanTimeLabel('medium', audience),
   }
 }
 
 function buildNextLesson(next: MyPlanCatalogTopic, audience: MyPlanAudience): MyPlanRecommendation {
+  const title = myPlanTopicLine('lesson', next.title)
+  const invite = myPlanNowInvite('next_lesson', audience)
   return {
     id: `next-lesson-${next.id}`,
     priority: 4,
     goalType: 'next_lesson',
-    title: myPlanTitleNext(next.title, audience),
+    title,
     subtitle: '',
     reasonLine: myPlanWhy('next', audience),
     action: { kind: 'open_lesson', lessonId: next.id },
     buttonLabel: myPlanButton('next', audience),
-    ariaLabel: `${myPlanButton('next', audience)}: ${next.title}`,
+    ariaLabel: `${invite}: ${next.title}`,
     timeLabel: myPlanTimeLabel('medium', audience),
   }
 }
 
 function buildSoftReturn(audience: MyPlanAudience): MyPlanRecommendation {
+  const title = myPlanTopicLine('practice', MY_PLAN_COPY.softPracticeTopic)
+  const invite = myPlanNowInvite('soft_return', audience)
   return {
     id: 'return-after-break',
     priority: 5,
     goalType: 'soft_return',
-    title: audience === 'child' ? 'С возвращением' : 'С возвращением',
+    title,
     subtitle: '',
     reasonLine: myPlanWhy('soft_return', audience),
     action: { kind: 'quick_practice', entrySource: 'my_plan' },
     buttonLabel: myPlanButton('soft_return', audience),
-    ariaLabel: myPlanButton('soft_return', audience),
+    ariaLabel: `${invite}: ${MY_PLAN_COPY.softPracticeTopic}`,
     timeLabel: myPlanTimeLabel('short', audience),
   }
 }
@@ -254,16 +278,21 @@ function buildWeakSpot(
   audience: MyPlanAudience
 ): MyPlanRecommendation {
   const target: 'vocabulary' | 'practice' = spot.id === 'vocab-errors' ? 'vocabulary' : 'practice'
+  const title =
+    target === 'vocabulary'
+      ? myPlanTopicLine('words', spot.label)
+      : myPlanTopicLine('practice', spot.label)
+  const invite = myPlanNowInvite('weak_spot', audience)
   return {
     id: `weak-${spot.id}`,
     priority: 6,
     goalType: 'weak_spot',
-    title: audience === 'child' ? `Повторим «${spot.label}»` : `Закрепить: ${spot.label}`,
+    title,
     subtitle: '',
-    reasonLine: myPlanWhy('reinforce', audience),
+    reasonLine: myPlanWhy('weak_spot', audience),
     action: { kind: 'weak_spot', spotId: spot.id, target },
     buttonLabel: myPlanButton('reinforce_local', audience),
-    ariaLabel: myPlanButton('reinforce_local', audience),
+    ariaLabel: `${invite}: ${spot.label}`,
     timeLabel: myPlanTimeLabel('short', audience),
   }
 }
@@ -279,14 +308,14 @@ function collectCandidates(input: MyPlanInput, nowMs: number): MyPlanRecommendat
     incomplete != null && !(isIncompleteStale(incomplete, nowMs) && critical != null)
 
   if (incomplete && incompleteFreshWins) {
-    out.push(buildIncomplete(incomplete, audience))
+    out.push(buildIncomplete(incomplete, input, audience))
   }
 
   if (critical) {
     out.push(buildReinforce(critical, input, audience))
   } else if (incomplete && !incompleteFreshWins) {
     // stale incomplete without critical — still show incomplete as candidate
-    out.push(buildIncomplete(incomplete, audience))
+    out.push(buildIncomplete(incomplete, input, audience))
   }
 
   const latestTheory = pickLatestCompletedTheory(input)
@@ -295,7 +324,7 @@ function collectCandidates(input: MyPlanInput, nowMs: number): MyPlanRecommendat
     const topicCupDone =
       featureFlags.practiceTopicCupsV1 && getPracticeTopicProgress(latestTheory.lessonId).cupClaimed
     if (!topicCupDone && !hasPracticeAfterTheory(input, latestTheory.lessonId, latestTheory.lastCompleted)) {
-      out.push(buildPracticeAfterTheory(latestTheory, audience))
+      out.push(buildPracticeAfterTheory(latestTheory, input, audience))
     }
   }
 

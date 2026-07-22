@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   myPlanButton,
   myPlanCopy,
+  myPlanInviteFromGoalType,
   myPlanLevelLine,
+  myPlanNowInvite,
   myPlanStreakLine,
   myPlanTimeLabel,
+  myPlanTopicLine,
   myPlanWhy,
+  ruDayWord,
 } from '@/lib/uiCopy/myPlan'
 
 describe('myPlan copy dictionary', () => {
@@ -13,12 +17,16 @@ describe('myPlan copy dictionary', () => {
     const c = myPlanCopy('child')
     expect(c.sectionNow).toBe('Сейчас')
     expect(c.statusLink).toContain('сделал')
-    expect(c.emptyCta).toBe('К урокам')
+    expect(c.referenceLink).toBe('Шпаргалка')
   })
 
   it('why is one short phrase', () => {
     expect(myPlanWhy('incomplete', 'child').includes('\n')).toBe(false)
-    expect(myPlanWhy('reinforce', 'adult')).toMatch(/ошиб/)
+    expect(myPlanWhy('incomplete', 'child')).toMatch(/начинал/)
+    expect(myPlanWhy('incomplete', 'adult')).toMatch(/начинали/)
+    expect(myPlanWhy('incomplete', 'adult')).toMatch(/не закончили/)
+    expect(myPlanWhy('reinforce', 'adult', { errorCount: 3 })).toMatch(/3/)
+    expect(myPlanWhy('reinforce', 'child', { errorCount: 3 })).toMatch(/ошиб/)
   })
 
   it('buttons differ by audience', () => {
@@ -31,8 +39,39 @@ describe('myPlan copy dictionary', () => {
     expect(myPlanTimeLabel('short', 'child')).toBe('Коротко')
   })
 
+  it('ruDayWord plural forms', () => {
+    expect(ruDayWord(0)).toBe('дней')
+    expect(ruDayWord(1)).toBe('день')
+    expect(ruDayWord(2)).toBe('дня')
+    expect(ruDayWord(5)).toBe('дней')
+    expect(ruDayWord(21)).toBe('день')
+    expect(ruDayWord(22)).toBe('дня')
+    expect(ruDayWord(11)).toBe('дней')
+  })
+
   it('status lines', () => {
-    expect(myPlanStreakLine(5, 'child')).toContain('5')
+    expect(myPlanStreakLine(1, 'adult')).toBe('Серия: 1 день')
+    expect(myPlanStreakLine(2, 'adult')).toBe('Серия: 2 дня')
+    expect(myPlanStreakLine(5, 'adult')).toBe('Серия: 5 дней')
+    expect(myPlanStreakLine(0, 'adult')).toContain('начни сегодня')
+    expect(myPlanStreakLine(1, 'child')).toContain('1 день')
     expect(myPlanLevelLine(3, 120, 'adult')).toContain('XP')
+  })
+
+  it('invite questions by goalType', () => {
+    expect(myPlanNowInvite('incomplete')).toBe('Продолжим урок?')
+    expect(myPlanInviteFromGoalType('soft_return')).toBe('С возвращением?')
+    expect(myPlanInviteFromGoalType('reinforce')).toBe('Поправим ошибки?')
+    expect(myPlanInviteFromGoalType('soft_return')).not.toBe(
+      myPlanInviteFromGoalType('reinforce')
+    )
+    expect(myPlanInviteFromGoalType(undefined)).toBe('С чего начнём?')
+  })
+
+  it('topic lines use EN topic name', () => {
+    expect(myPlanTopicLine('lesson', "It's time")).toBe("Урок: It's time")
+    expect(myPlanTopicLine('practice', 'короткая')).toBe('Практика: короткая')
+    expect(myPlanTopicLine('topic', 'Present Simple')).toBe('Тема: Present Simple')
+    expect(myPlanTopicLine('lessons')).toBe('Уроки')
   })
 })

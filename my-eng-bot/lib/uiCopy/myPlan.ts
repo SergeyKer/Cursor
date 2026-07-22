@@ -6,6 +6,19 @@ export type MyPlanWhyKind =
   | 'practice_after_theory'
   | 'next'
   | 'soft_return'
+  | 'weak_spot'
+  | 'empty'
+
+export type MyPlanInviteKind =
+  | 'incomplete'
+  | 'next_lesson'
+  | 'practice_after_theory'
+  | 'reinforce'
+  | 'soft_return'
+  | 'weak_spot'
+  | 'empty'
+
+export type MyPlanTopicKind = 'lesson' | 'practice' | 'topic' | 'words' | 'lessons'
 
 export type MyPlanButtonKind =
   | 'incomplete'
@@ -20,43 +33,59 @@ const SECTIONS = {
   child: {
     sectionNow: 'Сейчас',
     sectionMore: 'Ещё можно',
-    emptyTitle: 'Пока тихо',
+    emptyTitle: 'Уроки',
     emptyBody: 'Загляни в Уроки — там начало.',
     emptyCta: 'К урокам',
     statusLink: 'Что я уже сделал →',
     busy: 'Готовим…',
+    referenceLink: 'Шпаргалка',
   },
   adult: {
     sectionNow: 'Сейчас',
     sectionMore: 'Ещё можно',
-    emptyTitle: 'Пока нет задачи',
+    emptyTitle: 'Уроки',
     emptyBody: 'Откройте Уроки или начните короткую практику.',
     emptyCta: 'К разделу «Уроки»',
     statusLink: 'Подробнее в «Прогрессе» →',
     busy: 'Готовим…',
+    referenceLink: 'Шпаргалка',
   },
 } as const
 
-const WHY: Record<MyPlanWhyKind, Record<MyPlanAudience, string>> = {
+const INVITE: Record<MyPlanInviteKind, Record<MyPlanAudience, string>> = {
+  incomplete: { child: 'Продолжим урок?', adult: 'Продолжим урок?' },
+  next_lesson: { child: 'Начнём урок?', adult: 'Начнём урок?' },
+  practice_after_theory: { child: 'Продолжим практику?', adult: 'Продолжим практику?' },
+  reinforce: { child: 'Поправим ошибки?', adult: 'Поправим ошибки?' },
+  soft_return: { child: 'С возвращением?', adult: 'С возвращением?' },
+  weak_spot: { child: 'Подтянем слабое?', adult: 'Подтянем слабое место?' },
+  empty: { child: 'С чего начнём?', adult: 'С чего начнём?' },
+}
+
+const WHY: Record<Exclude<MyPlanWhyKind, 'reinforce'>, Record<MyPlanAudience, string>> = {
   incomplete: {
-    child: 'Ты уже начал — давай добьём.',
-    adult: 'Урок начат — можно продолжить с того же места.',
-  },
-  reinforce: {
-    child: 'Тут часто ошибаешься — поправим.',
-    adult: 'Много ошибок по теме за последнее время — стоит закрепить.',
+    child: 'Ты уже начинал урок — давай закончим.',
+    adult: 'Вы уже начинали урок — не закончили. Продолжим.',
   },
   practice_after_theory: {
-    child: 'Урок пройден — теперь закрепим.',
-    adult: 'После теории закроем практику по теме.',
+    child: 'Урок пройден — закрепим в практике.',
+    adult: 'Теория есть — закроем практику по теме.',
   },
   next: {
     child: 'Следующий шаг по программе.',
-    adult: 'Следующий урок в вашей программе.',
+    adult: 'Следующий урок в программе.',
   },
   soft_return: {
     child: 'Давно не заходил — начнём легко.',
-    adult: 'Давно не было активности — лёгкий шаг на сегодня.',
+    adult: 'Давно не было активности — лёгкий шаг.',
+  },
+  weak_spot: {
+    child: 'Тут слабое место — подтянем.',
+    adult: 'Слабое место — стоит закрепить.',
+  },
+  empty: {
+    child: 'Загляни в Уроки — там начало.',
+    adult: 'Откройте Уроки или короткую практику.',
   },
 }
 
@@ -70,7 +99,7 @@ const BUTTONS: Record<MyPlanButtonKind, Record<MyPlanAudience, string>> = {
   empty_lessons: { child: 'К урокам', adult: 'К разделу «Уроки»' },
 }
 
-/** Debug / legacy shared strings. */
+/** Debug / shared strings. */
 export const MY_PLAN_COPY = {
   zonesTitle: 'Зоны внимания',
   zonesLead: 'То, что сейчас важнее закрепить (не музей старых ошибок).',
@@ -88,25 +117,102 @@ export const MY_PLAN_COPY = {
   adultPaywallLead: 'Персонально по твоим ошибкам — на ИИ.',
   adultPaywallLocal: 'Пока локально',
   childLocalOnly: 'Пока обычная тренировка',
+  softPracticeTopic: 'короткая',
 } as const
 
 export function myPlanCopy(audience: MyPlanAudience = 'adult') {
   return SECTIONS[audience === 'child' ? 'child' : 'adult']
 }
 
-export function myPlanWhy(kind: MyPlanWhyKind, audience: MyPlanAudience = 'adult'): string {
-  return WHY[kind][audience === 'child' ? 'child' : 'adult']
+export function myPlanNowInvite(
+  kind: MyPlanInviteKind,
+  audience: MyPlanAudience = 'adult'
+): string {
+  return INVITE[kind][audience === 'child' ? 'child' : 'adult']
+}
+
+/** Map ranker goalType → invite question. */
+export function myPlanInviteFromGoalType(
+  goalType: string | null | undefined,
+  audience: MyPlanAudience = 'adult'
+): string {
+  switch (goalType) {
+    case 'incomplete':
+      return myPlanNowInvite('incomplete', audience)
+    case 'next_lesson':
+      return myPlanNowInvite('next_lesson', audience)
+    case 'practice_after_theory':
+      return myPlanNowInvite('practice_after_theory', audience)
+    case 'reinforce':
+      return myPlanNowInvite('reinforce', audience)
+    case 'soft_return':
+      return myPlanNowInvite('soft_return', audience)
+    case 'weak_spot':
+      return myPlanNowInvite('weak_spot', audience)
+    default:
+      return myPlanNowInvite('empty', audience)
+  }
+}
+
+export function myPlanTopicLine(kind: MyPlanTopicKind, topic?: string): string {
+  const t = topic?.trim()
+  switch (kind) {
+    case 'lesson':
+      return t ? `Урок: ${t}` : 'Урок'
+    case 'practice':
+      return t ? `Практика: ${t}` : 'Практика'
+    case 'topic':
+      return t ? `Тема: ${t}` : 'Тема'
+    case 'words':
+      return t ? `Слова: ${t}` : 'Слова'
+    case 'lessons':
+      return 'Уроки'
+    default:
+      return t || 'Урок'
+  }
+}
+
+export function myPlanWhy(
+  kind: MyPlanWhyKind,
+  audience: MyPlanAudience = 'adult',
+  extras?: { errorCount?: number }
+): string {
+  const a = audience === 'child' ? 'child' : 'adult'
+  if (kind === 'reinforce') {
+    const n = extras?.errorCount
+    if (typeof n === 'number' && n >= 1) {
+      return a === 'child'
+        ? `Ты ошибся здесь ${n} раз.`
+        : `По этой теме ${n} ошибок за последнее время.`
+    }
+    return a === 'child'
+      ? 'Тут часто ошибаешься — поправим.'
+      : 'Много ошибок по теме — стоит закрепить.'
+  }
+  return WHY[kind][a]
 }
 
 export function myPlanButton(kind: MyPlanButtonKind, audience: MyPlanAudience = 'adult'): string {
   return BUTTONS[kind][audience === 'child' ? 'child' : 'adult']
 }
 
+/** Russian day word: 1 день / 2 дня / 5 дней / 21 день / 22 дня. */
+export function ruDayWord(n: number): string {
+  const abs = Math.abs(Math.floor(n))
+  const mod100 = abs % 100
+  const mod10 = abs % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'дней'
+  if (mod10 === 1) return 'день'
+  if (mod10 >= 2 && mod10 <= 4) return 'дня'
+  return 'дней'
+}
+
 export function myPlanStreakLine(streak: number, audience: MyPlanAudience = 'adult'): string {
+  const n = Math.max(0, Math.floor(streak))
   if (audience === 'child') {
-    return streak > 0 ? `Заходил(а) ${streak} дней подряд` : 'Сегодня ещё не заходил(а)'
+    return n > 0 ? `Заходил(а) ${n} ${ruDayWord(n)} подряд` : 'Сегодня ещё не заходил(а)'
   }
-  return streak > 0 ? `Серия: ${streak} дней` : 'Серия: 0 дней'
+  return n > 0 ? `Серия: ${n} ${ruDayWord(n)}` : 'Серия: 0 дней — начни сегодня'
 }
 
 export function myPlanLevelLine(
@@ -125,20 +231,4 @@ export function myPlanTimeLabel(
   if (kind === 'unknown') return null
   if (audience === 'child') return kind === 'short' ? 'Коротко' : 'Средне'
   return kind === 'short' ? '~3 мин' : '~8 мин'
-}
-
-export function myPlanTitleIncomplete(title: string, audience: MyPlanAudience): string {
-  return audience === 'child' ? `Продолжи «${title}»` : `Продолжить: ${title}`
-}
-
-export function myPlanTitleReinforce(title: string, audience: MyPlanAudience): string {
-  return audience === 'child' ? `Повторим «${title}»` : `Закрепить: ${title}`
-}
-
-export function myPlanTitleNext(title: string, audience: MyPlanAudience): string {
-  return audience === 'child' ? `Дальше: «${title}»` : `Следующий урок: ${title}`
-}
-
-export function myPlanTitlePractice(title: string, audience: MyPlanAudience): string {
-  return audience === 'child' ? `Закрепим «${title}»` : `Закрепить: ${title}`
 }

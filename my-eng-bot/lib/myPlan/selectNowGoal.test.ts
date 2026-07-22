@@ -168,13 +168,23 @@ describe('selectNowGoal', () => {
     expect(mainTask?.action.kind).toBe('quick_practice')
   })
 
-  it('child copy на incomplete', () => {
+  it('incomplete берёт EN title из каталога, не RU topic прогресса', () => {
+    const catalogTitle = "It's / It's time to"
     const input = emptyInput({
-      audience: 'child',
+      catalog: [
+        {
+          id: '1',
+          title: catalogTitle,
+          order: 10,
+          enabled: true,
+          hasTheory: true,
+          hasPractice: true,
+        },
+      ],
       lessons: {
         '1': {
           lessonId: '1',
-          topic: 'To be',
+          topic: 'Это / Пора',
           completedSteps: [1],
           lastCompleted: '',
           mistakesCount: 0,
@@ -182,9 +192,42 @@ describe('selectNowGoal', () => {
       },
     })
     const { mainTask } = selectNowGoal(input)
-    expect(mainTask?.title).toContain('Продолжи')
+    expect(mainTask?.goalType).toBe('incomplete')
+    expect(mainTask?.title).toBe(`Урок: ${catalogTitle}`)
+    expect(mainTask?.ariaLabel).toContain(catalogTitle)
+    expect(mainTask?.reasonLine).toMatch(/начинали/)
+    expect(mainTask?.reasonLine).toMatch(/не закончили/)
+  })
+
+  it('child copy на incomplete', () => {
+    const input = emptyInput({
+      audience: 'child',
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'Это / Пора',
+          completedSteps: [1],
+          lastCompleted: '',
+          mistakesCount: 0,
+        },
+      },
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.title).toBe('Урок: To be')
     expect(mainTask?.buttonLabel).toBe('Продолжить')
-    expect(mainTask?.reasonLine).toContain('уже начал')
+    expect(mainTask?.reasonLine).toContain('начинал')
+    expect(mainTask?.reasonLine).toContain('закончим')
+  })
+
+  it('reinforce why includes errorCount', () => {
+    const input = emptyInput({
+      catalog: [],
+      attentionZones: [zone({ lessonId: null, chipActive: false, errorCount: 4 })],
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('reinforce')
+    expect(mainTask?.title).toMatch(/^Тема:/)
+    expect(mainTask?.reasonLine).toMatch(/4/)
   })
 
   it('facade getMyPlanRecommendations возвращает до 3', () => {
