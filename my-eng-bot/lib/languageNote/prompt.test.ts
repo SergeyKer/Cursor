@@ -69,4 +69,22 @@ describe('languageNote prompt modes', () => {
     expect(prompt).toContain('NEVER turn that into a learner reason')
     expect(prompt).toContain('hello how are you what are you do now')
   })
+
+  it('mentions expectedEnglish teacher target when building system prompt', () => {
+    const prompt = buildLanguageNoteSystemPrompt('adult', { mode: 'engvo', voiceMode: null })
+    expect(prompt).toContain('expectedEnglish')
+    expect(prompt).toContain('teacher canonical English target')
+  })
+
+  it('puts expectedEnglish into user payload when provided', async () => {
+    const { buildLanguageNoteUserPayload } = await import('@/lib/languageNote/prompt')
+    const payload = JSON.parse(
+      buildLanguageNoteUserPayload({
+        text: 'I teacher',
+        expectedEnglish: 'I am a teacher',
+        mode: 'engvo',
+      })
+    ) as { expectedEnglish: string | null }
+    expect(payload.expectedEnglish).toBe('I am a teacher')
+  })
 })

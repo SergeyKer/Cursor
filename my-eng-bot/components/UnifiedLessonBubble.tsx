@@ -34,11 +34,23 @@ const unifiedSectionClassByType: Record<Bubble['type'], string> = {
 const lessonCardSurfaceClass =
   'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)]'
 
+/** Reading detached card header tint by bubble type (body stays white). */
+const readingHeaderClassByType: Record<Bubble['type'], string> = {
+  positive: 'bg-[var(--chat-section-amber)]',
+  info: 'bg-[var(--chat-section-slate)]',
+  task: 'bg-[var(--chat-section-emerald)]',
+}
+
+const readingHeaderTitleClass =
+  'break-words text-[15px] font-semibold uppercase tracking-[0.02em] text-[var(--chat-label-main)]'
+
 function ReadingDetachedCardBody({
   content,
+  type,
   emphasizeTaskInstructions,
 }: {
   content: string
+  type: Bubble['type']
   emphasizeTaskInstructions: boolean
 }) {
   const { title, bodyLines } = splitBubbleTitleBody(content)
@@ -46,21 +58,22 @@ function ReadingDetachedCardBody({
     emphasizeTaskInstructions,
     bulletStyle: 'dot' as const,
   }
+  const headerClass = `${readingHeaderClassByType[type]} px-4 py-3`
 
   if (bodyLines.length === 0) {
     return (
-      <div className="bg-[var(--chat-section-neutral)] px-3 py-2.5">
-        <p className="break-words text-[15px] font-bold leading-tight text-[var(--text)]">{title}</p>
+      <div className={headerClass}>
+        <p className={readingHeaderTitleClass}>{title}</p>
       </div>
     )
   }
 
   return (
     <>
-      <div className="bg-[var(--chat-section-neutral)] px-3 py-2.5">
-        <p className="break-words text-[15px] font-bold leading-tight text-[var(--text)]">{title}</p>
+      <div className={headerClass}>
+        <p className={readingHeaderTitleClass}>{title}</p>
       </div>
-      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-white px-3 py-2.5">
+      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-2.5">
         {bodyLines.map((line, i) => renderBodyLine(line, i, bodyOptions))}
       </div>
     </>
@@ -104,6 +117,7 @@ export default function UnifiedLessonBubble({
               {isReadingEnter ? (
                 <ReadingDetachedCardBody
                   content={bubble.content}
+                  type={bubble.type}
                   emphasizeTaskInstructions={bubble.type === 'task'}
                 />
               ) : (

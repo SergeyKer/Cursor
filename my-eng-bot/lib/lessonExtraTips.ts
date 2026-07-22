@@ -253,8 +253,16 @@ export function isLikelyEmbeddedQuestionTopic(intro: LessonIntro): boolean {
 function isLikelyWhQuestionTopic(topic: string, intro?: LessonIntro): boolean {
   if (intro && isLikelyEmbeddedQuestionTopic(intro)) return false
   const t = topic.toLowerCase()
+  if (/^\s*who\b/.test(t) || /\bwho\s*\.\.\./.test(t)) return true
   if (/\bquestion/i.test(t) && /\b(who|what|when|where|why|how)\b/i.test(t)) return true
   if (/вопрос/i.test(t) && /\bwho\b/i.test(t)) return true
+  if (
+    intro?.deepDive?.commonMistakes?.some(
+      (line) => /\bwho\s+like\b/i.test(line) && !/\bwhat\s+does\b/i.test(line) && !/\bi\s+know\b/i.test(line)
+    )
+  ) {
+    return true
+  }
   return false
 }
 
@@ -416,7 +424,31 @@ function toSingleSentenceSwapExample(example: LessonTipExample): LessonTipExampl
   }
 }
 
+function stripMistakeSideNoise(value: string): string {
+  return value
+    .replace(/^✗\s*|^✓\s*/u, '')
+    .replace(/\s*\([^)]*[а-яё][^)]*\)/giu, '')
+    .replace(/\s*[а-яё].*$/iu, '')
+    .replace(/[.!?]+$/u, '')
+    .trim()
+}
+
+/** Supports `Не X — а Y` and legacy `X вместо Y`. */
+function parseNeAMistakePair(mistake: string): { wrong: string; right: string } | null {
+  const match = mistake.trim().match(/^Не\s+(.+?)\s+[—–-]\s*а\s+(.+)$/iu)
+  if (!match) return null
+  const wrong = stripMistakeSideNoise(match[1] ?? '')
+  const right = stripMistakeSideNoise(match[2] ?? '')
+  if (!wrong || !right) return null
+  return {
+    wrong: normalizeText(wrong, 120),
+    right: normalizeText(right, 120),
+  }
+}
+
 function extractLearnerMistakePhrase(mistake: string): string {
+  const neA = parseNeAMistakePair(mistake)
+  if (neA) return neA.wrong
   const beforeInstead = mistake.split(/\s+вместо\s+|\s+instead\s+of\s+/i)[0]?.trim() ?? mistake
   const withoutRussian = beforeInstead.replace(/[а-яёА-ЯЁ].*$/u, '').trim()
   const cleaned = withoutRussian.replace(/^✗\s*/, '').trim()
@@ -424,6 +456,8 @@ function extractLearnerMistakePhrase(mistake: string): string {
 }
 
 function extractCorrectPhraseFromMistake(mistake: string): string {
+  const neA = parseNeAMistakePair(mistake)
+  if (neA) return neA.right
   const parts = mistake.split(/\s+вместо\s+|\s+instead\s+of\s+/i)
   if (parts.length < 2) return ''
   const after = parts[1]?.replace(/[а-яёА-ЯЁ].*$/u, '').trim().replace(/^✓\s*/u, '').trim() ?? ''
@@ -431,6 +465,8 @@ function extractCorrectPhraseFromMistake(mistake: string): string {
 }
 
 export function parseCommonMistakePair(mistake: string): { wrong: string; right: string } | null {
+  const neA = parseNeAMistakePair(mistake)
+  if (neA) return neA
   const wrong = extractLearnerMistakePhrase(mistake)
   if (!wrong) return null
   const right = extractCorrectPhraseFromMistake(mistake)
@@ -600,39 +636,51 @@ function nativeSpeechSwapContractions(): LessonTipExample {
   }
 }
 
+function ensureTerminalPunctuation(phrase: string, preferred: '.' | '?' = '.'): string {
+  const trimmed = phrase.trim()
+  if (!trimmed) return trimmed
+  if (/[.!?]$/.test(trimmed)) return trimmed
+  return `${trimmed}${preferred}`
+}
+
 function nativeSpeechFromIntroEmbedded(intro: LessonIntro): LessonTipExample | null {
   const mistake = intro.deepDive?.commonMistakes[0]
-  const rightFromQuick = intro.quick.examples[0]?.en
-  if (mistake && rightFromQuick) {
-    const wrong = extractLearnerMistakePhrase(mistake)
-    if (wrong && /^[a-z0-9\s'?.,!-]+$/i.test(wrong)) {
-      return toSingleSentenceSwapExample({
-        wrong,
-        right: takeFirstEnglishSentence(rightFromQuick, 120),
-        note: 'Во второй части фразы порядок как в обычном предложении: подлежащее + глагол.',
-      })
-    }
+  if (!mistake) return null
+  const parsed = parseCommonMistakePair(mistake)
+  const wrong = parsed?.wrong ?? extractLearnerMistakePhrase(mistake)
+  const right =
+    parsed?.right ||
+    (intro.quick.examples[0]?.en ? takeFirstEnglishSentence(intro.quick.examples[0].en, 120) : '')
+  if (wrong && right && /^[a-z0-9\s'?.,!-]+$/i.test(wrong)) {
+    return toSingleSentenceSwapExample({
+      wrong: ensureTerminalPunctuation(wrong, '.'),
+      right: ensureTerminalPunctuation(right, '.'),
+      note: 'Во второй части фразы порядок как в обычном предложении: подлежащее + глагол.',
+    })
   }
   return null
 }
 
 function nativeSpeechFromIntroGrammar(intro: LessonIntro): LessonTipExample | null {
-  if (isLikelyWhQuestionTopic(intro.topic, intro)) {
-    const mistake = intro.deepDive?.commonMistakes[0]
-    const rightFromQuick = intro.quick.examples[0]?.en
-    if (mistake && rightFromQuick) {
-      const wrong = extractLearnerMistakePhrase(mistake)
-      if (wrong && /^[a-z0-9\s'?.,!-]+$/i.test(wrong)) {
-        const pair = toSingleSentenceSwapExample({
-          wrong,
-          right: takeFirstEnglishSentence(rightFromQuick, 120),
-          note: 'После Who в Present Simple часто нужен -s у глагола - так звучит естественно.',
-        })
-        if (nativeSpeechSwapSameMeaning(pair.wrong ?? '', pair.right)) return pair
-      }
-    }
+  if (!isLikelyWhQuestionTopic(intro.topic, intro)) return null
+  const mistake = intro.deepDive?.commonMistakes[0]
+  if (!mistake) return null
+  const parsed = parseCommonMistakePair(mistake)
+  const wrong = parsed?.wrong ?? extractLearnerMistakePhrase(mistake)
+  const rightSource =
+    parsed?.right ||
+    intro.quick.examples.find((ex) => /\blikes?\b/i.test(ex.en))?.en ||
+    intro.quick.examples[0]?.en ||
+    ''
+  const right = rightSource ? takeFirstEnglishSentence(rightSource, 120) : ''
+  if (wrong && right && /^[a-z0-9\s'?.,!-]+$/i.test(wrong)) {
+    const pair = toSingleSentenceSwapExample({
+      wrong: ensureTerminalPunctuation(wrong, '?'),
+      right: ensureTerminalPunctuation(right, '?'),
+      note: 'После Who в Present Simple часто нужен -s у глагола - так звучит естественно.',
+    })
+    if (nativeSpeechSwapSameMeaning(pair.wrong ?? '', pair.right) || Boolean(parsed?.right)) return pair
   }
-
   return null
 }
 
@@ -790,13 +838,15 @@ function buildRussianTrapsCalqueFromIntro(
 
   for (const mistake of mistakeCandidates) {
     const pair = parseCommonMistakePair(mistake)
-    if (pair?.wrong && pair.right) {
-      return {
-        wrong: pair.wrong,
-        right: pair.right,
-        note: intent ? intentNote : defaultNote,
-      }
+    if (!pair?.wrong || !pair.right) continue
+    if (/\//.test(pair.wrong) || /\//.test(pair.right)) continue
+    const candidate = {
+      wrong: pair.wrong,
+      right: pair.right,
+      note: intent ? intentNote : defaultNote,
     }
+    if (russianTrapCalqueLooksInvalid(candidate)) continue
+    return candidate
   }
 
   if (firstExample.wrong && firstExample.right && !russianTrapCalqueLooksInvalid(firstExample)) {

@@ -23,6 +23,7 @@ describe('buildReferenceSheetFromLesson', () => {
     expect(sheet?.formula.length).toBeGreaterThan(0)
     expect(sheet?.examples.length).toBeGreaterThan(0)
     expect(sheet?.traps.length).toBeGreaterThan(0)
+    expect(sheet?.selfCheck).toBeTruthy()
     expect(sheet?.hasPractice).toBe(true)
     expect(sheet?.teaser.length).toBeGreaterThan(0)
   })

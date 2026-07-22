@@ -48,4 +48,10 @@ describe('lessonCatalog', () => {
     expect(child.short).toBe('Знакомство')
     expect(adult.short).not.toBe(topic?.title)
   })
+
+  it('avoids child «мы» in I am catalog long copy', () => {
+    const child = PRACTICE_TOPICS_BY_AUDIENCE.child['4']
+    expect(child.long).not.toMatch(/\bмы\b/i)
+    expect(child.long).toMatch(/кто я/i)
+  })
 })

@@ -245,6 +245,9 @@ export function buildLanguageNoteSystemPrompt(
     '',
     'Intent: recover likely meaning from context.',
     'lessonId: only from knownLessons in the user payload, else null.',
+    'If user JSON includes non-null expectedEnglish, treat it as the teacher canonical English target after an error.',
+    'Compare the learner text to expectedEnglish; put expectedEnglish (or a minimal polish of it) into correct; explain the real differences in Russian reasons.',
+    'Do not ignore expectedEnglish when it is present.',
     '',
     ...fewShots,
   ].join('\n')
@@ -253,9 +256,11 @@ export function buildLanguageNoteSystemPrompt(
 export function buildLanguageNoteUserPayload(params: {
   text: string
   recentAssistantText?: string | null
+  expectedEnglish?: string | null
   mode?: LanguageNoteMode
   voiceMode?: CommunicationVoiceInputMode | null
 }): string {
+  const expected = params.expectedEnglish?.trim()
   return JSON.stringify({
     text: params.text,
     knownLessons: LANGUAGE_NOTE_KNOWN_LESSONS,
@@ -268,5 +273,6 @@ export function buildLanguageNoteUserPayload(params: {
     recentAssistantText: params.recentAssistantText?.trim()
       ? params.recentAssistantText.trim().slice(0, 300)
       : null,
+    expectedEnglish: expected ? expected.slice(0, 200) : null,
   })
 }

@@ -10,4 +10,6 @@ export const LANGUAGE_NOTE_COPY = {
   retry: 'Повторить',
   loadingSr: 'Загружаем подсказку',
   markAria: 'Подсказка',
+  /** Локальный already_good после SUCCESS в teacher drill (без API). */
+  teacherAcceptedReason: 'Фраза принята преподавателем.',
 } as const

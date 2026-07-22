@@ -145,6 +145,11 @@ import {
   scheduleSilentAssess,
   extractTeacherCorrection,
 } from '@/lib/learningMemory'
+import {
+  patchMessagesWithTeacherMatchAttach,
+  resolveTeacherMatchAttach,
+  buildTeacherAcceptedNote,
+} from '@/lib/engvo/teacherMatch'
 import { hasAnyLearningHistory, resolveReturningHomeMenuView, shouldOpenMyPlanHome } from '@/lib/myPlan/returningHome'
 import {
   findStaticLessonByTopic,
@@ -1537,20 +1542,23 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoCommittedResponseIdsRef.current.add(id)
       }
 
+      let teacherMatchAttach: ReturnType<typeof resolveTeacherMatchAttach> = null
       if (
         engvoSessionKindRef.current === 'teacher' &&
         engvoTeacherPhaseRef.current === 'drill'
       ) {
         const extracted = extractTeacherCorrection(rawText || cleanText)
-        if (extracted.corrected) {
-          const userText = engvoLastFinalUserTranscriptRef.current.trim()
-          if (userText) {
-            recordTeacherCorrectionSignal({
-              userText,
-              corrected: extracted.corrected,
-            })
-          }
+        const userText = engvoLastFinalUserTranscriptRef.current.trim()
+        if (extracted.corrected && userText) {
+          recordTeacherCorrectionSignal({
+            userText,
+            corrected: extracted.corrected,
+          })
         }
+        teacherMatchAttach = resolveTeacherMatchAttach({
+          assistantRawText: rawText || cleanText,
+          userText,
+        })
       }
 
       markEngvoAssistantAheadOfPendingUserTranscript()
@@ -1559,6 +1567,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setMessages((prev) => {
         const withoutDial = prev.filter((m) => !m.engvoServiceLine)
         const streamingIndex = engvoStreamingAssistantIndexRef.current
+        let nextMessages = withoutDial
         if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < withoutDial.length) {
           const candidate = withoutDial[streamingIndex]
           if (candidate?.role === 'assistant') {
@@ -1580,7 +1589,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               }
             }
             updated[streamingIndex] = patched
-            return updated
+            nextMessages = updated
+            return patchMessagesWithTeacherMatchAttach(nextMessages, teacherMatchAttach)
           }
         }
         const last = withoutDial[withoutDial.length - 1]
@@ -1593,10 +1603,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           last.content.trim() !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT &&
           lastNormalized === nextNormalized
         ) {
-          return withoutDial
+          return patchMessagesWithTeacherMatchAttach(withoutDial, teacherMatchAttach)
         }
         const assistantMsg: ChatMessage = { role: 'assistant', content: cleanText }
-        const nextMessages = [...withoutDial, assistantMsg]
+        nextMessages = [...withoutDial, assistantMsg]
         if (id) {
           const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
           if (pending) {
@@ -1609,11 +1619,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 translation: pending.translation,
                 translationError: pending.translationError,
               }
-              return patched
+              return patchMessagesWithTeacherMatchAttach(patched, teacherMatchAttach)
             }
           }
         }
-        return nextMessages
+        return patchMessagesWithTeacherMatchAttach(nextMessages, teacherMatchAttach)
       })
       resetEngvoAssistantTurn()
       const reclaimStarted = maybeReclaimTeacherDrillRef.current(rawText)
@@ -7208,6 +7218,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const lessonPageTitleStage = React.useMemo(() => {
     if (!headerLessonTopicTitle) return null
+    if (isReferenceSheetActive) return 'reference' as const
     if (isStructuredLessonActive) return 'lesson' as const
     if (isLessonTipsActive) return 'tips' as const
     if (
@@ -7221,6 +7232,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     return null
   }, [
     headerLessonTopicTitle,
+    isReferenceSheetActive,
     isStructuredLessonActive,
     isLessonTipsActive,
     isLessonIntroActive,
@@ -8100,6 +8112,42 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoVoiceMode || settings.mode !== 'communication'
           ? null
           : communicationVoiceInputMode
+
+      // Teacher SUCCESS: local already_good — never hit language-note API (incl. forceRefresh).
+      if (
+        engvoSessionKind === 'teacher' &&
+        !message.teacherExpectedEnglish &&
+        message.languageNote?.status === 'already_good'
+      ) {
+        const note = options?.forceRefresh
+          ? buildTeacherAcceptedNote(originalText)
+          : message.languageNote
+        abortLanguageNoteRequest()
+        if (options?.forceRefresh) {
+          setMessages((prev) => {
+            const current = prev[messageIndex]
+            if (!current || current.role !== 'user') return prev
+            if (current.content.trim() !== message.content.trim()) return prev
+            const next = [...prev]
+            next[messageIndex] = {
+              ...current,
+              languageNote: note,
+              teacherExpectedEnglish: undefined,
+            }
+            return next
+          })
+        }
+        setFooterSheetContext(
+          buildLanguageNoteFooterSheetContext({
+            status: 'ready',
+            messageIndex,
+            originalText,
+            note,
+          })
+        )
+        return
+      }
+
       const cached = !options?.forceRefresh ? message.languageNote : undefined
       const cachedMatchesMode =
         cached &&
@@ -8140,6 +8188,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         }
       }
 
+      const expectedEnglish =
+        engvoSessionKind === 'teacher' ? message.teacherExpectedEnglish?.trim() || null : null
+
       const result = await requestLanguageNote({
         text: originalText,
         provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
@@ -8148,6 +8199,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         mode: engvoVoiceMode ? 'engvo' : 'communication',
         communicationVoiceInputMode: noteVoiceMode,
         recentAssistantText,
+        expectedEnglish,
         signal: controller.signal,
       })
 
@@ -8195,6 +8247,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       abortLanguageNoteRequest,
       communicationVoiceInputMode,
       engvoCallInProgressForTips,
+      engvoSessionKind,
       engvoVoiceMode,
       messages,
       settings.audience,
@@ -9013,7 +9066,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                             }
                           : {}),
                         catalogBrowseIntent: 'reference',
-                      }
+                      },
+                      { openAtLessonStage: true }
                     )
                   }}
                   onStartPractice={

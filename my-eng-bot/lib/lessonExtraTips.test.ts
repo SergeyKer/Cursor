@@ -192,8 +192,8 @@ describe('lessonExtraTips', () => {
     const tips = buildFallbackLessonExtraTips(introducingYourselfLesson.intro, null, 'A1')
     const ex0 = tips.cards.find((card) => card.category === 'native_speech')?.examples[0]
 
-    expect(ex0?.wrong).toMatch(/I am happy/i)
-    expect(ex0?.right).toMatch(/I'm happy/i)
+    expect(ex0?.wrong).toMatch(/\bI am\b/i)
+    expect(ex0?.right).toMatch(/\bI'm\b/i)
     expect(ex0?.wrong).not.toContain('from in')
     expect(ex0?.wrong).not.toContain('Russia')
     expect(nativeSpeechSwapSameMeaning(ex0?.wrong ?? '', ex0?.right ?? '')).toBe(true)

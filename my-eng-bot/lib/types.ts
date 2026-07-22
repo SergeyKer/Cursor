@@ -28,6 +28,8 @@ export interface ChatMessage {
   engvoServiceLine?: boolean
   /** Кэш языковой подсказки (?) для user-реплики в Общении/Звонке. */
   languageNote?: LanguageNote
+  /** Teacher drill: эталон из Скажи/Say/You meant (error path для language-note). */
+  teacherExpectedEnglish?: string
 }
 
 export type AiProvider = 'openrouter' | 'openai'

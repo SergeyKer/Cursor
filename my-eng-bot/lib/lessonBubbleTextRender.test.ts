@@ -109,8 +109,8 @@ describe('lessonBubbleTextRender', () => {
 
   describe('splitBubbleTitleBody', () => {
     it('splits first line as title and rest as body', () => {
-      expect(splitBubbleTitleBody('Суть\n• one\n• two')).toEqual({
-        title: 'Суть',
+      expect(splitBubbleTitleBody('Тема урока\n• one\n• two')).toEqual({
+        title: 'Тема урока',
         bodyLines: ['• one', '• two'],
       })
     })

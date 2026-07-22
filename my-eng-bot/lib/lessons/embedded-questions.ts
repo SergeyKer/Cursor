@@ -1090,30 +1090,39 @@ export const embeddedQuestionsLesson: LessonData = {
   topic: 'I know what she likes',
   level: 'A2',
   intro: {
-    topic: 'Встроенные вопросы',
+    topic: 'I know what she likes',
     kind: 'structure',
     complexity: 'medium',
     quick: {
       why: [
-        'Иногда вопрос прячем внутрь другой фразы: I know what she likes.',
-        'После what/where/when/who внутри — обычный порядок: кто/что + глагол.',
-        'Не тащи прямой вопрос внутрь: не what does she like после I know.',
+        'Вопрос можно спрятать внутрь другой фразы: I know what she likes.',
+        'Внутри после what/where/when порядок обычный — как в утверждении.',
+        'Прямой вопрос (What does she like?) внутрь не тащим.',
       ],
       how: [
-        'I know / Tell me + what/where/when + кто/что + глагол → I know what she likes.',
-        'Do you know + what/where/when + кто/что + глагол → Do you know what she likes?',
+        'I know / Tell me + обычный порядок → I know what she likes.',
+        'Do you know + обычный порядок → Do you know what she likes?',
         'Прямой вопрос отдельно → What does she like?',
       ],
       examples: [
-        { en: 'I know what she likes.', ru: 'Я знаю, что ей нравится.', note: 'what + she + likes' },
+        {
+          en: 'I know what she likes.',
+          ru: 'Я знаю, что ей нравится.',
+          note: 'Вопрос спрятан внутри обычной фразы',
+        },
         {
           en: 'Do you know what she likes?',
           ru: 'Ты знаешь, что ей нравится?',
-          note: 'снаружи вопрос, внутри без does',
+          note: 'Снаружи вопрос, внутри без перестановки',
         },
-        { en: 'Tell me where the station is.', ru: 'Скажи, где станция.', note: 'where + station + is' },
+        {
+          en: 'Tell me where the station is.',
+          ru: 'Скажи, где станция.',
+          note: 'То же с where — слова в обычном порядке',
+        },
       ],
-      takeaway: 'Снаружи вводная фраза; внутри после what/where/when — порядок как в утверждении.',
+      takeaway:
+        'Снаружи своя фраза; внутри после what/where — обычный порядок слов, не прямой вопрос.',
     },
     details: {
       points: [
@@ -1133,9 +1142,9 @@ export const embeddedQuestionsLesson: LessonData = {
     },
     deepDive: {
       commonMistakes: [
-        'I know what does she like вместо I know what she likes.',
-        'Do you know what does she like? вместо Do you know what she likes?',
-        'Tell me where is the station вместо Tell me where the station is.',
+        'Не I know what does she like — а I know what she likes.',
+        'Не Do you know what does she like? — а Do you know what she likes?',
+        'Не Tell me where is the station — а Tell me where the station is.',
       ],
       contrastNotes: [
         'What does she like? — прямой вопрос.',
@@ -1143,7 +1152,7 @@ export const embeddedQuestionsLesson: LessonData = {
         'Do you know what she likes? — вопрос снаружи, внутри обычный порядок.',
       ],
       selfCheckRule:
-        'Проверь: после what/where/when/who внутри уже есть кто/что, потом глагол — без does/is вперёд подлежащего.',
+        'Хочешь сказать «я знаю / скажи мне / ты знаешь…» и дальше смысл вопроса — внутри ставь обычный порядок: I know what she likes. Не переспрашивай внутри через does.',
     },
     learningPlan: {
       grammarFocus: ['встроенные вопросы', 'вопросительное слово + подлежащее + глагол', 'I know who he is'],

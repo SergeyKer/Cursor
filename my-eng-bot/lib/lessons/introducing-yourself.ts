@@ -817,21 +817,21 @@ export const introducingYourselfLesson: LessonData = {
     complexity: 'simple',
     quick: {
       why: [
-        'После I ставь am (не is / are).',
-        'Дальше одно: имя, откуда (from + город/страна) или какой/кем ты.',
-        "I'm = I am — короче, то же самое (так чаще говорят).",
+        'Про себя говори через I am — не I is и не I are.',
+        'После am одно: имя, откуда или профессия.',
+        "I'm — то же, что I am; в речи так чаще.",
       ],
       how: [
         'I am + имя → I am Anna.',
         'I am from + место → I am from Moscow.',
-        "I am happy. / I'm happy.",
+        'I am a/an + профессия → I am a teacher.',
       ],
       examples: [
-        { en: 'I am Anna.', ru: 'Я Анна.', note: 'кто я' },
-        { en: 'I am from Russia.', ru: 'Я из России.', note: 'откуда я' },
-        { en: 'I am happy.', ru: 'Я рад / счастлив.', note: 'какой я' },
+        { en: 'I am Anna.', ru: 'Я Анна.', note: 'Как сказать, кто ты по имени' },
+        { en: 'I am from Russia.', ru: 'Я из России.', note: 'Как сказать, откуда ты' },
+        { en: 'I am a teacher.', ru: 'Я учитель.', note: 'Как сказать профессию' },
       ],
-      takeaway: "Про себя — через I am: кто / откуда / какой. В речи часто I'm.",
+      takeaway: "Про себя через I am: имя, откуда, профессия. В речи часто I'm.",
     },
     details: {
       points: [
@@ -847,9 +847,9 @@ export const introducingYourselfLesson: LessonData = {
     },
     deepDive: {
       commonMistakes: [
-        'I am from in Russia вместо I am from Russia.',
-        'I Anna / I from Russia вместо I am Anna / I am from Russia.',
-        'I am student вместо I am a student.',
+        'Не I Anna / I from Russia — а I am Anna / I am from Russia.',
+        'Не I am from in Russia — а I am from Russia.',
+        'Не I am student — а I am a student.',
       ],
       contrastNotes: [
         'I am Anna — кто.',
@@ -857,7 +857,7 @@ export const introducingYourselfLesson: LessonData = {
         'I am a doctor — кем (a/an).',
       ],
       selfCheckRule:
-        'Проверь три вещи: после I стоит am (не is); если «из» — есть from и нет in; если «кем» — есть a или an.',
+        'По-русски «я Анна» — нормально. По-английски без am будто фразу оборвали. Говори: I am Anna.',
     },
     learningPlan: {
       grammarFocus: ['I am + name/from/mood', 'I am a/an + role', 'am vs is/are'],

@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
     const correctTarget = resolveLanguageNoteCorrectTarget(mode, communicationVoiceInputMode)
     const recentAssistantText =
       typeof body.recentAssistantText === 'string' ? body.recentAssistantText : null
+    const expectedEnglish =
+      typeof body.expectedEnglish === 'string' ? body.expectedEnglish.trim().slice(0, 200) : null
 
     if (!text) {
       return NextResponse.json({ error: 'Текст для подсказки не передан' }, { status: 400 })
@@ -65,6 +67,7 @@ export async function POST(req: NextRequest) {
         content: buildLanguageNoteUserPayload({
           text,
           recentAssistantText,
+          expectedEnglish,
           mode,
           voiceMode: communicationVoiceInputMode,
         }),

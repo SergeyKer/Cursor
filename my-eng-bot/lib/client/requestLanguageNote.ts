@@ -30,6 +30,7 @@ export type RequestLanguageNoteOptions = {
   mode: LanguageNoteMode
   communicationVoiceInputMode?: CommunicationVoiceInputMode | null
   recentAssistantText?: string | null
+  expectedEnglish?: string | null
   signal?: AbortSignal
 }
 
@@ -73,6 +74,9 @@ async function requestLanguageNoteOnce(
         mode: options.mode,
         communicationVoiceInputMode: options.communicationVoiceInputMode ?? null,
         recentAssistantText: options.recentAssistantText ?? null,
+        expectedEnglish: options.expectedEnglish?.trim()
+          ? options.expectedEnglish.trim().slice(0, 200)
+          : null,
       }),
       signal: controller.signal,
     })

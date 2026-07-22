@@ -764,26 +764,26 @@ export const whoLikesLesson: LessonData = {
   topic: 'Who ...?',
   level: 'A2',
   intro: {
-    topic: 'Who questions',
+    topic: 'Who ...?',
     kind: 'structure',
     complexity: 'simple',
     quick: {
       why: [
-        'Who спрашивает про человека: кто это или кто делает действие.',
-        'Один неизвестный человек → глагол часто с -s (как he/she).',
-        'Ответ тоже с -s: Anna likes… (как she).',
+        'Who — вопрос про человека: кто это или кто делает.',
+        'Спрашиваешь, кто делает — у глагола часто -s.',
+        'В ответе то же: Anna likes… — тоже с -s.',
       ],
       how: [
         'Who is …? → Who is that?',
-        'Who + глагол с -s + …? → Who likes music?',
-        'Ответ: Имя + глагол с -s → Anna likes tea.',
+        'Who + глагол с -s …? → Who likes music?',
+        'Имя + глагол с -s → Anna likes tea.',
       ],
       examples: [
-        { en: 'Who likes music?', ru: 'Кто любит музыку?', note: 'вопрос: likes' },
-        { en: 'Who is that?', ru: 'Кто это?', note: 'кто человек' },
-        { en: 'Anna likes tea.', ru: 'Анна любит чай.', note: 'ответ с -s' },
+        { en: 'Who is that?', ru: 'Кто это?', note: 'Спросить, кто этот человек' },
+        { en: 'Who likes music?', ru: 'Кто любит музыку?', note: 'Спросить, кто это делает' },
+        { en: 'Anna likes tea.', ru: 'Анна любит чай.', note: 'Так отвечают на Who…' },
       ],
-      takeaway: 'Who = человек; в вопросе и ответе часто нужен -s у глагола.',
+      takeaway: 'Who — про человека; в вопросе и в ответе глагол часто с окончанием -s.',
     },
     details: {
       points: [
@@ -799,9 +799,9 @@ export const whoLikesLesson: LessonData = {
     },
     deepDive: {
       commonMistakes: [
-        'Who like music? вместо Who likes music?',
-        'What likes music? про человека вместо Who likes music?',
-        'Who does she like? — другая конструкция, не ядро этого урока.',
+        'Не Who like music? — а Who likes music?',
+        'Не What likes music? (если про человека) — а Who likes music?',
+        'Не Do/Does в начале у Who likes… — а сразу Who likes music?',
       ],
       contrastNotes: [
         'Who likes music? — вопрос.',
@@ -809,7 +809,7 @@ export const whoLikesLesson: LessonData = {
         'Who is that? — кто это.',
       ],
       selfCheckRule:
-        'Проверь три вещи: вопрос про человека (Who, не What); если один человек — у глагола часто -s; в Who likes… нет do/does в начале.',
+        'Спрашиваешь, кто это делает — после Who ставь глагол с -s: Who likes music? Не Who like.',
     },
     learningPlan: {
       grammarFocus: ['Who is that?', 'Who + verb-s', 'Name + verb-s', 'Who vs What'],

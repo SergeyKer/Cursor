@@ -5,15 +5,17 @@ import LessonReadingShell from '@/components/LessonReadingShell'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import {
-  APP_BTN_PRIMARY_LESSON_START,
-  APP_BTN_SECONDARY_MENU,
+  BLUE_PRIMARY_SKIN,
+  BLUE_SECONDARY_SKIN,
+  BTN_DISABLED_CLASS,
+  BTN_FONT_INLINE,
   BTN_INTERACTION_BASE,
 } from '@/lib/homeCtaStyles'
 import { LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
+import { buildReferenceBubbles } from '@/lib/reference/buildReferenceBubbles'
 import type { ReferenceSheet } from '@/lib/reference/types'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
-import type { Bubble } from '@/types/lesson'
 
 type ReferenceSheetScreenProps = {
   sheet: ReferenceSheet
@@ -22,73 +24,27 @@ type ReferenceSheetScreenProps = {
   onStartPractice?: () => void
 }
 
-function formatBullets(items: string[]): string {
-  return items.map((item) => `• ${item}`).join('\n')
-}
+const BACK_BTN_CLASS = [
+  BTN_INTERACTION_BASE,
+  'inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200',
+  'bg-gradient-to-r from-slate-50 to-sky-50 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-600',
+  'hover:from-white hover:to-sky-100 active:brightness-95 sm:px-3 sm:text-sm',
+  BTN_DISABLED_CLASS,
+].join(' ')
 
-function formatExamples(examples: ReferenceSheet['examples']): string {
-  return examples
-    .map((ex) => {
-      const note = ex.note?.trim()
-      return note ? `${ex.en} → ${ex.ru} (${note})` : `${ex.en} → ${ex.ru}`
-    })
-    .map((line) => `• ${line}`)
-    .join('\n')
-}
+const ROW_CTA_BASE = [
+  BTN_INTERACTION_BASE,
+  'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl px-3 py-2 text-center whitespace-nowrap',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
 
-function buildReferenceBubbles(sheet: ReferenceSheet): Bubble[] {
-  const bubbles: Bubble[] = [
-    {
-      type: 'info',
-      content: sheet.level ? `${sheet.title}\n${sheet.level}` : sheet.title,
-    },
-  ]
+const PRIMARY_ROW_CTA_CLASS = `${ROW_CTA_BASE} ${BLUE_PRIMARY_SKIN}`
+const SECONDARY_ROW_CTA_CLASS = `${ROW_CTA_BASE} ${BLUE_SECONDARY_SKIN}`
 
-  if (sheet.hook) {
-    bubbles.push({
-      type: 'positive',
-      content: `${REFERENCE_COPY.cardHook}\n${sheet.hook}`,
-    })
-  }
-
-  if (sheet.rule.length > 0) {
-    bubbles.push({
-      type: 'info',
-      content: `${REFERENCE_COPY.cardRule}\n${formatBullets(sheet.rule)}`,
-    })
-  }
-
-  if (sheet.formula.length > 0) {
-    bubbles.push({
-      type: 'task',
-      content: `${REFERENCE_COPY.cardFormula}\n${formatBullets(sheet.formula)}`,
-    })
-  }
-
-  if (sheet.traps.length > 0) {
-    bubbles.push({
-      type: 'info',
-      content: `${REFERENCE_COPY.cardTraps}\n${formatBullets(sheet.traps)}`,
-    })
-  }
-
-  if (sheet.examples.length > 0) {
-    bubbles.push({
-      type: 'positive',
-      content: `${REFERENCE_COPY.cardExamples}\n${formatExamples(sheet.examples)}`,
-    })
-  }
-
-  return bubbles
-}
-
-function LinkChip({ children, onClick }: { children: ReactNode; onClick: () => void }) {
+function BackButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-600 hover:from-white hover:to-sky-100 active:brightness-95 sm:px-3 sm:text-sm`}
-    >
+    <button type="button" onClick={onClick} className={BACK_BTN_CLASS}>
       {children}
     </button>
   )
@@ -111,26 +67,22 @@ export default function ReferenceSheetScreen({
       composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
       composerStyle={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
       composer={
-        <div className="flex w-full flex-col gap-2">
-          <div className="flex w-full items-center justify-between gap-1.5">
-            <LinkChip onClick={onBack}>{REFERENCE_COPY.back}</LinkChip>
-          </div>
-          <div className="flex w-full flex-col gap-2">
-            {showPractice ? (
-              <>
-                <button type="button" onClick={onStartPractice} className={APP_BTN_PRIMARY_LESSON_START}>
-                  {REFERENCE_COPY.startPractice}
-                </button>
-                <button type="button" onClick={onStartLesson} className={APP_BTN_SECONDARY_MENU}>
-                  {REFERENCE_COPY.startLesson}
-                </button>
-              </>
-            ) : (
-              <button type="button" onClick={onStartLesson} className={APP_BTN_PRIMARY_LESSON_START}>
+        <div className="flex w-full items-center gap-1.5">
+          <BackButton onClick={onBack}>{REFERENCE_COPY.back}</BackButton>
+          {showPractice ? (
+            <>
+              <button type="button" onClick={onStartPractice} className={PRIMARY_ROW_CTA_CLASS}>
+                {REFERENCE_COPY.startPractice}
+              </button>
+              <button type="button" onClick={onStartLesson} className={SECONDARY_ROW_CTA_CLASS}>
                 {REFERENCE_COPY.startLesson}
               </button>
-            )}
-          </div>
+            </>
+          ) : (
+            <button type="button" onClick={onStartLesson} className={PRIMARY_ROW_CTA_CLASS}>
+              {REFERENCE_COPY.startLesson}
+            </button>
+          )}
         </div>
       }
     >

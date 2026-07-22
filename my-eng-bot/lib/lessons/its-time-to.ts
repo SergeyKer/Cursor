@@ -809,26 +809,26 @@ export const itsTimeToLesson: LessonData = {
   topic: "Это / Пора",
   level: 'A2',
   intro: {
-    topic: "It's / It's time to / It's time for",
+    topic: 'It’s / It’s time to',
     kind: 'structure',
     complexity: 'simple',
     quick: {
       why: [
-        "It's описывает ситуацию: It's cold / dark / late.",
-        "It's time to + глагол — пора сделать действие.",
-        "It's time for + существительное — пора события: lunch, break.",
+        "It's — как вокруг: холодно, темно, поздно.",
+        "It's time to — пора что-то сделать (глагол).",
+        "It's time for — пора события (обед, перерыв).",
       ],
       how: [
-        "It's + adjective → It's cold.",
-        "It's time to + verb → It's time to go.",
-        "It's time for + noun → It's time for lunch.",
+        "It's + состояние → It's cold.",
+        "It's time to + глагол → It's time to go.",
+        "It's time for + событие → It's time for lunch.",
       ],
       examples: [
-        { en: "It's dark.", ru: 'Темно.', note: 'состояние' },
-        { en: "It's time to sleep.", ru: 'Пора спать.', note: 'пора + глагол' },
-        { en: "It's time for dinner.", ru: 'Пора ужинать.', note: 'пора + событие' },
+        { en: "It's dark.", ru: 'Темно.', note: 'Как сказать, какая сейчас обстановка' },
+        { en: "It's time to sleep.", ru: 'Пора спать.', note: 'Как сказать, что пора что-то сделать' },
+        { en: "It's time for dinner.", ru: 'Пора ужинать.', note: 'Как сказать, что пора ужина, обеда и т.п.' },
       ],
-      takeaway: "It's — ситуация; time to — глагол; time for — существительное.",
+      takeaway: "It's — обстановка; time to — пора сделать; time for — пора события.",
     },
     details: {
       points: [
@@ -844,10 +844,9 @@ export const itsTimeToLesson: LessonData = {
     },
     deepDive: {
       commonMistakes: [
-        "Its cold вместо It's cold.",
-        "It's time for go вместо It's time to go.",
-        "It's time to dinner вместо It's time for dinner.",
-        "It's time to going / It's time to sleeps — неверная форма глагола после to.",
+        "Не Its cold — а It's cold.",
+        "Не It's time for go — а It's time to go.",
+        "Не It's time to dinner — а It's time for dinner.",
       ],
       contrastNotes: [
         "It's late = уже поздно.",
@@ -855,7 +854,7 @@ export const itsTimeToLesson: LessonData = {
         "It's time for lunch = пора обеда (существительное).",
       ],
       selfCheckRule:
-        'Проверь: если после «пора» можно спросить «что делать?» — time to + глагол; если «чего / какого события?» — time for + существительное.',
+        'Мы на всё говорим «пора». А в английском в предложении появляются разные слова: сделать что-то — time to, обед или перерыв — time for.',
     },
     learningPlan: {
       grammarFocus: ['It is + adjective', 'It is time to + verb', 'It is time for + noun'],

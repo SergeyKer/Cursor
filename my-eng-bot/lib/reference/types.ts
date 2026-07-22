@@ -14,6 +14,7 @@ export interface ReferenceSheet {
   formula: string[]
   traps: string[]
   examples: LessonIntroExample[]
+  selfCheck: string | null
   relatedLessonId: string
 }
 

@@ -57,6 +57,15 @@ describe('buildLessonPageTitle', () => {
     })
   })
 
+  it('uses Справочник prefix on reference sheet', () => {
+    const view = buildLessonPageTitle({
+      stage: 'reference',
+      topicTitle: 'I am / I am from',
+    })
+    expect(view.prefix).toBe('Справочник:')
+    expect(view.fullTitle).toBe('Справочник: I am / I am from')
+  })
+
   it('trims topic whitespace', () => {
     const view = buildLessonPageTitle({
       stage: 'intro',
