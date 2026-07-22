@@ -445,8 +445,15 @@ import {
   consumeOpenReferenceLessonId,
   readReferenceLessonIdFromSearch,
 } from '@/lib/reference/openReferenceIntent'
-import { resolveReviewChipTopic } from '@/lib/languageNote/resolveReviewChipTopic'
-import { buildReviewChipCacheTopicKey } from '@/lib/lessonGenerate/reviewChipLessonPrompt'
+import { resolveReviewChipTopic, parseReviewTopicTitle } from '@/lib/languageNote/resolveReviewChipTopic'
+import {
+  buildReviewChipCacheTopicKey,
+} from '@/lib/lessonGenerate/reviewChipLessonPrompt'
+import {
+  buildReviewChipRuntimeLessonId,
+  prepareReviewChipIntroForReference,
+  shouldRejectReviewChipLesson,
+} from '@/lib/lessonGenerate/reviewChipReferenceGate'
 
 import SlideOutMenu from '@/components/SlideOutMenu'
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
@@ -8201,8 +8208,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
       const epoch = ++reviewChipNavEpochRef.current
       setReviewChipNavPending(true)
+      const { topic: enAnchor } = parseReviewTopicTitle(capturedTopic.title)
+      const pedagogicalTopic = enAnchor || capturedTopic.title.trim()
       try {
-        const cacheTopic = buildReviewChipCacheTopicKey(
+        const cacheTopicKey = buildReviewChipCacheTopicKey(
           capturedTopic.title,
           capturedNote.original,
           capturedNote.correct
@@ -8215,7 +8224,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               body: JSON.stringify({
                 provider: settings.provider,
                 openAiChatPreset: settings.openAiChatPreset,
-                topic: cacheTopic,
+                topic: pedagogicalTopic,
                 level: settings.level,
                 audience: settings.audience,
                 source: 'language_note_review',
@@ -8232,9 +8241,27 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         )
         if (epoch !== reviewChipNavEpochRef.current) return
 
-        const data = (await response.json()) as { lesson?: LessonBlueprint; error?: string }
-        const intro = data.lesson?.intro
-        if (!response.ok || !intro || !isIntroSuitableForReference(intro)) {
+        const data = (await response.json()) as {
+          lesson?: LessonBlueprint
+          error?: string
+          fallback?: boolean
+        }
+        const gate = shouldRejectReviewChipLesson({
+          ok: response.ok,
+          fallback: data.fallback,
+          intro: data.lesson?.intro ?? null,
+          lessonTitle: data.lesson?.title ?? null,
+        })
+        if (gate.reject) {
+          console.warn('review-chip reference rejected:', gate.reason, data.error ?? '')
+          showReviewChipError()
+          setChatMessagesSnapshotForReference(null)
+          return
+        }
+
+        const intro = prepareReviewChipIntroForReference(data.lesson!.intro!, pedagogicalTopic)
+        if (!isIntroSuitableForReference(intro)) {
+          console.warn('review-chip reference rejected: unsuitable after sanitize')
           showReviewChipError()
           setChatMessagesSnapshotForReference(null)
           return
@@ -8252,13 +8279,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   : 'A2'
 
         const sheet = buildReferenceSheetFromLesson({
-          id: `review-chip:${cacheTopic}`,
-          topic: data.lesson?.title || resolved.topic,
+          id: buildReviewChipRuntimeLessonId(pedagogicalTopic, cacheTopicKey),
+          topic: pedagogicalTopic,
           level: lessonLevel,
           intro,
           steps: [],
         })
         if (!sheet) {
+          console.warn('review-chip reference rejected: sheet null')
           showReviewChipError()
           setChatMessagesSnapshotForReference(null)
           return

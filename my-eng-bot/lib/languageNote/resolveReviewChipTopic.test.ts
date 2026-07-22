@@ -59,6 +59,30 @@ describe('resolveReviewChipTopic', () => {
     expect(r.kind).toBe('generate')
   })
 
+  it('maps exact I am chip to lesson 4', () => {
+    const r = resolveReviewChipTopic({ chipTitle: 'I am — знакомство' })
+    expect(r).toEqual({ kind: 'local', lessonId: '4', topic: 'I am', gloss: 'знакомство' })
+  })
+
+  it('does not false-positive Present Continuous onto I am lesson', () => {
+    expect(resolveReviewChipTopic({ chipTitle: 'I am doing — сейчас' }).kind).toBe('generate')
+    expect(resolveReviewChipTopic({ chipTitle: "I'm doing my homework — процесс" }).kind).toBe(
+      'generate'
+    )
+    expect(resolveReviewChipTopic({ chipTitle: 'doing / -ing — сейчас в процессе' }).kind).toBe(
+      'generate'
+    )
+  })
+
+  it('generates for There are (no catalog false local)', () => {
+    const r = resolveReviewChipTopic({ chipTitle: 'There are — много предметов' })
+    expect(r).toEqual({ kind: 'generate', topic: 'There are', gloss: 'много предметов' })
+  })
+
+  it('does not false-positive bare It\'s onto time lesson', () => {
+    expect(resolveReviewChipTopic({ chipTitle: "It's raining — погода" }).kind).toBe('generate')
+  })
+
   it('ignores conflicting noteLessonId when allowlist matches', () => {
     const r = resolveReviewChipTopic({
       chipTitle: 'I am / I am from — знакомство',

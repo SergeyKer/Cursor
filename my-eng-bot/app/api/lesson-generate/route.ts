@@ -22,10 +22,15 @@ import {
 import {
   buildReviewChipLessonSystemPrompt,
   buildReviewChipLessonUserPayload,
+  buildReviewChipNamespacedCacheTopic,
 } from '@/lib/lessonGenerate/reviewChipLessonPrompt'
+import { coerceReviewChipBlueprint } from '@/lib/lessonGenerate/coerceReviewChipBlueprint'
 import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
+import type { LessonBlueprint } from '@/lib/lessonBlueprint'
 
 export const maxDuration = 150
+
+const REVIEW_CHIP_GENERATE_ERROR = 'Не удалось собрать шпаргалку по теме. Попробуй ещё раз.'
 
 type Body = {
   provider?: AiProvider
@@ -45,6 +50,16 @@ type Body = {
     correctReasons?: string[]
   }
 }
+
+type BlueprintOkPayload = {
+  lesson: Record<string, unknown>
+  generated: boolean
+  fallback: boolean
+}
+
+type InflightResult =
+  | { kind: 'ok'; payload: BlueprintOkPayload }
+  | { kind: 'review_fail'; error: string }
 
 function normalizeTheoryIntro(raw: string): string {
   const markers = ['**Урок:**', '**Правило:**', '**Примеры:**', '**Коротко:**', '**Шаблоны:**']
@@ -143,9 +158,16 @@ export async function POST(req: NextRequest) {
   if (!topic) {
     return NextResponse.json({ error: 'Тема для урока не передана.' }, { status: 400 })
   }
+  const isReviewChip = body.source === 'language_note_review'
   const intent = normalizeTutorLearningIntent(body.intent)
+  const reviewChipTitle = String(body.reviewChip?.title ?? topic)
+  const reviewChipOriginal = String(body.reviewChip?.original ?? '')
+  const reviewChipCorrect = String(body.reviewChip?.correct ?? '')
+  const cacheTopic = isReviewChip
+    ? buildReviewChipNamespacedCacheTopic(reviewChipTitle, reviewChipOriginal, reviewChipCorrect)
+    : topic
   const cacheKey = buildLessonBlueprintCacheKey({
-    topic,
+    topic: cacheTopic,
     level: body.level ?? 'a2',
     audience: body.audience ?? 'adult',
     provider,
@@ -154,12 +176,28 @@ export async function POST(req: NextRequest) {
     intentKey: createTutorLearningIntentCacheKey(intent),
   })
   const cacheReadStartedAt = Date.now()
-  const cachedResponse = readLessonRouteCache<{ lesson: ReturnType<typeof defaultLesson>; generated: boolean; fallback: boolean }>(cacheKey)
+  const cachedResponse = readLessonRouteCache<BlueprintOkPayload>(cacheKey)
   if (cachedResponse) {
+    if (isReviewChip && cachedResponse.fallback) {
+      logLessonRouteSummary({
+        correlationId,
+        mode: 'blueprint',
+        lessonId: cacheTopic,
+        selectedVariantId: null,
+        durationMs: Date.now() - startedAt,
+        source: 'cache',
+        generated: false,
+        fallback: true,
+      })
+      return NextResponse.json(
+        { error: REVIEW_CHIP_GENERATE_ERROR },
+        { status: 502, headers: { 'x-correlation-id': correlationId } }
+      )
+    }
     logLessonRouteSummary({
       correlationId,
       mode: 'blueprint',
-      lessonId: topic,
+      lessonId: cacheTopic,
       selectedVariantId: null,
       durationMs: Date.now() - startedAt,
       source: 'cache',
@@ -179,7 +217,6 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const isReviewChip = body.source === 'language_note_review'
   const system = isReviewChip
     ? buildReviewChipLessonSystemPrompt()
     : [
@@ -215,8 +252,8 @@ export async function POST(req: NextRequest) {
     isReviewChip && body.reviewChip
       ? {
           status: 'needs_fix',
-          original: String(body.reviewChip.original ?? ''),
-          correct: String(body.reviewChip.correct ?? ''),
+          original: reviewChipOriginal,
+          correct: reviewChipCorrect,
           correctHighlights: [],
           correctReasons: Array.isArray(body.reviewChip.correctReasons)
             ? body.reviewChip.correctReasons.map(String).slice(0, 2)
@@ -232,7 +269,7 @@ export async function POST(req: NextRequest) {
       : null
   const reviewChipTopic: LanguageNoteReviewTopic = {
     id: 'review-chip',
-    title: String(body.reviewChip?.title ?? topic),
+    title: reviewChipTitle,
   }
 
   const user = isReviewChip && reviewChipNote
@@ -252,7 +289,20 @@ export async function POST(req: NextRequest) {
         .filter(Boolean)
         .join('\n')
 
-  const responsePayload = await runLessonRouteInflight(cacheKey, async () => {
+  const makeTutorFallback = (): InflightResult => {
+    if (isReviewChip) {
+      return { kind: 'review_fail', error: REVIEW_CHIP_GENERATE_ERROR }
+    }
+    const payload: BlueprintOkPayload = {
+      lesson: defaultLesson(topic, intent),
+      generated: false,
+      fallback: true,
+    }
+    writeLessonRouteCache(cacheKey, payload)
+    return { kind: 'ok', payload }
+  }
+
+  const responseResult = await runLessonRouteInflight(cacheKey, async (): Promise<InflightResult> => {
     const providerStartedAt = Date.now()
     const model = await callProviderChat({
       provider,
@@ -267,12 +317,11 @@ export async function POST(req: NextRequest) {
     })
 
     if (!model.ok) {
-      const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, payload)
+      const result = makeTutorFallback()
       logLessonRouteSummary({
         correlationId,
         mode: 'blueprint',
-        lessonId: topic,
+        lessonId: cacheTopic,
         selectedVariantId: null,
         durationMs: Date.now() - startedAt,
         source: 'provider',
@@ -287,17 +336,16 @@ export async function POST(req: NextRequest) {
           total_ms: Date.now() - startedAt,
         },
       })
-      return payload
+      return result
     }
 
     const json = extractJsonObject(model.content)
     if (!json) {
-      const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, payload)
+      const result = makeTutorFallback()
       logLessonRouteSummary({
         correlationId,
         mode: 'blueprint',
-        lessonId: topic,
+        lessonId: cacheTopic,
         selectedVariantId: null,
         durationMs: Date.now() - startedAt,
         source: 'provider',
@@ -312,19 +360,24 @@ export async function POST(req: NextRequest) {
           total_ms: Date.now() - startedAt,
         },
       })
-      return payload
+      return result
     }
 
     try {
       const validationStartedAt = Date.now()
       const parsed = JSON.parse(json) as unknown
-      if (!isValidLessonBlueprint(parsed)) {
-        const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
-        writeLessonRouteCache(cacheKey, payload)
+      let blueprint: LessonBlueprint | null = null
+      if (isValidLessonBlueprint(parsed)) {
+        blueprint = parsed
+      } else if (isReviewChip) {
+        blueprint = coerceReviewChipBlueprint(parsed, topic)
+      }
+      if (!blueprint) {
+        const result = makeTutorFallback()
         logLessonRouteSummary({
           correlationId,
           mode: 'blueprint',
-          lessonId: topic,
+          lessonId: cacheTopic,
           selectedVariantId: null,
           durationMs: Date.now() - startedAt,
           source: 'provider',
@@ -340,16 +393,15 @@ export async function POST(req: NextRequest) {
             total_ms: Date.now() - startedAt,
           },
         })
-        return payload
+        return result
       }
-      const normalizedTheoryIntro = normalizeTheoryIntro(parsed.theoryIntro)
+      const normalizedTheoryIntro = normalizeTheoryIntro(blueprint.theoryIntro)
       if (!hasRequiredTheoryStructure(normalizedTheoryIntro)) {
-        const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
-        writeLessonRouteCache(cacheKey, payload)
+        const result = makeTutorFallback()
         logLessonRouteSummary({
           correlationId,
           mode: 'blueprint',
-          lessonId: topic,
+          lessonId: cacheTopic,
           selectedVariantId: null,
           durationMs: Date.now() - startedAt,
           source: 'provider',
@@ -365,10 +417,10 @@ export async function POST(req: NextRequest) {
             total_ms: Date.now() - startedAt,
           },
         })
-        return payload
+        return result
       }
-      const payload = {
-        lesson: { ...parsed, theoryIntro: normalizedTheoryIntro, ...(intent ? { tutorIntent: intent } : {}) },
+      const payload: BlueprintOkPayload = {
+        lesson: { ...blueprint, theoryIntro: normalizedTheoryIntro, ...(intent ? { tutorIntent: intent } : {}) },
         generated: true,
         fallback: false,
       }
@@ -376,7 +428,7 @@ export async function POST(req: NextRequest) {
       logLessonRouteSummary({
         correlationId,
         mode: 'blueprint',
-        lessonId: topic,
+        lessonId: cacheTopic,
         selectedVariantId: null,
         durationMs: Date.now() - startedAt,
         source: 'provider',
@@ -392,14 +444,13 @@ export async function POST(req: NextRequest) {
           total_ms: Date.now() - startedAt,
         },
       })
-      return payload
+      return { kind: 'ok', payload }
     } catch {
-      const payload = { lesson: defaultLesson(topic, intent), generated: false, fallback: true }
-      writeLessonRouteCache(cacheKey, payload)
+      const result = makeTutorFallback()
       logLessonRouteSummary({
         correlationId,
         mode: 'blueprint',
-        lessonId: topic,
+        lessonId: cacheTopic,
         selectedVariantId: null,
         durationMs: Date.now() - startedAt,
         source: 'provider',
@@ -414,11 +465,18 @@ export async function POST(req: NextRequest) {
           total_ms: Date.now() - startedAt,
         },
       })
-      return payload
+      return result
     }
   })
 
-  return NextResponse.json(responsePayload, {
+  if (responseResult.kind === 'review_fail') {
+    return NextResponse.json(
+      { error: responseResult.error },
+      { status: 502, headers: { 'x-correlation-id': correlationId } }
+    )
+  }
+
+  return NextResponse.json(responseResult.payload, {
     headers: { 'x-correlation-id': correlationId },
   })
 }

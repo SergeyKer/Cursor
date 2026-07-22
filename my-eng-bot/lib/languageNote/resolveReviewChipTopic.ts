@@ -25,31 +25,36 @@ function normalizeAnchor(value: string): string {
     .trim()
 }
 
-/** Curated EN-anchor aliases → catalog lesson id. Prefer generate on doubt. */
+/** Curated EN-anchor aliases → catalog lesson id. Prefer generate on doubt.
+ * Keep patterns tight: bare /^i am\b/ and /^i'm\b/ false-positive Present Continuous
+ * (I am doing / I'm going) onto catalog lesson 4.
+ */
 const ANCHOR_ALIASES: Array<{ lessonId: '1' | '2' | '3' | '4'; patterns: RegExp[] }> = [
   {
     lessonId: '4',
     patterns: [
-      /^i am\b/,
-      /^i'm\b/,
       /^i am \/ i am from$/,
       /^i am from$/,
+      /^i am$/,
+      /^i'm$/,
+      /^i'm from$/,
       /^introducing yourself$/,
     ],
   },
   {
     lessonId: '1',
     patterns: [
-      /^it'?s\b/,
-      /^it is\b/,
       /^it'?s \/ it'?s time to$/,
       /^it'?s time to$/,
       /^it'?s time for$/,
+      /^it'?s time$/,
+      /^it is time to$/,
+      /^it is time for$/,
     ],
   },
   {
     lessonId: '2',
-    patterns: [/^who\b/, /^who \.\.\.\?$/, /^who likes\b/],
+    patterns: [/^who \.\.\.\?$/, /^who likes\b/, /^who$/],
   },
   {
     lessonId: '3',
