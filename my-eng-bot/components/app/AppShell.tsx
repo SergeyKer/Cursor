@@ -4566,7 +4566,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           if (error instanceof Error && error.name === 'AbortError') {
             if (!timedOutRef.current) return
             setMenuLessonBgError(
-              'Подготовка нового сюжета заняла слишком много времени. Урок уже открыт - позже можно снова нажать «Новый сюжет».'
+              'Подготовка нового варианта заняла слишком много времени. Урок уже открыт - позже можно снова нажать «Новый вариант».'
             )
             return
           }

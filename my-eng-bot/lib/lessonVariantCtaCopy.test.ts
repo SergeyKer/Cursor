@@ -25,14 +25,14 @@ import {
 
 describe('formatLessonVariantDualCtaTwoLineLabel', () => {
   it('splits known briefing labels into two lines', () => {
-    expect(formatLessonVariantDualCtaTwoLineLabel('Новый сюжет')).toBe('Новый\nсюжет')
+    expect(formatLessonVariantDualCtaTwoLineLabel('Новый вариант')).toBe('Новый\nвариант')
     expect(formatLessonVariantDualCtaTwoLineLabel('Повтор варианта')).toBe('Повтор\nварианта')
   })
 })
 
 describe('CTA labels', () => {
-  it('uses Новый сюжет as secondary label', () => {
-    expect(LESSON_VARIANT_SECONDARY_LABEL).toBe('Новый сюжет')
+  it('uses Новый вариант as secondary label', () => {
+    expect(LESSON_VARIANT_SECONDARY_LABEL).toBe('Новый вариант')
     expect(LESSON_VARIANT_SECONDARY_HINT).toBe('Те же правила — новые ситуации')
   })
 })

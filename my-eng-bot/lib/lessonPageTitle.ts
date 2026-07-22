@@ -7,7 +7,7 @@ export type LessonPageTitleInput = {
 }
 
 export type LessonPageTitleView = {
-  prefix: 'Урок:' | null
+  prefix: 'Урок:' | 'Фишки:' | null
   topicSegment: string
   displayTitle: string
   fullTitle: string
@@ -15,10 +15,12 @@ export type LessonPageTitleView = {
 }
 
 const LESSON_PREFIX = 'Урок:' as const
+const TIPS_PREFIX = 'Фишки:' as const
 
 export function buildLessonPageTitle(input: LessonPageTitleInput): LessonPageTitleView {
   const topic = input.topicTitle.trim()
-  const prefix = input.stage === 'lesson' ? null : LESSON_PREFIX
+  const prefix =
+    input.stage === 'lesson' ? null : input.stage === 'tips' ? TIPS_PREFIX : LESSON_PREFIX
   const fullTitle = prefix ? `${prefix} ${topic}` : topic
   const progressSuffix = input.progressAriaLabel?.trim()
   const ariaLabel = progressSuffix ? `${fullTitle}. ${progressSuffix}` : fullTitle

@@ -7,9 +7,9 @@ import {
 } from '@/lib/lessonFinaleCta'
 
 describe('finale CTA labels', () => {
-  it('uses Новый сюжет copy', () => {
-    expect(LESSON_REPEAT_VARIANT_LABEL).toBe('Новый сюжет')
-    expect(LESSON_REPEAT_VARIANT_BUSY_LABEL).toBe('Генерируем новый сюжет...')
+  it('uses Новый вариант copy', () => {
+    expect(LESSON_REPEAT_VARIANT_LABEL).toBe('Новый вариант')
+    expect(LESSON_REPEAT_VARIANT_BUSY_LABEL).toBe('Генерируем новый вариант...')
   })
 })
 

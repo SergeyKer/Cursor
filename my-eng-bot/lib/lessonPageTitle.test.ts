@@ -21,13 +21,24 @@ describe('buildLessonPageTitle', () => {
     })
   })
 
-  it('uses Урок prefix on tips', () => {
+  it('uses Фишки prefix on tips', () => {
     const view = buildLessonPageTitle({
       stage: 'tips',
       topicTitle: "It's / It's time to",
     })
-    expect(view.prefix).toBe('Урок:')
-    expect(view.fullTitle).toBe("Урок: It's / It's time to")
+    expect(view.prefix).toBe('Фишки:')
+    expect(view.fullTitle).toBe("Фишки: It's / It's time to")
+  })
+
+  it('keeps full topicSegment for long tips titles (CSS truncates)', () => {
+    const longTopic = 'Present Perfect Continuous vs Present Perfect Simple'
+    const view = buildLessonPageTitle({
+      stage: 'tips',
+      topicTitle: longTopic,
+    })
+    expect(view.prefix).toBe('Фишки:')
+    expect(view.topicSegment).toBe(longTopic)
+    expect(view.fullTitle).toBe(`Фишки: ${longTopic}`)
   })
 
   it('shows topic only on lesson steps', () => {

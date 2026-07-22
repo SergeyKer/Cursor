@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import LessonReadingShell from '@/components/LessonReadingShell'
 import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
@@ -8,6 +8,11 @@ import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
 import ProgressCtaButton from '@/components/ProgressCtaButton'
+import {
+  BLUE_SECONDARY_SKIN,
+  BTN_DISABLED_CLASS,
+  BTN_INTERACTION_BASE,
+} from '@/lib/homeCtaStyles'
 import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
@@ -140,6 +145,40 @@ function writeCachedTips(storageKey: string, tips: LessonExtraTips, generated = 
 
 function normalizeAnswer(value: string): string {
   return value.trim().replace(/\s+/g, ' ').toLowerCase()
+}
+
+/** Nested tip blocks — same surface as Language Note «Подсказка» cards. */
+const TIP_NESTED_CARD_CLASS =
+  'language-note-card language-note-card--shared overflow-hidden rounded-xl border'
+
+function TipNestedCard({
+  title,
+  children,
+  note,
+  titleClassName = 'font-bold text-slate-800',
+}: {
+  title?: ReactNode
+  children: ReactNode
+  note?: string | null
+  titleClassName?: string
+}) {
+  return (
+    <div className={TIP_NESTED_CARD_CLASS}>
+      {title != null ? <p className={titleClassName}>{title}</p> : null}
+      <div
+        className={`language-note-card__body min-w-0 text-[15px] leading-[1.45] text-[var(--text)]${
+          title == null ? ' !mt-0' : ''
+        }`}
+      >
+        <div className="language-note-content space-y-1.5 break-words">{children}</div>
+        {note ? (
+          <div className="language-note-reasons">
+            <p className="language-note-content break-words">{note}</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
 }
 
 export default function LessonExtraTipsScreen({
@@ -401,7 +440,7 @@ export default function LessonExtraTipsScreen({
               type="button"
               onClick={handleGenerateMore}
               disabled={loadingMore}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-[var(--chat-control-hover)] bg-[var(--chat-control-bg)] px-3 py-2 text-sm font-semibold text-[var(--chat-control-text)] shadow-sm transition hover:bg-[var(--chat-control-hover)] disabled:cursor-not-allowed disabled:opacity-60"
+              className={`${BTN_INTERACTION_BASE} ${BLUE_SECONDARY_SKIN} inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl px-3 py-2 text-sm font-medium ${BTN_DISABLED_CLASS}`}
             >
               {loadingMore ? 'Генерирую...' : 'Ещё фишки'}
             </button>
@@ -418,11 +457,6 @@ export default function LessonExtraTipsScreen({
         </div>
       }
     >
-              <div className="lesson-enter mb-2.5 flex items-center gap-2 rounded-[1.25rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-slate)] px-3 py-2 shadow-sm">
-                <span className="shrink-0 text-[13px] font-semibold uppercase tracking-[0.02em] text-slate-600">Фишки</span>
-                <span className="h-1 w-1 shrink-0 rounded-full bg-slate-300" aria-hidden />
-                <h2 className="min-w-0 truncate text-[15px] font-semibold leading-tight text-[var(--text)]">{tips.topic}</h2>
-              </div>
               {refreshMarker && (
                 <div className="lesson-enter mb-2 rounded-2xl border border-emerald-200 bg-emerald-50/95 px-3 py-2 text-sm font-medium text-emerald-800 shadow-sm">
                   {refreshMarker}
@@ -470,7 +504,7 @@ export default function LessonExtraTipsScreen({
                       <button
                         type="button"
                         onClick={() => handleToggleCategory(card.category)}
-                        className="flex w-full items-start justify-between gap-3 bg-white px-3 py-2.5 text-left"
+                        className="lesson-tips-accordion-head flex w-full items-start justify-between gap-3 px-3 py-2.5 text-left"
                       >
                         <span className="flex min-w-0 gap-2">
                           {!isStructuredTip && (
@@ -509,42 +543,36 @@ export default function LessonExtraTipsScreen({
                           </span>
                         )}
                       </button>
-                      <div className="divide-y divide-slate-200 border-t border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3">
+                      <div className="lesson-tips-note-surface divide-y divide-slate-200 border-t border-[var(--chat-section-neutral-border)] bg-white px-3">
                         {isNativeSpeech && nativeSpeechSwap ? (
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">🔁 Живая подмена</p>
-                              <div className="mt-1 space-y-1.5 break-words">
-                                {nativeSpeechSwap.wrong ? (
-                                  <p>
-                                    <span className="font-semibold text-slate-700">
-                                      {nativeSpeechSwapLabels?.wrongLabel ?? 'Так чаще в учебнике / длиннее:'}
-                                    </span>{' '}
-                                    {nativeSpeechSwap.wrong}
-                                  </p>
-                                ) : null}
+                            <TipNestedCard title="🔁 Живая подмена" note={nativeSpeechSwap.note}>
+                              {nativeSpeechSwap.wrong ? (
                                 <p>
                                   <span className="font-semibold text-slate-700">
-                                    {nativeSpeechSwapLabels?.rightLabel ?? 'Так чаще вслух / короче:'}
+                                    {nativeSpeechSwapLabels?.wrongLabel ?? 'Так чаще в учебнике / длиннее:'}
                                   </span>{' '}
-                                  {nativeSpeechSwap.right}
+                                  {nativeSpeechSwap.wrong}
                                 </p>
-                                {nativeSpeechSwap.note ? (
-                                  <p className="mt-1 break-words text-slate-600">{nativeSpeechSwap.note}</p>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">💡 Логика носителя</p>
-                              <p className="mt-1 break-words">{card.rule}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">⚡ Быстрый приём</p>
-                              {nativeSpeechTip.wrong && <p className="mt-1 break-words text-slate-600">Попробуй заменить: {nativeSpeechTip.wrong}</p>}
+                              ) : null}
+                              <p>
+                                <span className="font-semibold text-slate-700">
+                                  {nativeSpeechSwapLabels?.rightLabel ?? 'Так чаще вслух / короче:'}
+                                </span>{' '}
+                                {nativeSpeechSwap.right}
+                              </p>
+                            </TipNestedCard>
+                            <TipNestedCard title="💡 Логика носителя">
+                              <p>{card.rule}</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="⚡ Быстрый приём">
+                              {nativeSpeechTip.wrong ? (
+                                <p className="text-slate-600">Попробуй заменить: {nativeSpeechTip.wrong}</p>
+                              ) : null}
                               <button
                                 type="button"
                                 onClick={() => handleToggleTipAnswer(card.category)}
-                                className={`mt-2 rounded-xl border text-left transition hover:bg-white ${
+                                className={`rounded-xl border text-left transition hover:bg-white ${
                                   tipAnswerRevealed
                                     ? 'w-full border-dashed border-slate-300 bg-slate-50 px-3 py-2'
                                     : 'inline-flex items-center rounded-full border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm'
@@ -559,29 +587,25 @@ export default function LessonExtraTipsScreen({
                                   <span>✓ Открыть вариант</span>
                                 )}
                               </button>
-                            </div>
+                            </TipNestedCard>
                           </div>
                         ) : isRussianTraps && russianTrapCalque ? (
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">🪤 Классическая калька</p>
-                              {russianTrapCalque.wrong && (
-                                <p className="mt-1 break-words">
+                            <TipNestedCard title="🪤 Классическая калька" note={russianTrapCalque.note}>
+                              {russianTrapCalque.wrong ? (
+                                <p>
                                   <span className="font-semibold text-slate-700">Ошибочно:</span> {russianTrapCalque.wrong}
                                 </p>
-                              )}
-                              <p className="mt-1 break-words">
+                              ) : null}
+                              <p>
                                 <span className="font-semibold text-slate-700">Правильно:</span> {russianTrapCalque.right}
                               </p>
-                              <p className="mt-1 break-words text-slate-600">{russianTrapCalque.note}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">🔄 Как переключить мышление</p>
-                              <p className="mt-1 break-words">{card.rule}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">⚡ Проверка за 3 секунды - выбери</p>
-                              <div className="mt-2 flex flex-wrap gap-2">
+                            </TipNestedCard>
+                            <TipNestedCard title="🔄 Как переключить мышление">
+                              <p>{card.rule}</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="⚡ Проверка за 3 секунды - выбери">
+                              <div className="flex flex-wrap gap-2">
                                 {[russianTrapCheck.right, buildTrapDistractorAnswer(russianTrapCheck.right)].map((option) => {
                                   const isSelected = selectedTipAnswer === option
                                   const isCorrect = normalizeAnswer(option) === normalizeAnswer(russianTrapCheck.right)
@@ -603,32 +627,28 @@ export default function LessonExtraTipsScreen({
                                   )
                                 })}
                               </div>
-                              {tipAnswerRevealed && selectedTipAnswer && (
-                                <p className={`mt-2 text-sm leading-5 ${selectedTrapAnswerCorrect ? 'text-emerald-700' : 'text-amber-800'}`}>
+                              {tipAnswerRevealed && selectedTipAnswer ? (
+                                <p className={`text-sm leading-5 ${selectedTrapAnswerCorrect ? 'text-emerald-700' : 'text-amber-800'}`}>
                                   {selectedTrapAnswerCorrect ? '✅' : '❌'} {russianTrapCheck.note}
                                 </p>
-                              )}
-                            </div>
+                              ) : null}
+                            </TipNestedCard>
                           </div>
                         ) : isQuestionMistakes && questionMistake ? (
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">❌ Типичный промах</p>
-                              {questionMistake.wrong && <p className="mt-1 break-words">{questionMistake.wrong}</p>}
-                              <p className="mt-1 break-words font-semibold text-slate-800">{questionMistake.right}</p>
-                              <p className="mt-1 break-words text-slate-600">{questionMistake.note}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">🔍 Почему так выходит</p>
-                              <p className="mt-1 break-words">{card.rule}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">✅ Фикс за 5 секунд</p>
+                            <TipNestedCard title="❌ Типичный промах" note={questionMistake.note}>
+                              {questionMistake.wrong ? <p>{questionMistake.wrong}</p> : null}
+                              <p className="font-semibold text-slate-800">{questionMistake.right}</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="🔍 Почему так выходит">
+                              <p>{card.rule}</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="✅ Фикс за 5 секунд">
                               {tipAnswerRevealed ? (
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTipAnswer(card.category)}
-                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white"
+                                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white"
                                 >
                                   <p className="break-words font-semibold text-slate-800">Сначала проверь: нужен ли do/does/did?</p>
                                   <p className="mt-1 break-words text-slate-600">{questionFix.right}</p>
@@ -637,44 +657,43 @@ export default function LessonExtraTipsScreen({
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTipAnswer(card.category)}
-                                  className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
                                 >
                                   ✓ Показать фикс
                                 </button>
                               )}
-                            </div>
+                            </TipNestedCard>
                           </div>
                         ) : isEmphasisEmotion && emphasisBoost ? (
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="emoji-line font-bold text-slate-800">🔥 Усилители для этой темы</p>
-                              <p className="mt-1 break-words">
+                            <TipNestedCard
+                              title={<span className="emoji-line">🔥 Усилители для этой темы</span>}
+                              note={emphasisBoost.note}
+                            >
+                              <p>
                                 <span className="font-semibold text-slate-700">Слова:</span>{' '}
                                 {emphasisBoostersLabel(card.examples, lessonCefrLevel)}
                               </p>
-                              <p className="mt-1 break-words text-slate-600">{emphasisBoost.note}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">💬 Живые примеры</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="💬 Живые примеры">
                               {emphasisExamples.map((example, exampleIndex) => (
-                                <div key={`${card.category}-emphasis-${exampleIndex}-${example.right}`} className="mt-2 first:mt-0">
-                                  {example.wrong && (
-                                    <p className="break-words">
+                                <div key={`${card.category}-emphasis-${exampleIndex}-${example.right}`}>
+                                  {example.wrong ? (
+                                    <p>
                                       <span className="font-semibold text-slate-700">Фраза:</span> {example.wrong}
                                     </p>
-                                  )}
-                                  <p className="mt-1 break-words font-semibold text-slate-800">{example.right}</p>
-                                  <p className="mt-1 break-words text-slate-600">{example.note}</p>
+                                  ) : null}
+                                  <p className="font-semibold text-slate-800">{example.right}</p>
+                                  {example.note ? <p className="text-slate-600">{example.note}</p> : null}
                                 </div>
                               ))}
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">⚡ Быстрый приём</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="⚡ Быстрый приём">
                               {tipAnswerRevealed ? (
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTipAnswer(card.category)}
-                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white"
+                                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white"
                                 >
                                   <p className="break-words text-slate-800">
                                     Добавь really для мягкой оценки, so для живой реакции, definitely для уверенности.
@@ -684,54 +703,48 @@ export default function LessonExtraTipsScreen({
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTipAnswer(card.category)}
-                                  className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
                                 >
                                   ✓ Показать приём
                                 </button>
                               )}
-                            </div>
+                            </TipNestedCard>
                           </div>
                         ) : isContextCulture && contextStylePair ? (
                           <div className="space-y-2 py-2.5 text-[15px] leading-[1.45] text-[var(--text)]">
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">📱 Чат и работа</p>
-                              {contextStylePair.wrong && (
-                                <p className="mt-1 break-words">
+                            <TipNestedCard title="📱 Чат и работа" note={contextStylePair.note}>
+                              {contextStylePair.wrong ? (
+                                <p>
                                   <span className="font-semibold text-slate-700">Чат:</span> {contextStylePair.wrong}
                                 </p>
-                              )}
-                              <p className="mt-1 break-words">
+                              ) : null}
+                              <p>
                                 <span className="font-semibold text-slate-700">Работа:</span> {contextStylePair.right}
                               </p>
-                              <p className="mt-1 break-words text-slate-600">{contextStylePair.note}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">🌍 Культурный нюанс</p>
-                              <p className="mt-1 break-words">{card.rule}</p>
-                            </div>
-                            <div className="rounded-2xl bg-white px-3 py-2 shadow-sm">
-                              <p className="font-bold text-slate-800">✅ Правило выбора</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="🌍 Культурный нюанс">
+                              <p>{card.rule}</p>
+                            </TipNestedCard>
+                            <TipNestedCard title="✅ Правило выбора">
                               {tipAnswerRevealed ? (
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTipAnswer(card.category)}
-                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white"
+                                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left transition hover:bg-white"
                                 >
-                                  <p className="break-words text-slate-800">
-                                    {contextStyleRule.note}
-                                  </p>
+                                  <p className="break-words text-slate-800">{contextStyleRule.note}</p>
                                   <p className="mt-1 break-words text-slate-600">{contextStyleRule.right}</p>
                                 </button>
                               ) : (
                                 <button
                                   type="button"
                                   onClick={() => handleToggleTipAnswer(card.category)}
-                                  className="mt-2 inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
+                                  className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50"
                                 >
                                   ✓ Показать правило
                                 </button>
                               )}
-                            </div>
+                            </TipNestedCard>
                           </div>
                         ) : (
                           visibleExamples.map((example, exampleIndex) => (
@@ -739,17 +752,14 @@ export default function LessonExtraTipsScreen({
                               key={`${card.category}-${exampleIndex}-${example.right}`}
                               className="py-2.5 text-[15px] leading-[1.45] text-[var(--text)]"
                             >
-                              <>
-                                <p className="break-words rounded-2xl bg-white px-3 py-2 text-[15px] leading-[1.45] text-[var(--text)] shadow-sm">
-                                  {example.right}
-                                </p>
-                                <p className="mt-1.5 px-1 text-[15px] leading-[1.45] text-[var(--text)]">{example.note}</p>
-                                {example.wrong && (
-                                  <p className="mt-1 px-1 text-[15px] leading-[1.45] text-[var(--text)]">
+                              <TipNestedCard note={example.note}>
+                                <p>{example.right}</p>
+                                {example.wrong ? (
+                                  <p>
                                     <span className="font-semibold text-slate-700">Не так:</span> {example.wrong}
                                   </p>
-                                )}
-                              </>
+                                ) : null}
+                              </TipNestedCard>
                             </div>
                           ))
                         )}

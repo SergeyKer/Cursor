@@ -49,7 +49,7 @@ function ReadingDetachedCardBody({
 
   if (bodyLines.length === 0) {
     return (
-      <div className="bg-white px-3 py-2.5">
+      <div className="bg-[var(--chat-section-neutral)] px-3 py-2.5">
         <p className="break-words text-[15px] font-bold leading-tight text-[var(--text)]">{title}</p>
       </div>
     )
@@ -57,10 +57,10 @@ function ReadingDetachedCardBody({
 
   return (
     <>
-      <div className="bg-white px-3 py-2.5">
+      <div className="bg-[var(--chat-section-neutral)] px-3 py-2.5">
         <p className="break-words text-[15px] font-bold leading-tight text-[var(--text)]">{title}</p>
       </div>
-      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-[var(--chat-section-neutral)] px-3 py-2.5">
+      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-white px-3 py-2.5">
         {bodyLines.map((line, i) => renderBodyLine(line, i, bodyOptions))}
       </div>
     </>

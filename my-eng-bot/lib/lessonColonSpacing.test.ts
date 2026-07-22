@@ -56,14 +56,14 @@ function collectStrings(value: unknown, path: string, bucket: Array<{ source: st
 }
 
 describe('lesson colon spacing', () => {
-  it('keeps a visible space after Урок prefix in page titles', () => {
+  it('keeps a visible space after Фишки prefix in tips page titles', () => {
     const view = buildLessonPageTitle({
       stage: 'tips',
       topicTitle: 'I am / I am from',
     })
 
-    expect(view.fullTitle).toBe('Урок: I am / I am from')
-    expect(view.fullTitle).toMatch(/^Урок:\s+\S/)
+    expect(view.fullTitle).toBe('Фишки: I am / I am from')
+    expect(view.fullTitle).toMatch(/^Фишки:\s+\S/)
   })
 
   it('uses a space after colon in all learning lesson texts', () => {
