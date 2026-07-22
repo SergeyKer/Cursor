@@ -19,6 +19,11 @@ import {
   runLessonRouteInflight,
   writeLessonRouteCache,
 } from '@/lib/lessonRouteRuntime'
+import {
+  buildReviewChipLessonSystemPrompt,
+  buildReviewChipLessonUserPayload,
+} from '@/lib/lessonGenerate/reviewChipLessonPrompt'
+import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 
 export const maxDuration = 150
 
@@ -31,6 +36,14 @@ type Body = {
   level?: string
   audience?: string
   analysisSummary?: string
+  /** Chip → reference generate path: use review-chip pedagogy prompt. */
+  source?: 'language_note_review' | string
+  reviewChip?: {
+    title?: string
+    original?: string
+    correct?: string
+    correctReasons?: string[]
+  }
 }
 
 function normalizeTheoryIntro(raw: string): string {
@@ -166,45 +179,78 @@ export async function POST(req: NextRequest) {
     })
   }
 
-  const system = [
-    'Ты методист английского для MyEng.',
-    'Верни ТОЛЬКО JSON lesson blueprint для короткого урока.',
-    'theoryIntro ОБЯЗАТЕЛЬНО строго в таком порядке и с жирными заголовками:',
-    '**Урок:**',
-    '**Правило:**',
-    '**Примеры:**',
-    '**Коротко:**',
-    '**Шаблоны:**',
-    'Формат:',
-    '{',
-    '  "title":"строка",',
-    '  "intro":{"topic":"строка","kind":"single_rule|contrast|concept|tense|structure","complexity":"simple|medium|advanced","quick":{"why":["до 3 пунктов"],"how":["до 3 пунктов"],"examples":[{"en":"English sentence","ru":"перевод","note":"пояснение"}],"takeaway":"одна главная мысль"},"details":{"points":["2-3 пункта"],"examples":[{"en":"English sentence","ru":"перевод","note":"пояснение"}]},"deepDive":{"commonMistakes":["2-3 ошибки"],"contrastNotes":["1-3 нюанса"],"selfCheckRule":"правило самопроверки"},"learningPlan":{"grammarFocus":["строка"],"contrastPair":["A","B"],"firstPracticeGoal":"строка"}}',
-    '  "theoryIntro":"строка с \\n",',
-    '  "actions":[{"id":"examples","label":"Посмотри примеры"},{"id":"fill_phrase","label":"Подставь слово"},{"id":"repeat_translate","label":"Переведи на английский"},{"id":"write_own_sentence","label":"Напиши своё предложение"}],',
-    '  "followups":{"examples":"строка","fill_phrase":"строка","repeat_translate":"строка","write_own_sentence":"строка"},',
-    '  "adaptiveTemplate":{"grammarFocus":["строка"],"recommendedStartDifficulty":"easy","preferredExerciseModes":["drill","production","micro_quiz"],"supportsAdaptiveVariants":true}',
-    '}',
-    'Текст секций на русском, английские примеры допустимы.',
-    'Не используй английские грамматические термины, если есть понятный русский вариант: embedded questions -> встроенные вопросы, wh-word -> вопросительное слово, subject -> подлежащее, verb -> глагол, intro phrase -> вводная фраза.',
-    'Английские слова оставляй только в самих примерах, фразах-шаблонах и названиях форм без устойчивого русского аналога.',
-    'intro.quick должен быть очень коротким: пользователь должен сразу понять зачем тема нужна и как она работает.',
-    'Не добавляй инфошум, длинные таблицы, редкие исключения и академические определения в intro.quick.',
-    'Если передан tutorIntent, строго строй урок вокруг его goalRu, targetPatterns, examples, mustTrain и mustAvoid.',
-    'Не используй служебные фразы как основной материал: "I understand this rule", "We practice short examples", "This sentence is about...".',
-    'Не пропускай секции и не меняй порядок заголовков.',
-    'adaptiveTemplate можно вернуть дополнительно, если тема явно задает грамматический контраст или будущую адаптивную практику.',
-  ].join('\n')
+  const isReviewChip = body.source === 'language_note_review'
+  const system = isReviewChip
+    ? buildReviewChipLessonSystemPrompt()
+    : [
+        'Ты методист английского для MyEng.',
+        'Верни ТОЛЬКО JSON lesson blueprint для короткого урока.',
+        'theoryIntro ОБЯЗАТЕЛЬНО строго в таком порядке и с жирными заголовками:',
+        '**Урок:**',
+        '**Правило:**',
+        '**Примеры:**',
+        '**Коротко:**',
+        '**Шаблоны:**',
+        'Формат:',
+        '{',
+        '  "title":"строка",',
+        '  "intro":{"topic":"строка","kind":"single_rule|contrast|concept|tense|structure","complexity":"simple|medium|advanced","quick":{"why":["до 3 пунктов"],"how":["до 3 пунктов"],"examples":[{"en":"English sentence","ru":"перевод","note":"пояснение"}],"takeaway":"одна главная мысль"},"details":{"points":["2-3 пункта"],"examples":[{"en":"English sentence","ru":"перевод","note":"пояснение"}]},"deepDive":{"commonMistakes":["2-3 ошибки"],"contrastNotes":["1-3 нюанса"],"selfCheckRule":"правило самопроверки"},"learningPlan":{"grammarFocus":["строка"],"contrastPair":["A","B"],"firstPracticeGoal":"строка"}}',
+        '  "theoryIntro":"строка с \\n",',
+        '  "actions":[{"id":"examples","label":"Посмотри примеры"},{"id":"fill_phrase","label":"Подставь слово"},{"id":"repeat_translate","label":"Переведи на английский"},{"id":"write_own_sentence","label":"Напиши своё предложение"}],',
+        '  "followups":{"examples":"строка","fill_phrase":"строка","repeat_translate":"строка","write_own_sentence":"строка"},',
+        '  "adaptiveTemplate":{"grammarFocus":["строка"],"recommendedStartDifficulty":"easy","preferredExerciseModes":["drill","production","micro_quiz"],"supportsAdaptiveVariants":true}',
+        '}',
+        'Текст секций на русском, английские примеры допустимы.',
+        'Не используй английские грамматические термины, если есть понятный русский вариант: embedded questions -> встроенные вопросы, wh-word -> вопросительное слово, subject -> подлежащее, verb -> глагол, intro phrase -> вводная фраза.',
+        'Английские слова оставляй только в самих примерах, фразах-шаблонах и названиях форм без устойчивого русского аналога.',
+        'intro.quick должен быть очень коротким: пользователь должен сразу понять зачем тема нужна и как она работает.',
+        'Не добавляй инфошум, длинные таблицы, редкие исключения и академические определения в intro.quick.',
+        'Если передан tutorIntent, строго строй урок вокруг его goalRu, targetPatterns, examples, mustTrain и mustAvoid.',
+        'Не используй служебные фразы как основной материал: "I understand this rule", "We practice short examples", "This sentence is about...".',
+        'Не пропускай секции и не меняй порядок заголовков.',
+        'adaptiveTemplate можно вернуть дополнительно, если тема явно задает грамматический контраст или будущую адаптивную практику.',
+      ].join('\n')
 
-  const user = [
-    `Тема: ${topic}`,
-    body.originalQuery ? `Исходный запрос ученика: ${body.originalQuery}` : '',
-    intent ? `Tutor intent JSON: ${JSON.stringify(intent)}` : '',
-    `Уровень: ${body.level ?? 'a2'}`,
-    `Аудитория: ${body.audience ?? 'adult'}`,
-    body.analysisSummary ? `Контекст с фото: ${body.analysisSummary}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const reviewChipNote: LanguageNote | null =
+    isReviewChip && body.reviewChip
+      ? {
+          status: 'needs_fix',
+          original: String(body.reviewChip.original ?? ''),
+          correct: String(body.reviewChip.correct ?? ''),
+          correctHighlights: [],
+          correctReasons: Array.isArray(body.reviewChip.correctReasons)
+            ? body.reviewChip.correctReasons.map(String).slice(0, 2)
+            : [],
+          better: null,
+          betterHighlights: [],
+          betterReasons: [],
+          betterAlternatives: [],
+          reviewTopics: [],
+          lessonId: null,
+          lessonTitle: null,
+        }
+      : null
+  const reviewChipTopic: LanguageNoteReviewTopic = {
+    id: 'review-chip',
+    title: String(body.reviewChip?.title ?? topic),
+  }
+
+  const user = isReviewChip && reviewChipNote
+    ? [
+        buildReviewChipLessonUserPayload({ chip: reviewChipTopic, note: reviewChipNote }),
+        `Уровень: ${body.level ?? 'a2'}`,
+        `Аудитория: ${body.audience ?? 'adult'}`,
+      ].join('\n')
+    : [
+        `Тема: ${topic}`,
+        body.originalQuery ? `Исходный запрос ученика: ${body.originalQuery}` : '',
+        intent ? `Tutor intent JSON: ${JSON.stringify(intent)}` : '',
+        `Уровень: ${body.level ?? 'a2'}`,
+        `Аудитория: ${body.audience ?? 'adult'}`,
+        body.analysisSummary ? `Контекст с фото: ${body.analysisSummary}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n')
 
   const responsePayload = await runLessonRouteInflight(cacheKey, async () => {
     const providerStartedAt = Date.now()

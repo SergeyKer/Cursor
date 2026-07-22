@@ -233,7 +233,7 @@ import {
 } from '@/lib/footerSheet'
 import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
-import type { LanguageNote } from '@/lib/languageNote/types'
+import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
@@ -435,11 +435,18 @@ import {
   VocabularyWorldsScreen,
 } from '@/lib/start/appBranchComponents'
 import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
-import { buildReferenceSheetByLessonId } from '@/lib/reference/buildReferenceSheet'
+import {
+  buildReferenceSheetByLessonId,
+  buildReferenceSheetFromLesson,
+  isIntroSuitableForReference,
+} from '@/lib/reference/buildReferenceSheet'
+import type { ReferenceSheet } from '@/lib/reference/types'
 import {
   consumeOpenReferenceLessonId,
   readReferenceLessonIdFromSearch,
 } from '@/lib/reference/openReferenceIntent'
+import { resolveReviewChipTopic } from '@/lib/languageNote/resolveReviewChipTopic'
+import { buildReviewChipCacheTopicKey } from '@/lib/lessonGenerate/reviewChipLessonPrompt'
 
 import SlideOutMenu from '@/components/SlideOutMenu'
 type StructuredLessonRuntimeMode = 'generate' | 'repeat'
@@ -777,6 +784,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [menuOpen, setMenuOpen] = useState(false)
   const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(null)
   const footerSheetRef = React.useRef<FooterDetailSheetHandle>(null)
+  /** Chip → reference: restore chat on back (not menu lesson list). */
+  const [referenceLaunchFrom, setReferenceLaunchFrom] = useState<'chat' | 'menu' | null>(null)
+  const [chatMessagesSnapshotForReference, setChatMessagesSnapshotForReference] = useState<ChatMessage[] | null>(
+    null
+  )
+  const [runtimeReferenceSheet, setRuntimeReferenceSheet] = useState<ReferenceSheet | null>(null)
+  const [reviewChipNavPending, setReviewChipNavPending] = useState(false)
+  const reviewChipNavEpochRef = React.useRef(0)
   const languageNoteAbortRef = React.useRef<AbortController | null>(null)
   const languageNoteRequestIdRef = React.useRef(0)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
@@ -4265,11 +4280,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const openReferenceTopic = useCallback(
-    async (lessonId: string, lessonsPanel: LessonsPanel = 'theory', meta?: LearningLessonMenuMeta) => {
+    async (
+      lessonId: string,
+      lessonsPanel: LessonsPanel = 'theory',
+      meta?: LearningLessonMenuMeta,
+      options?: { from?: 'chat' | 'menu'; clearMessages?: boolean }
+    ) => {
       if (!featureFlags.referenceV1) return
       const sheet = buildReferenceSheetByLessonId(lessonId)
       if (!sheet) return
       if (!getLearningLessonById(lessonId) && !getStructuredLessonById(lessonId)) return
+      const from = options?.from ?? 'menu'
+      const clearMessages = options?.clearMessages ?? from !== 'chat'
+      setReferenceLaunchFrom(from)
+      setRuntimeReferenceSheet(null)
       lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
@@ -4313,7 +4337,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }))
       setActiveLearningLessonId(lessonId)
       const structuredLesson = getStructuredLessonById(lessonId)
-      setMessages([])
+      if (clearMessages) {
+        setChatMessagesSnapshotForReference(null)
+        setMessages([])
+      }
       if (structuredLesson) {
         setStructuredLessonShuffleNonce((n) => n + 1)
         setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
@@ -4324,6 +4351,62 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
   )
 
+  const openRuntimeReferenceFromChip = useCallback(
+    (sheet: ReferenceSheet) => {
+      setReferenceLaunchFrom('chat')
+      setRuntimeReferenceSheet({ ...sheet, hasPractice: false })
+      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
+      menuLessonGenerateCleanupRef.current?.()
+      menuLessonBgFetchEpochRef.current += 1
+      setStructuredLessonVariantRegenerating(false)
+      resetVariantPrepareRef.current()
+      abandonPracticeSession()
+      firstMessageRequestIdRef.current += 1
+      firstMessageInFlightRef.current = false
+      suppressSettingsChangeBannerRef.current = true
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setLoading(false)
+      setRetryMessage(null)
+      setSearchingInternet(false)
+      setLoadingTranslationIndex(null)
+      setForceNextMicLang(null)
+      setSettingsAtLastSend(null)
+      setActiveStructuredLessonRuntime(null)
+      setStructuredLessonLoadingId(null)
+      setMenuLessonBgError(null)
+      setPendingTutorLessonTitle(null)
+      setLessonOverlay(null)
+      setLessonReturnBriefingAckRunKey(null)
+      setLessonViewStage('reference')
+      setLessonTipsReturnStage('intro')
+      setLessonExtraTipsStatus('idle')
+      setLessonExtraTipsState(null)
+      setActiveLearningLessonId(null)
+      setLastStructuredLessonGlobalDelta(0)
+      bumpFooterSessionContext()
+    },
+    [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
+  )
+
+  const backFromReferenceToChat = useCallback(() => {
+    const snapshot = chatMessagesSnapshotForReference
+    reviewChipNavEpochRef.current += 1
+    setReviewChipNavPending(false)
+    setRuntimeReferenceSheet(null)
+    setReferenceLaunchFrom(null)
+    setChatMessagesSnapshotForReference(null)
+    resetStructuredLessonSession()
+    if (snapshot) setMessages(snapshot)
+    bumpFooterSessionContext()
+  }, [bumpFooterSessionContext, chatMessagesSnapshotForReference, resetStructuredLessonSession])
+
+  const showReviewChipError = useCallback(() => {
+    setRewardPopupText(LANGUAGE_NOTE_COPY.reviewChipError)
+    window.setTimeout(() => {
+      setRewardPopupText((prev) => (prev === LANGUAGE_NOTE_COPY.reviewChipError ? null : prev))
+    }, 4200)
+  }, [])
 
   React.useEffect(() => {
     if (!storageLoaded || !featureFlags.referenceV1) return
@@ -6935,10 +7018,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const activeTutorIntent = activeStructuredLesson?.tutorIntent ?? activeLearningLesson?.tutorIntent ?? null
   const isTutorLessonPending = structuredLessonLoadingId === 'tutor' && Boolean(pendingTutorLessonTitle)
   const activeReferenceSheet =
-    lessonViewStage === 'reference' && activeLearningLessonId
-      ? buildReferenceSheetByLessonId(activeLearningLessonId)
+    lessonViewStage === 'reference'
+      ? runtimeReferenceSheet ??
+        (activeLearningLessonId ? buildReferenceSheetByLessonId(activeLearningLessonId) : null)
       : null
   const isReferenceSheetActive = Boolean(activeReferenceSheet && lessonViewStage === 'reference')
+  const referenceActionsMode = runtimeReferenceSheet ? ('back-only' as const) : undefined
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isLessonBriefingActive = Boolean(activeStructuredLesson && activeLearningLesson && lessonViewStage === 'briefing')
@@ -8083,6 +8168,128 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     languageNoteRequestIdRef.current += 1
   }, [])
 
+  const handleLanguageNoteReviewTopicPress = useCallback(
+    async (topic: LanguageNoteReviewTopic, note: LanguageNote) => {
+      if (!featureFlags.referenceV1) return
+      if (reviewChipNavPending) return
+
+      const capturedTopic = topic
+      const capturedNote = note
+      const snapshot =
+        typeof structuredClone === 'function'
+          ? structuredClone(messages)
+          : messages.map((m) => ({ ...m }))
+      setChatMessagesSnapshotForReference(snapshot)
+
+      abortLanguageNoteRequest()
+      setFooterSheetContext(null)
+
+      const resolved = resolveReviewChipTopic({
+        chipTitle: capturedTopic.title,
+        noteLessonId: capturedNote.lessonId,
+      })
+
+      if (resolved.kind === 'local') {
+        void openReferenceTopic(
+          resolved.lessonId,
+          'theory',
+          { catalogBrowseIntent: 'reference' },
+          { from: 'chat', clearMessages: false }
+        )
+        return
+      }
+
+      const epoch = ++reviewChipNavEpochRef.current
+      setReviewChipNavPending(true)
+      try {
+        const cacheTopic = buildReviewChipCacheTopicKey(
+          capturedTopic.title,
+          capturedNote.original,
+          capturedNote.correct
+        )
+        const response = await fetchWithLessonProviderDeadline(
+          (signal) =>
+            fetch('/api/lesson-generate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                provider: settings.provider,
+                openAiChatPreset: settings.openAiChatPreset,
+                topic: cacheTopic,
+                level: settings.level,
+                audience: settings.audience,
+                source: 'language_note_review',
+                reviewChip: {
+                  title: capturedTopic.title,
+                  original: capturedNote.original,
+                  correct: capturedNote.correct,
+                  correctReasons: capturedNote.correctReasons.slice(0, 2),
+                },
+              }),
+              signal,
+            }),
+          { deadlineMs: TUTOR_LESSON_GENERATE_TIMEOUT_MS }
+        )
+        if (epoch !== reviewChipNavEpochRef.current) return
+
+        const data = (await response.json()) as { lesson?: LessonBlueprint; error?: string }
+        const intro = data.lesson?.intro
+        if (!response.ok || !intro || !isIntroSuitableForReference(intro)) {
+          showReviewChipError()
+          setChatMessagesSnapshotForReference(null)
+          return
+        }
+
+        const lessonLevel: LessonData['level'] =
+          settings.level === 'a1' || settings.level === 'starter'
+            ? 'A1'
+            : settings.level === 'b1'
+              ? 'B1'
+              : settings.level === 'b2'
+                ? 'B2'
+                : settings.level === 'c1'
+                  ? 'C1'
+                  : 'A2'
+
+        const sheet = buildReferenceSheetFromLesson({
+          id: `review-chip:${cacheTopic}`,
+          topic: data.lesson?.title || resolved.topic,
+          level: lessonLevel,
+          intro,
+          steps: [],
+        })
+        if (!sheet) {
+          showReviewChipError()
+          setChatMessagesSnapshotForReference(null)
+          return
+        }
+
+        openRuntimeReferenceFromChip(sheet)
+      } catch (error) {
+        if (epoch !== reviewChipNavEpochRef.current) return
+        console.warn('review-chip lesson-generate failed:', error)
+        showReviewChipError()
+        setChatMessagesSnapshotForReference(null)
+      } finally {
+        if (epoch === reviewChipNavEpochRef.current) {
+          setReviewChipNavPending(false)
+        }
+      }
+    },
+    [
+      abortLanguageNoteRequest,
+      messages,
+      openReferenceTopic,
+      openRuntimeReferenceFromChip,
+      reviewChipNavPending,
+      settings.audience,
+      settings.level,
+      settings.openAiChatPreset,
+      settings.provider,
+      showReviewChipError,
+    ]
+  )
+
   useEffect(() => {
     abortLanguageNoteRequest()
     setFooterSheetContext((prev) => (prev?.source === 'language-note' ? null : prev))
@@ -9049,41 +9256,60 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     </p>
                   </div>
                 </div>
+              ) : reviewChipNavPending ? (
+                <div className="flex h-full min-h-0 items-center justify-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4">
+                  <div className="lesson-enter glass-surface w-full max-w-[24rem] rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-4 py-5 text-center shadow-sm">
+                    <p className="text-[15px] font-semibold text-[var(--text)]">
+                      {LANGUAGE_NOTE_COPY.reviewChipLoading}
+                    </p>
+                  </div>
+                </div>
               ) : isReferenceSheetActive && activeReferenceSheet ? (
                 <ReferenceSheetScreen
                   key={`ref-${activeReferenceSheet.id}`}
                   sheet={activeReferenceSheet}
-                  onBack={backToLessonList}
-                  onStartLesson={() => {
-                    void openLearningLesson(
-                      activeReferenceSheet.relatedLessonId,
-                      lessonMenuContext?.lessonsPanel ?? 'a2',
-                      {
-                        ...(lessonMenuContext
-                          ? {
-                              activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
-                              activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
-                              theorySearchQuery: lessonMenuContext.theorySearchQuery,
-                              activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
-                              theoryLessonSource: lessonMenuContext.theoryLessonSource,
-                              theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
-                            }
-                          : {}),
-                        catalogBrowseIntent: 'reference',
-                      },
-                      { openAtLessonStage: true }
-                    )
-                  }}
+                  actionsMode={referenceActionsMode}
+                  onBack={
+                    referenceLaunchFrom === 'chat' ? backFromReferenceToChat : backToLessonList
+                  }
+                  onStartLesson={
+                    referenceActionsMode === 'back-only'
+                      ? undefined
+                      : () => {
+                          setReferenceLaunchFrom(null)
+                          setChatMessagesSnapshotForReference(null)
+                          void openLearningLesson(
+                            activeReferenceSheet.relatedLessonId,
+                            lessonMenuContext?.lessonsPanel ?? 'a2',
+                            {
+                              ...(lessonMenuContext
+                                ? {
+                                    activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
+                                    activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
+                                    theorySearchQuery: lessonMenuContext.theorySearchQuery,
+                                    activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
+                                    theoryLessonSource: lessonMenuContext.theoryLessonSource,
+                                    theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
+                                  }
+                                : {}),
+                              catalogBrowseIntent: 'reference',
+                            },
+                            { openAtLessonStage: true }
+                          )
+                        }
+                  }
                   onStartPractice={
-                    activeReferenceSheet.hasPractice
-                      ? () => {
+                    referenceActionsMode === 'back-only' || !activeReferenceSheet.hasPractice
+                      ? undefined
+                      : () => {
+                          setReferenceLaunchFrom(null)
+                          setChatMessagesSnapshotForReference(null)
                           void openPracticeSession({
                             lessonId: activeReferenceSheet.relatedLessonId,
                             mode: 'challenge',
                             entrySource: 'menu',
                           })
                         }
-                      : undefined
                   }
                 />
               ) : isLessonIntroActive && activeLessonIntro ? (
@@ -9438,6 +9664,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setFooterSheetContext(null)
         }}
         onLanguageNoteRetry={handleLanguageNoteRetry}
+        onLanguageNoteReviewTopicPress={
+          featureFlags.referenceV1 ? handleLanguageNoteReviewTopicPress : undefined
+        }
+        languageNoteReviewTopicsDisabled={reviewChipNavPending || !featureFlags.referenceV1}
       />
     </div>
     </AppShellProvider>

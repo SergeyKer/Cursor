@@ -51,4 +51,36 @@ describe('POST /api/lesson-generate', () => {
     expect(apiMessages[1].content).toContain('Tutor intent JSON')
     expect(apiMessages[1].content).toContain('I get it')
   })
+
+  it('uses review-chip prompt when source is language_note_review', async () => {
+    callProviderChatMock.mockResolvedValueOnce({ ok: false, content: '' })
+
+    const res = await POST(
+      makeRequest({
+        provider: 'openai',
+        topic: 'over / on::abc',
+        level: 'a2',
+        audience: 'adult',
+        source: 'language_note_review',
+        reviewChip: {
+          title: 'over / on — предлоги места',
+          original: 'The book is over the table',
+          correct: 'The book is on the table',
+          correctReasons: ['over — над; on — на поверхности'],
+        },
+      }) as never
+    )
+
+    expect(res.status).toBe(200)
+    const apiMessages = callProviderChatMock.mock.calls[0][0].apiMessages as Array<{
+      role: string
+      content: string
+    }>
+    expect(apiMessages[0].content).toContain('ANTI-HALLUCINATION')
+    expect(apiMessages[0].content).not.toContain('Если передан tutorIntent')
+    expect(apiMessages[1].content).toContain('Тема (EN-anchor): over / on')
+    expect(apiMessages[1].content).toContain('Ошибка ученика: The book is over the table')
+    expect(apiMessages[1].content).toContain('Как правильно: The book is on the table')
+    expect(apiMessages[1].content).not.toContain('Tutor intent JSON')
+  })
 })

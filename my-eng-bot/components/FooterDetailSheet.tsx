@@ -20,6 +20,7 @@ import {
   FOOTER_SHEET_PLACEHOLDER_TEXT,
   type FooterSheetContext,
 } from '@/lib/footerSheet'
+import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 import {
   readFooterSheetBodyScrollMetrics,
   shouldDelegateFooterSheetTouchToBodyScroll,
@@ -41,6 +42,8 @@ export type FooterDetailSheetProps = {
   columnBounds?: AppColumnBounds | null
   onClose: () => void
   onLanguageNoteRetry?: (messageIndex: number, originalText: string) => void
+  onLanguageNoteReviewTopicPress?: (topic: LanguageNoteReviewTopic, note: LanguageNote) => void
+  languageNoteReviewTopicsDisabled?: boolean
 }
 
 function usePrefersReducedMotion(): boolean {
@@ -57,7 +60,14 @@ function usePrefersReducedMotion(): boolean {
 
 const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetProps>(
   function FooterDetailSheet(
-    { context, columnBounds = null, onClose, onLanguageNoteRetry },
+    {
+      context,
+      columnBounds = null,
+      onClose,
+      onLanguageNoteRetry,
+      onLanguageNoteReviewTopicPress,
+      languageNoteReviewTopicsDisabled = false,
+    },
     ref
   ) {
     const prefersReducedMotion = usePrefersReducedMotion()
@@ -304,7 +314,13 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
         )
       }
       if (context.languageNote) {
-        return <LanguageNoteSheetReady note={context.languageNote} />
+        return (
+          <LanguageNoteSheetReady
+            note={context.languageNote}
+            onReviewTopicPress={onLanguageNoteReviewTopicPress}
+            reviewTopicsDisabled={languageNoteReviewTopicsDisabled}
+          />
+        )
       }
       return <LanguageNoteSheetLoading />
     }

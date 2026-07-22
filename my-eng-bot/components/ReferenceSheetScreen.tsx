@@ -17,11 +17,16 @@ import { buildReferenceBubbles } from '@/lib/reference/buildReferenceBubbles'
 import type { ReferenceSheet } from '@/lib/reference/types'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 
+/** Catalog default keeps prior behavior; back-only is for generated chip sheets. */
+export type ReferenceActionsMode = 'lesson+practice' | 'lesson' | 'back-only'
+
 type ReferenceSheetScreenProps = {
   sheet: ReferenceSheet
   onBack: () => void
-  onStartLesson: () => void
+  onStartLesson?: () => void
   onStartPractice?: () => void
+  /** Default: derive from hasPractice + callbacks (menu-compatible). */
+  actionsMode?: ReferenceActionsMode
 }
 
 const BACK_BTN_CLASS = [
@@ -50,15 +55,28 @@ function BackButton({ children, onClick }: { children: ReactNode; onClick: () =>
   )
 }
 
+export function resolveReferenceActionsMode(
+  sheet: ReferenceSheet,
+  actionsMode: ReferenceActionsMode | undefined,
+  onStartLesson: (() => void) | undefined,
+  onStartPractice: (() => void) | undefined
+): ReferenceActionsMode {
+  if (actionsMode) return actionsMode
+  if (sheet.hasPractice && onStartPractice && onStartLesson) return 'lesson+practice'
+  if (onStartLesson) return 'lesson'
+  return 'back-only'
+}
+
 export default function ReferenceSheetScreen({
   sheet,
   onBack,
   onStartLesson,
   onStartPractice,
+  actionsMode,
 }: ReferenceSheetScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const bubbles = useMemo(() => buildReferenceBubbles(sheet), [sheet])
-  const showPractice = Boolean(sheet.hasPractice && onStartPractice)
+  const mode = resolveReferenceActionsMode(sheet, actionsMode, onStartLesson, onStartPractice)
 
   return (
     <LessonReadingShell
@@ -69,7 +87,7 @@ export default function ReferenceSheetScreen({
       composer={
         <div className="flex w-full items-center gap-1.5">
           <BackButton onClick={onBack}>{REFERENCE_COPY.back}</BackButton>
-          {showPractice ? (
+          {mode === 'lesson+practice' && onStartPractice && onStartLesson ? (
             <>
               <button type="button" onClick={onStartPractice} className={PRIMARY_ROW_CTA_CLASS}>
                 {REFERENCE_COPY.startPractice}
@@ -78,11 +96,12 @@ export default function ReferenceSheetScreen({
                 {REFERENCE_COPY.startLesson}
               </button>
             </>
-          ) : (
+          ) : null}
+          {mode === 'lesson' && onStartLesson ? (
             <button type="button" onClick={onStartLesson} className={PRIMARY_ROW_CTA_CLASS}>
               {REFERENCE_COPY.startLesson}
             </button>
-          )}
+          ) : null}
         </div>
       }
     >

@@ -2146,6 +2146,11 @@ html[data-theme='glass3'] {
   box-shadow: none;
 }
 
+.language-note-topic-chip--button:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--language-note-topic-border) 70%, var(--text) 30%);
+  background: color-mix(in srgb, var(--language-note-topic-bg) 88%, var(--text) 12%);
+}
+
 .language-note-reasons {
   margin-left: calc(-1 * var(--language-note-card-pad-x));
   margin-right: calc(-1 * var(--language-note-card-pad-x));

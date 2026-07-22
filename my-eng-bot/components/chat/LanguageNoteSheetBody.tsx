@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { highlightCorrected } from '@/lib/languageNote/highlightCorrected'
-import type { LanguageNote } from '@/lib/languageNote/types'
+import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 import { manropeHome } from '@/lib/manropeHome'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
 
@@ -33,11 +33,35 @@ function toneClasses(tone: SectionTone): { surface: string; label: string } {
 /** Same family as HomeEmptyBubble «Интересный факт» — stronger for sheet card titles. */
 const NOTE_LABEL_CLASS = `${manropeHome.className} text-[15px] font-bold uppercase tracking-[0.06em]`
 
-function TopicChip({ children }: { children: ReactNode }) {
+const TOPIC_CHIP_BASE_CLASS =
+  'language-note-topic-chip inline-flex w-fit max-w-full min-h-10 items-center gap-1 rounded-lg border px-2.5 py-1.5 text-left font-sans text-[13px] font-normal leading-snug text-[var(--text)] touch-manipulation transition-[background-color,border-color,transform,opacity] duration-150'
+
+function TopicChip({
+  children,
+  onClick,
+  disabled,
+  interactive,
+}: {
+  children: ReactNode
+  onClick?: () => void
+  disabled?: boolean
+  interactive?: boolean
+}) {
+  if (!interactive || !onClick) {
+    return <div className={`${TOPIC_CHIP_BASE_CLASS}`}>{children}</div>
+  }
   return (
-    <div className="language-note-topic-chip w-fit max-w-full rounded-lg border px-2.5 py-1 font-sans text-[13px] font-normal leading-snug text-[var(--text)]">
-      {children}
-    </div>
+    <button
+      type="button"
+      className={`${TOPIC_CHIP_BASE_CLASS} language-note-topic-chip--button cursor-pointer hover:brightness-[0.98] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 disabled:cursor-default disabled:opacity-55 disabled:active:scale-100`}
+      onClick={onClick}
+      disabled={disabled}
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      <span className="shrink-0 text-[var(--text-muted)]" aria-hidden>
+        ›
+      </span>
+    </button>
   )
 }
 
@@ -172,7 +196,17 @@ export function LanguageNoteSheetError({
   )
 }
 
-export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
+export function LanguageNoteSheetReady({
+  note,
+  onReviewTopicPress,
+  reviewTopicsDisabled = false,
+}: {
+  note: LanguageNote
+  onReviewTopicPress?: (topic: LanguageNoteReviewTopic, note: LanguageNote) => void
+  reviewTopicsDisabled?: boolean
+}) {
+  const chipInteractive = Boolean(onReviewTopicPress)
+
   if (note.status === 'already_good') {
     return (
       <div className="space-y-3 font-sans">
@@ -185,7 +219,16 @@ export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
           <NoteSectionCard tone="slate" marker="📖" title={LANGUAGE_NOTE_COPY.review}>
             <div className={`${CONTENT_INDENT_CLASS} flex flex-col items-start gap-1`}>
               {note.reviewTopics.slice(0, 1).map((topic) => (
-                <TopicChip key={topic.id}>{topic.title}</TopicChip>
+                <TopicChip
+                  key={topic.id}
+                  interactive={chipInteractive}
+                  disabled={reviewTopicsDisabled}
+                  onClick={
+                    onReviewTopicPress ? () => onReviewTopicPress(topic, note) : undefined
+                  }
+                >
+                  {topic.title}
+                </TopicChip>
               ))}
             </div>
           </NoteSectionCard>
@@ -241,7 +284,14 @@ export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
         <NoteSectionCard tone="slate" marker="📖" title={LANGUAGE_NOTE_COPY.review}>
           <div className={`${CONTENT_INDENT_CLASS} flex flex-col items-start gap-1`}>
             {note.reviewTopics.map((topic) => (
-              <TopicChip key={topic.id}>{topic.title}</TopicChip>
+              <TopicChip
+                key={topic.id}
+                interactive={chipInteractive}
+                disabled={reviewTopicsDisabled}
+                onClick={onReviewTopicPress ? () => onReviewTopicPress(topic, note) : undefined}
+              >
+                {topic.title}
+              </TopicChip>
             ))}
           </div>
         </NoteSectionCard>

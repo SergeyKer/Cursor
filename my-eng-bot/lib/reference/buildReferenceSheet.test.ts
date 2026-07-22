@@ -50,6 +50,41 @@ describe('buildReferenceSheetFromLesson', () => {
       })
     ).toBe(false)
   })
+
+  it('T4: catalog lessons 1 and 4 expose hasPractice', () => {
+    expect(buildReferenceSheetByLessonId('1')?.hasPractice).toBe(true)
+    expect(buildReferenceSheetByLessonId('4')?.hasPractice).toBe(true)
+  })
+
+  it('T8/T9: intro-only runtime lesson builds sheet without steps', () => {
+    const intro = {
+      topic: 'over / on',
+      kind: 'contrast' as const,
+      complexity: 'simple' as const,
+      quick: {
+        why: ['over — над; on — на поверхности'],
+        how: ['on + стол/пол'],
+        examples: [{ en: 'The book is on the table.', ru: 'Книга на столе.', note: 'поверхность' }],
+        takeaway: 'На поверхности — on, не over.',
+      },
+      deepDive: {
+        commonMistakes: ['Не The book is over the table для «на столе».'],
+        selfCheckRule: 'Можно ли положить предмет на поверхность? → on.',
+      },
+    }
+    expect(isIntroSuitableForReference(intro)).toBe(true)
+    const sheet = buildReferenceSheetFromLesson({
+      id: 'review-chip:over',
+      topic: 'over / on',
+      level: 'A2',
+      intro,
+      steps: [],
+    })
+    expect(sheet).not.toBeNull()
+    expect(sheet?.hasPractice).toBe(false)
+    expect(sheet?.relatedLessonId).toBe('review-chip:over')
+    expect(sheet?.examples[0]?.en).toContain('on the table')
+  })
 })
 
 describe('getReferenceLessonTopics', () => {

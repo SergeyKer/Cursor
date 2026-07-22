@@ -13,4 +13,6 @@ export const LANGUAGE_NOTE_COPY = {
   markAria: 'Подсказка',
   /** Локальный already_good после SUCCESS в teacher drill (без API). */
   teacherAcceptedReason: 'Фраза принята преподавателем.',
+  reviewChipLoading: 'Собираем шпаргалку…',
+  reviewChipError: 'Не удалось собрать шпаргалку. Попробуй ещё раз.',
 } as const
