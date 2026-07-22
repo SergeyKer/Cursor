@@ -1,0 +1,22 @@
+[
+  [
+    "import {\n  extractRealtimeTextFromResponseDone,\n  isEngvoOutputAudioTranscriptDeltaEvent,\n  isEngvoOutputAudioTranscriptDoneEvent,\n  resolveEngvoRealtimeResponseId,\n} from '@/lib/engvo/realtimeAssistantText'\nimport {\n  createRealtimeTranscriptState,\n  getRealtimeTranscriptView,\n  reduceRealtimeTranscriptEvent,\n  type RealtimeTranscriptState,\n} from '@/lib/realtimeStt'",
+    "import {\n  extractRealtimeTextFromResponseDone,\n  isEngvoOutputAudioTranscriptDeltaEvent,\n  isEngvoOutputAudioTranscriptDoneEvent,\n  resolveEngvoRealtimeResponseId,\n} from '@/lib/engvo/realtimeAssistantText'\nimport { prepareEngvoAssistantRawText } from '@/lib/engvo/assistantTranscriptText'\nimport { appendVoiceText } from '@/lib/voice/useVoiceComposer'\nimport {\n  createRealtimeTranscriptState,\n  getRealtimeTranscriptView,\n  reduceRealtimeTranscriptEvent,\n  type RealtimeTranscriptState,\n} from '@/lib/realtimeStt'"
+  ],
+  [
+    "  const maybeCommitEngvoAssistantMessage = useCallback(() => {\n    const responseId = engvoAssistantResponseIdRef.current\n    const rawText = cleanNewlines(engvoFinalAssistantTextRef.current)\n    const finalText = guardEngvoAssistantContent(rawText)",
+    "  const maybeCommitEngvoAssistantMessage = useCallback(() => {\n    const responseId = engvoAssistantResponseIdRef.current\n    const rawText = prepareEngvoAssistantRawText(engvoFinalAssistantTextRef.current)\n    const finalText = guardEngvoAssistantContent(rawText)"
+  ],
+  [
+    "  const commitEngvoAssistantText = useCallback(\n    (text: string, responseId?: string | null): boolean => {\n      const rawText = cleanNewlines(text)\n      const cleanText = guardEngvoAssistantContent(rawText)",
+    "  const commitEngvoAssistantText = useCallback(\n    (text: string, responseId?: string | null): boolean => {\n      const rawText = prepareEngvoAssistantRawText(text)\n      const cleanText = guardEngvoAssistantContent(rawText)"
+  ],
+  [
+    "      if (parsed.type === 'response.output_text.delta') {\n        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return\n        if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {\n          setEngvoCallPhase('assistantSpeaking')\n          const chunk = parsed.delta\n          setEngvoAssistantPendingText((prev) => `${prev}${chunk}`)\n        }\n        return\n      }",
+    "      if (parsed.type === 'response.output_text.delta') {\n        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return\n        if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {\n          setEngvoCallPhase('assistantSpeaking')\n          const chunk = parsed.delta\n          setEngvoAssistantPendingText((prev) => appendVoiceText(prev, chunk))\n        }\n        return\n      }"
+  ],
+  [
+    "      if (isEngvoOutputAudioTranscriptDeltaEvent(parsed.type)) {\n        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return\n        if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {\n          setEngvoCallPhase('assistantSpeaking')\n          const chunk = parsed.delta\n          setEngvoAssistantPendingText((prev) => `${prev}${chunk}`)\n        }\n        return\n      }",
+    "      if (isEngvoOutputAudioTranscriptDeltaEvent(parsed.type)) {\n        if (hasActiveAssistantTurn && responseId && responseId !== activeResponseId) return\n        if (typeof parsed.delta === 'string' && parsed.delta.length > 0) {\n          setEngvoCallPhase('assistantSpeaking')\n          const chunk = parsed.delta\n          setEngvoAssistantPendingText((prev) => appendVoiceText(prev, chunk))\n        }\n        return\n      }"
+  ]
+]

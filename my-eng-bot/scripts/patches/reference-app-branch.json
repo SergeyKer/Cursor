@@ -1,0 +1,10 @@
+[
+  [
+    "import type LessonStepRendererComponent from '@/components/LessonStepRenderer'",
+    "import type LessonStepRendererComponent from '@/components/LessonStepRenderer'\nimport type ReferenceSheetScreenComponent from '@/components/ReferenceSheetScreen'"
+  ],
+  [
+    "export const LessonStepRenderer = branchNamed<ComponentProps<typeof LessonStepRendererComponent>>(() =>\n  import('@/components/branches/LessonBranch').then((m) => ({\n    default: m.LessonStepRenderer,\n  })) as Promise<{ default: ComponentType<ComponentProps<typeof LessonStepRendererComponent>> }>\n)",
+    "export const LessonStepRenderer = branchNamed<ComponentProps<typeof LessonStepRendererComponent>>(() =>\n  import('@/components/branches/LessonBranch').then((m) => ({\n    default: m.LessonStepRenderer,\n  })) as Promise<{ default: ComponentType<ComponentProps<typeof LessonStepRendererComponent>> }>\n)\nexport const ReferenceSheetScreen = branchNamed<ComponentProps<typeof ReferenceSheetScreenComponent>>(() =>\n  import('@/components/branches/LessonBranch').then((m) => ({\n    default: m.ReferenceSheetScreen,\n  })) as Promise<{ default: ComponentType<ComponentProps<typeof ReferenceSheetScreenComponent>> }>\n)"
+  ]
+]
