@@ -2,6 +2,7 @@ export const LANGUAGE_NOTE_COPY = {
   sheetTitle: 'Подсказка',
   original: 'Сообщение',
   correct: 'Правильно',
+  etalon: 'Эталон',
   better: 'Лучше сказать',
   betterOr: 'или',
   review: 'Что повторить',

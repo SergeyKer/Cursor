@@ -24,6 +24,8 @@ export type LanguageNote = {
   voiceMode?: 'ru' | 'en' | 'mix' | null
   /** Язык блока «Правильно». */
   correctTarget?: LanguageNoteCorrectTarget
+  /** Teacher Say/Скажи: correct locked to etalon; sheet title «Эталон». */
+  teacherEtalon?: boolean
 }
 
 export type LanguageNoteMode = 'communication' | 'engvo'

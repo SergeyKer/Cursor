@@ -206,7 +206,11 @@ export function LanguageNoteSheetReady({ note }: { note: LanguageNote }) {
   return (
     <div className="space-y-3 font-sans">
       <OriginalMessageCard text={note.original} />
-      <NoteSectionCard tone="emerald" marker="✅" title={LANGUAGE_NOTE_COPY.correct}>
+      <NoteSectionCard
+        tone="emerald"
+        marker="✅"
+        title={note.teacherEtalon ? LANGUAGE_NOTE_COPY.etalon : LANGUAGE_NOTE_COPY.correct}
+      >
         <HighlightedPhrase text={note.correct} highlights={note.correctHighlights} />
         <ReasonsList reasons={note.correctReasons} />
       </NoteSectionCard>

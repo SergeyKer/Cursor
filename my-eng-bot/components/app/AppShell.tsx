@@ -150,6 +150,7 @@ import {
   resolveTeacherMatchAttach,
   buildTeacherAcceptedNote,
 } from '@/lib/engvo/teacherMatch'
+import { applyTeacherEtalonLock } from '@/lib/languageNote/applyTeacherEtalonLock'
 import { hasAnyLearningHistory, resolveReturningHomeMenuView, shouldOpenMyPlanHome } from '@/lib/myPlan/returningHome'
 import {
   findStaticLessonByTopic,
@@ -8217,7 +8218,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return
       }
 
-      const note: LanguageNote = result.note
+      const note: LanguageNote = applyTeacherEtalonLock(
+        result.note,
+        expectedEnglish
+      )
       setMessages((prev) => {
         const current = prev[messageIndex]
         if (!current || current.role !== 'user') return prev

@@ -74,6 +74,8 @@ describe('languageNote prompt modes', () => {
     const prompt = buildLanguageNoteSystemPrompt('adult', { mode: 'engvo', voiceMode: null })
     expect(prompt).toContain('expectedEnglish')
     expect(prompt).toContain('teacher canonical English target')
+    expect(prompt).toContain('correct MUST be exactly that string')
+    expect(prompt).toContain('When expectedEnglish is null, ignore these teacher-etalon rules')
   })
 
   it('puts expectedEnglish into user payload when provided', async () => {

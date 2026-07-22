@@ -7,6 +7,7 @@ import {
   resolveLanguageNoteCorrectTarget,
 } from '@/lib/languageNote/prompt'
 import { parseLanguageNoteResponse } from '@/lib/languageNote/parseLanguageNoteResponse'
+import { applyTeacherEtalonLock } from '@/lib/languageNote/applyTeacherEtalonLock'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { Audience, CommunicationVoiceInputMode } from '@/lib/types'
 import type { LanguageNoteMode } from '@/lib/languageNote/types'
@@ -165,7 +166,7 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ note })
+    return NextResponse.json({ note: applyTeacherEtalonLock(note, expectedEnglish) })
   } catch (e) {
     console.error(e)
     return NextResponse.json(

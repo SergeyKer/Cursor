@@ -246,8 +246,11 @@ export function buildLanguageNoteSystemPrompt(
     'Intent: recover likely meaning from context.',
     'lessonId: only from knownLessons in the user payload, else null.',
     'If user JSON includes non-null expectedEnglish, treat it as the teacher canonical English target after an error.',
-    'Compare the learner text to expectedEnglish; put expectedEnglish (or a minimal polish of it) into correct; explain the real differences in Russian reasons.',
+    'When expectedEnglish is non-null: correct MUST be exactly that string (no paraphrase, no synonym rewrite).',
+    'When expectedEnglish is non-null: better MUST be null; betterAlternatives MUST be [].',
+    'Compare the learner text to expectedEnglish; explain only real differences in Russian reasons.',
     'Do not ignore expectedEnglish when it is present.',
+    'When expectedEnglish is null, ignore these teacher-etalon rules and follow the normal free/communication layers above.',
     '',
     ...fewShots,
   ].join('\n')
