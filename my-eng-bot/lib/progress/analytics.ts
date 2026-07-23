@@ -8,12 +8,30 @@ export type ProgressAnalyticsEventName =
   | 'progress_weak_zone_click'
   | 'progress_near_reward_click'
   | 'progress_premium_cue_shown'
+  | 'progress_now_click'
+  | 'progress_zone_launch'
+  | 'progress_mode_strip_click'
+  | 'progress_streak_save_click'
+  | 'progress_footer_click'
 
 export type ProgressAnalyticsProps = {
   audience?: 'child' | 'adult'
   detailKind?: 'awards' | 'calendar' | 'remarks'
   lessonId?: string
   reason?: string
+  variant?: 'launch' | 'action'
+  surface?:
+    | 'now'
+    | 'status'
+    | 'near'
+    | 'zone'
+    | 'today'
+    | 'awards'
+    | 'calendar'
+    | 'remarks'
+    | 'balance'
+    | 'strip'
+  mode?: string
 }
 
 export type ProgressAnalyticsSink = (

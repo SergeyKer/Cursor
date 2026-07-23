@@ -25,6 +25,30 @@ export const BLUE_PRIMARY_SKIN =
 export const BLUE_SECONDARY_SKIN =
   'border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] text-white hover:brightness-105 active:brightness-95'
 
+/**
+ * Card-footer launch (Progress / future My Plan cards).
+ * Softer than secondary; do NOT reuse or mutate BLUE_SECONDARY_SKIN.
+ */
+export const CARD_LAUNCH_SKIN =
+  'border border-[#93c5fd] bg-gradient-to-b from-[#bfdbfe] to-[#93c5fd] text-[#1e3a8a] hover:brightness-105 active:brightness-95'
+
+/** Full-width card 3rd-layer launch strip. */
+export const APP_BTN_CARD_LAUNCH_FOOTER = [
+  BTN_INTERACTION_BASE,
+  CARD_LAUNCH_SKIN,
+  'flex w-full min-h-11 items-center justify-center rounded-none px-4 py-2.5 text-center',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Full-width card 3rd-layer action / drill-in strip (white). */
+export const APP_BTN_CARD_ACTION_FOOTER = [
+  BTN_INTERACTION_BASE,
+  'flex w-full min-h-11 items-center justify-center rounded-none border border-[var(--border)] bg-white px-4 py-2.5 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
 /** Меню и широкие primary CTA: «Начать урок», «Новый чат». */
 export const APP_BTN_PRIMARY_MENU = [
   BTN_INTERACTION_BASE,

@@ -3,12 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LessonReadingShell from '@/components/LessonReadingShell'
 import ProgressCard from '@/components/progress/ProgressCard'
-import ProgressNavRow from '@/components/progress/ProgressNavRow'
+import ProgressFooterButton from '@/components/progress/ProgressFooterButton'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import {
   APP_BTN_TERTIARY_BACK,
-  BLUE_PRIMARY_SKIN,
   BTN_DISABLED_CLASS,
   BTN_FONT_INLINE,
   BTN_INTERACTION_BASE,
@@ -16,17 +15,24 @@ import {
 import { LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import { getAttentionZones, listLearningSignals, loadSkillMasteryMap } from '@/lib/learningMemory'
+import { featureFlags } from '@/lib/featureFlags'
 import { buildMonthActivityGrid, lastSevenDayActivity } from '@/lib/progress/activityCalendar'
 import { setProgressAnalyticsSink, trackProgressEvent } from '@/lib/progress/analytics'
 import { buildProgressShelf } from '@/lib/progress/buildProgressShelf'
 import { listLearningSignalFeed } from '@/lib/progress/formatLearningSignalForUser'
+import {
+  buildProgressMyPlanSnapshot,
+  buildProgressNowCta,
+  mapAttentionZoneToTarget,
+  type ProgressDetailKind,
+  type ProgressLaunchTarget,
+} from '@/lib/progress/progressActions'
 import { buildProgressStatusCopy } from '@/lib/progress/statusCopy'
+import { pickFocusModeGoal } from '@/lib/progressFocusGoal'
 import type { PracticeRewardOpportunity } from '@/lib/practice/pickBestPracticeRewardOpportunity'
-import type { RewardsState } from '@/lib/rewardsState'
+import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
 import { progressCopy, type ProgressAudience } from '@/lib/uiCopy/progress'
-
-export type ProgressDetailKind = 'awards' | 'calendar' | 'remarks'
 
 export type ProgressSheetScreenProps = {
   rewardsState: RewardsState | undefined
@@ -36,24 +42,24 @@ export type ProgressSheetScreenProps = {
   onBack: () => void
   onOpenMyPlan: () => void
   onOpenNearReward?: (opportunity: PracticeRewardOpportunity) => void | Promise<void>
+  onLaunchTarget?: (target: ProgressLaunchTarget) => void | Promise<void>
   practiceBusy?: boolean
+  canUseAiReinforce?: boolean
 }
 
-const ROW_CTA_BASE = [
+const COMPOSER_MY_PLAN = [
   BTN_INTERACTION_BASE,
-  'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl px-3 py-2 text-center whitespace-nowrap',
   BTN_FONT_INLINE,
   BTN_DISABLED_CLASS,
+  'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
 ].join(' ')
 
-const PRIMARY_ROW_CTA_CLASS = `${ROW_CTA_BASE} ${BLUE_PRIMARY_SKIN}`
-
 function medalLabel(
-  medal: string,
+  medal: string | null | undefined,
   audience: ProgressAudience,
   copy: ReturnType<typeof progressCopy>
 ): string {
-  if (medal === '-' || medal === 'started') {
+  if (!medal || medal === '-' || medal === 'started') {
     return medal === 'started' ? copy.medalStarted : copy.medalNotStarted
   }
   return String(medal)
@@ -67,14 +73,17 @@ export default function ProgressSheetScreen({
   onBack,
   onOpenMyPlan,
   onOpenNearReward,
+  onLaunchTarget,
   practiceBusy = false,
+  canUseAiReinforce = false,
 }: ProgressSheetScreenProps) {
   const audience: ProgressAudience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = progressCopy(audience)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [detail, setDetail] = useState<ProgressDetailKind | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
-  const shelf = useMemo(() => buildProgressShelf(rewardsState), [rewardsState])
+  const shelf = useMemo(() => buildProgressShelf(rewardsState), [rewardsState, refreshKey])
   const status = useMemo(
     () =>
       buildProgressStatusCopy({
@@ -84,24 +93,39 @@ export default function ProgressSheetScreen({
         cupsEnabled: shelf.cupsEnabled,
         opportunity: shelf.opportunity,
       }),
-    [rewardsState, copy, audience, shelf.cupsEnabled, shelf.opportunity]
+    [rewardsState, copy, audience, shelf.cupsEnabled, shelf.opportunity, refreshKey]
   )
 
   const attentionZones = useMemo(
     () => getAttentionZones(listLearningSignals(), loadSkillMasteryMap()),
-    // refresh when opening / returning to overview
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [detail, rewardsState]
+    [detail, rewardsState, refreshKey]
+  )
+
+  const planSnapshot = useMemo(
+    () =>
+      buildProgressMyPlanSnapshot(settings, rewardsState, {
+        attentionZones,
+        canUseAiReinforce,
+      }),
+    [settings, rewardsState, attentionZones, canUseAiReinforce, refreshKey]
+  )
+
+  const nowCta = useMemo(
+    () => buildProgressNowCta(planSnapshot.mainTask, copy.openMyPlanCta, copy.openMyPlanCtaAria),
+    [planSnapshot.mainTask, copy.openMyPlanCta, copy.openMyPlanCtaAria]
   )
 
   const remarks = useMemo(
     () => listLearningSignalFeed(listLearningSignals(), audience, detail === 'remarks' ? 40 : 10),
-    [audience, detail, rewardsState]
+    [audience, detail, rewardsState, refreshKey]
   )
 
   const activeDays = rewardsState?.progress.activeDays ?? []
   const monthGrid = useMemo(() => buildMonthActivityGrid(activeDays), [activeDays])
   const weekBars = useMemo(() => lastSevenDayActivity(activeDays), [activeDays])
+  const today = getTodayDateString()
+  const todayActive = activeDays.includes(today)
+  const focusGoal = pickFocusModeGoal(rewardsState)
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -113,9 +137,42 @@ export default function ProgressSheetScreen({
     trackProgressEvent('progress_viewed', { audience })
   }, [audience])
 
-  const openDetail = (kind: ProgressDetailKind) => {
-    setDetail(kind)
-    trackProgressEvent('progress_detail_opened', { audience, detailKind: kind })
+  useEffect(() => {
+    const onFocus = () => setRefreshKey((k) => k + 1)
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
+
+  const launch = (
+    target: ProgressLaunchTarget,
+    surface:
+      | 'now'
+      | 'status'
+      | 'near'
+      | 'zone'
+      | 'today'
+      | 'awards'
+      | 'calendar'
+      | 'remarks'
+      | 'balance'
+      | 'strip'
+  ) => {
+    trackProgressEvent('progress_footer_click', {
+      audience,
+      variant: target.kind === 'my_plan' || target.kind === 'detail' ? 'action' : 'launch',
+      surface,
+    })
+    if (target.kind === 'my_plan') {
+      trackProgressEvent('progress_to_my_plan_click', { audience })
+      onOpenMyPlan()
+      return
+    }
+    if (target.kind === 'detail') {
+      setDetail(target.detail)
+      trackProgressEvent('progress_detail_opened', { audience, detailKind: target.detail })
+      return
+    }
+    void onLaunchTarget?.(target)
   }
 
   const handleBack = () => {
@@ -130,6 +187,12 @@ export default function ProgressSheetScreen({
   const goMyPlan = () => {
     trackProgressEvent('progress_to_my_plan_click', { audience })
     onOpenMyPlan()
+  }
+
+  const saveStreak = () => {
+    trackProgressEvent('progress_streak_save_click', { audience })
+    const mode = focusGoal?.mode ?? 'communication'
+    void onLaunchTarget?.(mode === 'engvo' ? { kind: 'engvo' } : { kind: 'communication' })
   }
 
   const xpPercent =
@@ -154,7 +217,70 @@ export default function ProgressSheetScreen({
 
   const overview = (
     <div className="w-full min-w-0 space-y-2.5">
-      <ProgressCard title={copy.statusCardTitle} tone={status.streakAtRisk ? 'warning' : 'default'}>
+      <ProgressCard
+        title={copy.nowCardTitle}
+        footer={
+          <ProgressFooterButton
+            variant={nowCta.variant}
+            label={nowCta.label}
+            ariaLabel={nowCta.ariaLabel}
+            disabled={practiceBusy && nowCta.variant === 'launch'}
+            onClick={() => {
+              trackProgressEvent('progress_now_click', {
+                audience,
+                variant: nowCta.variant,
+                surface: 'now',
+              })
+              if (nowCta.target.kind === 'my_plan') {
+                goMyPlan()
+                return
+              }
+              if (nowCta.target.kind === 'detail') {
+                setDetail(nowCta.target.detail)
+                trackProgressEvent('progress_detail_opened', {
+                  audience,
+                  detailKind: nowCta.target.detail,
+                })
+                return
+              }
+              void onLaunchTarget?.(nowCta.target)
+            }}
+          />
+        }
+      >
+        {planSnapshot.mainTask ? (
+          <>
+            <p className="break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
+              {planSnapshot.mainTask.title}
+            </p>
+            {planSnapshot.mainTask.reasonLine ? (
+              <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+                {planSnapshot.mainTask.reasonLine}
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+            {copy.openMyPlanCta}
+          </p>
+        )}
+      </ProgressCard>
+
+      <ProgressCard
+        title={copy.statusCardTitle}
+        tone={status.streakAtRisk ? 'warning' : 'default'}
+        footer={
+          status.streakAtRisk ? (
+            <ProgressFooterButton
+              variant="launch"
+              label={copy.saveStreak}
+              ariaLabel={copy.saveStreakAria}
+              disabled={practiceBusy}
+              onClick={saveStreak}
+            />
+          ) : null
+        }
+      >
         <div className="grid grid-cols-3 gap-2">
           <div className="text-center">
             <p className="emoji-line text-[18px] leading-none">{DAILY_STREAK_GLYPH}</p>
@@ -203,57 +329,101 @@ export default function ProgressSheetScreen({
         </div>
       </ProgressCard>
 
-      {status.opportunity ? (
-        <button
-          type="button"
-          disabled={practiceBusy || !onOpenNearReward || !shelf.opportunity}
-          className="w-full min-w-0 rounded-[var(--bubble-radius-assistant,var(--bubble-radius))] border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-4 py-3 text-left touch-manipulation disabled:opacity-60"
-          onClick={() => {
-            if (!shelf.opportunity || !onOpenNearReward) return
-            trackProgressEvent('progress_near_reward_click', {
-              audience,
-              lessonId: shelf.opportunity.lessonId,
-              reason: shelf.opportunity.reason,
-            })
-            void onOpenNearReward(shelf.opportunity)
-          }}
-        >
-          <p className="text-[13px] font-medium text-[var(--status-info-text)]">{copy.nearRewardTitle}</p>
-          <p className="mt-1 break-words text-[17px] font-semibold leading-snug text-[var(--text)]">
-            {status.opportunity.label}
-          </p>
-          <p className="mt-1 break-words text-[13px] leading-snug text-[var(--text-muted)]">
-            {status.opportunity.reasonLine}
-          </p>
-          <p className="mt-2 text-[14px] font-medium text-[var(--accent)]">{copy.continuePractice} →</p>
-        </button>
+      {status.opportunity && shelf.opportunity ? (
+        <div className="w-full min-w-0 overflow-hidden rounded-[var(--bubble-radius-assistant,var(--bubble-radius))] border border-[var(--status-info-border)] bg-[var(--status-info-bg)]">
+          <div className="px-4 py-3 text-left">
+            <p className="text-[13px] font-medium text-[var(--status-info-text)]">{copy.nearRewardTitle}</p>
+            <p className="mt-1 break-words text-[17px] font-semibold leading-snug text-[var(--text)]">
+              {status.opportunity.label}
+            </p>
+            <p className="mt-1 break-words text-[13px] leading-snug text-[var(--text-muted)]">
+              {status.opportunity.reasonLine}
+            </p>
+          </div>
+          <ProgressFooterButton
+            variant="launch"
+            label={copy.continuePractice}
+            disabled={practiceBusy || !onOpenNearReward}
+            onClick={() => {
+              if (!shelf.opportunity || !onOpenNearReward) return
+              trackProgressEvent('progress_near_reward_click', {
+                audience,
+                lessonId: shelf.opportunity.lessonId,
+                reason: shelf.opportunity.reason,
+                surface: 'near',
+                variant: 'launch',
+              })
+              void onOpenNearReward(shelf.opportunity)
+            }}
+          />
+        </div>
       ) : null}
 
-      {attentionZones.length > 0 ? (
-        <ProgressCard title={copy.weakZonesTitle}>
-          <ul className="divide-y divide-[var(--chat-section-neutral-border)]">
-            {attentionZones.map((z) => (
-              <li key={z.skillTagId} className="-mx-4">
-                <ProgressNavRow
-                  label={`${z.title} · ${z.sourceHint}${z.errorCount > 0 ? ` · ${z.errorCount}` : ''}`}
-                  onClick={() => {
-                    trackProgressEvent('progress_weak_zone_click', { audience })
-                    goMyPlan()
-                  }}
-                />
-              </li>
-            ))}
+      <ProgressCard
+        title={copy.weakZonesTitle}
+        footer={
+          attentionZones.length === 0 ? (
+            <ProgressFooterButton
+              variant="action"
+              label={copy.toGoalsMyPlan}
+              ariaLabel={copy.toGoalsMyPlanAria}
+              onClick={goMyPlan}
+            />
+          ) : null
+        }
+      >
+        {attentionZones.length === 0 ? (
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+            {copy.weakZonesEmpty}
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {attentionZones.map((z) => {
+              const target = mapAttentionZoneToTarget(z)
+              const isLaunch = target.kind !== 'my_plan'
+              return (
+                <li key={z.skillTagId} className="min-w-0 space-y-1">
+                  <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
+                    {z.title} · {z.sourceHint}
+                    {z.errorCount > 0 ? ` · ${z.errorCount}` : ''}
+                  </p>
+                  <ProgressFooterButton
+                    variant={isLaunch ? 'launch' : 'action'}
+                    label={isLaunch ? copy.weakZoneRepeat : copy.toGoalsMyPlan}
+                    disabled={practiceBusy && isLaunch}
+                    roundBottom={false}
+                    onClick={() => {
+                      trackProgressEvent('progress_zone_launch', {
+                        audience,
+                        surface: 'zone',
+                        variant: isLaunch ? 'launch' : 'action',
+                        lessonId: z.lessonId ?? undefined,
+                      })
+                      launch(target, 'zone')
+                    }}
+                  />
+                </li>
+              )
+            })}
           </ul>
-        </ProgressCard>
-      ) : null}
+        )}
+      </ProgressCard>
 
       <ProgressCard
         title={copy.todayTitle}
         footer={
-          <ProgressNavRow
+          <ProgressFooterButton
+            variant="action"
             label={copy.toGoalsMyPlan}
             ariaLabel={copy.toGoalsMyPlanAria}
-            onClick={goMyPlan}
+            onClick={() => {
+              trackProgressEvent('progress_footer_click', {
+                audience,
+                surface: 'today',
+                variant: 'action',
+              })
+              goMyPlan()
+            }}
           />
         }
       >
@@ -268,10 +438,11 @@ export default function ProgressSheetScreen({
       <ProgressCard
         title={copy.awardsTitle}
         footer={
-          <ProgressNavRow
+          <ProgressFooterButton
+            variant="action"
             label={copy.awardsOpen}
             ariaLabel={copy.awardsOpenAria}
-            onClick={() => openDetail('awards')}
+            onClick={() => launch({ kind: 'detail', detail: 'awards' }, 'awards')}
           />
         }
       >
@@ -291,7 +462,23 @@ export default function ProgressSheetScreen({
         <ProgressCard
           title={copy.calendarTitle}
           footer={
-            <ProgressNavRow label={copy.calendarOpen} onClick={() => openDetail('calendar')} />
+            <ProgressFooterButton
+              variant={todayActive ? 'action' : 'launch'}
+              label={todayActive ? copy.calendarOpen : copy.calendarDoToday}
+              disabled={practiceBusy && !todayActive}
+              onClick={() => {
+                if (todayActive) {
+                  launch({ kind: 'detail', detail: 'calendar' }, 'calendar')
+                  return
+                }
+                trackProgressEvent('progress_footer_click', {
+                  audience,
+                  surface: 'calendar',
+                  variant: 'launch',
+                })
+                saveStreak()
+              }}
+            />
           }
         >
           <div className="grid grid-cols-7 gap-1">
@@ -317,7 +504,33 @@ export default function ProgressSheetScreen({
         title={copy.remarksTitle}
         footer={
           remarks.length > 0 ? (
-            <ProgressNavRow label={copy.remarksMore} onClick={() => openDetail('remarks')} />
+            <ProgressFooterButton
+              variant={
+                attentionZones[0]?.lessonId && attentionZones[0].chipActive ? 'launch' : 'action'
+              }
+              label={
+                attentionZones[0]?.lessonId && attentionZones[0].chipActive
+                  ? copy.remarksReview
+                  : copy.remarksMore
+              }
+              disabled={practiceBusy}
+              onClick={() => {
+                if (attentionZones[0]?.lessonId && attentionZones[0].chipActive) {
+                  trackProgressEvent('progress_footer_click', {
+                    audience,
+                    surface: 'remarks',
+                    variant: 'launch',
+                  })
+                  void onLaunchTarget?.(mapAttentionZoneToTarget(attentionZones[0]))
+                  return
+                }
+                setDetail('remarks')
+                trackProgressEvent('progress_detail_opened', {
+                  audience,
+                  detailKind: 'remarks',
+                })
+              }}
+            />
           ) : null
         }
       >
@@ -356,46 +569,101 @@ export default function ProgressSheetScreen({
         </p>
         <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.premiumCue}</p>
       </ProgressCard>
+
+      <nav
+        className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-1 py-1 text-[13px] text-[var(--text-muted)]"
+        aria-label="Режимы"
+      >
+        {(
+          [
+            { label: copy.modesLesson, target: { kind: 'lesson' as const, lessonId: '' }, mode: 'lesson' },
+            { label: copy.modesPractice, target: { kind: 'quick_practice' as const }, mode: 'practice' },
+            { label: copy.modesChat, target: { kind: 'communication' as const }, mode: 'communication' },
+            { label: copy.modesCall, target: { kind: 'engvo' as const }, mode: 'engvo' },
+            { label: copy.modesPlan, target: { kind: 'my_plan' as const }, mode: 'plan' },
+            ...(featureFlags.referenceV1
+              ? [{ label: copy.modesReference, target: { kind: 'my_plan' as const }, mode: 'reference' }]
+              : []),
+          ] as const
+        ).map((item, idx, arr) => (
+          <span key={item.mode} className="inline-flex items-center gap-2">
+            <button
+              type="button"
+              className="touch-manipulation font-medium text-[var(--text)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+              onClick={() => {
+                trackProgressEvent('progress_mode_strip_click', {
+                  audience,
+                  surface: 'strip',
+                  mode: item.mode,
+                })
+                if (item.mode === 'lesson') {
+                  void onLaunchTarget?.({ kind: 'my_plan' })
+                  return
+                }
+                if (item.mode === 'reference') {
+                  void onLaunchTarget?.({ kind: 'my_plan' })
+                  return
+                }
+                launch(item.target, 'strip')
+              }}
+            >
+              {item.label}
+            </button>
+            {idx < arr.length - 1 ? <span aria-hidden>·</span> : null}
+          </span>
+        ))}
+      </nav>
     </div>
   )
 
   const awardsDetail = (
     <div className="w-full min-w-0 space-y-2.5">
       <ProgressCard title={copy.lessonsSection}>
-        <ul className="space-y-1.5">
+        <ul className="space-y-2">
           {shelf.lessonRows.map((row) => (
-            <li key={row.lessonId} className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
-              {row.topic}:{' '}
-              {row.notStarted
-                ? copy.medalNotStarted
-                : medalLabel(String(row.medal), audience, copy)}
-              {audience === 'adult' && !row.notStarted && row.medal !== 'started' && row.medal !== '-'
-                ? ` · ${row.corePercent}%`
-                : ''}
-              {audience === 'adult' ? row.cycleLabel : ''}
-              {row.badgePart}
+            <li key={row.lessonId} className="min-w-0 space-y-1">
+              <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
+                {row.topic}: {medalLabel(row.medal, audience, copy)}
+              </p>
+              {!row.notStarted ? (
+                <ProgressFooterButton
+                  variant="launch"
+                  label={copy.startLessonRow}
+                  disabled={practiceBusy}
+                  roundBottom={false}
+                  onClick={() =>
+                    void onLaunchTarget?.({ kind: 'lesson', lessonId: row.lessonId })
+                  }
+                />
+              ) : null}
             </li>
           ))}
         </ul>
       </ProgressCard>
       <ProgressCard title={copy.practiceSection}>
-        {shelf.practiceRows.length === 0 ? (
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
-            {copy.needMedalFirst}
-          </p>
-        ) : (
-          <ul className="space-y-1.5">
-            {shelf.practiceRows.map((row) => (
-              <li
-                key={row.lessonId}
-                className="flex items-center justify-between gap-2 break-words text-[15px] leading-[1.45] text-[var(--text)]"
-              >
-                <span className="min-w-0">{row.topic}</span>
-                <span className="emoji-line shrink-0 font-medium">{row.badgeText}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul className="space-y-2">
+          {shelf.practiceRows.map((row) => (
+            <li key={row.lessonId} className="min-w-0 space-y-1">
+              <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
+                {row.topic}
+                {row.badgeText ? ` · ${row.badgeText}` : ''}
+              </p>
+              <ProgressFooterButton
+                variant="launch"
+                label={copy.startPracticeRow}
+                disabled={practiceBusy}
+                roundBottom={false}
+                onClick={() =>
+                  void onLaunchTarget?.({
+                    kind: 'practice',
+                    lessonId: row.lessonId,
+                    mode: 'balanced',
+                  })
+                }
+              />
+            </li>
+          ))}
+        </ul>
       </ProgressCard>
     </div>
   )
@@ -420,21 +688,16 @@ export default function ProgressSheetScreen({
           ))}
         </div>
         <div className="mt-3 flex items-end gap-1">
-          {weekBars.map((bar) => (
-            <div key={bar.date} className="flex flex-1 flex-col items-center gap-1">
+          {weekBars.map((d) => (
+            <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
               <div
-                className={`w-full rounded-sm ${
-                  bar.active ? 'bg-[var(--accent)]' : 'bg-[var(--menu-control-bg)]'
-                }`}
-                style={{ height: bar.active ? 28 : 10 }}
+                className={`w-full rounded-sm ${d.active ? 'bg-[var(--accent)]' : 'bg-[var(--menu-control-bg)]'}`}
+                style={{ height: d.active ? 28 : 8 }}
               />
-              <span className="text-[10px] text-[var(--text-muted)]">{Number(bar.date.slice(8))}</span>
+              <span className="text-[10px] text-[var(--text-muted)]">{d.date.slice(8)}</span>
             </div>
           ))}
         </div>
-        <p className="mt-2 break-words text-[14px] leading-snug text-[var(--text-muted)]">
-          {status.streakStatusLine}
-        </p>
       </ProgressCard>
     </div>
   )
@@ -482,7 +745,7 @@ export default function ProgressSheetScreen({
             {copy.back}
           </button>
           {!detail ? (
-            <button type="button" onClick={goMyPlan} className={PRIMARY_ROW_CTA_CLASS}>
+            <button type="button" onClick={goMyPlan} className={COMPOSER_MY_PLAN}>
               {copy.myPlanButton}
             </button>
           ) : null}

@@ -5227,6 +5227,103 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [openPracticeSession, progressPracticeBusy]
   )
 
+  const launchFromProgress = useCallback(
+    async (target: {
+      kind: string
+      lessonId?: string
+      mode?: 'relaxed' | 'balanced' | 'challenge'
+    }) => {
+      if (progressPracticeBusy) return
+      if (target.kind === 'my_plan') {
+        openMyPlanFromProgress()
+        return
+      }
+      if (target.kind === 'communication') {
+        setProgressSpaceActive(false)
+        setSettings((s) => ({ ...s, mode: 'communication', topic: 'free_talk' }))
+        setDialogStarted(true)
+        setMenuOpen(false)
+        return
+      }
+      if (target.kind === 'engvo') {
+        setProgressSpaceActive(false)
+        setMenuOpen(false)
+        await startEngvoCall()
+        return
+      }
+      if (target.kind === 'vocabulary') {
+        openVocabularyWorlds()
+        return
+      }
+      if (target.kind === 'lesson' && target.lessonId) {
+        setProgressSpaceActive(false)
+        await openLearningLesson(target.lessonId)
+        return
+      }
+      if (target.kind === 'reference' && target.lessonId) {
+        setProgressSpaceActive(false)
+        openReferenceTopic(target.lessonId)
+        return
+      }
+      if (target.kind === 'practice' && target.lessonId) {
+        setProgressPracticeBusy(true)
+        try {
+          setProgressSpaceActive(false)
+          await openPracticeSession({
+            lessonId: target.lessonId,
+            mode: target.mode ?? 'balanced',
+            entrySource: 'progress',
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Practice open failed'
+          setMenuLessonBgError(message)
+          setDialogStarted(false)
+          setHomeMenuView('root')
+          setMenuOpen(true)
+        } finally {
+          setProgressPracticeBusy(false)
+        }
+        return
+      }
+      if (target.kind === 'quick_practice') {
+        const topic = pickQuickStartPracticeTopic(
+          settings.level === 'a1' ? 'A1' : settings.level === 'a2' ? 'A2' : 'A2'
+        )
+        if (!topic) {
+          openMyPlanFromProgress()
+          return
+        }
+        setProgressPracticeBusy(true)
+        try {
+          setProgressSpaceActive(false)
+          await openPracticeSession({
+            lessonId: topic.id,
+            mode: 'relaxed',
+            entrySource: 'progress',
+          })
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Practice open failed'
+          setMenuLessonBgError(message)
+          setDialogStarted(false)
+          setHomeMenuView('root')
+          setMenuOpen(true)
+        } finally {
+          setProgressPracticeBusy(false)
+        }
+      }
+    },
+    [
+      openLearningLesson,
+      openMyPlanFromProgress,
+      openPracticeSession,
+      openReferenceTopic,
+      openVocabularyWorlds,
+      progressPracticeBusy,
+      settings.level,
+      startEngvoCall,
+    ]
+  )
+
   const generatePracticeSession = useCallback(
     async (request: PracticeOpenRequest) => {
       const config = await resolvePracticeRequest(request, 'ai_generated')
@@ -9235,6 +9332,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onBack={backFromProgressSpace}
                     onOpenMyPlan={openMyPlanFromProgress}
                     onOpenNearReward={openNearRewardFromProgress}
+                    onLaunchTarget={launchFromProgress}
                     practiceBusy={progressPracticeBusy}
                   />
                 ) : isVocabularyHubActive ? (
