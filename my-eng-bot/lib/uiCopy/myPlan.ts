@@ -38,7 +38,7 @@ const SECTIONS = {
     emptyCta: 'К урокам',
     statusLink: 'Что я уже сделал →',
     busy: 'Готовим…',
-    referenceLink: 'Шпаргалка',
+    referenceLink: 'Справочник',
   },
   adult: {
     sectionNow: 'Сейчас',
@@ -48,7 +48,7 @@ const SECTIONS = {
     emptyCta: 'К разделу «Уроки»',
     statusLink: 'Подробнее в «Прогрессе» →',
     busy: 'Готовим…',
-    referenceLink: 'Шпаргалка',
+    referenceLink: 'Справочник',
   },
 } as const
 

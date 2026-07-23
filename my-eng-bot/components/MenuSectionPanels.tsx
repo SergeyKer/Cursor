@@ -23,10 +23,17 @@ import {
   MENU_PRIMARY_CTA_CLASS,
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
+import {
+  DEFAULT_LESSON_LIST_DENSITY,
+  normalizeMenuLabelKey,
+  readLessonListDensity,
+  resolveLessonRowLines,
+  writeLessonListDensity,
+  type LessonListDensity,
+} from '@/lib/lessonListDensity'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import type { CatalogBrowseIntent } from '@/lib/reference/types'
 import { getReferenceLessonTopics, isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
-import { getReferenceTeaserForLessonId } from '@/lib/reference/buildReferenceSheet'
 import {
   findReferenceTopicCandidates,
   pickStrongReferenceHit,
@@ -691,6 +698,7 @@ export default function MenuSectionPanels({
   )
   const [selectedA2LessonId, setSelectedA2LessonId] = React.useState<string | null>(defaultA2LessonId)
   const [selectedA1LessonId, setSelectedA1LessonId] = React.useState<string | null>(defaultA1LessonId)
+  const [lessonListDensity, setLessonListDensity] = React.useState<LessonListDensity>(DEFAULT_LESSON_LIST_DENSITY)
   const [practiceCatalogLevel, setPracticeCatalogLevel] = React.useState<'A1' | 'A2'>('A2')
   const [selectedPracticeLessonId, setSelectedPracticeLessonId] = React.useState<string | null>(defaultPracticeLessonId)
   const [selectedAccentGroupId, setSelectedAccentGroupId] = React.useState<string | null>(null)
@@ -753,8 +761,8 @@ export default function MenuSectionPanels({
           id: item.id,
           label: item.title,
           enabled: item.enabled,
-          short: item.teaser,
-          long: item.teaser,
+          short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
+          long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.title}`,
         }))
       : A2_THEORY_ITEMS.map((item) => ({
           ...item,
@@ -769,8 +777,8 @@ export default function MenuSectionPanels({
           id: item.id,
           label: item.title,
           enabled: item.enabled,
-          short: item.teaser,
-          long: item.teaser,
+          short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
+          long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.title}`,
         }))
       : A1_THEORY_ITEMS.map((item) => ({
           ...item,
@@ -924,6 +932,15 @@ export default function MenuSectionPanels({
   React.useEffect(() => {
     if (menuView !== 'engvo') setEngvoPanel('summary')
   }, [menuView])
+
+  React.useEffect(() => {
+    setLessonListDensity(readLessonListDensity())
+  }, [])
+
+  const handleLessonListDensityChange = React.useCallback((next: LessonListDensity) => {
+    setLessonListDensity(next)
+    writeLessonListDensity(next)
+  }, [])
 
   React.useEffect(() => {
     if (menuView !== 'lessons') {
@@ -1542,6 +1559,13 @@ export default function MenuSectionPanels({
       lessonsPanel === 'theoryTagLevels' ||
       lessonsPanel === 'theoryTagLessons')
 
+  const showLessonListDensitySwitcher =
+    menuView === 'lessons' &&
+    (lessonsPanel === 'a1' ||
+      lessonsPanel === 'a2' ||
+      lessonsPanel === 'theoryTagLessons' ||
+      lessonsPanel === 'practiceLevelTopics')
+
   const panelScrollAreaEnter =
     'menu-panel-view-enter pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
   const lessonMenuInnerScrollClass =
@@ -1933,9 +1957,17 @@ export default function MenuSectionPanels({
               </button>
             ) : null}
           </div>
-          <h2 className="min-w-0 flex-1 truncate pr-2 text-right [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[18px] font-semibold leading-[1.25] tracking-normal text-[var(--text)] sm:pr-3">
-            {headerTitle}
-          </h2>
+          <div className="flex min-w-0 flex-1 items-center justify-end gap-2 pr-2 sm:pr-3">
+            <h2 className="min-w-0 truncate text-right [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif] text-[18px] font-semibold leading-[1.25] tracking-normal text-[var(--text)]">
+              {headerTitle}
+            </h2>
+            {showLessonListDensitySwitcher ? (
+              <LessonListDensitySwitcher
+                value={lessonListDensity}
+                onChange={handleLessonListDensityChange}
+              />
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -2686,18 +2718,24 @@ export default function MenuSectionPanels({
                     <div className={MENU_GROUP_CLASS}>
                       {(theoryTopicLessonsByLevel[theoryTagBrowseLevel] ?? []).map((lesson) => {
                         const topicCopy = a2PracticeTopicCopy[lesson.id]
-                        const teaser = isReferenceBrowse ? getReferenceTeaserForLessonId(lesson.id) : null
                         return (
                           <A2LessonChoiceRow
                             key={lesson.id}
                             label={lesson.title}
-                            subtitle={isReferenceBrowse ? teaser ?? undefined : topicCopy?.short}
-                            description={isReferenceBrowse ? undefined : topicCopy?.long}
-                            medalDisplay={resolveLessonCardMedal(lessonProgressMap[lesson.id])}
-                            rewardIcons={resolveLessonMenuRewardIconsFromProgress(
-                              lesson.id,
-                              lessonProgressMap[lesson.id]
-                            )}
+                            subtitle={topicCopy?.short}
+                            description={topicCopy?.long}
+                            density={lessonListDensity}
+                            medalDisplay={
+                              isReferenceBrowse ? null : resolveLessonCardMedal(lessonProgressMap[lesson.id])
+                            }
+                            rewardIcons={
+                              isReferenceBrowse
+                                ? null
+                                : resolveLessonMenuRewardIconsFromProgress(
+                                    lesson.id,
+                                    lessonProgressMap[lesson.id]
+                                  )
+                            }
                             selected={Boolean(lesson.enabled && selectedTheoryTopicLessonId === lesson.id)}
                             enabled={lesson.enabled}
                             onClick={
@@ -2789,11 +2827,18 @@ export default function MenuSectionPanels({
                           label={item.label}
                           subtitle={item.short}
                           description={item.long}
-                          medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
-                          rewardIcons={resolveLessonMenuRewardIconsFromProgress(
-                            item.id,
-                            lessonProgressMap[item.id]
-                          )}
+                          density={lessonListDensity}
+                          medalDisplay={
+                            isReferenceBrowse ? null : resolveLessonCardMedal(lessonProgressMap[item.id])
+                          }
+                          rewardIcons={
+                            isReferenceBrowse
+                              ? null
+                              : resolveLessonMenuRewardIconsFromProgress(
+                                  item.id,
+                                  lessonProgressMap[item.id]
+                                )
+                          }
                           selected={item.enabled && selectedA1LessonId === item.id}
                           enabled={item.enabled}
                           onClick={
@@ -2865,11 +2910,18 @@ export default function MenuSectionPanels({
                           label={item.label}
                           subtitle={item.short}
                           description={item.long}
-                          medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
-                          rewardIcons={resolveLessonMenuRewardIconsFromProgress(
-                            item.id,
-                            lessonProgressMap[item.id]
-                          )}
+                          density={lessonListDensity}
+                          medalDisplay={
+                            isReferenceBrowse ? null : resolveLessonCardMedal(lessonProgressMap[item.id])
+                          }
+                          rewardIcons={
+                            isReferenceBrowse
+                              ? null
+                              : resolveLessonMenuRewardIconsFromProgress(
+                                  item.id,
+                                  lessonProgressMap[item.id]
+                                )
+                          }
                           selected={item.enabled && selectedA2LessonId === item.id}
                           enabled={item.enabled}
                           onClick={
@@ -3186,6 +3238,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                       label={item.label}
                       subtitle={item.short}
                       description={item.long}
+                      density={lessonListDensity}
                       medalDisplay={resolveLessonCardMedal(lessonProgressMap[item.id])}
                       rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         item.id,
@@ -3891,10 +3944,67 @@ function LessonTopicRow({ label, onClick }: { label: string; onClick?: () => voi
   )
 }
 
+const DENSITY_CYCLE_ORDER: LessonListDensity[] = [1, 2, 3]
+
+const DENSITY_BUTTON_LABELS: Record<LessonListDensity, string> = {
+  1: 'Плотность списка: 1 строка. Нажмите, чтобы показать 2',
+  2: 'Плотность списка: 2 строки. Нажмите, чтобы показать 3',
+  3: 'Плотность списка: 3 строки. Нажмите, чтобы показать 1',
+}
+
+function DensityLinesIcon({ lines }: { lines: LessonListDensity }) {
+  // Fixed 3-slot stack: positions never reflow when density changes (avoids jump).
+  const slotWidths = ['12px', '10px', '8px'] as const
+  return (
+    <span
+      className="inline-flex h-[12px] w-3 translate-y-[0.5px] flex-col items-center justify-between"
+      aria-hidden
+    >
+      {slotWidths.map((width, index) => (
+        <span
+          key={index}
+          className="block h-[1.5px] shrink-0 rounded-full bg-current"
+          style={{
+            width,
+            opacity: index < lines ? 1 : 0,
+          }}
+        />
+      ))}
+    </span>
+  )
+}
+
+function nextLessonListDensity(value: LessonListDensity): LessonListDensity {
+  const index = DENSITY_CYCLE_ORDER.indexOf(value)
+  return DENSITY_CYCLE_ORDER[(index + 1) % DENSITY_CYCLE_ORDER.length] ?? 1
+}
+
+function LessonListDensitySwitcher({
+  value,
+  onChange,
+}: {
+  value: LessonListDensity
+  onChange: (next: LessonListDensity) => void
+}) {
+  const label = DENSITY_BUTTON_LABELS[value]
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => onChange(nextLessonListDensity(value))}
+      className="btn-3d-menu inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] p-0 text-[var(--text-muted)] leading-none touch-manipulation focus-visible:outline-none hover:bg-[var(--border)]/25"
+    >
+      <DensityLinesIcon lines={value} />
+    </button>
+  )
+}
+
 function A2LessonChoiceRow({
   label,
   subtitle,
   description,
+  density,
   medalDisplay,
   rewardIcons,
   selected,
@@ -3904,16 +4014,19 @@ function A2LessonChoiceRow({
   label: string
   subtitle?: string
   description?: string
+  density?: LessonListDensity
   medalDisplay?: LessonCardMedalDisplay | null
   rewardIcons?: LessonMenuRewardIconsState | null
   selected: boolean
   enabled: boolean
   onClick?: () => void
 }) {
-  const showSubtitle =
-    Boolean(subtitle?.trim()) &&
-    normalizeMenuLabelKey(subtitle!) !== normalizeMenuLabelKey(label)
-  const showDescription = Boolean(description?.trim())
+  const { showSubtitle, showDescription } = resolveLessonRowLines({
+    density,
+    label,
+    subtitle,
+    description,
+  })
 
   if (!enabled) {
     return (
@@ -4341,15 +4454,6 @@ function TheoryTagMenuRow({
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
     </button>
   )
-}
-
-function normalizeMenuLabelKey(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/[’'`]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim()
 }
 
 function MenuNavRow({

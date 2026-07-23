@@ -7,7 +7,12 @@ import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { resyncIosWebKitDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 import { buildReadingIntroBubbles } from '@/lib/buildReadingIntroBubbles'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
-import { APP_BTN_PRIMARY_LESSON_START, BTN_INTERACTION_BASE } from '@/lib/homeCtaStyles'
+import {
+  APP_BTN_PRIMARY_LESSON_START,
+  APP_BTN_TERTIARY_BACK_SKIN,
+  BTN_FONT_SMALL,
+  BTN_INTERACTION_BASE,
+} from '@/lib/homeCtaStyles'
 import { isIosWebKitBrowser } from '@/lib/iosSafariViewport'
 import {
   estimateIntroComposerMinHeight,
@@ -54,7 +59,7 @@ function IntroChip({
 }) {
   const className =
     variant === 'link'
-      ? `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-600 hover:from-white hover:to-sky-100 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
+      ? `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl ${APP_BTN_TERTIARY_BACK_SKIN} px-2.5 py-2 text-center ${BTN_FONT_SMALL} sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
       : variant === 'tips'
         ? `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-amber-200 bg-gradient-to-r from-amber-50 to-yellow-100 px-2.5 py-2 text-center text-[13px] font-semibold text-amber-800 hover:from-amber-100 hover:to-yellow-200 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`
         : `${BTN_INTERACTION_BASE} inline-flex min-h-10 max-w-full shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-sky-200 bg-gradient-to-r from-cyan-50 to-blue-100 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-700 hover:from-cyan-100 hover:to-blue-200 active:brightness-95 sm:px-3 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60`

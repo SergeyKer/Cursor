@@ -173,6 +173,23 @@ export const APP_BTN_SECONDARY_LARGE_BLOCK = [
   BTN_DISABLED_CLASS,
 ].join(' ')
 
+/**
+ * Tertiary Back skin only (цвет/фон/бордер/hover) — без размеров.
+ * Accent-текст вместо slate, чтобы не конкурировать с filled blue CTA.
+ */
+export const APP_BTN_TERTIARY_BACK_SKIN =
+  'border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 text-[var(--accent)] hover:from-white hover:to-sky-100 active:brightness-95'
+
+/** Эталон / compact Back рядом с синими CTA (layout Reference). */
+export const APP_BTN_TERTIARY_BACK = [
+  BTN_INTERACTION_BASE,
+  'inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl',
+  APP_BTN_TERTIARY_BACK_SKIN,
+  'px-2.5 py-2 text-center sm:px-3',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
 /** --- Алиасы (обратная совместимость) --- */
 
 export const MENU_PRIMARY_CTA_CLASS = APP_BTN_PRIMARY_MENU

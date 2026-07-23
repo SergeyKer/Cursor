@@ -17,7 +17,7 @@ describe('myPlan copy dictionary', () => {
     const c = myPlanCopy('child')
     expect(c.sectionNow).toBe('Сейчас')
     expect(c.statusLink).toContain('сделал')
-    expect(c.referenceLink).toBe('Шпаргалка')
+    expect(c.referenceLink).toBe('Справочник')
   })
 
   it('why is one short phrase', () => {

@@ -7,7 +7,7 @@ export const REFERENCE_COPY = {
   byTopicLabel: 'По теме',
   tagLevelsTitle: 'Уровень по теме',
   tagLessonsTitle: 'Тема по тегу',
-  topicCta: 'Шпаргалка',
+  topicCta: 'Справочник',
   searchPlaceholder: 'Например: I am или it’s time',
   searchEmpty: 'Нет шпаргалки по запросу. Попробуй Теорию или Репетитор.',
   searchHitsLabel: 'Найдено',
@@ -20,5 +20,5 @@ export const REFERENCE_COPY = {
   back: '← Назад',
   startLesson: 'Пройти урок',
   startPractice: 'Практика',
-  myPlanSecondary: 'Шпаргалка',
+  myPlanSecondary: 'Справочник',
 } as const

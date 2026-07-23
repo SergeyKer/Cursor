@@ -9,8 +9,10 @@ import { estimateIntroComposerMinHeight, LESSON_INTRO_SCROLL_CLASS } from '@/lib
 import { resolveLessonIntroPrimaryCtaLabel } from '@/lib/lessonIntroCtaCopy'
 import ProgressCtaButton from '@/components/ProgressCtaButton'
 import {
+  APP_BTN_TERTIARY_BACK_SKIN,
   BLUE_SECONDARY_SKIN,
   BTN_DISABLED_CLASS,
+  BTN_FONT_INLINE,
   BTN_INTERACTION_BASE,
 } from '@/lib/homeCtaStyles'
 import { LESSON_VARIANT_PREPARE_LOADING_LABEL } from '@/lib/lessonVariantCtaCopy'
@@ -432,7 +434,7 @@ export default function LessonExtraTipsScreen({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 px-3 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:from-white hover:to-sky-100"
+              className={`inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl ${APP_BTN_TERTIARY_BACK_SKIN} px-3 py-2 ${BTN_FONT_INLINE} shadow-sm transition`}
             >
               К уроку
             </button>

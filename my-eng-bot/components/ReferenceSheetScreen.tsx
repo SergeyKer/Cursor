@@ -5,6 +5,7 @@ import LessonReadingShell from '@/components/LessonReadingShell'
 import UnifiedLessonBubble from '@/components/UnifiedLessonBubble'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import {
+  APP_BTN_TERTIARY_BACK,
   BLUE_PRIMARY_SKIN,
   BLUE_SECONDARY_SKIN,
   BTN_DISABLED_CLASS,
@@ -29,14 +30,6 @@ type ReferenceSheetScreenProps = {
   actionsMode?: ReferenceActionsMode
 }
 
-const BACK_BTN_CLASS = [
-  BTN_INTERACTION_BASE,
-  'inline-flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-xl border border-slate-200',
-  'bg-gradient-to-r from-slate-50 to-sky-50 px-2.5 py-2 text-center text-[13px] font-semibold text-slate-600',
-  'hover:from-white hover:to-sky-100 active:brightness-95 sm:px-3 sm:text-sm',
-  BTN_DISABLED_CLASS,
-].join(' ')
-
 const ROW_CTA_BASE = [
   BTN_INTERACTION_BASE,
   'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl px-3 py-2 text-center whitespace-nowrap',
@@ -49,7 +42,7 @@ const SECONDARY_ROW_CTA_CLASS = `${ROW_CTA_BASE} ${BLUE_SECONDARY_SKIN}`
 
 function BackButton({ children, onClick }: { children: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} className={BACK_BTN_CLASS}>
+    <button type="button" onClick={onClick} className={APP_BTN_TERTIARY_BACK}>
       {children}
     </button>
   )
