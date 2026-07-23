@@ -33,6 +33,7 @@ const SECTIONS = {
   child: {
     sectionNow: 'Сейчас',
     sectionMore: 'Ещё можно',
+    sectionProgram: 'Дальше по программе',
     emptyTitle: 'Уроки',
     emptyBody: 'Загляни в Уроки — там начало.',
     emptyCta: 'К урокам',
@@ -43,6 +44,7 @@ const SECTIONS = {
   adult: {
     sectionNow: 'Сейчас',
     sectionMore: 'Ещё можно',
+    sectionProgram: 'Дальше по программе',
     emptyTitle: 'Уроки',
     emptyBody: 'Откройте Уроки или начните короткую практику.',
     emptyCta: 'К разделу «Уроки»',
@@ -231,4 +233,104 @@ export function myPlanTimeLabel(
   if (kind === 'unknown') return null
   if (audience === 'child') return kind === 'short' ? 'Коротко' : 'Средне'
   return kind === 'short' ? '~3 мин' : '~8 мин'
+}
+
+export function myPlanMoreOnLevel(count: number, audience: MyPlanAudience = 'adult'): string {
+  const n = Math.max(0, Math.floor(count))
+  if (audience === 'child') return `Ещё ${n} на уровне.`
+  return `Ещё ${n} на уровне.`
+}
+
+export type ProgramCardFooterVariant = 'launch' | 'action'
+
+export type ProgramCardView = {
+  headerTitle: string
+  bodyTitle: string
+  bodyReason: string
+  footer: { variant: ProgramCardFooterVariant; label: string; ariaLabel: string } | null
+}
+
+/** View-model карточки «Дальше по программе» для всех programStatus. */
+export function buildProgramCardView(params: {
+  audience?: MyPlanAudience
+  programStatus: string
+  programTask?: {
+    title: string
+    reasonLine: string
+    buttonLabel: string
+    ariaLabel: string
+    timeLabel?: string | null
+  } | null
+  unstartedCount?: number
+}): ProgramCardView {
+  const audience = params.audience === 'child' ? 'child' : 'adult'
+  const copy = myPlanCopy(audience)
+  const headerTitle = copy.sectionProgram
+
+  if (params.programStatus === 'active' && params.programTask) {
+    const time = params.programTask.timeLabel?.trim()
+    const bodyReason = time
+      ? `${params.programTask.reasonLine} · ${time}`
+      : params.programTask.reasonLine
+    return {
+      headerTitle,
+      bodyTitle: params.programTask.title,
+      bodyReason,
+      footer: {
+        variant: 'launch',
+        label: params.programTask.buttonLabel,
+        ariaLabel: params.programTask.ariaLabel,
+      },
+    }
+  }
+
+  if (params.programStatus === 'blocked_by_incomplete') {
+    return {
+      headerTitle,
+      bodyTitle: audience === 'child' ? 'Сначала текущий' : 'Сначала текущий',
+      bodyReason:
+        audience === 'child'
+          ? 'Закрой начатый урок — потом откроется следующий.'
+          : 'Закройте начатый урок — потом откроется следующий.',
+      footer: null,
+    }
+  }
+
+  if (params.programStatus === 'level_complete') {
+    return {
+      headerTitle,
+      bodyTitle: audience === 'child' ? 'Уровень пройден' : 'Уровень пройден',
+      bodyReason:
+        audience === 'child'
+          ? 'Все уроки этого уровня закрыты.'
+          : 'Все уроки этого уровня закрыты.',
+      footer: {
+        variant: 'action',
+        label: copy.emptyCta,
+        ariaLabel: copy.emptyCta,
+      },
+    }
+  }
+
+  if (params.programStatus === 'no_catalog') {
+    return {
+      headerTitle,
+      bodyTitle: audience === 'child' ? 'Уроков уровня нет' : 'Уроков уровня нет',
+      bodyReason:
+        audience === 'child'
+          ? 'Выбери уровень или загляни в Уроки.'
+          : 'Выберите уровень или загляните в Уроки.',
+      footer: null,
+    }
+  }
+
+  return {
+    headerTitle,
+    bodyTitle: audience === 'child' ? 'Нет нового урока' : 'Нет нового урока',
+    bodyReason:
+      audience === 'child'
+        ? 'На уровне нечего открыть как новый.'
+        : 'На уровне нечего открыть как новый.',
+    footer: null,
+  }
 }

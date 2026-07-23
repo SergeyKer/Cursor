@@ -13,9 +13,15 @@ import {
 import { isLearningMemoryDebugEnabled } from '@/lib/learningMemory/debug'
 import { canUseAiReinforce } from '@/lib/entitlements'
 import { trackMyPlanEvent } from '@/lib/myPlan/analytics'
-import type { MyPlanAction, MyPlanRecommendation, MyPlanStatusSlice } from '@/lib/myPlan/types'
+import type {
+  MyPlanAction,
+  MyPlanRecommendation,
+  MyPlanStatusSlice,
+  ProgramStatus,
+} from '@/lib/myPlan/types'
 import {
   MY_PLAN_COPY,
+  buildProgramCardView,
   myPlanCopy,
   myPlanInviteFromGoalType,
   myPlanLevelLine,
@@ -24,6 +30,12 @@ import {
   myPlanTopicLine,
   myPlanWhy,
 } from '@/lib/uiCopy/myPlan'
+import MyPlanCard from '@/components/myPlan/MyPlanCard'
+import MyPlanCardFooterButton from '@/components/myPlan/MyPlanCardFooterButton'
+import {
+  MY_PLAN_CARD_BODY_REASON,
+  MY_PLAN_CARD_BODY_TITLE,
+} from '@/lib/myPlan/cardStyles'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { Settings } from '@/lib/types'
 
@@ -100,6 +112,10 @@ export interface MyPlanPanelProps {
   /** Legacy flat list when flag off. */
   recommendations?: MyPlanRecommendation[]
   status?: MyPlanStatusSlice
+  programTask?: MyPlanRecommendation | null
+  programStatus?: ProgramStatus
+  unstartedCount?: number
+  anchorLevel?: string
   attentionZones?: AttentionZone[]
   modeGap?: { skillTagId: string; title: string } | null
   settings: Settings
@@ -132,6 +148,10 @@ export default function MyPlanPanel({
   secondary = [],
   recommendations,
   status,
+  programTask = null,
+  programStatus = 'no_catalog',
+  unstartedCount = 0,
+  anchorLevel,
   attentionZones = [],
   modeGap = null,
   settings,
@@ -162,12 +182,17 @@ export default function MyPlanPanel({
   const resolvedSecondary = legacyList ? legacyList.slice(1, 3) : secondary
 
   useEffect(() => {
+    const programLessonId =
+      programTask?.action.kind === 'open_lesson' ? programTask.action.lessonId : undefined
     trackMyPlanEvent('my_plan_viewed', {
       audience,
       hasMain: Boolean(resolvedMain),
       mainType: resolvedMain?.goalType,
+      programStatus,
+      programLessonId,
+      anchorLevel,
     })
-  }, [audience, resolvedMain])
+  }, [audience, resolvedMain, programStatus, programTask, anchorLevel])
 
   useEffect(() => {
     if (
@@ -458,7 +483,53 @@ export default function MyPlanPanel({
         })()
       : null
 
-  if (!resolvedMain) {
+  const programView = buildProgramCardView({
+    audience,
+    programStatus,
+    programTask,
+    unstartedCount,
+  })
+
+  const programCardBlock = (
+    <MyPlanCard
+      title={programView.headerTitle}
+      footer={
+        programView.footer ? (
+          <MyPlanCardFooterButton
+            variant={programView.footer.variant}
+            label={programView.footer.label}
+            ariaLabel={programView.footer.ariaLabel}
+            disabled={practiceBusy}
+            onClick={() => {
+              trackMyPlanEvent('my_plan_program_cta', {
+                audience,
+                programStatus,
+                anchorLevel,
+                lessonId:
+                  programTask?.action.kind === 'open_lesson'
+                    ? programTask.action.lessonId
+                    : undefined,
+              })
+              if (programStatus === 'active' && programTask) {
+                void handleAction(programTask.action, 'secondary')
+                return
+              }
+              if (programStatus === 'level_complete') {
+                onMenuViewChange?.('lessons')
+              }
+            }}
+          />
+        ) : null
+      }
+    >
+      <p className={MY_PLAN_CARD_BODY_TITLE}>{programView.bodyTitle}</p>
+      <p className={MY_PLAN_CARD_BODY_REASON}>{programView.bodyReason}</p>
+    </MyPlanCard>
+  )
+
+  const showEmptyMainFallback = !resolvedMain && programStatus === 'no_catalog'
+
+  if (showEmptyMainFallback) {
     const emptyInvite = myPlanNowInvite('empty', audience)
     const emptyTitle = myPlanTopicLine('lessons')
     const emptyWhy = myPlanWhy('empty', audience)
@@ -489,6 +560,19 @@ export default function MyPlanPanel({
             </div>
           )}
         </section>
+        {programCardBlock}
+        {statusBlock}
+        {zonesBlock}
+        {debugLogBlock}
+      </div>
+    )
+  }
+
+  if (!resolvedMain) {
+    return (
+      <div className="w-full min-w-0 space-y-3">
+        {programCardBlock}
+        {secondaryBlock}
         {statusBlock}
         {zonesBlock}
         {debugLogBlock}
@@ -540,6 +624,7 @@ export default function MyPlanPanel({
         ) : null}
       </section>
 
+      {programCardBlock}
       {secondaryBlock}
       {statusBlock}
       {zonesBlock}

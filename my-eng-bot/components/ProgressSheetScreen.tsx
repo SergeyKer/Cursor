@@ -111,8 +111,19 @@ export default function ProgressSheetScreen({
   )
 
   const nowCta = useMemo(
-    () => buildProgressNowCta(planSnapshot.mainTask, copy.openMyPlanCta, copy.openMyPlanCtaAria),
-    [planSnapshot.mainTask, copy.openMyPlanCta, copy.openMyPlanCtaAria]
+    () =>
+      buildProgressNowCta(
+        planSnapshot.mainTask,
+        copy.openMyPlanCta,
+        copy.openMyPlanCtaAria,
+        planSnapshot.programTask
+      ),
+    [
+      planSnapshot.mainTask,
+      planSnapshot.programTask,
+      copy.openMyPlanCta,
+      copy.openMyPlanCtaAria,
+    ]
   )
 
   const remarks = useMemo(
@@ -248,14 +259,14 @@ export default function ProgressSheetScreen({
           />
         }
       >
-        {planSnapshot.mainTask ? (
+        {planSnapshot.mainTask || planSnapshot.programTask ? (
           <>
             <p className="break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
-              {planSnapshot.mainTask.title}
+              {(planSnapshot.mainTask ?? planSnapshot.programTask)!.title}
             </p>
-            {planSnapshot.mainTask.reasonLine ? (
+            {(planSnapshot.mainTask ?? planSnapshot.programTask)!.reasonLine ? (
               <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
-                {planSnapshot.mainTask.reasonLine}
+                {(planSnapshot.mainTask ?? planSnapshot.programTask)!.reasonLine}
               </p>
             ) : null}
           </>

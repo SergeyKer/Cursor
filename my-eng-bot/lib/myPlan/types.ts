@@ -1,5 +1,6 @@
 import type { PracticeEntrySource } from '@/types/practice'
 import type { AttentionZone } from '@/lib/learningMemory/types'
+import type { LessonCatalogLevel } from '@/lib/lessonCatalog'
 
 /** Действие по нажатию основной кнопки карточки. */
 export type MyPlanAction =
@@ -51,7 +52,15 @@ export interface MyPlanCatalogTopic {
   enabled: boolean
   hasTheory: boolean
   hasPractice: boolean
+  level: LessonCatalogLevel
 }
+
+export type ProgramStatus =
+  | 'active'
+  | 'blocked_by_incomplete'
+  | 'level_complete'
+  | 'no_unstarted'
+  | 'no_catalog'
 
 export interface MyPlanLessonProgressSlice {
   lessonId: string
@@ -89,6 +98,8 @@ export interface MyPlanInput {
   practiceCompleted: MyPlanPracticeSessionSlice[]
   daysSinceLastActive: number | null
   weakSpots: Array<{ id: string; label: string }>
+  /** CEFR якорь из settings.level (не XP). */
+  anchorLevel: LessonCatalogLevel
   /** Зоны внимания (кормят ranking; UI debug отдельно). */
   attentionZones?: AttentionZone[]
   /** Аудитория для copy. */
@@ -109,6 +120,9 @@ export interface NowGoalResult {
   mainTask: MyPlanRecommendation | null
   secondary: MyPlanRecommendation[]
   status: MyPlanStatusSlice
+  programTask: MyPlanRecommendation | null
+  programStatus: ProgramStatus
+  unstartedCount: number
 }
 
 /** Пороги v1 selectNowGoal. */

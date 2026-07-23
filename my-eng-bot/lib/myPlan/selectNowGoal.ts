@@ -1,6 +1,7 @@
 import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import type { AttentionZone } from '@/lib/learningMemory/types'
+import { pickProgramLesson } from '@/lib/myPlan/pickProgramLesson'
 import {
   CRITICAL_ZONE_ERROR_COUNT,
   INCOMPLETE_STALE_DAYS,
@@ -16,6 +17,7 @@ import {
 import {
   MY_PLAN_COPY,
   myPlanButton,
+  myPlanMoreOnLevel,
   myPlanNowInvite,
   myPlanTimeLabel,
   myPlanTopicLine,
@@ -92,15 +94,6 @@ function hasPracticeAfterTheory(input: MyPlanInput, lessonId: string, theoryComp
     const at = s.completedAt ?? 0
     return at >= t0
   })
-}
-
-function pickNextLessonInProgram(input: MyPlanInput): MyPlanCatalogTopic | null {
-  const sorted = [...input.catalog].filter((t) => t.enabled && t.hasTheory).sort((a, b) => a.order - b.order)
-  for (const topic of sorted) {
-    const p = input.lessons[topic.id]
-    if (!p || !isTheoryCompleted(p)) return topic
-  }
-  return null
 }
 
 function isCriticalZone(zone: AttentionZone): boolean {
@@ -239,16 +232,24 @@ function buildPracticeAfterTheory(
   }
 }
 
-function buildNextLesson(next: MyPlanCatalogTopic, audience: MyPlanAudience): MyPlanRecommendation {
+function buildNextLesson(
+  next: MyPlanCatalogTopic,
+  audience: MyPlanAudience,
+  unstartedCount = 1
+): MyPlanRecommendation {
   const title = myPlanTopicLine('lesson', next.title)
   const invite = myPlanNowInvite('next_lesson', audience)
+  let reasonLine = myPlanWhy('next', audience)
+  if (unstartedCount >= 2) {
+    reasonLine = `${reasonLine} ${myPlanMoreOnLevel(unstartedCount, audience)}`
+  }
   return {
     id: `next-lesson-${next.id}`,
     priority: 4,
     goalType: 'next_lesson',
     title,
     subtitle: '',
-    reasonLine: myPlanWhy('next', audience),
+    reasonLine,
     action: { kind: 'open_lesson', lessonId: next.id },
     buttonLabel: myPlanButton('next', audience),
     ariaLabel: `${invite}: ${next.title}`,
@@ -328,9 +329,6 @@ function collectCandidates(input: MyPlanInput, nowMs: number): MyPlanRecommendat
     }
   }
 
-  const next = pickNextLessonInProgram(input)
-  if (next) out.push(buildNextLesson(next, audience))
-
   const days = input.daysSinceLastActive
   if (days != null && days >= SOFT_RETURN_DAYS) {
     out.push(buildSoftReturn(audience))
@@ -378,17 +376,31 @@ function dedupeSecondary(
 }
 
 /**
- * Единый ранкер «что делать сейчас»: 1 main + ≤2 secondary + status.
+ * Единый ранкер «что делать сейчас»: 1 main + ≤2 secondary + program compass + status.
  */
 export function selectNowGoal(input: MyPlanInput): NowGoalResult {
   const nowMs = input.nowMs ?? Date.now()
+  const audience = audienceOf(input)
   const candidates = collectCandidates(input, nowMs)
   const mainTask = candidates[0] ?? null
   const secondary = dedupeSecondary(mainTask, candidates.slice(1))
 
+  const picked = pickProgramLesson({
+    catalog: input.catalog,
+    lessons: input.lessons,
+    anchorLevel: input.anchorLevel,
+  })
+  const programTask =
+    picked.status === 'active' && picked.lesson
+      ? buildNextLesson(picked.lesson, audience, picked.unstartedCount)
+      : null
+
   return {
     mainTask,
     secondary,
+    programTask,
+    programStatus: picked.status,
+    unstartedCount: picked.unstartedCount,
     status: {
       dailyStreak: input.rewards.dailyStreak,
       level: input.rewards.level ?? 1,

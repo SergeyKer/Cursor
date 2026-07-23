@@ -8,8 +8,24 @@ import {
 import type { AttentionZone } from '@/lib/learningMemory/types'
 
 const baseCatalog = [
-  { id: '1', title: 'To be', order: 10, enabled: true, hasTheory: true, hasPractice: true },
-  { id: '2', title: 'Урок B', order: 20, enabled: true, hasTheory: true, hasPractice: true },
+  {
+    id: '1',
+    title: 'To be',
+    order: 10,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    level: 'A2' as const,
+  },
+  {
+    id: '2',
+    title: 'Урок B',
+    order: 20,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    level: 'A2' as const,
+  },
 ]
 
 function zone(over: Partial<AttentionZone> = {}): AttentionZone {
@@ -44,6 +60,7 @@ function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
     practiceCompleted: [],
     daysSinceLastActive: null,
     weakSpots: [],
+    anchorLevel: 'A2',
     audience: 'adult',
     canUseAiReinforce: false,
     nowMs: Date.parse('2026-05-14T12:00:00.000Z'),
@@ -116,9 +133,11 @@ describe('selectNowGoal', () => {
   })
 
   it('следующий урок по программе', () => {
-    const { mainTask } = selectNowGoal(emptyInput())
-    expect(mainTask?.goalType).toBe('next_lesson')
-    expect(mainTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
+    const { mainTask, programTask, programStatus } = selectNowGoal(emptyInput())
+    expect(mainTask?.goalType).not.toBe('next_lesson')
+    expect(programStatus).toBe('active')
+    expect(programTask?.goalType).toBe('next_lesson')
+    expect(programTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
   })
 
   it('soft return при daysSinceLastActive >= 3', () => {
@@ -179,6 +198,7 @@ describe('selectNowGoal', () => {
           enabled: true,
           hasTheory: true,
           hasPractice: true,
+          level: 'A2',
         },
       ],
       lessons: {
@@ -231,9 +251,16 @@ describe('selectNowGoal', () => {
   })
 
   it('facade getMyPlanRecommendations возвращает до 3', () => {
-    const recs = getMyPlanRecommendations(emptyInput())
+    const recs = getMyPlanRecommendations(emptyInput({ daysSinceLastActive: 5 }))
     expect(recs.length).toBeGreaterThan(0)
     expect(recs.length).toBeLessThanOrEqual(3)
+  })
+
+  it('programTask заполнен при cold start без main next', () => {
+    const { mainTask, programTask, programStatus } = selectNowGoal(emptyInput())
+    expect(mainTask?.goalType).not.toBe('next_lesson')
+    expect(programStatus).toBe('active')
+    expect(programTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
   })
 
   it('canUseAiReinforce=true → generation ai при lessonId', () => {

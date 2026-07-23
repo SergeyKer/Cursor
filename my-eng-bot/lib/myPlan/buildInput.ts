@@ -5,6 +5,7 @@ import type { RewardsState } from '@/lib/rewardsState'
 import { getTodayDateString, loadRewardsState } from '@/lib/rewardsState'
 import { practiceStorage } from '@/lib/practice/storage/practiceStorage'
 import type { Settings } from '@/lib/types'
+import { normalizeAnchorLevel } from '@/lib/myPlan/pickProgramLesson'
 import type { MyPlanInput, MyPlanLessonProgressSlice, MyPlanPracticeSessionSlice } from '@/lib/myPlan/types'
 
 function mapLessonProgress(): Record<string, MyPlanLessonProgressSlice> {
@@ -65,12 +66,14 @@ export function buildMyPlanLiveInput(
       enabled: t.enabled,
       hasTheory: t.hasTheory,
       hasPractice: t.hasPractice,
+      level: t.level,
     })),
     lessons: mapLessonProgress(),
     rewards: mapRewards(rewards),
     practiceCompleted: mapPracticeSessions(),
     daysSinceLastActive: snapshot.daysSinceLastActive,
     weakSpots,
+    anchorLevel: normalizeAnchorLevel(settings.level),
     audience: settings.audience === 'child' ? 'child' : 'adult',
     attentionZones: extras?.attentionZones,
     canUseAiReinforce: extras?.canUseAiReinforce,

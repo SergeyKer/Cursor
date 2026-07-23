@@ -1157,12 +1157,21 @@ export default function MenuSectionPanels({
 
   const myPlanNow = React.useMemo(() => {
     if (menuView !== 'myPlan') {
-      return { mainTask: null, secondary: [] as ReturnType<typeof selectNowGoal>['secondary'], status: { dailyStreak: 0, level: 1, totalXP: 0 }, flat: [] as ReturnType<typeof getMyPlanRecommendations> }
+      return {
+        mainTask: null,
+        secondary: [] as ReturnType<typeof selectNowGoal>['secondary'],
+        status: { dailyStreak: 0, level: 1, totalXP: 0 },
+        programTask: null as ReturnType<typeof selectNowGoal>['programTask'],
+        programStatus: 'no_catalog' as const,
+        unstartedCount: 0,
+        flat: [] as ReturnType<typeof getMyPlanRecommendations>,
+      }
     }
     const input = buildMyPlanLiveInput(settings, rewardsState ?? null, {
       attentionZones: myPlanAttentionZones,
       canUseAiReinforce: canUseAiReinforce(),
     })
+    const now = selectNowGoal(input)
     if (!featureFlags.myPlanNowGoalV1) {
       const flat = getMyPlanRecommendations(input)
       return {
@@ -1173,10 +1182,12 @@ export default function MenuSectionPanels({
           level: input.rewards.level ?? rewardsState?.progress.level ?? 1,
           totalXP: input.rewards.totalXP ?? rewardsState?.progress.totalXP ?? 0,
         },
+        programTask: now.programTask,
+        programStatus: now.programStatus,
+        unstartedCount: now.unstartedCount,
         flat,
       }
     }
-    const now = selectNowGoal(input)
     return { ...now, flat: [] as ReturnType<typeof getMyPlanRecommendations> }
   }, [menuView, settings, rewardsState, myPlanAttentionZones])
 
@@ -3905,6 +3916,10 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             secondary={myPlanNow.secondary}
             recommendations={featureFlags.myPlanNowGoalV1 ? undefined : myPlanNow.flat}
             status={myPlanNow.status}
+            programTask={myPlanNow.programTask}
+            programStatus={myPlanNow.programStatus}
+            unstartedCount={myPlanNow.unstartedCount}
+            anchorLevel={settings.level}
             attentionZones={myPlanAttentionZones}
             modeGap={myPlanModeGap}
             settings={settings}

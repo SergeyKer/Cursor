@@ -1,10 +1,27 @@
 import { describe, expect, it } from 'vitest'
 import { getMyPlanRecommendations } from '@/lib/myPlan/recommendations'
+import { selectNowGoal } from '@/lib/myPlan/selectNowGoal'
 import type { MyPlanInput } from '@/lib/myPlan/types'
 
 const baseCatalog = [
-  { id: '1', title: 'Урок A', order: 10, enabled: true, hasTheory: true, hasPractice: true },
-  { id: '2', title: 'Урок B', order: 20, enabled: true, hasTheory: true, hasPractice: true },
+  {
+    id: '1',
+    title: 'Урок A',
+    order: 10,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    level: 'A2' as const,
+  },
+  {
+    id: '2',
+    title: 'Урок B',
+    order: 20,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    level: 'A2' as const,
+  },
 ]
 
 function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
@@ -23,6 +40,7 @@ function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
     practiceCompleted: [],
     daysSinceLastActive: null,
     weakSpots: [],
+    anchorLevel: 'A2',
     audience: 'adult',
     nowMs: Date.parse('2026-05-14T12:00:00.000Z'),
     ...over,
@@ -90,11 +108,12 @@ describe('getMyPlanRecommendations (facade)', () => {
     expect(recs.find((r) => r.id === 'practice-after-theory')).toBeUndefined()
   })
 
-  it('следующий урок по программе - первый без завершённой теории', () => {
+  it('следующий урок по программе - в programTask, не в flat main', () => {
     const input = emptyInput({ lessons: {} })
     const recs = getMyPlanRecommendations(input)
-    const next = recs.find((r) => r.id?.startsWith('next-lesson'))
-    expect(next?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
+    expect(recs.find((r) => r.id?.startsWith('next-lesson'))).toBeUndefined()
+    const { programTask } = selectNowGoal(input)
+    expect(programTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
   })
 
   it('после перерыва — soft return в списке', () => {

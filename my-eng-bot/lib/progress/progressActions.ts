@@ -57,9 +57,11 @@ export function mapMyPlanActionToTarget(action: MyPlanAction): ProgressLaunchTar
 export function buildProgressNowCta(
   mainTask: MyPlanRecommendation | null,
   openMyPlanLabel: string,
-  openMyPlanAria: string
+  openMyPlanAria: string,
+  programTask?: MyPlanRecommendation | null
 ): ProgressNowCta {
-  if (!mainTask) {
+  const task = mainTask ?? programTask ?? null
+  if (!task) {
     return {
       variant: 'action',
       label: openMyPlanLabel,
@@ -70,25 +72,25 @@ export function buildProgressNowCta(
     }
   }
 
-  const target = mapMyPlanActionToTarget(mainTask.action)
+  const target = mapMyPlanActionToTarget(task.action)
   if (!target) {
     return {
       variant: 'action',
       label: openMyPlanLabel,
       ariaLabel: openMyPlanAria,
       target: { kind: 'my_plan' },
-      mainTaskId: mainTask.id,
-      actionKind: mainTask.action.kind,
+      mainTaskId: task.id,
+      actionKind: task.action.kind,
     }
   }
 
   return {
     variant: 'launch',
-    label: mainTask.buttonLabel,
-    ariaLabel: mainTask.ariaLabel,
+    label: task.buttonLabel,
+    ariaLabel: task.ariaLabel,
     target,
-    mainTaskId: mainTask.id,
-    actionKind: mainTask.action.kind,
+    mainTaskId: task.id,
+    actionKind: task.action.kind,
   }
 }
 
@@ -114,9 +116,17 @@ export function buildProgressMyPlanSnapshot(
     return {
       mainTask: flat[0] ?? null,
       secondary: flat.slice(1),
+      programTask: null,
+      programStatus: 'no_catalog' as const,
       input,
     }
   }
   const now = selectNowGoal(input)
-  return { mainTask: now.mainTask, secondary: now.secondary, input }
+  return {
+    mainTask: now.mainTask,
+    secondary: now.secondary,
+    programTask: now.programStatus === 'active' ? now.programTask : null,
+    programStatus: now.programStatus,
+    input,
+  }
 }

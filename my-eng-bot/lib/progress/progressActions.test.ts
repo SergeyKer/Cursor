@@ -14,8 +14,24 @@ const BLUE_SECONDARY_SKIN_FROZEN =
   'border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] text-white hover:brightness-105 active:brightness-95'
 
 const baseCatalog = [
-  { id: '1', title: 'To be', order: 10, enabled: true, hasTheory: true, hasPractice: true },
-  { id: '2', title: 'Урок B', order: 20, enabled: true, hasTheory: true, hasPractice: true },
+  {
+    id: '1',
+    title: 'To be',
+    order: 10,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    level: 'A2' as const,
+  },
+  {
+    id: '2',
+    title: 'Урок B',
+    order: 20,
+    enabled: true,
+    hasTheory: true,
+    hasPractice: true,
+    level: 'A2' as const,
+  },
 ]
 
 function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
@@ -45,6 +61,7 @@ function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
     practiceCompleted: [],
     daysSinceLastActive: null,
     weakSpots: [],
+    anchorLevel: 'A2',
     audience: 'adult',
     canUseAiReinforce: false,
     nowMs: Date.parse('2026-05-14T12:00:00.000Z'),
