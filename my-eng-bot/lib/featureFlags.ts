@@ -25,5 +25,7 @@ export const featureFlags = {
   learningMemoryDebugV1: process.env.NEXT_PUBLIC_FEATURE_LEARNING_MEMORY_DEBUG_V1 === 'true',
   /** Справочник-шпаргалки. Default on. */
   referenceV1: process.env.NEXT_PUBLIC_FEATURE_REFERENCE_V1 !== 'false',
+  /** Full-screen пространство «Прогресс». Default on; =false → старое меню ProgressPanel. */
+  progressSpaceV1: process.env.NEXT_PUBLIC_FEATURE_PROGRESS_SPACE_V1 !== 'false',
 } as const
 

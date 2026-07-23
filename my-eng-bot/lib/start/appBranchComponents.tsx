@@ -45,6 +45,8 @@ export const ReferenceSheetScreen = branchNamed<ComponentProps<typeof ReferenceS
   })) as Promise<{ default: ComponentType<ComponentProps<typeof ReferenceSheetScreenComponent>> }>
 )
 
+export const ProgressSheetScreen = branchDynamic(() => import('@/components/ProgressSheetScreen'))
+
 export const PracticeScreen = branchDynamic(() => import('@/components/branches/PracticeBranch'))
 export const AccentTrainer = branchDynamic(() => import('@/components/branches/AccentBranch'))
 

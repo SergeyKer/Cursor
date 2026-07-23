@@ -13,6 +13,7 @@ export type ActiveBranchInput = {
   isLessonBriefingActive: boolean
   isTutorLessonPending: boolean
   isReferenceSheetActive?: boolean
+  isProgressSpaceActive?: boolean
 }
 
 export function resolveActiveBranch(input: ActiveBranchInput): BranchId | null {
@@ -20,6 +21,7 @@ export function resolveActiveBranch(input: ActiveBranchInput): BranchId | null {
   if (input.isAccentActive) return 'accent'
   if (input.isPracticeActive) return 'practice'
   if (input.engvoVoiceMode) return 'engvo'
+  if (input.isProgressSpaceActive) return 'hub'
   if (
     input.isStructuredLessonActive ||
     input.isLessonIntroActive ||

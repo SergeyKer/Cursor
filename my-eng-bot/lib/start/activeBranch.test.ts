@@ -29,13 +29,13 @@ describe('resolveActiveBranch', () => {
     expect(resolveActiveBranch({ ...base, isLessonIntroActive: true })).toBe('lesson')
   })
 
-  it('keeps mounted branch priority vocabulary over chat', () => {
+  it('returns hub for progress space even when dialog started', () => {
     expect(
       resolveActiveBranch({
         ...base,
         dialogStarted: true,
-        isVocabularyHubActive: true,
+        isProgressSpaceActive: true,
       })
-    ).toBe('vocabulary')
+    ).toBe('hub')
   })
 })

@@ -139,6 +139,38 @@ export interface GlobalProgressState {
   bestDailyStreak: number
   lastActiveDate: string | null
   lastStreakDailyBonusDate: string | null
+  /** ISO YYYY-MM-DD days with activity; newest kept when over cap. */
+  activeDays: string[]
+}
+
+export const ACTIVE_DAYS_CAP = 120
+
+const ACTIVE_DAY_RE = /^\d{4}-\d{2}-\d{2}$/
+
+export function normalizeActiveDays(
+  raw: unknown,
+  lastActiveDate: string | null
+): string[] {
+  const days: string[] = []
+  if (Array.isArray(raw)) {
+    for (const item of raw) {
+      if (typeof item === 'string' && ACTIVE_DAY_RE.test(item) && !days.includes(item)) {
+        days.push(item)
+      }
+    }
+  }
+  if (days.length === 0 && lastActiveDate && ACTIVE_DAY_RE.test(lastActiveDate)) {
+    days.push(lastActiveDate)
+  }
+  days.sort()
+  return days.length > ACTIVE_DAYS_CAP ? days.slice(-ACTIVE_DAYS_CAP) : days
+}
+
+export function appendActiveDay(days: string[], today: string): string[] {
+  if (!ACTIVE_DAY_RE.test(today)) return days
+  if (days.includes(today)) return days
+  const next = [...days, today]
+  return next.length > ACTIVE_DAYS_CAP ? next.slice(-ACTIVE_DAYS_CAP) : next
 }
 
 export interface RewardsCurrenciesState {
@@ -240,6 +272,7 @@ export function createDefaultRewardsState(): RewardsState {
       bestDailyStreak: 0,
       lastActiveDate: null,
       lastStreakDailyBonusDate: null,
+      activeDays: [],
     },
     currencies: {
       coins: STARTER_COINS_BONUS,
@@ -395,6 +428,10 @@ function normalizeRewardsState(raw: unknown): RewardsState {
         typeof src.progress?.lastStreakDailyBonusDate === 'string'
           ? src.progress.lastStreakDailyBonusDate
           : fallback.progress.lastStreakDailyBonusDate,
+      activeDays: normalizeActiveDays(
+        (src.progress as { activeDays?: unknown } | undefined)?.activeDays,
+        typeof src.progress?.lastActiveDate === 'string' ? src.progress.lastActiveDate : null
+      ),
     },
     currencies: {
       coins: typeof src.currencies?.coins === 'number' ? Math.max(0, Math.floor(src.currencies.coins)) : 0,
@@ -465,7 +502,17 @@ export function saveRewardsState(state: RewardsState): void {
 
 export function withDailyActivity(state: RewardsState, today: string = getTodayDateString()): RewardsState {
   const last = state.progress.lastActiveDate
-  if (last === today) return state
+  const activeDays = state.progress.activeDays ?? []
+  if (last === today) {
+    if (activeDays.includes(today)) return state
+    return {
+      ...state,
+      progress: {
+        ...state.progress,
+        activeDays: appendActiveDay(activeDays, today),
+      },
+    }
+  }
   const diffDays = last ? daysBetweenDates(last, today) : 0
   const nextStreak = !last ? 1 : diffDays === 1 ? state.progress.dailyStreak + 1 : 1
   const dailyStreak = Math.max(1, nextStreak)
@@ -477,6 +524,7 @@ export function withDailyActivity(state: RewardsState, today: string = getTodayD
       dailyStreak,
       bestDailyStreak,
       lastActiveDate: today,
+      activeDays: appendActiveDay(activeDays, today),
     },
   }
 }

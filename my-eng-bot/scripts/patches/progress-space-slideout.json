@@ -1,0 +1,6 @@
+[
+  [
+    "        onOpenLearningLesson={openOrContinueLearningLesson}\n        onOpenReferenceTopic={openReferenceTopic}\n        onOpenQuickTest={openQuickTest}",
+    "        onOpenLearningLesson={openOrContinueLearningLesson}\n        onOpenReferenceTopic={openReferenceTopic}\n        onOpenProgressSpace={openProgressSpace}\n        onOpenQuickTest={openQuickTest}"
+  ]
+]

@@ -429,6 +429,7 @@ import {
   LessonIntroScreen,
   LessonStepRenderer,
   ReferenceSheetScreen,
+  ProgressSheetScreen,
   MenuSectionPanels,
   PracticeScreen,
   VocabularyByLevelScreen,
@@ -1030,6 +1031,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
+  const [progressSpaceActive, setProgressSpaceActive] = useState(false)
+  const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
   const [engvoProvider, setEngvoProvider] = useState<EngvoProvider>(ENGVO_DEFAULT_PROVIDER)
@@ -3879,6 +3882,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
     setVocabularyFooterView(null)
+    setProgressSpaceActive(false)
     setAdaptiveFooterView(null)
     if (!options?.keepLessonMenuContext) {
       setLessonMenuContext(null)
@@ -5173,6 +5177,55 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('lessons')
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsByLevel' })
   }, [resetStructuredLessonSession])
+
+  const openProgressSpace = useCallback(() => {
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setProgressSpaceActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('root')
+  }, [resetStructuredLessonSession])
+
+  const backFromProgressSpace = useCallback(() => {
+    setProgressSpaceActive(false)
+    setDialogStarted(false)
+    setHomeMenuView('root')
+    setMenuOpen(true)
+  }, [])
+
+  const openMyPlanFromProgress = useCallback(() => {
+    setProgressSpaceActive(false)
+    setDialogStarted(false)
+    setHomeMenuView('myPlan')
+    setMenuOpen(false)
+  }, [])
+
+  const openNearRewardFromProgress = useCallback(
+    async (opportunity: { lessonId: string }) => {
+      if (progressPracticeBusy) return
+      setProgressPracticeBusy(true)
+      try {
+        setProgressSpaceActive(false)
+        await openPracticeSession({
+          lessonId: opportunity.lessonId,
+          mode: 'balanced',
+          entrySource: 'progress',
+        })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Practice open failed'
+        setMenuLessonBgError(message)
+        setDialogStarted(false)
+        setHomeMenuView('root')
+        setMenuOpen(true)
+      } finally {
+        setProgressPracticeBusy(false)
+      }
+    },
+    [openPracticeSession, progressPracticeBusy]
+  )
 
   const generatePracticeSession = useCallback(
     async (request: PracticeOpenRequest) => {
@@ -7018,6 +7071,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
   const isAccentActive = accentTrainerActive
   const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
+  const isProgressSpaceActive = progressSpaceActive
   const activeLessonIntro =
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
@@ -7051,6 +7105,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         isLessonBriefingActive,
         isTutorLessonPending,
         isReferenceSheetActive,
+        isProgressSpaceActive,
       }),
     [
       dialogStarted,
@@ -7061,6 +7116,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       isLessonIntroActive,
       isLessonTipsActive,
       isPracticeActive,
+      isProgressSpaceActive,
       isReferenceSheetActive,
       isStructuredLessonActive,
       isTutorLessonPending,
@@ -9110,6 +9166,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onChatPatternTuningReset={handleChatPatternTuningReset}
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onOpenReferenceTopic={openReferenceTopic}
+                    onOpenProgressSpace={openProgressSpace}
                     onOpenQuickTest={openQuickTest}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
@@ -9169,7 +9226,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 </div>
               )}
               <div className="flex min-h-0 flex-1 flex-col">
-                {isVocabularyHubActive ? (
+                {isProgressSpaceActive ? (
+                  <ProgressSheetScreen
+                    rewardsState={rewardsState}
+                    settings={settings}
+                    usage={usage}
+                    dialogueCorrectAnswers={dialogueCorrectAnswers}
+                    onBack={backFromProgressSpace}
+                    onOpenMyPlan={openMyPlanFromProgress}
+                    onOpenNearReward={openNearRewardFromProgress}
+                    practiceBusy={progressPracticeBusy}
+                  />
+                ) : isVocabularyHubActive ? (
                   vocabularyWorldsActive ? (
                     <VocabularyWorldsScreen
                       onBackToLessons={backToVocabularyMenu}
@@ -9638,6 +9706,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onOpenReferenceTopic={openReferenceTopic}
+        onOpenProgressSpace={openProgressSpace}
         onOpenQuickTest={openQuickTest}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}

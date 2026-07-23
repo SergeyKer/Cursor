@@ -1,0 +1,34 @@
+[
+  [
+    "  ReferenceSheetScreen,\n  MenuSectionPanels,\n  PracticeScreen,\n  VocabularyByLevelScreen,\n  VocabularyWorldsScreen,\n} from '@/lib/start/appBranchComponents'",
+    "  ReferenceSheetScreen,\n  ProgressSheetScreen,\n  MenuSectionPanels,\n  PracticeScreen,\n  VocabularyByLevelScreen,\n  VocabularyWorldsScreen,\n} from '@/lib/start/appBranchComponents'"
+  ],
+  [
+    "  const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)\n  const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)\n  const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)",
+    "  const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)\n  const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)\n  const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)\n  const [progressSpaceActive, setProgressSpaceActive] = useState(false)\n  const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)"
+  ],
+  [
+    "    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setVocabularyFooterView(null)\n    setAdaptiveFooterView(null)",
+    "    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setVocabularyFooterView(null)\n    setProgressSpaceActive(false)\n    setAdaptiveFooterView(null)"
+  ],
+  [
+    "  const openVocabularyByLevel = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsByLevel' })\n  }, [resetStructuredLessonSession])",
+    "  const openVocabularyByLevel = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsByLevel' })\n  }, [resetStructuredLessonSession])\n\n  const openProgressSpace = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setProgressSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [resetStructuredLessonSession])\n\n  const backFromProgressSpace = useCallback(() => {\n    setProgressSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('root')\n    setMenuOpen(true)\n  }, [])\n\n  const openMyPlanFromProgress = useCallback(() => {\n    setProgressSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('myPlan')\n    setMenuOpen(false)\n  }, [])\n\n  const openNearRewardFromProgress = useCallback(\n    async (opportunity: { lessonId: string }) => {\n      if (progressPracticeBusy) return\n      setProgressPracticeBusy(true)\n      try {\n        setProgressSpaceActive(false)\n        await openPracticeSession({\n          lessonId: opportunity.lessonId,\n          mode: 'balanced',\n          entrySource: 'progress',\n        })\n      } catch (error) {\n        const message = error instanceof Error ? error.message : 'Practice open failed'\n        setMenuLessonBgError(message)\n        setDialogStarted(false)\n        setHomeMenuView('root')\n        setMenuOpen(true)\n      } finally {\n        setProgressPracticeBusy(false)\n      }\n    },\n    [openPracticeSession, progressPracticeBusy]\n  )"
+  ],
+  [
+    "  const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive",
+    "  const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive\n  const isProgressSpaceActive = progressSpaceActive"
+  ],
+  [
+    "        isTutorLessonPending,\n        isReferenceSheetActive,\n      }),\n    [\n      dialogStarted,\n      engvoVoiceMode,\n      homeMenuView,\n      isAccentActive,\n      isLessonBriefingActive,\n      isLessonIntroActive,\n      isLessonTipsActive,\n      isPracticeActive,\n      isReferenceSheetActive,\n      isStructuredLessonActive,\n      isTutorLessonPending,\n      isVocabularyHubActive,\n    ]",
+    "        isTutorLessonPending,\n        isReferenceSheetActive,\n        isProgressSpaceActive,\n      }),\n    [\n      dialogStarted,\n      engvoVoiceMode,\n      homeMenuView,\n      isAccentActive,\n      isLessonBriefingActive,\n      isLessonIntroActive,\n      isLessonTipsActive,\n      isPracticeActive,\n      isProgressSpaceActive,\n      isReferenceSheetActive,\n      isStructuredLessonActive,\n      isTutorLessonPending,\n      isVocabularyHubActive,\n    ]"
+  ],
+  [
+    "                {isVocabularyHubActive ? (\n                  vocabularyWorldsActive ? (\n                    <VocabularyWorldsScreen",
+    "                {isProgressSpaceActive ? (\n                  <ProgressSheetScreen\n                    rewardsState={rewardsState}\n                    settings={settings}\n                    usage={usage}\n                    dialogueCorrectAnswers={dialogueCorrectAnswers}\n                    onBack={backFromProgressSpace}\n                    onOpenMyPlan={openMyPlanFromProgress}\n                    onOpenNearReward={openNearRewardFromProgress}\n                    practiceBusy={progressPracticeBusy}\n                  />\n                ) : isVocabularyHubActive ? (\n                  vocabularyWorldsActive ? (\n                    <VocabularyWorldsScreen"
+  ],
+  [
+    "                    onOpenReferenceTopic={openReferenceTopic}",
+    "                    onOpenReferenceTopic={openReferenceTopic}\n                    onOpenProgressSpace={openProgressSpace}"
+  ]
+]

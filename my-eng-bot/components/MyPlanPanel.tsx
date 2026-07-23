@@ -123,6 +123,7 @@ export interface MyPlanPanelProps {
   }) => Promise<void> | void
   onOpenVocabularyWorlds?: () => void | Promise<void>
   onMenuViewChange?: (view: 'lessons' | 'progress' | 'myPlan') => void
+  onOpenProgressSpace?: () => void
   onMarkOpenedFromMyPlan?: () => void
 }
 
@@ -142,6 +143,7 @@ export default function MyPlanPanel({
   onGeneratePracticeSession,
   onOpenVocabularyWorlds,
   onMenuViewChange,
+  onOpenProgressSpace,
   onMarkOpenedFromMyPlan,
 }: MyPlanPanelProps) {
   const [practiceBusy, setPracticeBusy] = useState(false)
@@ -398,13 +400,17 @@ export default function MyPlanPanel({
           {' · '}
           {myPlanLevelLine(status.level, status.totalXP, audience)}
         </p>
-        {onMenuViewChange ? (
+        {onMenuViewChange || onOpenProgressSpace ? (
           <button
             type="button"
             className="mt-1 min-h-[40px] py-1 text-left text-[15px] font-medium text-[var(--text)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text)]"
             onClick={() => {
               trackMyPlanEvent('my_plan_progress_link', { audience })
-              onMenuViewChange('progress')
+              if (onOpenProgressSpace) {
+                onOpenProgressSpace()
+                return
+              }
+              onMenuViewChange?.('progress')
             }}
           >
             {copy.statusLink}

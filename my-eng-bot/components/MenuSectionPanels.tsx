@@ -506,6 +506,8 @@ export interface MenuSectionPanelsProps {
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   /** Открыть шпаргалку справочника по теме урока. */
   onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
+  /** Full-screen пространство Прогресс (progressSpaceV1). */
+  onOpenProgressSpace?: () => void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
   onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
   /** DEBUG: сразу к финалу практики. Удалить после редактирования. */
@@ -629,6 +631,7 @@ export default function MenuSectionPanels({
   onAiChatPanelChange,
   onOpenLearningLesson,
   onOpenReferenceTopic,
+  onOpenProgressSpace,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
@@ -2012,7 +2015,16 @@ export default function MenuSectionPanels({
                   }}
                 />
               ) : null}
-              <MenuNavRow label="Прогресс" onClick={() => onMenuViewChange('progress')} />
+              <MenuNavRow
+                label="Прогресс"
+                onClick={() => {
+                  if (featureFlags.progressSpaceV1 && onOpenProgressSpace) {
+                    onOpenProgressSpace()
+                    return
+                  }
+                  onMenuViewChange('progress')
+                }}
+              />
               <MenuNavRow label="Мой план" onClick={() => onMenuViewChange('myPlan')} />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
               <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
@@ -3877,7 +3889,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           />
         )}
 
-        {menuView === 'progress' && (
+        {menuView === 'progress' && !(featureFlags.progressSpaceV1 && onOpenProgressSpace) && (
           <ProgressPanel
             rewardsState={rewardsState}
             settings={settings}
@@ -3912,6 +3924,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             onGeneratePracticeSession={onGeneratePracticeSession}
             onOpenVocabularyWorlds={onOpenVocabularyWorlds}
             onMenuViewChange={onMenuViewChange}
+            onOpenProgressSpace={onOpenProgressSpace}
             onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
           />
         )}

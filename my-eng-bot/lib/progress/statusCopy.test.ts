@@ -7,6 +7,7 @@ describe('buildProgressStatusCopy', () => {
   it('marks streak active today without action CTA words', () => {
     const state = createDefaultRewardsState()
     state.progress.lastActiveDate = '2026-07-18'
+    state.progress.dailyStreak = 2
     state.modeGoals.communication.status = 'in_progress'
     state.modeGoals.communication.goalProgress = 3
     state.modeGoals.communication.goalTarget = 7
@@ -21,6 +22,9 @@ describe('buildProgressStatusCopy', () => {
     })
 
     expect(status.streakStatusLine).toMatch(/уже есть|зафиксирована/i)
+    expect(status.activeToday).toBe(true)
+    expect(status.streakAtRisk).toBe(false)
+    expect(status.streakEmpty).toBe(false)
     expect(status.modeGoals[0].line).toContain('3')
     expect(status.modeGoals[0].line).toContain('7')
     expect(status.focusPercent).toBeGreaterThan(0)
@@ -59,5 +63,36 @@ describe('buildProgressStatusCopy', () => {
     })
     expect(status.opportunity?.label).toContain('Present')
     expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('открой')
+  })
+
+  it('marks streak at risk when not active today', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 3
+    state.progress.lastActiveDate = '2026-07-17'
+    const status = buildProgressStatusCopy({
+      rewardsState: state,
+      copy: progressCopy('adult'),
+      audience: 'adult',
+      cupsEnabled: false,
+      opportunity: null,
+      today: '2026-07-18',
+    })
+    expect(status.streakAtRisk).toBe(true)
+    expect(status.streakEmpty).toBe(false)
+    expect(status.streakStatusLine.toLowerCase()).toMatch(/угроз/)
+  })
+
+  it('marks streak empty at zero', () => {
+    const status = buildProgressStatusCopy({
+      rewardsState: createDefaultRewardsState(),
+      copy: progressCopy('child'),
+      audience: 'child',
+      cupsEnabled: false,
+      opportunity: null,
+      today: '2026-07-18',
+    })
+    expect(status.streakEmpty).toBe(true)
+    expect(status.streakAtRisk).toBe(false)
+    expect(status.streakStatusLine).toMatch(/0 дней/i)
   })
 })

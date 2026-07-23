@@ -22,6 +22,9 @@ export type ModeGoalStatusLine = {
 
 export type ProgressStatusCopy = {
   streakStatusLine: string
+  streakAtRisk: boolean
+  streakEmpty: boolean
+  activeToday: boolean
   modeGoals: ModeGoalStatusLine[]
   focusGoal: FocusModeGoal | null
   focusPercent: number
@@ -49,14 +52,26 @@ export function buildProgressStatusCopy(params: {
 }): ProgressStatusCopy {
   const today = params.today ?? getTodayDateString()
   const state = params.rewardsState
+  const dailyStreak = state?.progress.dailyStreak ?? 0
   const activeToday = state?.progress.lastActiveDate === today
-  const streakStatusLine = activeToday
-    ? params.audience === 'child'
-      ? 'Серия на сегодня уже есть.'
-      : 'Серия дней на сегодня зафиксирована.'
-    : params.audience === 'child'
-      ? 'Закрой цель сегодня — серия продолжится.'
-      : 'Закройте хотя бы одну цель сегодня, чтобы сохранить серию дней.'
+  const streakEmpty = dailyStreak <= 0
+  const streakAtRisk = dailyStreak > 0 && !activeToday
+
+  let streakStatusLine: string
+  if (streakEmpty) {
+    streakStatusLine =
+      params.audience === 'child' ? '0 дней. Начни сегодня!' : '0 дней. Начните сегодня!'
+  } else if (activeToday) {
+    streakStatusLine =
+      params.audience === 'child'
+        ? 'Серия на сегодня уже есть.'
+        : 'Серия дней на сегодня зафиксирована.'
+  } else {
+    streakStatusLine =
+      params.audience === 'child'
+        ? 'Серия под угрозой — закрой цель сегодня!'
+        : 'Серия под угрозой — закройте хотя бы одну цель сегодня.'
+  }
 
   const modes: ModeGoalId[] = ['communication', 'engvo']
   const modeGoals: ModeGoalStatusLine[] = modes.map((mode) => {
@@ -101,6 +116,9 @@ export function buildProgressStatusCopy(params: {
 
   return {
     streakStatusLine,
+    streakAtRisk,
+    streakEmpty,
+    activeToday,
     modeGoals,
     focusGoal,
     focusPercent,
