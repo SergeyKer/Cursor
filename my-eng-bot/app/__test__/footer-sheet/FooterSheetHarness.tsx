@@ -87,7 +87,7 @@ export default function FooterSheetHarness() {
   }, [theme])
 
   const handleFooterRowPress = useCallback(
-    (nextSource: Exclude<FooterSheetSource, 'language-note'>) => {
+    (nextSource: Exclude<FooterSheetSource, 'language-note' | 'call-review'>) => {
       if (shouldCloseFooterSheetOnRowPress(footerSheetContext, nextSource)) {
         footerSheetRef.current?.close()
         return

@@ -6,6 +6,11 @@ export {
 export { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
 export { PRACTICE_REFERENCE_COPY } from '@/lib/uiCopy/practiceCopy'
 export { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
+export {
+  CALL_REVIEW_COPY,
+  formatCallReviewCountNoun,
+  formatCallReviewSummaryLine,
+} from '@/lib/uiCopy/callReview'
 export { MY_PLAN_COPY, myPlanCopy, myPlanWhy, myPlanButton } from '@/lib/uiCopy/myPlan'
 export { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 export {

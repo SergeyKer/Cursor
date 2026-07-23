@@ -26,11 +26,20 @@ export const BLUE_SECONDARY_SKIN =
   'border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] text-white hover:brightness-105 active:brightness-95'
 
 /**
- * Card-footer launch (Progress / future My Plan cards).
+ * Card-footer launch (Progress / My Plan cards).
  * Softer than secondary; do NOT reuse or mutate BLUE_SECONDARY_SKIN.
+ * Avoid from-[#eff6ff] — collides with --status-info-bg on near-reward.
  */
 export const CARD_LAUNCH_SKIN =
-  'border border-[#93c5fd] bg-gradient-to-b from-[#bfdbfe] to-[#93c5fd] text-[#1e3a8a] hover:brightness-105 active:brightness-95'
+  'border border-[#93c5fd] bg-gradient-to-b from-[#dbeafe] to-[#93c5fd] text-[#1e40af] hover:brightness-105 active:brightness-95'
+
+/**
+ * Card-footer expand (Progress drill-in / My Plan secondary strip).
+ * Softer teal than launch; do NOT reuse or mutate BLUE_SECONDARY_SKIN / --invitation.
+ * Hover/press brightness matches launch (not white action).
+ */
+export const CARD_EXPAND_SKIN =
+  'border border-[#5eead4] bg-gradient-to-b from-[#ccfbf1] to-[#99f6e4] text-[#115e59] hover:brightness-105 active:brightness-95'
 
 /** Full-width card 3rd-layer launch strip. */
 export const APP_BTN_CARD_LAUNCH_FOOTER = [
@@ -41,10 +50,19 @@ export const APP_BTN_CARD_LAUNCH_FOOTER = [
   BTN_DISABLED_CLASS,
 ].join(' ')
 
-/** Full-width card 3rd-layer action / drill-in strip (white). */
+/** Full-width card 3rd-layer expand strip (teal). */
+export const APP_BTN_CARD_EXPAND_FOOTER = [
+  BTN_INTERACTION_BASE,
+  CARD_EXPAND_SKIN,
+  'flex w-full min-h-11 items-center justify-center rounded-none px-4 py-2.5 text-center',
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+].join(' ')
+
+/** Full-width card action / navigate (white, rounded — like Progress composer My Plan). */
 export const APP_BTN_CARD_ACTION_FOOTER = [
   BTN_INTERACTION_BASE,
-  'flex w-full min-h-11 items-center justify-center rounded-none border border-[var(--border)] bg-white px-4 py-2.5 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
+  'flex w-full min-h-11 items-center justify-center rounded-xl border border-[var(--border)] bg-white px-4 py-2.5 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
   BTN_FONT_INLINE,
   BTN_DISABLED_CLASS,
 ].join(' ')

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   abortSilentAssessInFlight,
   requestSilentLanguageNote,
+  scheduleSilentAssess,
   SILENT_ASSESS_TIMEOUT_MS,
 } from '@/lib/learningMemory/silentAssess'
 import { clearLearningSignals, saveLearningSignal } from '@/lib/learningMemory/storage'
@@ -97,5 +98,75 @@ describe('silentAssess', () => {
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(result.ok).toBe(true)
+  })
+
+  it('scheduleSilentAssess onNote fires for needs_fix only', async () => {
+    vi.stubGlobal('window', { localStorage: memoryStorage() })
+    const onNote = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        note: {
+          status: 'needs_fix',
+          original: 'I go yesterday',
+          correct: 'I went yesterday',
+          correctHighlights: [],
+          correctReasons: ['Past'],
+          better: null,
+          betterHighlights: [],
+          betterReasons: [],
+          betterAlternatives: [],
+          reviewTopics: [],
+          lessonId: null,
+          lessonTitle: null,
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    scheduleSilentAssess({
+      text: 'I go yesterday to the park',
+      provider: 'openai',
+      audience: 'adult',
+      mode: 'engvo',
+      source: 'call',
+      onNote,
+    })
+    await vi.waitFor(() => expect(onNote).toHaveBeenCalledTimes(1))
+    expect(onNote.mock.calls[0]?.[0]?.status).toBe('needs_fix')
+  })
+
+  it('scheduleSilentAssess onNote skips needs_better', async () => {
+    vi.stubGlobal('window', { localStorage: memoryStorage() })
+    const onNote = vi.fn()
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        note: {
+          status: 'needs_better',
+          original: 'I go home',
+          correct: 'I went home',
+          correctHighlights: [],
+          correctReasons: [],
+          better: 'I headed home',
+          betterHighlights: [],
+          betterReasons: [],
+          betterAlternatives: [],
+          reviewTopics: [],
+          lessonId: null,
+          lessonTitle: null,
+        },
+      }),
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    scheduleSilentAssess({
+      text: 'I go home yesterday with friends',
+      provider: 'openai',
+      audience: 'adult',
+      mode: 'engvo',
+      source: 'call',
+      onNote,
+    })
+    await new Promise((r) => setTimeout(r, 50))
+    expect(onNote).not.toHaveBeenCalled()
   })
 })

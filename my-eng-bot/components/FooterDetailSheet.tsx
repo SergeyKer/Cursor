@@ -14,10 +14,12 @@ import {
   LanguageNoteSheetLoading,
   LanguageNoteSheetReady,
 } from '@/components/chat/LanguageNoteSheetBody'
+import { CallReviewSheetReady } from '@/components/chat/CallReviewSheetBody'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { resolveAppPanelHorizontalStyle } from '@/lib/appPanelLayout'
 import {
   FOOTER_SHEET_PLACEHOLDER_TEXT,
+  isLanguageNoteSkin,
   type FooterSheetContext,
 } from '@/lib/footerSheet'
 import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
@@ -273,10 +275,10 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
 
     if (!context) return null
 
-    const isLanguageNote = context.source === 'language-note'
+    const isNoteSkin = isLanguageNoteSkin(context.source)
     const panelClassName = [
       'footer-sheet-panel',
-      isLanguageNote ? 'footer-sheet-panel--language-note' : '',
+      isNoteSkin ? 'footer-sheet-panel--language-note' : '',
       open && !closing ? 'footer-sheet-panel--open' : '',
       closing ? 'footer-sheet-panel--closing' : '',
     ]
@@ -285,7 +287,7 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
 
     const bodyClassName = [
       'footer-sheet__body',
-      isLanguageNote ? 'footer-sheet__body--language-note' : '',
+      isNoteSkin ? 'footer-sheet__body--language-note' : '',
     ]
       .filter(Boolean)
       .join(' ')
@@ -295,6 +297,18 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
     const renderBody = () => {
       if (context.mode === 'placeholder') {
         return <p className="footer-sheet__placeholder">{FOOTER_SHEET_PLACEHOLDER_TEXT}</p>
+      }
+      if (context.source === 'call-review') {
+        if (context.callReviewSession) {
+          return (
+            <CallReviewSheetReady
+              session={context.callReviewSession}
+              onReviewTopicPress={onLanguageNoteReviewTopicPress}
+              reviewTopicsDisabled={languageNoteReviewTopicsDisabled}
+            />
+          )
+        }
+        return null
       }
       if (context.source !== 'language-note') return null
 
@@ -341,7 +355,11 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
           role="dialog"
           aria-modal="true"
           aria-labelledby="footer-sheet-title"
-          aria-busy={isLanguageNote && context.languageNoteStatus === 'loading' ? true : undefined}
+          aria-busy={
+            context.source === 'language-note' && context.languageNoteStatus === 'loading'
+              ? true
+              : undefined
+          }
           onTransitionEnd={handlePanelTransitionEnd}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}

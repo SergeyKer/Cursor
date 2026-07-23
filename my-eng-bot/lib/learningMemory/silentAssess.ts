@@ -3,6 +3,7 @@ import type { LanguageNote, LanguageNoteMode } from '@/lib/languageNote/types'
 import type { Audience, CommunicationVoiceInputMode } from '@/lib/types'
 import { featureFlags } from '@/lib/featureFlags'
 import { hashUtterance } from '@/lib/learningMemory/hash'
+import { shouldSaveLanguageNoteSignal } from '@/lib/learningMemory/filter'
 import { listLearningSignals } from '@/lib/learningMemory/storage'
 import { recordSilentAssessSignal } from '@/lib/learningMemory/record'
 
@@ -22,6 +23,11 @@ export type SilentAssessParams = {
   signal?: AbortSignal
   /** Skip if this utterance was already assessed / noted. */
   skipIfHashKnown?: boolean
+  /**
+   * Optional callback after a saveable note (needs_fix + same gates as memory).
+   * Invoked only when !aborted — for call-review session buffer.
+   */
+  onNote?: (note: LanguageNote) => void
 }
 
 export type SilentAssessResult =
@@ -113,11 +119,22 @@ export function scheduleSilentAssess(params: Omit<SilentAssessParams, 'signal'>)
       const result = await requestSilentLanguageNote({ ...params, signal: controller.signal })
       if (!result.ok || !('note' in result) || !result.note) return
       if (controller.signal.aborted) return
+      const note = result.note
       recordSilentAssessSignal({
-        note: result.note,
+        note,
         source: params.source,
         voiceMode: params.communicationVoiceInputMode,
       })
+      if (
+        params.onNote &&
+        shouldSaveLanguageNoteSignal(note.status, note.original, params.communicationVoiceInputMode)
+      ) {
+        try {
+          params.onNote(note)
+        } catch {
+          /* never break UX */
+        }
+      }
     } catch {
       /* never break UX */
     } finally {

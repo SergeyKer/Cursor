@@ -21,14 +21,11 @@ import type {
 } from '@/lib/myPlan/types'
 import {
   MY_PLAN_COPY,
+  buildNowCardView,
   buildProgramCardView,
   myPlanCopy,
-  myPlanInviteFromGoalType,
   myPlanLevelLine,
-  myPlanNowInvite,
   myPlanStreakLine,
-  myPlanTopicLine,
-  myPlanWhy,
 } from '@/lib/uiCopy/myPlan'
 import MyPlanCard from '@/components/myPlan/MyPlanCard'
 import MyPlanCardFooterButton from '@/components/myPlan/MyPlanCardFooterButton'
@@ -36,6 +33,7 @@ import {
   MY_PLAN_CARD_BODY_REASON,
   MY_PLAN_CARD_BODY_TITLE,
 } from '@/lib/myPlan/cardStyles'
+import { recordSoftFocusShown } from '@/lib/myPlan/softFocusRotation'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { Settings } from '@/lib/types'
 
@@ -50,17 +48,8 @@ function levelToCatalogLevel(level: Settings['level']): LessonCatalogLevel {
 const CHIP_CLASS =
   'language-note-topic-chip w-fit max-w-full min-w-0 rounded-lg border px-2.5 py-1.5 text-left font-sans text-[13px] font-normal leading-snug break-words text-[var(--text)]'
 
-const NOW_CARD_SHELL =
-  'chat-section-surface w-full min-w-0 overflow-hidden rounded-xl border border-[var(--chat-section-neutral-border)]'
-
-const NOW_HEADER_TITLE =
-  'break-words text-[16px] font-semibold leading-snug text-[var(--chat-label-main)]'
-
-const NOW_PRIMARY_HIT =
-  'w-full min-w-0 bg-white px-4 py-2.5 text-left touch-manipulation transition-[filter,opacity] active:brightness-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-inset'
-
-const NOW_REFERENCE_LINK =
-  'w-full min-w-0 border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-2 text-left text-[13px] font-medium text-[var(--text-muted)] underline decoration-[var(--border)] underline-offset-2 touch-manipulation hover:text-[var(--text)] hover:decoration-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40 focus-visible:ring-inset'
+const REFERENCE_LINK_CLASS =
+  'mt-1 break-words text-left text-[13px] font-medium text-[var(--text-muted)] underline decoration-[var(--border)] underline-offset-2 touch-manipulation hover:text-[var(--text)] hover:decoration-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60'
 
 function AttentionTopicChip({
   zone,
@@ -83,14 +72,6 @@ function AttentionTopicChip({
     )
   }
   return <div className={CHIP_CLASS}>{label}</div>
-}
-
-function nowHeaderClass(goalType: MyPlanRecommendation['goalType'] | undefined): string {
-  const tint =
-    goalType === 'reinforce'
-      ? 'bg-[var(--chat-section-amber)]'
-      : 'bg-[var(--chat-section-slate)]'
-  return `${tint} px-4 py-3`
 }
 
 function referenceLessonIdFromAction(action: MyPlanAction): string | null {
@@ -172,10 +153,6 @@ export default function MyPlanPanel({
   const showDebug = isLearningMemoryDebugEnabled()
   const audience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
-  const titleClass =
-    audience === 'child'
-      ? 'break-words text-[18px] font-semibold leading-snug text-[var(--text)]'
-      : 'break-words text-[17px] font-semibold leading-snug text-[var(--text)]'
 
   const legacyList = !nowGoalLayout && recommendations ? recommendations : null
   const resolvedMain = legacyList ? legacyList[0] ?? null : mainTask
@@ -192,6 +169,24 @@ export default function MyPlanPanel({
       programLessonId,
       anchorLevel,
     })
+    if (
+      resolvedMain?.goalType === 'improve_medal' ||
+      resolvedMain?.goalType === 'soft_return' ||
+      resolvedMain?.goalType === 'weak_spot' ||
+      (resolvedMain?.goalType === 'reinforce' && resolvedMain.id.startsWith('review-'))
+    ) {
+      const key =
+        resolvedMain.goalType === 'soft_return'
+          ? 'soft_return:global'
+          : resolvedMain.goalType === 'improve_medal' && resolvedMain.action.kind === 'open_lesson'
+            ? `improve_medal:${resolvedMain.action.lessonId}`
+            : resolvedMain.goalType === 'weak_spot' && resolvedMain.action.kind === 'weak_spot'
+              ? `weak_spot:${resolvedMain.action.spotId}`
+              : resolvedMain.action.kind === 'reinforce_skill'
+                ? `reinforce:${resolvedMain.action.skillTagId}`
+                : resolvedMain.id
+      recordSoftFocusShown(key)
+    }
   }, [audience, resolvedMain, programStatus, programTask, anchorLevel])
 
   useEffect(() => {
@@ -446,42 +441,41 @@ export default function MyPlanPanel({
 
   const secondaryBlock =
     resolvedSecondary.length > 0 ? (
-      <div className="w-full min-w-0 space-y-1.5">
-        <p className="text-[13px] font-medium text-[var(--text-muted)]">{copy.sectionMore}</p>
-        {resolvedSecondary.map((rec) => (
-          <button
-            key={rec.id}
-            type="button"
-            disabled={practiceBusy}
-            className="flex w-full min-h-[48px] min-w-0 items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5 text-left touch-manipulation disabled:opacity-60"
-            aria-label={rec.ariaLabel}
-            onClick={() => void handleAction(rec.action, 'secondary')}
-          >
-            <span className="min-w-0 flex-1 line-clamp-2 break-words text-[15px] font-medium leading-snug text-[var(--text)]">
-              {rec.title}
-            </span>
-            <span className="shrink-0 text-[var(--text-muted)]" aria-hidden>
-              →
-            </span>
-          </button>
-        ))}
+      <div className="w-full min-w-0 space-y-3">
+        {resolvedSecondary.map((rec) => {
+          const view = buildNowCardView({
+            audience,
+            task: {
+              title: rec.title,
+              reasonLine: rec.reasonLine,
+              buttonLabel: rec.buttonLabel,
+              ariaLabel: rec.ariaLabel,
+              timeLabel: rec.timeLabel,
+            },
+          })
+          return (
+            <MyPlanCard
+              key={rec.id}
+              title={copy.sectionMore}
+              footer={
+                view.footer ? (
+                  <MyPlanCardFooterButton
+                    variant={view.footer.variant}
+                    label={view.footer.label}
+                    ariaLabel={view.footer.ariaLabel}
+                    disabled={practiceBusy}
+                    onClick={() => void handleAction(rec.action, 'secondary')}
+                  />
+                ) : null
+              }
+            >
+              <p className={MY_PLAN_CARD_BODY_TITLE}>{view.bodyTitle}</p>
+              <p className={MY_PLAN_CARD_BODY_REASON}>{view.bodyReason}</p>
+            </MyPlanCard>
+          )
+        })}
       </div>
     ) : null
-
-  const showPaywall =
-    Boolean(resolvedMain) &&
-    showAdultPaywallHint &&
-    audience === 'adult' &&
-    resolvedMain?.goalType === 'reinforce' &&
-    !canUseAiReinforce()
-
-  const referenceLessonId =
-    resolvedMain && featureFlags.referenceV1 && onOpenReferenceTopic
-      ? (() => {
-          const lessonId = referenceLessonIdFromAction(resolvedMain.action)
-          return lessonId && isReferenceLessonId(lessonId) ? lessonId : null
-        })()
-      : null
 
   const programView = buildProgramCardView({
     audience,
@@ -529,37 +523,91 @@ export default function MyPlanPanel({
 
   const showEmptyMainFallback = !resolvedMain && programStatus === 'no_catalog'
 
+  const nowCardFromTask = (task: MyPlanRecommendation, source: 'main' | 'secondary') => {
+    const view = buildNowCardView({
+      audience,
+      task: {
+        title: task.title,
+        reasonLine: task.reasonLine,
+        buttonLabel: task.buttonLabel,
+        ariaLabel: task.ariaLabel,
+        timeLabel: task.timeLabel,
+      },
+    })
+    const refId =
+      source === 'main' && featureFlags.referenceV1 && onOpenReferenceTopic
+        ? (() => {
+            const lessonId = referenceLessonIdFromAction(task.action)
+            return lessonId && isReferenceLessonId(lessonId) ? lessonId : null
+          })()
+        : null
+    const showPaywallHint =
+      source === 'main' &&
+      showAdultPaywallHint &&
+      audience === 'adult' &&
+      task.goalType === 'reinforce' &&
+      !canUseAiReinforce()
+
+    return (
+      <MyPlanCard
+        title={view.headerTitle}
+        footer={
+          view.footer ? (
+            <MyPlanCardFooterButton
+              variant={view.footer.variant}
+              label={view.footer.label}
+              ariaLabel={view.footer.ariaLabel}
+              disabled={practiceBusy}
+              onClick={() => void handleAction(task.action, source)}
+            />
+          ) : null
+        }
+      >
+        <p className={MY_PLAN_CARD_BODY_TITLE}>{view.bodyTitle}</p>
+        <p className={MY_PLAN_CARD_BODY_REASON}>{view.bodyReason}</p>
+        {showPaywallHint ? (
+          <p className="break-words text-[12px] leading-snug text-[var(--text-muted)]">
+            {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
+          </p>
+        ) : null}
+        {practiceBusy && source === 'main' ? (
+          <p className="break-words text-[13px] text-[var(--text-muted)]">{copy.busy}</p>
+        ) : null}
+        {refId ? (
+          <button
+            type="button"
+            disabled={practiceBusy}
+            className={REFERENCE_LINK_CLASS}
+            aria-label={copy.referenceLink}
+            onClick={() => void handleAction({ kind: 'open_reference', lessonId: refId }, 'secondary')}
+          >
+            {copy.referenceLink}
+          </button>
+        ) : null}
+      </MyPlanCard>
+    )
+  }
+
   if (showEmptyMainFallback) {
-    const emptyInvite = myPlanNowInvite('empty', audience)
-    const emptyTitle = myPlanTopicLine('lessons')
-    const emptyWhy = myPlanWhy('empty', audience)
+    const emptyView = buildNowCardView({ audience, task: null })
     return (
       <div className="w-full min-w-0 space-y-3">
-        <section className={NOW_CARD_SHELL}>
-          <div className={nowHeaderClass(undefined)}>
-            <p className={NOW_HEADER_TITLE}>{emptyInvite}</p>
-          </div>
-          {onMenuViewChange ? (
-            <button
-              type="button"
-              className={`${NOW_PRIMARY_HIT} border-t border-[var(--chat-section-neutral-border)]`}
-              aria-label={`${emptyInvite}: ${emptyTitle}`}
-              onClick={() => onMenuViewChange('lessons')}
-            >
-              <p className={titleClass}>{emptyTitle}</p>
-              <p className="mt-1.5 break-words text-[14px] leading-snug text-[var(--text-muted)]">
-                {emptyWhy}
-              </p>
-            </button>
-          ) : (
-            <div className="border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-2.5">
-              <p className={titleClass}>{emptyTitle}</p>
-              <p className="mt-1.5 break-words text-[14px] leading-snug text-[var(--text-muted)]">
-                {emptyWhy}
-              </p>
-            </div>
-          )}
-        </section>
+        <MyPlanCard
+          title={emptyView.headerTitle}
+          footer={
+            emptyView.footer && onMenuViewChange ? (
+              <MyPlanCardFooterButton
+                variant={emptyView.footer.variant}
+                label={emptyView.footer.label}
+                ariaLabel={emptyView.footer.ariaLabel}
+                onClick={() => onMenuViewChange('lessons')}
+              />
+            ) : null
+          }
+        >
+          <p className={MY_PLAN_CARD_BODY_TITLE}>{emptyView.bodyTitle}</p>
+          <p className={MY_PLAN_CARD_BODY_REASON}>{emptyView.bodyReason}</p>
+        </MyPlanCard>
         {programCardBlock}
         {statusBlock}
         {zonesBlock}
@@ -580,50 +628,9 @@ export default function MyPlanPanel({
     )
   }
 
-  const invite = myPlanInviteFromGoalType(resolvedMain.goalType, audience)
-
   return (
     <div className="w-full min-w-0 space-y-3">
-      <section className={NOW_CARD_SHELL}>
-        <div className={nowHeaderClass(resolvedMain.goalType)}>
-          <p className={NOW_HEADER_TITLE}>{invite}</p>
-        </div>
-        <button
-          type="button"
-          disabled={practiceBusy}
-          className={`${NOW_PRIMARY_HIT} border-t border-[var(--chat-section-neutral-border)]`}
-          aria-label={resolvedMain.ariaLabel}
-          onClick={() => void handleAction(resolvedMain.action, 'main')}
-        >
-          <p className={titleClass}>{resolvedMain.title}</p>
-          <p className="mt-1.5 break-words text-[14px] leading-snug text-[var(--text-muted)]">
-            {resolvedMain.reasonLine}
-            {resolvedMain.timeLabel ? ` · ${resolvedMain.timeLabel}` : ''}
-          </p>
-          {showPaywall ? (
-            <p className="mt-1.5 break-words text-[12px] leading-snug text-[var(--text-muted)]">
-              {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
-            </p>
-          ) : null}
-          {practiceBusy ? (
-            <p className="mt-1.5 text-[13px] text-[var(--text-muted)]">{copy.busy}</p>
-          ) : null}
-        </button>
-        {referenceLessonId ? (
-          <button
-            type="button"
-            disabled={practiceBusy}
-            className={NOW_REFERENCE_LINK}
-            aria-label={copy.referenceLink}
-            onClick={() =>
-              void handleAction({ kind: 'open_reference', lessonId: referenceLessonId }, 'secondary')
-            }
-          >
-            {copy.referenceLink}
-          </button>
-        ) : null}
-      </section>
-
+      {nowCardFromTask(resolvedMain, 'main')}
       {programCardBlock}
       {secondaryBlock}
       {statusBlock}

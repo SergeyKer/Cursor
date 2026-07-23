@@ -170,7 +170,12 @@ export default function ProgressSheetScreen({
   ) => {
     trackProgressEvent('progress_footer_click', {
       audience,
-      variant: target.kind === 'my_plan' || target.kind === 'detail' ? 'action' : 'launch',
+      variant:
+        target.kind === 'detail'
+          ? 'expand'
+          : target.kind === 'my_plan'
+            ? 'action'
+            : 'launch',
       surface,
     })
     if (target.kind === 'my_plan') {
@@ -450,7 +455,7 @@ export default function ProgressSheetScreen({
         title={copy.awardsTitle}
         footer={
           <ProgressFooterButton
-            variant="action"
+            variant="expand"
             label={copy.awardsOpen}
             ariaLabel={copy.awardsOpenAria}
             onClick={() => launch({ kind: 'detail', detail: 'awards' }, 'awards')}
@@ -474,7 +479,7 @@ export default function ProgressSheetScreen({
           title={copy.calendarTitle}
           footer={
             <ProgressFooterButton
-              variant={todayActive ? 'action' : 'launch'}
+              variant={todayActive ? 'expand' : 'launch'}
               label={todayActive ? copy.calendarOpen : copy.calendarDoToday}
               disabled={practiceBusy && !todayActive}
               onClick={() => {
@@ -517,7 +522,7 @@ export default function ProgressSheetScreen({
           remarks.length > 0 ? (
             <ProgressFooterButton
               variant={
-                attentionZones[0]?.lessonId && attentionZones[0].chipActive ? 'launch' : 'action'
+                attentionZones[0]?.lessonId && attentionZones[0].chipActive ? 'launch' : 'expand'
               }
               label={
                 attentionZones[0]?.lessonId && attentionZones[0].chipActive

@@ -149,7 +149,7 @@ describe('selectNowGoal', () => {
     expect(mainTask?.goalType).toBe('soft_return')
   })
 
-  it('secondary не дублирует lessonId main', () => {
+  it('secondary при RESCUE пустой (не мешает soft)', () => {
     const input = emptyInput({
       lessons: {
         '1': {
@@ -164,17 +164,87 @@ describe('selectNowGoal', () => {
     })
     const { mainTask, secondary } = selectNowGoal(input)
     expect(mainTask?.action.kind).toBe('resume_lesson')
+    expect(secondary).toEqual([])
+  })
+
+  it('secondary не дублирует lessonId main в REPAIR', () => {
+    const input = emptyInput({
+      attentionZones: [
+        zone({ lessonId: '1', skillTagId: 'to-be', title: 'To be', errorCount: 5, score: 50 }),
+        zone({
+          lessonId: '2',
+          skillTagId: 'food',
+          title: 'Food',
+          errorCount: 2,
+          score: 10,
+        }),
+      ],
+    })
+    const { mainTask, secondary } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('reinforce')
     for (const s of secondary) {
       if (s.action.kind === 'open_lesson' || s.action.kind === 'resume_lesson') {
-        expect(s.action.lessonId).not.toBe('1')
-      }
-      if (s.action.kind === 'reinforce_skill') {
-        expect(s.action.lessonId).not.toBe('1')
-      }
-      if (s.action.kind === 'start_practice') {
-        expect(s.action.lessonId).not.toBe('1')
+        expect(s.action.lessonId).not.toBe(
+          mainTask?.action.kind === 'reinforce_skill' ? mainTask.action.lessonId : ''
+        )
       }
     }
+  })
+
+  it('bronze done без hard → improve_medal open_lesson', () => {
+    const input = emptyInput({
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'To be',
+          completedSteps: [1, 2, 3],
+          lastCompleted: '2026-05-14T10:00:00.000Z',
+          mistakesCount: 0,
+          medal: 'bronze',
+          lessonCompleted: true,
+        },
+      },
+      practiceCompleted: [
+        { lessonId: '1', completedAt: Date.parse('2026-05-14T11:00:00.000Z'), status: 'completed' },
+      ],
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('improve_medal')
+    expect(mainTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
+    expect(mainTask?.reasonLine).toMatch(/золот/)
+  })
+
+  it('MASTER soft rotation skips recentSoftKeys', () => {
+    const input = emptyInput({
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'To be',
+          completedSteps: [1],
+          lastCompleted: '2026-05-10T10:00:00.000Z',
+          mistakesCount: 0,
+          medal: 'bronze',
+          lessonCompleted: true,
+        },
+        '2': {
+          lessonId: '2',
+          topic: 'B',
+          completedSteps: [1],
+          lastCompleted: '2026-05-11T10:00:00.000Z',
+          mistakesCount: 0,
+          medal: 'silver',
+          lessonCompleted: true,
+        },
+      },
+      practiceCompleted: [
+        { lessonId: '1', completedAt: Date.parse('2026-05-10T12:00:00.000Z'), status: 'completed' },
+        { lessonId: '2', completedAt: Date.parse('2026-05-11T12:00:00.000Z'), status: 'completed' },
+      ],
+      recentSoftKeys: ['improve_medal:1'],
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('improve_medal')
+    expect(mainTask?.action).toEqual({ kind: 'open_lesson', lessonId: '2' })
   })
 
   it('zone без lessonId даёт живой CTA (quick_practice), не мёртвую кнопку', () => {
@@ -215,8 +285,8 @@ describe('selectNowGoal', () => {
     expect(mainTask?.goalType).toBe('incomplete')
     expect(mainTask?.title).toBe(`Урок: ${catalogTitle}`)
     expect(mainTask?.ariaLabel).toContain(catalogTitle)
-    expect(mainTask?.reasonLine).toMatch(/начинали/)
-    expect(mainTask?.reasonLine).toMatch(/не закончили/)
+    expect(mainTask?.reasonLine).toContain(catalogTitle)
+    expect(mainTask?.reasonLine).toMatch(/остановились|остановился/)
   })
 
   it('child copy на incomplete', () => {
@@ -235,8 +305,7 @@ describe('selectNowGoal', () => {
     const { mainTask } = selectNowGoal(input)
     expect(mainTask?.title).toBe('Урок: To be')
     expect(mainTask?.buttonLabel).toBe('Продолжить')
-    expect(mainTask?.reasonLine).toContain('начинал')
-    expect(mainTask?.reasonLine).toContain('закончим')
+    expect(mainTask?.reasonLine).toMatch(/остановился|To be/)
   })
 
   it('reinforce why includes errorCount', () => {

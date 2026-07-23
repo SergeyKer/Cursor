@@ -144,6 +144,7 @@ import {
   recordTeacherCorrectionSignal,
   scheduleSilentAssess,
   extractTeacherCorrection,
+  hashUtterance,
 } from '@/lib/learningMemory'
 import {
   patchMessagesWithTeacherMatchAttach,
@@ -225,12 +226,18 @@ import {
 import { resolveLocalReferencePracticeQuestions } from '@/lib/practice/resolveLocalReferencePracticeQuestions'
 import { FOOTER_DYNAMIC_MAX_LENGTH, pickFooterVoice, type FooterVoiceCandidate } from '@/lib/footerVoice'
 import {
+  buildCallReviewFooterSheetContext,
   buildFooterSheetContext,
   buildLanguageNoteFooterSheetContext,
   shouldCloseFooterSheetOnRowPress,
   type FooterSheetContext,
   type FooterSheetSource,
 } from '@/lib/footerSheet'
+import {
+  buildCallReview,
+  callReviewCardFromLanguageNote,
+  type CallReviewBufferItem,
+} from '@/lib/engvo/callReview'
 import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
@@ -1077,6 +1084,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   /** Пока `<audio>` реально играет удалённый WebRTC-поток - метер в чате должен смотреть на remote, даже если фаза уже `listening` (эхо/VAD). */
   const [engvoRemotePlaybackActive, setEngvoRemotePlaybackActive] = useState(false)
   const [engvoCallStartedAt, setEngvoCallStartedAt] = useState<number | null>(null)
+  const [callReviewBuffer, setCallReviewBuffer] = useState<CallReviewBufferItem[]>([])
+  const callReviewEpochRef = React.useRef(0)
+  const callReviewSeqRef = React.useRef(0)
+  const messagesRef = React.useRef(messages)
+  messagesRef.current = messages
   const structuredLessonChoiceShuffleSeed =
     activeStructuredLesson == null
       ? undefined
@@ -1557,6 +1569,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoErrorText(null)
   }, [guardEngvoAssistantContent, markEngvoAssistantAheadOfPendingUserTranscript, resetEngvoAssistantTurn])
 
+  const resetCallReviewBuffer = useCallback(() => {
+    callReviewEpochRef.current += 1
+    callReviewSeqRef.current = 0
+    setCallReviewBuffer([])
+    setFooterSheetContext((prev) => (prev?.source === 'call-review' ? null : prev))
+  }, [])
+
+  const pushCallReviewBufferItem = useCallback(
+    (item: Omit<CallReviewBufferItem, 'seq'>, epoch: number) => {
+      if (!featureFlags.engvoCallReviewV1) return
+      if (epoch !== callReviewEpochRef.current) return
+      const seq = ++callReviewSeqRef.current
+      setCallReviewBuffer((prev) => {
+        const without = prev.filter((p) => p.utteranceHash !== item.utteranceHash)
+        return [...without, { ...item, seq }]
+      })
+    },
+    []
+  )
+
   const commitEngvoAssistantText = useCallback(
     (text: string, responseId?: string | null): boolean => {
       const rawText = prepareEngvoAssistantRawText(text)
@@ -1580,6 +1612,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             userText,
             corrected: extracted.corrected,
           })
+          pushCallReviewBufferItem(
+            {
+              utteranceHash: hashUtterance(userText),
+              original: userText,
+              correct: extracted.corrected.trim(),
+              teacherEtalon: true,
+              reviewTopics: [],
+              lessonId: null,
+              sourceNote: null,
+            },
+            callReviewEpochRef.current
+          )
         }
         teacherMatchAttach = resolveTeacherMatchAttach({
           assistantRawText: rawText || cleanText,
@@ -1659,7 +1703,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setEngvoErrorText(null)
       return reclaimStarted
     },
-    [guardEngvoAssistantContent, markEngvoAssistantAheadOfPendingUserTranscript, resetEngvoAssistantTurn]
+    [
+      guardEngvoAssistantContent,
+      markEngvoAssistantAheadOfPendingUserTranscript,
+      pushCallReviewBufferItem,
+      resetEngvoAssistantTurn,
+    ]
   )
 
   const clearEngvoTimeout = useCallback((timeoutRef: React.MutableRefObject<number | null>) => {
@@ -1891,11 +1940,33 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
     engvoLastFinalUserTranscriptRef.current = ''
+    if (featureFlags.engvoCallReviewV1 && engvoSessionKindRef.current === 'teacher') {
+      const epoch = callReviewEpochRef.current
+      for (const m of messagesRef.current) {
+        if (m.role !== 'user') continue
+        const etalon = m.teacherExpectedEnglish?.trim()
+        if (!etalon) continue
+        const original = m.content.trim()
+        if (!original) continue
+        pushCallReviewBufferItem(
+          {
+            utteranceHash: hashUtterance(original),
+            original,
+            correct: etalon,
+            teacherEtalon: true,
+            reviewTopics: [],
+            lessonId: null,
+            sourceNote: null,
+          },
+          epoch
+        )
+      }
+    }
     setEngvoCallPhase('ended')
     setEngvoErrorText(null)
     setEngvoBootstrapServiceStatusVisible(false)
     appendEngvoCallFinishedMessage()
-  }, [appendEngvoCallFinishedMessage, cleanupEngvoRuntime])
+  }, [appendEngvoCallFinishedMessage, cleanupEngvoRuntime, pushCallReviewBufferItem])
 
   const setEngvoSessionError = useCallback(
     (message: string) => {
@@ -2647,6 +2718,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               }
               // Final coalesced user turn only — never on partials / near-duplicate coalesce.
               if (engvoSessionKindRef.current === 'free_call') {
+                const callReviewEpochAtSchedule = callReviewEpochRef.current
                 scheduleSilentAssess({
                   text: transcript,
                   provider: settings.provider === 'openai' ? 'openai' : 'openrouter',
@@ -2656,6 +2728,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   source: 'call',
                   recentAssistantText:
                     [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? null,
+                  onNote:
+                    featureFlags.engvoCallReviewV1
+                      ? (note) => {
+                          const item = callReviewCardFromLanguageNote(
+                            note,
+                            hashUtterance(note.original),
+                            0
+                          )
+                          if (!item) return
+                          const { seq: _seq, ...rest } = item
+                          pushCallReviewBufferItem(rest, callReviewEpochAtSchedule)
+                        }
+                      : undefined,
                 })
               }
             }
@@ -2840,6 +2925,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
 
     suppressSettingsChangeBannerRef.current = true
+    resetCallReviewBuffer()
     if (engvoRedialWithoutWelcomeRef.current) {
       engvoRedialWithoutWelcomeRef.current = false
       setMessages([
@@ -3253,6 +3339,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoXaiVoiceRotationMode,
     handleEngvoRealtimeMessage,
     maybeCommitEngvoAssistantMessage,
+    resetCallReviewBuffer,
     sendEngvoRealtimeEvent,
     clearEngvoSessionUpdateRetry,
     setEngvoSessionError,
@@ -4126,11 +4213,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const persistActiveStructuredLessonProgress = useCallback(
     (overrides?: { postLessonChoice?: PostLessonAction; lastCompleted?: string }) => {
       if (!activeStructuredLesson) return
-      if (lessonViewStage !== 'lesson') return
+      const isCompleted = activeStructuredLessonStatus === 'completed'
+      // Mid-save only in lesson view; complete always merges (anti-sticky).
+      if (!isCompleted && lessonViewStage !== 'lesson') return
 
       const lessonId = activeStructuredLesson.id
       const previous = loadLessonProgress(lessonId)
-      const isCompleted = activeStructuredLessonStatus === 'completed'
       const sessionBase = {
         lessonId,
         topic: activeStructuredLesson.topic,
@@ -8473,8 +8561,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   useEffect(() => {
     abortLanguageNoteRequest()
-    setFooterSheetContext((prev) => (prev?.source === 'language-note' ? null : prev))
+    setFooterSheetContext((prev) =>
+      prev?.source === 'language-note' || prev?.source === 'call-review' ? null : prev
+    )
   }, [settings.mode, engvoVoiceMode, abortLanguageNoteRequest])
+
+  useEffect(() => {
+    if (engvoVoiceMode) return
+    callReviewEpochRef.current += 1
+    callReviewSeqRef.current = 0
+    setCallReviewBuffer([])
+  }, [engvoVoiceMode])
 
   const engvoCallInProgressForTips =
     engvoVoiceMode &&
@@ -8486,7 +8583,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   useEffect(() => {
     if (!engvoCallInProgressForTips) return
     abortLanguageNoteRequest()
-    setFooterSheetContext((prev) => (prev?.source === 'language-note' ? null : prev))
+    setFooterSheetContext((prev) =>
+      prev?.source === 'language-note' || prev?.source === 'call-review' ? null : prev
+    )
   }, [engvoCallInProgressForTips, abortLanguageNoteRequest])
 
   const handleLanguageNoteInfoPress = useCallback(
@@ -8656,8 +8755,31 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [handleLanguageNoteInfoPress]
   )
 
+  const showCallReviewMark =
+    featureFlags.engvoCallReviewV1 &&
+    featureFlags.languageNoteV1 &&
+    engvoVoiceMode &&
+    engvoCallPhase === 'ended' &&
+    callReviewBuffer.length > 0
+
+  const handleCallReviewPress = useCallback(() => {
+    if (!featureFlags.engvoCallReviewV1 || !featureFlags.languageNoteV1) return
+    if (engvoCallInProgressForTips) return
+    if (callReviewBuffer.length === 0) return
+    const kind = engvoSessionKind === 'teacher' ? 'teacher' : 'free_call'
+    const session = buildCallReview(kind, callReviewBuffer)
+    if (session.cards.length === 0) return
+    abortLanguageNoteRequest()
+    setFooterSheetContext(buildCallReviewFooterSheetContext(session))
+  }, [
+    abortLanguageNoteRequest,
+    callReviewBuffer,
+    engvoCallInProgressForTips,
+    engvoSessionKind,
+  ])
+
   const handleFooterRowPress = useCallback(
-    (source: Exclude<FooterSheetSource, 'language-note'>) => {
+    (source: Exclude<FooterSheetSource, 'language-note' | 'call-review'>) => {
       if (shouldCloseFooterSheetOnRowPress(footerSheetContext, source)) {
         abortLanguageNoteRequest()
         footerSheetRef.current?.close()
@@ -9669,6 +9791,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onRequestTranslation={handleRequestTranslation}
                   loadingTranslationIndex={loadingTranslationIndex}
                   onLanguageNoteInfoPress={handleLanguageNoteInfoPress}
+                  showCallReviewMark={showCallReviewMark}
+                  onCallReviewPress={handleCallReviewPress}
                   onRequestEngvoCallTranslation={handleRequestEngvoCallTranslation}
                   loadingEngvoCallTranslationIndex={loadingEngvoCallTranslationIndex}
                   engvoCallTranslationPrefetchText={engvoCallTranslationPrefetchText}

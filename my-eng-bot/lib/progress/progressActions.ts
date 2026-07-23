@@ -2,11 +2,12 @@ import type { AttentionZone } from '@/lib/learningMemory/types'
 import { featureFlags } from '@/lib/featureFlags'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations, selectNowGoal } from '@/lib/myPlan/selectNowGoal'
+import { readRecentSoftKeys } from '@/lib/myPlan/softFocusRotation'
 import type { MyPlanAction, MyPlanRecommendation } from '@/lib/myPlan/types'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { Settings } from '@/lib/types'
 
-export type ProgressCtaVariant = 'launch' | 'action'
+export type ProgressCtaVariant = 'launch' | 'expand' | 'action'
 
 export type ProgressDetailKind = 'awards' | 'calendar' | 'remarks'
 
@@ -108,9 +109,13 @@ export function buildProgressMyPlanSnapshot(
   extras?: {
     attentionZones?: AttentionZone[]
     canUseAiReinforce?: boolean
+    recentSoftKeys?: string[]
   }
 ) {
-  const input = buildMyPlanLiveInput(settings, rewardsState ?? null, extras)
+  const input = buildMyPlanLiveInput(settings, rewardsState ?? null, {
+    ...extras,
+    recentSoftKeys: extras?.recentSoftKeys ?? readRecentSoftKeys(),
+  })
   if (!featureFlags.myPlanNowGoalV1) {
     const flat = getMyPlanRecommendations(input)
     return {

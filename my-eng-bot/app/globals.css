@@ -2299,6 +2299,21 @@ html[data-theme='glass3'] {
   color: var(--chat-user-text);
 }
 
+/* Assistant finished line: same geometry, text-token color for contrast on shell. */
+.language-note-user-line--assistant .language-note-info-mark {
+  color: color-mix(in srgb, var(--text) 72%, transparent);
+}
+
+.language-note-user-line--assistant .language-note-info-mark__glyph {
+  border-color: color-mix(in srgb, var(--text) 52%, transparent);
+}
+
+.language-note-user-line--assistant .language-note-info-mark:hover .language-note-info-mark__glyph,
+.language-note-user-line--assistant .language-note-info-mark:focus-visible .language-note-info-mark__glyph {
+  border-color: color-mix(in srgb, var(--text) 72%, transparent);
+  color: var(--text);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .language-note-skeleton-shimmer {
     animation: none !important;

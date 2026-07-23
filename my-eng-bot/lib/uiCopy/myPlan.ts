@@ -5,6 +5,7 @@ export type MyPlanWhyKind =
   | 'reinforce'
   | 'practice_after_theory'
   | 'next'
+  | 'improve_medal'
   | 'soft_return'
   | 'weak_spot'
   | 'empty'
@@ -14,6 +15,7 @@ export type MyPlanInviteKind =
   | 'next_lesson'
   | 'practice_after_theory'
   | 'reinforce'
+  | 'improve_medal'
   | 'soft_return'
   | 'weak_spot'
   | 'empty'
@@ -26,6 +28,7 @@ export type MyPlanButtonKind =
   | 'practice_after_theory'
   | 'reinforce_local'
   | 'reinforce_ai'
+  | 'improve_medal'
   | 'soft_return'
   | 'empty_lessons'
 
@@ -59,20 +62,13 @@ const INVITE: Record<MyPlanInviteKind, Record<MyPlanAudience, string>> = {
   next_lesson: { child: 'Начнём урок?', adult: 'Начнём урок?' },
   practice_after_theory: { child: 'Продолжим практику?', adult: 'Продолжим практику?' },
   reinforce: { child: 'Поправим ошибки?', adult: 'Поправим ошибки?' },
+  improve_medal: { child: 'Улучшим до золота?', adult: 'Улучшим до золота?' },
   soft_return: { child: 'С возвращением?', adult: 'С возвращением?' },
   weak_spot: { child: 'Подтянем слабое?', adult: 'Подтянем слабое место?' },
   empty: { child: 'С чего начнём?', adult: 'С чего начнём?' },
 }
 
-const WHY: Record<Exclude<MyPlanWhyKind, 'reinforce'>, Record<MyPlanAudience, string>> = {
-  incomplete: {
-    child: 'Ты уже начинал урок — давай закончим.',
-    adult: 'Вы уже начинали урок — не закончили. Продолжим.',
-  },
-  practice_after_theory: {
-    child: 'Урок пройден — закрепим в практике.',
-    adult: 'Теория есть — закроем практику по теме.',
-  },
+const WHY: Record<Exclude<MyPlanWhyKind, 'reinforce' | 'incomplete' | 'improve_medal' | 'practice_after_theory'>, Record<MyPlanAudience, string>> = {
   next: {
     child: 'Следующий шаг по программе.',
     adult: 'Следующий урок в программе.',
@@ -97,6 +93,7 @@ const BUTTONS: Record<MyPlanButtonKind, Record<MyPlanAudience, string>> = {
   practice_after_theory: { child: 'Повторить', adult: 'Закрепить в практике' },
   reinforce_local: { child: 'Попробовать снова', adult: 'Повторить слабое место' },
   reinforce_ai: { child: 'Персонально с ИИ', adult: 'Персональная практика (ИИ)' },
+  improve_medal: { child: 'Повторить урок', adult: 'Повторить урок' },
   soft_return: { child: 'Коротко позаниматься', adult: 'Короткая практика' },
   empty_lessons: { child: 'К урокам', adult: 'К разделу «Уроки»' },
 }
@@ -147,6 +144,8 @@ export function myPlanInviteFromGoalType(
       return myPlanNowInvite('practice_after_theory', audience)
     case 'reinforce':
       return myPlanNowInvite('reinforce', audience)
+    case 'improve_medal':
+      return myPlanNowInvite('improve_medal', audience)
     case 'soft_return':
       return myPlanNowInvite('soft_return', audience)
     case 'weak_spot':
@@ -174,14 +173,71 @@ export function myPlanTopicLine(kind: MyPlanTopicKind, topic?: string): string {
   }
 }
 
+export type MyPlanWhyExtras = {
+  errorCount?: number
+  topic?: string
+  zoneLabel?: string
+  anchorLevel?: string
+  incompleteCount?: number
+}
+
 export function myPlanWhy(
   kind: MyPlanWhyKind,
   audience: MyPlanAudience = 'adult',
-  extras?: { errorCount?: number }
+  extras?: MyPlanWhyExtras
 ): string {
   const a = audience === 'child' ? 'child' : 'adult'
+  const topic = extras?.topic?.trim()
+  const zoneLabel = extras?.zoneLabel?.trim()
+  const level = extras?.anchorLevel?.trim()
+  const incompleteCount = extras?.incompleteCount ?? 1
+
+  if (kind === 'incomplete') {
+    if (topic && incompleteCount > 1) {
+      return a === 'child'
+        ? `Из начатых — «${topic}» ближе в программе.`
+        : `Из начатых — «${topic}» ближе всего в программе.`
+    }
+    if (topic) {
+      return a === 'child' ? `Ты остановился на «${topic}».` : `Вы остановились на «${topic}».`
+    }
+    return a === 'child'
+      ? 'Ты уже начинал урок — давай закончим.'
+      : 'Вы уже начинали урок — не закончили. Продолжим.'
+  }
+
+  if (kind === 'practice_after_theory') {
+    if (topic) {
+      return a === 'child'
+        ? `Теория «${topic}» есть — закрепим в практике.`
+        : `Только что закрыли теорию «${topic}» — практика по ней.`
+    }
+    return a === 'child'
+      ? 'Урок пройден — закрепим в практике.'
+      : 'Теория есть — закроем практику по теме.'
+  }
+
+  if (kind === 'improve_medal') {
+    if (level && topic) {
+      return a === 'child'
+        ? `На ${level}: «${topic}» ещё без золота.`
+        : `На уровне ${level}: «${topic}» ещё без золота.`
+    }
+    if (topic) {
+      return a === 'child'
+        ? `«${topic}» ещё без золота — подтянем.`
+        : `«${topic}» ещё без золота — подтянем.`
+    }
+    return a === 'child' ? 'Есть медаль — добьём золото.' : 'Есть медаль — добьём золото.'
+  }
+
   if (kind === 'reinforce') {
     const n = extras?.errorCount
+    if (zoneLabel && typeof n === 'number' && n >= 1) {
+      return a === 'child'
+        ? `Чаще сбивает «${zoneLabel}» (${n}).`
+        : `Чаще всего сбивает «${zoneLabel}» — ${n} ошибок.`
+    }
     if (typeof n === 'number' && n >= 1) {
       return a === 'child'
         ? `Ты ошибся здесь ${n} раз.`
@@ -191,6 +247,7 @@ export function myPlanWhy(
       ? 'Тут часто ошибаешься — поправим.'
       : 'Много ошибок по теме — стоит закрепить.'
   }
+
   return WHY[kind][a]
 }
 
@@ -241,7 +298,7 @@ export function myPlanMoreOnLevel(count: number, audience: MyPlanAudience = 'adu
   return `Ещё ${n} на уровне.`
 }
 
-export type ProgramCardFooterVariant = 'launch' | 'action'
+export type ProgramCardFooterVariant = 'launch' | 'expand' | 'action'
 
 export type ProgramCardView = {
   headerTitle: string
@@ -305,7 +362,7 @@ export function buildProgramCardView(params: {
           ? 'Все уроки этого уровня закрыты.'
           : 'Все уроки этого уровня закрыты.',
       footer: {
-        variant: 'action',
+        variant: 'expand',
         label: copy.emptyCta,
         ariaLabel: copy.emptyCta,
       },
@@ -332,5 +389,47 @@ export function buildProgramCardView(params: {
         ? 'На уровне нечего открыть как новый.'
         : 'На уровне нечего открыть как новый.',
     footer: null,
+  }
+}
+
+/** View-model карточки «Сейчас» (тот же каркас, что program). */
+export function buildNowCardView(params: {
+  audience?: MyPlanAudience
+  task?: {
+    title: string
+    reasonLine: string
+    buttonLabel: string
+    ariaLabel: string
+    timeLabel?: string | null
+  } | null
+}): ProgramCardView {
+  const audience = params.audience === 'child' ? 'child' : 'adult'
+  const copy = myPlanCopy(audience)
+  const headerTitle = copy.sectionNow
+
+  if (params.task) {
+    const time = params.task.timeLabel?.trim()
+    const bodyReason = time ? `${params.task.reasonLine} · ${time}` : params.task.reasonLine
+    return {
+      headerTitle,
+      bodyTitle: params.task.title,
+      bodyReason,
+      footer: {
+        variant: 'launch',
+        label: params.task.buttonLabel,
+        ariaLabel: params.task.ariaLabel,
+      },
+    }
+  }
+
+  return {
+    headerTitle,
+    bodyTitle: copy.emptyTitle,
+    bodyReason: copy.emptyBody,
+    footer: {
+      variant: 'expand',
+      label: copy.emptyCta,
+      ariaLabel: copy.emptyCta,
+    },
   }
 }

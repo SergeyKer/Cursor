@@ -27,5 +27,7 @@ export const featureFlags = {
   referenceV1: process.env.NEXT_PUBLIC_FEATURE_REFERENCE_V1 !== 'false',
   /** Full-screen пространство «Прогресс». Default on; =false → старое меню ProgressPanel. */
   progressSpaceV1: process.env.NEXT_PUBLIC_FEATURE_PROGRESS_SPACE_V1 !== 'false',
+  /** Разбор звонка после hang-up (? на Call is finished). Default on; =false kill-switch. */
+  engvoCallReviewV1: process.env.NEXT_PUBLIC_FEATURE_ENGVO_CALL_REVIEW_V1 !== 'false',
 } as const
 

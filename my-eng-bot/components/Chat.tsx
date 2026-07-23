@@ -151,6 +151,9 @@ interface ChatProps {
   loadingTranslationIndex?: number | null
   /** Языковая подсказка (?) для user-пузырей в Общении/Звонке. */
   onLanguageNoteInfoPress?: (index: number) => void
+  /** Разбор звонка: ? на «Call is finished». */
+  showCallReviewMark?: boolean
+  onCallReviewPress?: () => void
   /** Звонок Engvo: отдельный prefetch-перевод (не трогает «Перевод» в Диалоге). */
   onRequestEngvoCallTranslation?: (index: number, text: string) => void
   loadingEngvoCallTranslationIndex?: number | null
@@ -1171,6 +1174,8 @@ export default function Chat({
   onRequestTranslation,
   loadingTranslationIndex,
   onLanguageNoteInfoPress,
+  showCallReviewMark = false,
+  onCallReviewPress,
   onRequestEngvoCallTranslation,
   loadingEngvoCallTranslationIndex,
   engvoCallTranslationPrefetchText = null,
@@ -2286,6 +2291,8 @@ export default function Chat({
                       onRequestTranslation={onRequestTranslation}
                       isLoadingTranslation={loadingTranslationIndex === i}
                       onLanguageNoteInfoPress={onLanguageNoteInfoPress}
+                      showCallReviewMark={showCallReviewMark}
+                      onCallReviewPress={onCallReviewPress}
                       onRequestEngvoCallTranslation={onRequestEngvoCallTranslation}
                       isLoadingEngvoCallTranslation={loadingEngvoCallTranslationIndex === i}
                       isPrefetchingEngvoCallTranslation={
@@ -2710,6 +2717,8 @@ function MessageBubble({
   onRequestTranslation,
   isLoadingTranslation,
   onLanguageNoteInfoPress,
+  showCallReviewMark = false,
+  onCallReviewPress,
   onRequestEngvoCallTranslation,
   isLoadingEngvoCallTranslation,
   isPrefetchingEngvoCallTranslation = false,
@@ -2733,6 +2742,8 @@ function MessageBubble({
   onRequestTranslation?: (index: number, text: string) => void
   isLoadingTranslation?: boolean
   onLanguageNoteInfoPress?: (index: number) => void
+  showCallReviewMark?: boolean
+  onCallReviewPress?: () => void
   onRequestEngvoCallTranslation?: (index: number, text: string) => void
   isLoadingEngvoCallTranslation?: boolean
   isPrefetchingEngvoCallTranslation?: boolean
@@ -3228,6 +3239,30 @@ function MessageBubble({
   }
 
   if (!hasContent) return null
+
+  if (isEngvoCallFinishedLine) {
+    return (
+      <ChatBubbleFrame
+        role="assistant"
+        position={bubblePosition}
+        data-message-index={messageIndex}
+        data-role={message.role}
+        rowClassName={rowSpacingClass}
+        className={`w-fit${engvoSlideEnter ? ' lesson-enter' : ''}`}
+      >
+        <div className="language-note-user-line language-note-user-line--assistant w-fit max-w-full">
+          <p className="min-w-0 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
+            {ENGVO_CALL_FINISHED_ASSISTANT_TEXT}
+          </p>
+          {showCallReviewMark && onCallReviewPress ? (
+            <span className="language-note-info-mark-wrap">
+              <LanguageNoteInfoMark onPress={onCallReviewPress} />
+            </span>
+          ) : null}
+        </div>
+      </ChatBubbleFrame>
+    )
+  }
 
   return (
     <ChatBubbleFrame

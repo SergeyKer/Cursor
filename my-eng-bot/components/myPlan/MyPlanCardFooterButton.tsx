@@ -2,11 +2,13 @@
 
 import {
   MY_PLAN_CARD_FOOTER_ACTION,
+  MY_PLAN_CARD_FOOTER_EXPAND,
   MY_PLAN_CARD_FOOTER_LAUNCH,
 } from '@/lib/myPlan/cardStyles'
+import type { ProgramCardFooterVariant } from '@/lib/uiCopy/myPlan'
 
 type MyPlanCardFooterButtonProps = {
-  variant: 'launch' | 'action'
+  variant: ProgramCardFooterVariant
   label: string
   onClick: () => void
   disabled?: boolean
@@ -21,7 +23,12 @@ export default function MyPlanCardFooterButton({
   disabled = false,
   ariaLabel,
 }: MyPlanCardFooterButtonProps) {
-  const className = variant === 'launch' ? MY_PLAN_CARD_FOOTER_LAUNCH : MY_PLAN_CARD_FOOTER_ACTION
+  const className =
+    variant === 'launch'
+      ? MY_PLAN_CARD_FOOTER_LAUNCH
+      : variant === 'expand'
+        ? MY_PLAN_CARD_FOOTER_EXPAND
+        : MY_PLAN_CARD_FOOTER_ACTION
   return (
     <button
       type="button"

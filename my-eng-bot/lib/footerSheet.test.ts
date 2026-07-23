@@ -1,17 +1,20 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildCallReviewFooterSheetContext,
   buildFooterSheetContext,
   buildLanguageNoteFooterSheetContext,
   FOOTER_SHEET_PLACEHOLDER_TEXT,
   resolveFooterSheetTitle,
   shouldCloseFooterSheetOnRowPress,
 } from '@/lib/footerSheet'
+import type { CallReviewSession } from '@/lib/engvo/callReview/types'
 
 describe('footerSheet', () => {
   it('resolveFooterSheetTitle returns labels per source', () => {
     expect(resolveFooterSheetTitle('dynamic')).toBe('Подсказка')
     expect(resolveFooterSheetTitle('static')).toBe('Статистика')
     expect(resolveFooterSheetTitle('language-note')).toBe('Подсказка')
+    expect(resolveFooterSheetTitle('call-review')).toBe('Подсказка')
   })
 
   it('buildFooterSheetContext maps footer fields for v2 and placeholder mode', () => {
@@ -94,6 +97,13 @@ describe('footerSheet', () => {
       messageIndex: 0,
       originalText: 'hello',
     })
+    const callReviewSession: CallReviewSession = {
+      kind: 'free_call',
+      cards: [],
+      topics: [],
+      summaryLine: 'Что заметили · 0 мест',
+    }
+    const callReview = buildCallReviewFooterSheetContext(callReviewSession)
 
     expect(shouldCloseFooterSheetOnRowPress(null, 'dynamic')).toBe(false)
     expect(shouldCloseFooterSheetOnRowPress(dynamic, 'dynamic')).toBe(true)
@@ -101,5 +111,8 @@ describe('footerSheet', () => {
     expect(shouldCloseFooterSheetOnRowPress(staticContext, 'static')).toBe(true)
     expect(shouldCloseFooterSheetOnRowPress(languageNote, 'dynamic')).toBe(true)
     expect(shouldCloseFooterSheetOnRowPress(languageNote, 'static')).toBe(true)
+    expect(shouldCloseFooterSheetOnRowPress(callReview, 'dynamic')).toBe(true)
+    expect(callReview.source).toBe('call-review')
+    expect(callReview.callReviewStatus).toBe('ready')
   })
 })

@@ -20,7 +20,7 @@ import type {
 } from '@/lib/lessonFooter'
 import type { Audience } from '@/lib/types'
 
-type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note'>
+type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note' | 'call-review'>
 
 type AppFooterProps = {
   dynamicText?: string | null

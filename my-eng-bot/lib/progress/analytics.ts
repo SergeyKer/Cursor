@@ -19,7 +19,7 @@ export type ProgressAnalyticsProps = {
   detailKind?: 'awards' | 'calendar' | 'remarks'
   lessonId?: string
   reason?: string
-  variant?: 'launch' | 'action'
+  variant?: 'launch' | 'expand' | 'action'
   surface?:
     | 'now'
     | 'status'

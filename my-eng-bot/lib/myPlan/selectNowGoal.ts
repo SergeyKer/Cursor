@@ -1,7 +1,9 @@
 import { featureFlags } from '@/lib/featureFlags'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import type { AttentionZone } from '@/lib/learningMemory/types'
+import { isLessonInProgress, isLessonTheoryDone } from '@/lib/myPlan/lessonPlanState'
 import { pickProgramLesson } from '@/lib/myPlan/pickProgramLesson'
+import { pickSoftFocusKey } from '@/lib/myPlan/softFocusRotation'
 import {
   CRITICAL_ZONE_ERROR_COUNT,
   INCOMPLETE_STALE_DAYS,
@@ -29,17 +31,16 @@ function audienceOf(input: MyPlanInput): MyPlanAudience {
   return input.audience === 'child' ? 'child' : 'adult'
 }
 
-function isLessonIncomplete(p: { lastCompleted: string; completedSteps: number[] }): boolean {
-  return (!p.lastCompleted || !p.lastCompleted.trim()) && p.completedSteps.length > 0
-}
-
-function isTheoryCompleted(p: { lastCompleted: string }): boolean {
-  return Boolean(p.lastCompleted?.trim())
-}
-
 function catalogOrder(catalog: MyPlanInput['catalog'], lessonId: string): number {
   const row = catalog.find((t) => t.id === lessonId)
   return row?.order ?? 9999
+}
+
+function catalogLevel(
+  catalog: MyPlanInput['catalog'],
+  lessonId: string
+): MyPlanCatalogTopic['level'] | null {
+  return catalog.find((t) => t.id === lessonId)?.level ?? null
 }
 
 /** EN title из каталога; fallback — progress.topic / zone.title. */
@@ -48,18 +49,24 @@ function resolveDisplayTopic(
   lessonId: string | null | undefined,
   fallback?: string | null
 ): string {
-  const fromCatalog = lessonId
-    ? catalog.find((t) => t.id === lessonId)?.title?.trim()
-    : ''
+  const fromCatalog = lessonId ? catalog.find((t) => t.id === lessonId)?.title?.trim() : ''
   const fromFallback = fallback?.trim()
   return fromCatalog || fromFallback || (lessonId ? `Урок ${lessonId}` : 'Урок')
 }
 
 function pickIncompleteLesson(input: MyPlanInput): MyPlanLessonProgressSlice | null {
-  const candidates = Object.values(input.lessons).filter(isLessonIncomplete)
+  const candidates = Object.values(input.lessons).filter(isLessonInProgress)
   if (candidates.length === 0) return null
-  candidates.sort((a, b) => catalogOrder(input.catalog, a.lessonId) - catalogOrder(input.catalog, b.lessonId))
-  return candidates[0] ?? null
+  const inAnchor = candidates.filter(
+    (p) => catalogLevel(input.catalog, p.lessonId) === input.anchorLevel
+  )
+  const pool = inAnchor.length > 0 ? inAnchor : candidates
+  pool.sort((a, b) => catalogOrder(input.catalog, a.lessonId) - catalogOrder(input.catalog, b.lessonId))
+  return pool[0] ?? null
+}
+
+function countInProgress(input: MyPlanInput): number {
+  return Object.values(input.lessons).filter(isLessonInProgress).length
 }
 
 function incompleteAgeDays(p: MyPlanLessonProgressSlice, nowMs: number): number | null {
@@ -76,7 +83,7 @@ function isIncompleteStale(p: MyPlanLessonProgressSlice, nowMs: number): boolean
 }
 
 function pickLatestCompletedTheory(input: MyPlanInput): MyPlanLessonProgressSlice | null {
-  const done = Object.values(input.lessons).filter((p) => isTheoryCompleted(p))
+  const done = Object.values(input.lessons).filter((p) => isLessonTheoryDone(p))
   if (done.length === 0) return null
   done.sort((a, b) => {
     const ta = Date.parse(a.lastCompleted) || 0
@@ -86,7 +93,11 @@ function pickLatestCompletedTheory(input: MyPlanInput): MyPlanLessonProgressSlic
   return done[0] ?? null
 }
 
-function hasPracticeAfterTheory(input: MyPlanInput, lessonId: string, theoryCompletedAtIso: string): boolean {
+function hasPracticeAfterTheory(
+  input: MyPlanInput,
+  lessonId: string,
+  theoryCompletedAtIso: string
+): boolean {
   const t0 = Date.parse(theoryCompletedAtIso)
   if (!Number.isFinite(t0)) return false
   return input.practiceCompleted.some((s) => {
@@ -120,6 +131,19 @@ function skillIdsOf(rec: MyPlanRecommendation): string[] {
   return []
 }
 
+function softKeyOf(rec: MyPlanRecommendation): string {
+  if (rec.goalType === 'soft_return') return 'soft_return:global'
+  if (rec.goalType === 'improve_medal' && rec.action.kind === 'open_lesson') {
+    return `improve_medal:${rec.action.lessonId}`
+  }
+  if (rec.goalType === 'reinforce' || rec.goalType === 'weak_spot') {
+    const skills = skillIdsOf(rec)
+    if (skills[0]) return `${rec.goalType}:${skills[0]}`
+    if (rec.action.kind === 'weak_spot') return `weak_spot:${rec.action.spotId}`
+  }
+  return rec.id
+}
+
 function buildIncomplete(
   incomplete: MyPlanLessonProgressSlice,
   input: MyPlanInput,
@@ -128,13 +152,14 @@ function buildIncomplete(
   const topic = resolveDisplayTopic(input.catalog, incomplete.lessonId, incomplete.topic)
   const title = myPlanTopicLine('lesson', topic)
   const invite = myPlanNowInvite('incomplete', audience)
+  const incompleteCount = countInProgress(input)
   return {
     id: 'continue-lesson',
     priority: 1,
     goalType: 'incomplete',
     title,
     subtitle: '',
-    reasonLine: myPlanWhy('incomplete', audience),
+    reasonLine: myPlanWhy('incomplete', audience, { topic, incompleteCount }),
     action: { kind: 'resume_lesson', lessonId: incomplete.lessonId },
     buttonLabel: myPlanButton('incomplete', audience),
     ariaLabel: `${invite}: ${topic}`,
@@ -145,13 +170,17 @@ function buildIncomplete(
 function buildReinforce(
   zone: AttentionZone,
   input: MyPlanInput,
-  audience: MyPlanAudience
+  audience: MyPlanAudience,
+  priority = 2
 ): MyPlanRecommendation {
   const canAi = Boolean(input.canUseAiReinforce)
   const topic = zone.title?.trim() || zone.skillTagId
   const title = myPlanTopicLine('topic', topic)
   const invite = myPlanNowInvite('reinforce', audience)
-  const reasonLine = myPlanWhy('reinforce', audience, { errorCount: zone.errorCount })
+  const reasonLine = myPlanWhy('reinforce', audience, {
+    errorCount: zone.errorCount,
+    zoneLabel: topic,
+  })
   const generation = canAi && zone.lessonId ? 'ai' : 'local'
   const buttonKind = generation === 'ai' ? 'reinforce_ai' : 'reinforce_local'
 
@@ -160,7 +189,7 @@ function buildReinforce(
     if (catalog?.hasPractice || generation === 'ai') {
       return {
         id: `reinforce-${zone.skillTagId}`,
-        priority: 2,
+        priority,
         goalType: 'reinforce',
         title,
         subtitle: '',
@@ -179,7 +208,7 @@ function buildReinforce(
     }
     return {
       id: `reinforce-lesson-${zone.skillTagId}`,
-      priority: 2,
+      priority,
       goalType: 'reinforce',
       title,
       subtitle: '',
@@ -193,7 +222,7 @@ function buildReinforce(
 
   return {
     id: `reinforce-quick-${zone.skillTagId}`,
-    priority: 2,
+    priority,
     goalType: 'reinforce',
     title,
     subtitle: '',
@@ -219,7 +248,7 @@ function buildPracticeAfterTheory(
     goalType: 'practice_after_theory',
     title,
     subtitle: '',
-    reasonLine: myPlanWhy('practice_after_theory', audience),
+    reasonLine: myPlanWhy('practice_after_theory', audience, { topic }),
     action: {
       kind: 'start_practice',
       lessonId: latestTheory.lessonId,
@@ -227,6 +256,32 @@ function buildPracticeAfterTheory(
       entrySource: 'my_plan',
     },
     buttonLabel: myPlanButton('practice_after_theory', audience),
+    ariaLabel: `${invite}: ${topic}`,
+    timeLabel: myPlanTimeLabel('medium', audience),
+  }
+}
+
+function buildImproveMedal(
+  lesson: MyPlanLessonProgressSlice,
+  input: MyPlanInput,
+  audience: MyPlanAudience,
+  priority = 4
+): MyPlanRecommendation {
+  const topic = resolveDisplayTopic(input.catalog, lesson.lessonId, lesson.topic)
+  const title = myPlanTopicLine('lesson', topic)
+  const invite = myPlanNowInvite('improve_medal', audience)
+  return {
+    id: `improve-medal-${lesson.lessonId}`,
+    priority,
+    goalType: 'improve_medal',
+    title,
+    subtitle: '',
+    reasonLine: myPlanWhy('improve_medal', audience, {
+      topic,
+      anchorLevel: input.anchorLevel,
+    }),
+    action: { kind: 'open_lesson', lessonId: lesson.lessonId },
+    buttonLabel: myPlanButton('improve_medal', audience),
     ariaLabel: `${invite}: ${topic}`,
     timeLabel: myPlanTimeLabel('medium', audience),
   }
@@ -298,57 +353,56 @@ function buildWeakSpot(
   }
 }
 
-function collectCandidates(input: MyPlanInput, nowMs: number): MyPlanRecommendation[] {
-  const audience = audienceOf(input)
-  const zones = input.attentionZones ?? []
-  const out: MyPlanRecommendation[] = []
-
-  const incomplete = pickIncompleteLesson(input)
-  const critical = pickCriticalZone(zones)
-  const incompleteFreshWins =
-    incomplete != null && !(isIncompleteStale(incomplete, nowMs) && critical != null)
-
-  if (incomplete && incompleteFreshWins) {
-    out.push(buildIncomplete(incomplete, input, audience))
-  }
-
-  if (critical) {
-    out.push(buildReinforce(critical, input, audience))
-  } else if (incomplete && !incompleteFreshWins) {
-    // stale incomplete without critical — still show incomplete as candidate
-    out.push(buildIncomplete(incomplete, input, audience))
-  }
-
+function pickCloseLoopTheory(input: MyPlanInput): MyPlanLessonProgressSlice | null {
   const latestTheory = pickLatestCompletedTheory(input)
-  const latestCatalog = latestTheory ? input.catalog.find((t) => t.id === latestTheory.lessonId) : null
-  if (latestTheory && latestCatalog?.hasPractice) {
-    const topicCupDone =
-      featureFlags.practiceTopicCupsV1 && getPracticeTopicProgress(latestTheory.lessonId).cupClaimed
-    if (!topicCupDone && !hasPracticeAfterTheory(input, latestTheory.lessonId, latestTheory.lastCompleted)) {
-      out.push(buildPracticeAfterTheory(latestTheory, input, audience))
-    }
+  if (!latestTheory) return null
+  const latestCatalog = input.catalog.find((t) => t.id === latestTheory.lessonId)
+  if (!latestCatalog?.hasPractice) return null
+  const topicCupDone =
+    featureFlags.practiceTopicCupsV1 && getPracticeTopicProgress(latestTheory.lessonId).cupClaimed
+  if (topicCupDone) return null
+  const theoryAt = latestTheory.lastCompleted?.trim()
+  if (!theoryAt) return null
+  if (hasPracticeAfterTheory(input, latestTheory.lessonId, theoryAt)) return null
+  return latestTheory
+}
+
+function buildMasterPool(input: MyPlanInput, audience: MyPlanAudience): MyPlanRecommendation[] {
+  const zones = input.attentionZones ?? []
+  const pool: MyPlanRecommendation[] = []
+
+  const improveLessons = Object.values(input.lessons)
+    .filter((p) => {
+      if (!isLessonTheoryDone(p)) return false
+      if (p.medal === 'gold') return false
+      return catalogLevel(input.catalog, p.lessonId) === input.anchorLevel
+    })
+    .sort(
+      (a, b) => catalogOrder(input.catalog, a.lessonId) - catalogOrder(input.catalog, b.lessonId)
+    )
+  for (const lesson of improveLessons) {
+    pool.push(buildImproveMedal(lesson, input, audience, 4))
   }
 
-  const days = input.daysSinceLastActive
-  if (days != null && days >= SOFT_RETURN_DAYS) {
-    out.push(buildSoftReturn(audience))
-  }
-
-  const spot = input.weakSpots[0]
-  if (spot) out.push(buildWeakSpot(spot, audience))
-
-  // Non-critical zones as lower candidates (for secondary), skip if already critical used
-  for (const zone of zones) {
-    if (critical && zone.skillTagId === critical.skillTagId) continue
-    if (zone.errorCount < 2) continue
-    out.push({
-      ...buildReinforce(zone, input, audience),
+  const softZones = zones
+    .filter((z) => !isCriticalZone(z) && z.errorCount >= 2)
+    .sort((a, b) => b.score - a.score || b.errorCount - a.errorCount)
+  for (const zone of softZones) {
+    pool.push({
+      ...buildReinforce(zone, input, audience, 7),
       id: `review-${zone.skillTagId}`,
-      priority: 7,
     })
   }
 
-  return out.sort((a, b) => a.priority - b.priority)
+  const spot = input.weakSpots[0]
+  if (spot) pool.push(buildWeakSpot(spot, audience))
+
+  const days = input.daysSinceLastActive
+  if (days != null && days >= SOFT_RETURN_DAYS) {
+    pool.push(buildSoftReturn(audience))
+  }
+
+  return pool
 }
 
 function dedupeSecondary(
@@ -375,15 +429,74 @@ function dedupeSecondary(
   return secondary
 }
 
+type ModePick = { main: MyPlanRecommendation | null; secondary: MyPlanRecommendation[] }
+
+function pickByModes(input: MyPlanInput, nowMs: number): ModePick {
+  const audience = audienceOf(input)
+  const zones = input.attentionZones ?? []
+  const incomplete = pickIncompleteLesson(input)
+  const critical = pickCriticalZone(zones)
+  const incompleteFreshWins =
+    incomplete != null && !(isIncompleteStale(incomplete, nowMs) && critical != null)
+
+  // 1. RESCUE
+  if (incomplete && incompleteFreshWins) {
+    return { main: buildIncomplete(incomplete, input, audience), secondary: [] }
+  }
+
+  // 2. REPAIR
+  if (critical) {
+    const main = buildReinforce(critical, input, audience)
+    const rest: MyPlanRecommendation[] = []
+    for (const zone of zones) {
+      if (zone.skillTagId === critical.skillTagId) continue
+      if (zone.errorCount < 2) continue
+      rest.push({
+        ...buildReinforce(zone, input, audience, 7),
+        id: `review-${zone.skillTagId}`,
+      })
+    }
+    const spot = input.weakSpots[0]
+    if (spot) rest.push(buildWeakSpot(spot, audience))
+    return { main, secondary: dedupeSecondary(main, rest) }
+  }
+
+  // stale incomplete without critical — still RESCUE
+  if (incomplete && !incompleteFreshWins) {
+    return { main: buildIncomplete(incomplete, input, audience), secondary: [] }
+  }
+
+  // 3. CLOSE_LOOP
+  const closeTheory = pickCloseLoopTheory(input)
+  if (closeTheory) {
+    const main = buildPracticeAfterTheory(closeTheory, input, audience)
+    const secondary: MyPlanRecommendation[] = []
+    if (closeTheory.medal !== 'gold') {
+      secondary.push(buildImproveMedal(closeTheory, input, audience, 4))
+    }
+    return { main, secondary: dedupeSecondary(main, secondary) }
+  }
+
+  // 4. MASTER
+  const pool = buildMasterPool(input, audience)
+  if (pool.length === 0) return { main: null, secondary: [] }
+
+  const keys = pool.map(softKeyOf)
+  const pickedKey = pickSoftFocusKey(keys, input.recentSoftKeys)
+  const mainIndex = pickedKey ? keys.indexOf(pickedKey) : 0
+  const main = pool[mainIndex >= 0 ? mainIndex : 0] ?? null
+  const rest = pool.filter((_, i) => i !== (mainIndex >= 0 ? mainIndex : 0))
+  return { main, secondary: dedupeSecondary(main, rest) }
+}
+
 /**
  * Единый ранкер «что делать сейчас»: 1 main + ≤2 secondary + program compass + status.
+ * Modes: RESCUE → REPAIR → CLOSE_LOOP → MASTER.
  */
 export function selectNowGoal(input: MyPlanInput): NowGoalResult {
   const nowMs = input.nowMs ?? Date.now()
   const audience = audienceOf(input)
-  const candidates = collectCandidates(input, nowMs)
-  const mainTask = candidates[0] ?? null
-  const secondary = dedupeSecondary(mainTask, candidates.slice(1))
+  const { main: mainTask, secondary } = pickByModes(input, nowMs)
 
   const picked = pickProgramLesson({
     catalog: input.catalog,

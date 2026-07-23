@@ -18,6 +18,9 @@ function mapLessonProgress(): Record<string, MyPlanLessonProgressSlice> {
       completedSteps: p.completedSteps,
       lastCompleted: p.lastCompleted,
       mistakesCount: Array.isArray(p.mistakes) ? p.mistakes.length : 0,
+      medal: p.medal ?? null,
+      lessonCompleted: p.lessonCompleted === true,
+      incompleteTouchedAtIso: null,
     }
   }
   return out
@@ -51,6 +54,7 @@ export function buildMyPlanLiveInput(
   extras?: {
     attentionZones?: MyPlanInput['attentionZones']
     canUseAiReinforce?: boolean
+    recentSoftKeys?: string[]
   }
 ): MyPlanInput {
   const rewards = rewardsProp ?? loadRewardsState()
@@ -77,5 +81,6 @@ export function buildMyPlanLiveInput(
     audience: settings.audience === 'child' ? 'child' : 'adult',
     attentionZones: extras?.attentionZones,
     canUseAiReinforce: extras?.canUseAiReinforce,
+    recentSoftKeys: extras?.recentSoftKeys,
   }
 }

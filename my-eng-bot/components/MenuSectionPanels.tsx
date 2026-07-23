@@ -133,6 +133,7 @@ import { REFERENCE_EXERCISE_OPTIONS } from '@/lib/practice/referenceExerciseOpti
 import type { RewardsState } from '@/lib/rewardsState'
 import { buildMyPlanLiveInput } from '@/lib/myPlan/buildInput'
 import { getMyPlanRecommendations, selectNowGoal } from '@/lib/myPlan/selectNowGoal'
+import { readRecentSoftKeys } from '@/lib/myPlan/softFocusRotation'
 import { canUseAiReinforce } from '@/lib/entitlements'
 import {
   detectModeGap,
@@ -1170,6 +1171,7 @@ export default function MenuSectionPanels({
     const input = buildMyPlanLiveInput(settings, rewardsState ?? null, {
       attentionZones: myPlanAttentionZones,
       canUseAiReinforce: canUseAiReinforce(),
+      recentSoftKeys: readRecentSoftKeys(),
     })
     const now = selectNowGoal(input)
     if (!featureFlags.myPlanNowGoalV1) {

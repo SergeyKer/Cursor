@@ -1,11 +1,14 @@
 import type { FooterVoiceEmphasis, FooterVoiceTone } from '@/lib/footerVoice'
 import type { LessonFooterSegmentKind } from '@/lib/lessonFooter'
+import type { CallReviewSession } from '@/lib/engvo/callReview/types'
 import type { LanguageNote } from '@/lib/languageNote/types'
+import { CALL_REVIEW_COPY } from '@/lib/uiCopy/callReview'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
 
-export type FooterSheetSource = 'dynamic' | 'static' | 'language-note'
+export type FooterSheetSource = 'dynamic' | 'static' | 'language-note' | 'call-review'
 export type FooterSheetMode = 'placeholder' | 'smart'
 export type LanguageNoteSheetStatus = 'loading' | 'ready' | 'error'
+export type CallReviewSheetStatus = 'ready'
 
 export interface FooterSheetContext {
   source: FooterSheetSource
@@ -23,17 +26,24 @@ export interface FooterSheetContext {
   languageNoteError?: string | null
   languageNoteMessageIndex?: number | null
   languageNoteOriginalText?: string | null
+  callReviewStatus?: CallReviewSheetStatus | null
+  callReviewSession?: CallReviewSession | null
 }
 
 export const FOOTER_SHEET_PLACEHOLDER_TEXT = 'В разработке'
 
+/** Same visual skin as Language Note (bg/height/head). */
+export function isLanguageNoteSkin(source: FooterSheetSource): boolean {
+  return source === 'language-note' || source === 'call-review'
+}
+
 export function resolveFooterSheetTitle(source: FooterSheetSource): string {
-  if (source === 'language-note') return LANGUAGE_NOTE_COPY.sheetTitle
+  if (source === 'language-note' || source === 'call-review') return LANGUAGE_NOTE_COPY.sheetTitle
   return source === 'dynamic' ? 'Подсказка' : 'Статистика'
 }
 
 export interface BuildFooterSheetContextParams {
-  source: Exclude<FooterSheetSource, 'language-note'>
+  source: Exclude<FooterSheetSource, 'language-note' | 'call-review'>
   dynamicText?: string | null
   staticText?: string | null
   typingKey?: string | number | null
@@ -83,11 +93,23 @@ export function buildLanguageNoteFooterSheetContext(
   }
 }
 
+export function buildCallReviewFooterSheetContext(
+  session: CallReviewSession
+): FooterSheetContext {
+  return {
+    source: 'call-review',
+    title: CALL_REVIEW_COPY.sheetTitle,
+    mode: 'smart',
+    callReviewStatus: 'ready',
+    callReviewSession: session,
+  }
+}
+
 export function shouldCloseFooterSheetOnRowPress(
   current: FooterSheetContext | null,
   source: FooterSheetSource
 ): boolean {
   if (!current) return false
-  if (current.source === 'language-note') return true
+  if (current.source === 'language-note' || current.source === 'call-review') return true
   return current.source === source
 }

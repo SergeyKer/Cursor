@@ -32,6 +32,7 @@ describe('lessonProgressMigration', () => {
     })
     expect(merged.medal).toBe('bronze')
     expect(merged.lessonCompleted).toBe(true)
+    expect(merged.lastCompleted.trim().length).toBeGreaterThan(0)
   })
 
   it('upgrades medal on better replay', () => {

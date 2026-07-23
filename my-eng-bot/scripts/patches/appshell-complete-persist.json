@@ -1,0 +1,6 @@
+[
+  [
+    "      if (!activeStructuredLesson) return\n      if (lessonViewStage !== 'lesson') return\n\n      const lessonId = activeStructuredLesson.id\n      const previous = loadLessonProgress(lessonId)\n      const isCompleted = activeStructuredLessonStatus === 'completed'",
+    "      if (!activeStructuredLesson) return\n      const isCompleted = activeStructuredLessonStatus === 'completed'\n      // Mid-save only in lesson view; complete always merges (anti-sticky).\n      if (!isCompleted && lessonViewStage !== 'lesson') return\n\n      const lessonId = activeStructuredLesson.id\n      const previous = loadLessonProgress(lessonId)"
+  ]
+]

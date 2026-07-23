@@ -28,6 +28,7 @@ export type NowGoalType =
   | 'reinforce'
   | 'practice_after_theory'
   | 'next_lesson'
+  | 'improve_medal'
   | 'soft_return'
   | 'weak_spot'
 
@@ -68,7 +69,9 @@ export interface MyPlanLessonProgressSlice {
   completedSteps: number[]
   lastCompleted: string
   mistakesCount: number
-  /** ISO; для incomplete — когда последний раз трогали (опционально). */
+  medal?: 'gold' | 'silver' | 'bronze' | null
+  lessonCompleted?: boolean
+  /** ISO; для incomplete — когда последний раз трогали (опционально, тесты). */
   incompleteTouchedAtIso?: string | null
 }
 
@@ -108,6 +111,8 @@ export interface MyPlanInput {
   canUseAiReinforce?: boolean
   /** now override для тестов. */
   nowMs?: number
+  /** Soft-focus rotation keys (MASTER); injected from LS outside pure ranker. */
+  recentSoftKeys?: string[]
 }
 
 export interface MyPlanStatusSlice {
