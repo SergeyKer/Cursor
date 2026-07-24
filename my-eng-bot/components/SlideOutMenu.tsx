@@ -421,7 +421,7 @@ export default function SlideOutMenu({
 
       {open ? (
         <div
-          className="fixed left-0 right-0 bottom-0 z-40 bg-black/20 transition-opacity duration-200"
+          className="fixed left-0 right-0 bottom-0 z-[59] bg-black/20 transition-opacity duration-200"
           style={{ top: topOffset, bottom: bottomOffset }}
           aria-hidden
           onClick={onToggle}
@@ -429,7 +429,7 @@ export default function SlideOutMenu({
       ) : null}
       {open && panelPositioned ? (
         <div
-          className="pointer-events-none fixed z-50 overflow-x-hidden"
+          className="pointer-events-none fixed z-[61] overflow-x-hidden"
           style={panelContainerStyle}
         >
           <aside
@@ -445,7 +445,7 @@ export default function SlideOutMenu({
       ) : null}
       {open && !panelPositioned ? (
         <aside
-          className={`fixed left-0 z-50 w-80 max-w-[85vw] ${panelSurfaceClass} ${panelOpenEdgeClass} pointer-events-auto transition-transform duration-200 ease-out translate-x-0`}
+          className={`fixed left-0 z-[61] w-80 max-w-[85vw] ${panelSurfaceClass} ${panelOpenEdgeClass} pointer-events-auto transition-transform duration-200 ease-out translate-x-0`}
           style={{
             top: topOffset,
             bottom: bottomOffset,

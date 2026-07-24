@@ -128,7 +128,8 @@ export default function MyPlanSheetScreen({
   return (
     <LessonReadingShell
       scrollRef={scrollRef}
-      scrollClassName={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} chat-feed-wallpaper py-2.5 sm:py-3`}
+      showChatWallpaper={false}
+      scrollClassName={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} py-2.5 sm:py-3`}
       composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
       composerStyle={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
       composer={

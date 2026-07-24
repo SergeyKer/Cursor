@@ -53,4 +53,22 @@ test.describe('Quick test flow', () => {
     await page.getByRole('button', { name: 'Другой тест' }).first().click()
     await expect(page).toHaveURL(/\/test$/)
   })
+
+  test('finale menu opens above result sheet', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.goto('/test/who-likes?debugFinale=1')
+    await expect(page.getByRole('heading', { name: 'Результат' })).toBeVisible({ timeout: 15000 })
+
+    const menuButton = page.getByRole('button', { name: /Меню/ })
+    await menuButton.click()
+    await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
+    await expect(menuButton).toHaveAttribute('aria-label', 'Меню, открыто')
+
+    const menuPanel = page.getByLabel('Меню', { exact: true })
+    await expect(menuPanel).toBeVisible()
+    const homeItem = menuPanel.getByRole('button', { name: 'На стартовый экран' })
+    await expect(homeItem).toBeVisible()
+    await homeItem.click()
+    await expect(page).toHaveURL(/\/$/)
+  })
 })

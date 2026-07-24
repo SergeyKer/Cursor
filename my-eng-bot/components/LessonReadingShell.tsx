@@ -18,6 +18,8 @@ type LessonReadingShellProps = {
   composerClassName?: string
   composerStyle?: CSSProperties
   composerStackRef?: Ref<HTMLDivElement>
+  /** When false, feed keeps color gradient but skips chat pattern PNG. Default true. */
+  showChatWallpaper?: boolean
 }
 
 /**
@@ -34,6 +36,7 @@ const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
       composerClassName = '',
       composerStyle,
       composerStackRef,
+      showChatWallpaper = true,
     },
     _ref
   ) {
@@ -45,7 +48,7 @@ const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
               className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
               style={{ boxShadow: 'var(--chat-shell-shadow)' }}
             >
-              <DialogGlassScrollHost>
+              <DialogGlassScrollHost showChatWallpaper={showChatWallpaper}>
                 <div
                   ref={scrollRef}
                   className={`px-3 sm:px-4 ${scrollClassName}`.trim()}
