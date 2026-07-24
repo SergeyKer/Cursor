@@ -6,6 +6,8 @@ export type MyPlanAnalyticsEventName =
   | 'my_plan_progress_link'
   | 'my_plan_paywall_shown'
   | 'my_plan_ai_reinforce_started'
+  | 'my_plan_space_opened'
+  | 'my_plan_space_back'
 
 export type MyPlanAnalyticsProps = {
   audience?: 'child' | 'adult'

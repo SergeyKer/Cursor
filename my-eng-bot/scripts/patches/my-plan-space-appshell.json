@@ -1,0 +1,70 @@
+[
+  [
+    "import { progressCopy } from '@/lib/uiCopy/progress'",
+    "import { progressCopy } from '@/lib/uiCopy/progress'\nimport { myPlanCopy } from '@/lib/uiCopy/myPlan'"
+  ],
+  [
+    "  ProgressSheetScreen,\n  MenuSectionPanels,",
+    "  ProgressSheetScreen,\n  MyPlanSheetScreen,\n  MenuSectionPanels,"
+  ],
+  [
+    "  const [progressSpaceActive, setProgressSpaceActive] = useState(false)\n  const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)",
+    "  const [progressSpaceActive, setProgressSpaceActive] = useState(false)\n  const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)\n  const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)"
+  ],
+  [
+    "    setProgressSpaceActive(false)\n    setAdaptiveFooterView(null)",
+    "    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(false)\n    setAdaptiveFooterView(null)"
+  ],
+  [
+    "  const openProgressSpace = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setProgressSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [resetStructuredLessonSession])\n\n  const backFromProgressSpace = useCallback(() => {\n    setProgressSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('root')\n    setMenuOpen(true)\n  }, [])\n\n  const openMyPlanFromProgress = useCallback(() => {\n    setProgressSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('myPlan')\n    setMenuOpen(false)\n  }, [])",
+    "  const openProgressSpace = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setMyPlanSpaceActive(false)\n    setProgressSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [resetStructuredLessonSession])\n\n  const backFromProgressSpace = useCallback(() => {\n    setProgressSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('root')\n    setMenuOpen(true)\n  }, [])\n\n  const openMyPlanSpace = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [resetStructuredLessonSession])\n\n  const backFromMyPlanSpace = useCallback(() => {\n    setMyPlanSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('root')\n    setMenuOpen(true)\n  }, [])\n\n  const openLessonsFromMyPlanSpace = useCallback(() => {\n    setMyPlanSpaceActive(false)\n    setDialogStarted(false)\n    setHomeMenuView('lessons')\n    setMenuOpen(true)\n  }, [])\n\n  const openMyPlanFromProgress = useCallback(() => {\n    openMyPlanSpace()\n  }, [openMyPlanSpace])"
+  ],
+  [
+    "    if (fromMyPlan) {\n      setHomeMenuView('myPlan')\n      if (launchSurface === 'slide') {\n        setMenuOpen(true)\n        return\n      }\n      setMenuOpen(false)\n      return\n    }",
+    "    if (fromMyPlan) {\n      if (featureFlags.myPlanSpaceV1) {\n        openMyPlanSpace()\n        return\n      }\n      setHomeMenuView('myPlan')\n      if (launchSurface === 'slide') {\n        setMenuOpen(true)\n        return\n      }\n      setMenuOpen(false)\n      return\n    }"
+  ],
+  [
+    "  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])\n\n  const backToVocabularyMenu = useCallback(() => {",
+    "  }, [bumpFooterSessionContext, cleanupEngvoRuntime, openMyPlanSpace, resetStructuredLessonSession])\n\n  const backToVocabularyMenu = useCallback(() => {"
+  ],
+  [
+    "  const isProgressSpaceActive = progressSpaceActive",
+    "  const isProgressSpaceActive = progressSpaceActive\n  const isMyPlanSpaceActive = myPlanSpaceActive"
+  ],
+  [
+    "        isReferenceSheetActive,\n        isProgressSpaceActive,\n      }),\n    [\n      dialogStarted,\n      engvoVoiceMode,\n      homeMenuView,\n      isAccentActive,\n      isLessonBriefingActive,\n      isLessonIntroActive,\n      isLessonTipsActive,\n      isPracticeActive,\n      isProgressSpaceActive,\n      isReferenceSheetActive,\n      isStructuredLessonActive,\n      isTutorLessonPending,\n      isVocabularyHubActive,\n    ]",
+    "        isReferenceSheetActive,\n        isProgressSpaceActive,\n        isMyPlanSpaceActive,\n      }),\n    [\n      dialogStarted,\n      engvoVoiceMode,\n      homeMenuView,\n      isAccentActive,\n      isLessonBriefingActive,\n      isLessonIntroActive,\n      isLessonTipsActive,\n      isMyPlanSpaceActive,\n      isPracticeActive,\n      isProgressSpaceActive,\n      isReferenceSheetActive,\n      isStructuredLessonActive,\n      isTutorLessonPending,\n      isVocabularyHubActive,\n    ]"
+  ],
+  [
+    "      if (openMyPlanFromStart) {\n        setHomeMenuView('myPlan')\n      }\n    },\n    [openMyPlanFromStart]\n  )",
+    "      if (openMyPlanFromStart) {\n        if (featureFlags.myPlanSpaceV1) {\n          openMyPlanSpace()\n          return\n        }\n        setHomeMenuView('myPlan')\n      }\n    },\n    [openMyPlanFromStart, openMyPlanSpace]\n  )"
+  ],
+  [
+    "    !isProgressSpaceActive &&\n    !isLessonActive &&",
+    "    !isProgressSpaceActive &&\n    !isMyPlanSpaceActive &&\n    !isLessonActive &&"
+  ],
+  [
+    "      : isProgressSpaceActive\n      ? progressCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle\n      : storageLoaded",
+    "      : isMyPlanSpaceActive\n      ? myPlanCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle\n      : isProgressSpaceActive\n      ? progressCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle\n      : storageLoaded"
+  ],
+  [
+    "              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isVocabularyHubActive ? (",
+    "              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isMyPlanSpaceActive || isVocabularyHubActive ? ("
+  ],
+  [
+    "                            onClick={() => setHomeMenuView('myPlan')}\n                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}\n                          >\n                            {APP_SHELL_HOME_COPY.startMyPlanLabel}",
+    "                            onClick={() => {\n                              if (featureFlags.myPlanSpaceV1) {\n                                openMyPlanSpace()\n                                return\n                              }\n                              setHomeMenuView('myPlan')\n                            }}\n                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}\n                          >\n                            {APP_SHELL_HOME_COPY.startMyPlanLabel}"
+  ],
+  [
+    "                    onOpenProgressSpace={openProgressSpace}\n                    onOpenQuickTest={openQuickTest}\n                    onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}",
+    "                    onOpenProgressSpace={openProgressSpace}\n                    onOpenMyPlanSpace={openMyPlanSpace}\n                    onOpenQuickTest={openQuickTest}\n                    onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}"
+  ],
+  [
+    "                {isProgressSpaceActive ? (\n                  <ProgressSheetScreen\n                    rewardsState={rewardsState}\n                    settings={settings}\n                    usage={usage}\n                    dialogueCorrectAnswers={dialogueCorrectAnswers}\n                    onBack={backFromProgressSpace}\n                    onOpenMyPlan={openMyPlanFromProgress}\n                    onOpenNearReward={openNearRewardFromProgress}\n                    onLaunchTarget={launchFromProgress}\n                    practiceBusy={progressPracticeBusy}\n                  />\n                ) : isVocabularyHubActive ? (",
+    "                {isMyPlanSpaceActive ? (\n                  <MyPlanSheetScreen\n                    rewardsState={rewardsState}\n                    settings={settings}\n                    onBack={backFromMyPlanSpace}\n                    onOpenProgressSpace={openProgressSpace}\n                    onOpenLessons={openLessonsFromMyPlanSpace}\n                    onOpenLearningLesson={(lessonId) => {\n                      void openOrContinueLearningLesson(lessonId)\n                    }}\n                    onOpenReferenceTopic={(lessonId) => {\n                      void openReferenceTopic(lessonId, 'theory', {\n                        catalogBrowseIntent: 'reference',\n                      })\n                    }}\n                    onOpenPracticeSession={openPracticeSession}\n                    onGeneratePracticeSession={generatePracticeSession}\n                    onOpenVocabularyWorlds={openVocabularyWorlds}\n                    onMarkOpenedFromMyPlan={markOpenedFromMyPlan}\n                  />\n                ) : isProgressSpaceActive ? (\n                  <ProgressSheetScreen\n                    rewardsState={rewardsState}\n                    settings={settings}\n                    usage={usage}\n                    dialogueCorrectAnswers={dialogueCorrectAnswers}\n                    onBack={backFromProgressSpace}\n                    onOpenMyPlan={openMyPlanFromProgress}\n                    onOpenNearReward={openNearRewardFromProgress}\n                    onLaunchTarget={launchFromProgress}\n                    practiceBusy={progressPracticeBusy}\n                  />\n                ) : isVocabularyHubActive ? ("
+  ],
+  [
+    "        onOpenProgressSpace={openProgressSpace}\n        onOpenQuickTest={openQuickTest}\n        onGenerateLearningLesson={openGeneratedLearningLesson}",
+    "        onOpenProgressSpace={openProgressSpace}\n        onOpenMyPlanSpace={openMyPlanSpace}\n        onOpenQuickTest={openQuickTest}\n        onGenerateLearningLesson={openGeneratedLearningLesson}"
+  ]
+]

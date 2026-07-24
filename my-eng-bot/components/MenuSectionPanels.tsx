@@ -509,6 +509,8 @@ export interface MenuSectionPanelsProps {
   onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   /** Full-screen пространство Прогресс (progressSpaceV1). */
   onOpenProgressSpace?: () => void
+  /** Full-screen пространство Мой план (myPlanSpaceV1). */
+  onOpenMyPlanSpace?: () => void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
   onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
   /** DEBUG: сразу к финалу практики. Удалить после редактирования. */
@@ -633,6 +635,7 @@ export default function MenuSectionPanels({
   onOpenLearningLesson,
   onOpenReferenceTopic,
   onOpenProgressSpace,
+  onOpenMyPlanSpace,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
@@ -2038,7 +2041,16 @@ export default function MenuSectionPanels({
                   onMenuViewChange('progress')
                 }}
               />
-              <MenuNavRow label="Мой план" onClick={() => onMenuViewChange('myPlan')} />
+              <MenuNavRow
+                label="Мой план"
+                onClick={() => {
+                  if (featureFlags.myPlanSpaceV1 && onOpenMyPlanSpace) {
+                    onOpenMyPlanSpace()
+                    return
+                  }
+                  onMenuViewChange('myPlan')
+                }}
+              />
               <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
               <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
             </div>
@@ -3912,7 +3924,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           />
         )}
 
-        {menuView === 'myPlan' && (
+        {menuView === 'myPlan' && !(featureFlags.myPlanSpaceV1 && onOpenMyPlanSpace) && (
           <MyPlanPanel
             mainTask={myPlanNow.mainTask}
             secondary={myPlanNow.secondary}

@@ -243,6 +243,7 @@ import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
 import { progressCopy } from '@/lib/uiCopy/progress'
+import { myPlanCopy } from '@/lib/uiCopy/myPlan'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -438,6 +439,7 @@ import {
   LessonStepRenderer,
   ReferenceSheetScreen,
   ProgressSheetScreen,
+  MyPlanSheetScreen,
   MenuSectionPanels,
   PracticeScreen,
   VocabularyByLevelScreen,
@@ -1040,6 +1042,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [progressSpaceActive, setProgressSpaceActive] = useState(false)
+  const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)
   const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
@@ -3971,6 +3974,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setVocabularyByLevelActive(false)
     setVocabularyFooterView(null)
     setProgressSpaceActive(false)
+    setMyPlanSpaceActive(false)
     setAdaptiveFooterView(null)
     if (!options?.keepLessonMenuContext) {
       setLessonMenuContext(null)
@@ -5272,6 +5276,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
+    setMyPlanSpaceActive(false)
     setProgressSpaceActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
@@ -5285,12 +5290,35 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMenuOpen(true)
   }, [])
 
-  const openMyPlanFromProgress = useCallback(() => {
+  const openMyPlanSpace = useCallback(() => {
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
     setProgressSpaceActive(false)
-    setDialogStarted(false)
-    setHomeMenuView('myPlan')
+    setMyPlanSpaceActive(true)
+    setDialogStarted(true)
     setMenuOpen(false)
+    setHomeMenuView('root')
+  }, [resetStructuredLessonSession])
+
+  const backFromMyPlanSpace = useCallback(() => {
+    setMyPlanSpaceActive(false)
+    setDialogStarted(false)
+    setHomeMenuView('root')
+    setMenuOpen(true)
   }, [])
+
+  const openLessonsFromMyPlanSpace = useCallback(() => {
+    setMyPlanSpaceActive(false)
+    setDialogStarted(false)
+    setHomeMenuView('lessons')
+    setMenuOpen(true)
+  }, [])
+
+  const openMyPlanFromProgress = useCallback(() => {
+    openMyPlanSpace()
+  }, [openMyPlanSpace])
 
   const openNearRewardFromProgress = useCallback(
     async (opportunity: { lessonId: string }) => {
@@ -6174,6 +6202,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setFooterTransitionText(null)
     bumpFooterSessionContext()
     if (fromMyPlan) {
+      if (featureFlags.myPlanSpaceV1) {
+        openMyPlanSpace()
+        return
+      }
       setHomeMenuView('myPlan')
       if (launchSurface === 'slide') {
         setMenuOpen(true)
@@ -6191,7 +6223,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('lessons')
     setPendingHomeLessonMenuRestore(true)
     setMenuOpen(false)
-  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, openMyPlanSpace, resetStructuredLessonSession])
 
   const backToVocabularyMenu = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -7259,6 +7291,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const isAccentActive = accentTrainerActive
   const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
   const isProgressSpaceActive = progressSpaceActive
+  const isMyPlanSpaceActive = myPlanSpaceActive
   const activeLessonIntro =
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
@@ -7293,6 +7326,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         isTutorLessonPending,
         isReferenceSheetActive,
         isProgressSpaceActive,
+        isMyPlanSpaceActive,
       }),
     [
       dialogStarted,
@@ -7302,6 +7336,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       isLessonBriefingActive,
       isLessonIntroActive,
       isLessonTipsActive,
+      isMyPlanSpaceActive,
       isPracticeActive,
       isProgressSpaceActive,
       isReferenceSheetActive,
@@ -8153,10 +8188,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       )
       setHomeAudienceChosen(true)
       if (openMyPlanFromStart) {
+        if (featureFlags.myPlanSpaceV1) {
+          openMyPlanSpace()
+          return
+        }
         setHomeMenuView('myPlan')
       }
     },
-    [openMyPlanFromStart]
+    [openMyPlanFromStart, openMyPlanSpace]
   )
 
   const resolveFooterWithStreakLayer = React.useCallback(
@@ -8875,6 +8914,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     dialogStarted &&
     settings.mode === 'communication' &&
     !isProgressSpaceActive &&
+    !isMyPlanSpaceActive &&
     !isLessonActive &&
     !isPracticeActive &&
     !engvoVoiceMode
@@ -8910,6 +8950,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ? 'Call to Engvo'
       : activeLessonTitle
       ? `Урок: ${activeLessonTitle}`
+      : isMyPlanSpaceActive
+      ? myPlanCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle
       : isProgressSpaceActive
       ? progressCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle
       : storageLoaded
@@ -9057,7 +9099,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 ) : (
                   <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
                 )
-              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isVocabularyHubActive ? (
+              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isMyPlanSpaceActive || isVocabularyHubActive ? (
                 <span className="truncate">{pageTitle}</span>
               ) : (
                 <>
@@ -9261,7 +9303,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           </button>
                           <button
                             type="button"
-                            onClick={() => setHomeMenuView('myPlan')}
+                            onClick={() => {
+                              if (featureFlags.myPlanSpaceV1) {
+                                openMyPlanSpace()
+                                return
+                              }
+                              setHomeMenuView('myPlan')
+                            }}
                             className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
                           >
                             {APP_SHELL_HOME_COPY.startMyPlanLabel}
@@ -9391,6 +9439,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onOpenLearningLesson={openOrContinueLearningLesson}
                     onOpenReferenceTopic={openReferenceTopic}
                     onOpenProgressSpace={openProgressSpace}
+                    onOpenMyPlanSpace={openMyPlanSpace}
                     onOpenQuickTest={openQuickTest}
                     onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
                     onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
@@ -9450,7 +9499,38 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 </div>
               )}
               <div className="flex min-h-0 flex-1 flex-col">
-                {isProgressSpaceActive ? (
+                {isMyPlanSpaceActive ? (
+                  <MyPlanSheetScreen
+                    rewardsState={rewardsState}
+                    settings={settings}
+                    onBack={backFromMyPlanSpace}
+                    onOpenProgressSpace={openProgressSpace}
+                    onOpenLessons={openLessonsFromMyPlanSpace}
+                    onOpenLearningLesson={(lessonId) => {
+                      setMyPlanSpaceActive(false)
+                      void openOrContinueLearningLesson(lessonId)
+                    }}
+                    onOpenReferenceTopic={(lessonId) => {
+                      setMyPlanSpaceActive(false)
+                      void openReferenceTopic(lessonId, 'theory', {
+                        catalogBrowseIntent: 'reference',
+                      })
+                    }}
+                    onOpenPracticeSession={async (request) => {
+                      setMyPlanSpaceActive(false)
+                      await openPracticeSession(request)
+                    }}
+                    onGeneratePracticeSession={async (request) => {
+                      setMyPlanSpaceActive(false)
+                      await generatePracticeSession(request)
+                    }}
+                    onOpenVocabularyWorlds={async () => {
+                      setMyPlanSpaceActive(false)
+                      await openVocabularyWorlds()
+                    }}
+                    onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
+                  />
+                ) : isProgressSpaceActive ? (
                   <ProgressSheetScreen
                     rewardsState={rewardsState}
                     settings={settings}
@@ -9934,6 +10014,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenLearningLesson={openOrContinueLearningLesson}
         onOpenReferenceTopic={openReferenceTopic}
         onOpenProgressSpace={openProgressSpace}
+        onOpenMyPlanSpace={openMyPlanSpace}
         onOpenQuickTest={openQuickTest}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}

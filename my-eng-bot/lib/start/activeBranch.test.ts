@@ -38,4 +38,14 @@ describe('resolveActiveBranch', () => {
       })
     ).toBe('hub')
   })
+
+  it('returns hub for my plan space even when dialog started', () => {
+    expect(
+      resolveActiveBranch({
+        ...base,
+        dialogStarted: true,
+        isMyPlanSpaceActive: true,
+      })
+    ).toBe('hub')
+  })
 })

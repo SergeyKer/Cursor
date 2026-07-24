@@ -47,6 +47,9 @@ const SECTIONS = {
     statusLink: 'Что я уже сделал →',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
+    spaceTitle: 'Мой план',
+    back: '← Назад',
+    progressButton: 'Прогресс',
   },
   adult: {
     sectionNow: 'Сейчас',
@@ -62,6 +65,9 @@ const SECTIONS = {
     statusLink: 'Подробнее в «Прогрессе» →',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
+    spaceTitle: 'Мой план',
+    back: '← Назад',
+    progressButton: 'Прогресс',
   },
 } as const
 

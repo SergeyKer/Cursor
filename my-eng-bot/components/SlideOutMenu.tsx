@@ -84,6 +84,8 @@ interface SlideOutMenuProps {
   onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
   /** Full-screen Progress space. */
   onOpenProgressSpace?: () => void
+  /** Full-screen My Plan space. */
+  onOpenMyPlanSpace?: () => void
   /** Сгенерировать новый вариант урока через LLM. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
@@ -195,6 +197,7 @@ export default function SlideOutMenu({
   onOpenLearningLesson,
   onOpenReferenceTopic,
   onOpenProgressSpace,
+  onOpenMyPlanSpace,
   onGenerateLearningLesson,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
@@ -357,6 +360,7 @@ export default function SlideOutMenu({
         onOpenLearningLesson={onOpenLearningLesson}
         onOpenReferenceTopic={onOpenReferenceTopic}
         onOpenProgressSpace={onOpenProgressSpace}
+        onOpenMyPlanSpace={onOpenMyPlanSpace}
         onGenerateLearningLesson={onGenerateLearningLesson}
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
