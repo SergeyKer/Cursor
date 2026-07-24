@@ -434,6 +434,7 @@
   --chat-source-link: #334155;
   --chat-source-link-hover: #0f172a;
   --chat-section-neutral-border: #d1d5db;
+  --chat-section-card-divider: #b6bec9;
   --chat-section-amber-border: #bfdbfe;
   --chat-section-emerald-border: #a7f3d0;
   --chat-section-praise-border: #6ee7b7;
@@ -610,6 +611,7 @@ html[data-theme='futuristic'] {
   --chat-source-link: #1e293b;
   --chat-source-link-hover: #0f172a;
   --chat-section-neutral-border: rgba(148, 163, 184, 0.45);
+  --chat-section-card-divider: rgba(148, 163, 184, 0.72);
   --chat-section-amber-border: rgba(96, 165, 250, 0.42);
   --chat-section-emerald-border: rgba(16, 185, 129, 0.4);
   --chat-section-praise-border: rgba(16, 185, 129, 0.35);
@@ -689,6 +691,7 @@ html[data-theme='bubble1'] {
   --chat-source-link: #2b4f7f;
   --chat-source-link-hover: #183a64;
   --chat-section-neutral-border: rgba(190, 205, 230, 0.7);
+  --chat-section-card-divider: rgba(148, 163, 184, 0.78);
   --chat-section-amber-border: rgba(125, 176, 255, 0.72);
   --chat-section-emerald-border: rgba(120, 220, 180, 0.78);
   --chat-section-praise-border: rgba(120, 220, 180, 0.72);
@@ -862,6 +865,7 @@ html[data-theme='bubble2'] {
   --chat-source-link: #3f74cb;
   --chat-source-link-hover: #285aa8;
   --chat-section-neutral-border: var(--bubble2-color-border-ai-bubble);
+  --chat-section-card-divider: rgba(79, 143, 232, 0.72);
   --chat-section-amber-border: rgba(95, 160, 255, 0.34);
   --chat-section-emerald-border: var(--bubble2-color-border-success);
   --chat-section-praise-border: var(--bubble2-color-border-ai-bubble);
@@ -1076,6 +1080,7 @@ html[data-theme='glass1'] {
   --chat-label-praise: #16a34a;
   --chat-label-main: #166534;
   --chat-section-neutral-border: rgba(34, 197, 94, 0.38);
+  --chat-section-card-divider: rgba(34, 197, 94, 0.62);
   --chat-section-praise-border: rgba(34, 197, 94, 0.35);
   --chat-section-slate-border: rgba(34, 197, 94, 0.32);
   --chat-button-shadow-hover: var(--shadow-glow), var(--glass-shadow-soft-2);
@@ -1096,6 +1101,7 @@ html[data-theme='glass2'] {
   --chat-label-praise: rgba(72, 128, 214, 0.95);
   --chat-label-main: #2f4f86;
   --chat-section-neutral-border: var(--glass-border-ai-bubble);
+  --chat-section-card-divider: rgba(79, 143, 232, 0.68);
   --chat-section-praise-border: var(--glass-border-ai-bubble);
   --chat-section-slate-border: var(--glass-border-ai-bubble);
   --chat-button-shadow-hover: var(--shadow-glow), var(--glass-shadow-soft-2);
@@ -1116,6 +1122,7 @@ html[data-theme='glass3'] {
   --chat-label-praise: rgba(0, 0, 0, 0.68);
   --chat-label-main: rgba(0, 0, 0, 0.78);
   --chat-section-neutral-border: rgba(255, 255, 255, 0.42);
+  --chat-section-card-divider: rgba(255, 255, 255, 0.62);
   --chat-section-praise-border: rgba(255, 255, 255, 0.4);
   --chat-section-slate-border: rgba(255, 255, 255, 0.38);
   --chat-button-shadow-hover: var(--shadow-glow);

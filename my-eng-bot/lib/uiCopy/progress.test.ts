@@ -20,9 +20,11 @@ describe('progress copy', () => {
       c.emptyTitle,
       c.emptyBody,
       c.toMyPlan,
-      c.daysShort,
+      c.streakShort,
       c.levelShort,
-      c.goalShort,
+      c.xpShort,
+      c.currentLevelLabel,
+      c.saveStreak,
     ].join(' ')
     for (const term of PROGRESS_CHILD_BANNED_HERO_TERMS) {
       expect(heroBlob.toLowerCase()).not.toContain(term.toLowerCase())

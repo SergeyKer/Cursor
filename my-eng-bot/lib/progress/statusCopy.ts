@@ -69,8 +69,8 @@ export function buildProgressStatusCopy(params: {
   } else {
     streakStatusLine =
       params.audience === 'child'
-        ? 'Серия под угрозой — закрой цель сегодня!'
-        : 'Серия под угрозой — закройте хотя бы одну цель сегодня.'
+        ? 'Серия под угрозой! Займись сегодня.'
+        : 'Серия под угрозой! Займитесь сегодня.'
   }
 
   const modes: ModeGoalId[] = ['communication', 'engvo']

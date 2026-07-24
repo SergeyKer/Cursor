@@ -2,6 +2,12 @@
 
 import React, { useEffect, useMemo, useState } from 'react'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
+import {
+  BTN_DISABLED_CLASS,
+  BTN_FONT_INLINE,
+  BTN_INTERACTION_BASE,
+  CARD_LAUNCH_SKIN,
+} from '@/lib/homeCtaStyles'
 import { trackProgressEvent } from '@/lib/progress/analytics'
 import { buildProgressShelf } from '@/lib/progress/buildProgressShelf'
 import { buildProgressStatusCopy } from '@/lib/progress/statusCopy'
@@ -22,6 +28,19 @@ export interface ProgressPanelProps {
   dialogueCorrectAnswers: number
   onMenuViewChange: (view: 'myPlan') => void
 }
+
+const STATUS_TILE_CLASS =
+  'chat-section-surface glass-surface min-w-0 overflow-hidden rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-3 py-2.5'
+
+const STATUS_WIDE_TILE_CLASS = `${STATUS_TILE_CLASS} !py-3.5`
+
+const STATUS_INSET_LAUNCH_BTN = [
+  BTN_INTERACTION_BASE,
+  CARD_LAUNCH_SKIN,
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+  'mt-3 flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
+].join(' ')
 
 export default function ProgressPanel({
   rewardsState,
@@ -69,11 +88,10 @@ export default function ProgressPanel({
     onMenuViewChange('myPlan')
   }
 
-  const focusCell =
-    status.focusGoal != null
-      ? `${status.focusGoal.goalProgress}/${status.focusGoal.goalTarget}`
-      : '—'
-  const focusLabel = status.focusGoal?.label ?? copy.goalDone
+  const saveStreak = () => {
+    trackProgressEvent('progress_streak_save_click', { audience })
+    onMenuViewChange('myPlan')
+  }
 
   const xpPercent =
     shelf.xpToNextLevel > 0
@@ -82,77 +100,121 @@ export default function ProgressPanel({
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-3 gap-1.5">
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
-          <p className="emoji-line text-[18px] leading-none">{DAILY_STREAK_GLYPH}</p>
-          <p className="mt-0.5 text-[15px] font-semibold tabular-nums text-[var(--text)]">
-            {shelf.dailyStreak}
-          </p>
-          <p className="text-[10px] text-[var(--text-muted)]">{copy.daysShort}</p>
-        </div>
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
-          <p className="emoji-line text-[18px] leading-none">⭐</p>
-          <p className="mt-0.5 text-[15px] font-semibold tabular-nums text-[var(--text)]">
-            {shelf.level}
-          </p>
-          <p className="text-[10px] text-[var(--text-muted)]">
-            {audience === 'child' ? copy.levelShort : `${shelf.totalXP} XP`}
-          </p>
-        </div>
-        <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-2 py-2 text-center">
-          <p className="text-[10px] font-medium text-[var(--text-muted)]">{copy.goalShort}</p>
-          <p className="mt-0.5 text-[12px] font-semibold leading-tight text-[var(--text)]">{focusCell}</p>
-          <p className="text-[10px] text-[var(--text-muted)]">{focusLabel}</p>
-        </div>
-      </div>
-
-      <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">
-        <p className="text-[12px] text-[var(--text-muted)]">
-          {copy.recordLabel}: {shelf.bestDailyStreak} · {status.streakStatusLine}
-          {shelf.streakCopy.bonusTodayLabel
-            ? ` · ${shelf.streakCopy.bonusTodayLabel}`
-            : ''}
-        </p>
-        <div className="mt-2">
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--menu-control-bg)]">
-            <div
-              className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
-              style={{ width: `${xpPercent}%` }}
-              role="progressbar"
-              aria-valuenow={shelf.currentLevelXP}
-              aria-valuemin={0}
-              aria-valuemax={shelf.xpToNextLevel}
-              aria-label={`${copy.levelToNext} ${shelf.level + 1}`}
-            />
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          <div className={`${STATUS_TILE_CLASS} text-center`}>
+            <p className="emoji-line text-[22px] leading-none">{DAILY_STREAK_GLYPH}</p>
+            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">
+              {shelf.dailyStreak}
+            </p>
+            <p className="text-[13px] text-[var(--text-muted)]">{copy.streakShort}</p>
           </div>
-          <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-            {copy.levelToNext} {shelf.level + 1} · {shelf.currentLevelXP}/{shelf.xpToNextLevel}
-            {audience === 'adult' ? ' XP' : ''}
+          <div className={`${STATUS_TILE_CLASS} text-center`}>
+            <p className="emoji-line text-[22px] leading-none">👑</p>
+            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">
+              {shelf.level}
+            </p>
+            <p className="text-[13px] text-[var(--text-muted)]">{copy.levelShort}</p>
+          </div>
+          <div className={`${STATUS_TILE_CLASS} text-center`}>
+            <p className="emoji-line text-[22px] leading-none">⭐</p>
+            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">
+              {shelf.totalXP}
+            </p>
+            <p className="text-[13px] text-[var(--text-muted)]">{copy.xpShort}</p>
+          </div>
+        </div>
+        <div className={STATUS_WIDE_TILE_CLASS}>
+          <p className="flex items-center justify-center gap-1.5 text-center text-[15px] font-semibold leading-none text-[var(--text)]">
+            <span
+              className="inline-flex h-[1em] w-[1em] shrink-0 -translate-y-[3px] items-center justify-center text-[16px] leading-none"
+              aria-hidden
+            >
+              👑
+            </span>
+            <span className="leading-none">{copy.levelShort}</span>
+          </p>
+          <div className="mt-2.5 flex items-center gap-2.5">
+            <span className="inline-flex h-3.5 w-7 shrink-0 -translate-y-px items-center justify-center text-[17px] font-bold tabular-nums leading-none text-[var(--text)]">
+              {shelf.level}
+            </span>
+            <div className="h-3.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_28%,white)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+              <div
+                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
+                style={{ width: `${xpPercent}%` }}
+                role="progressbar"
+                aria-valuenow={shelf.currentLevelXP}
+                aria-valuemin={0}
+                aria-valuemax={shelf.xpToNextLevel}
+                aria-label={`${copy.currentLevelLabel} ${shelf.level}, ${shelf.currentLevelXP}/${shelf.xpToNextLevel} XP`}
+              />
+            </div>
+            <span className="inline-flex h-3.5 w-7 shrink-0 -translate-y-px items-center justify-center text-[17px] font-bold tabular-nums leading-none text-[var(--text)]">
+              {shelf.level + 1}
+            </span>
+          </div>
+          <p className="mt-1.5 text-center text-[15px] font-semibold tabular-nums text-[var(--text)]">
+            {shelf.currentLevelXP}/{shelf.xpToNextLevel} XP
           </p>
         </div>
-        <button
-          type="button"
-          className="mt-2 min-h-[44px] w-full rounded-md px-1 text-left text-[12px] font-medium text-[var(--accent)]"
-          aria-expanded={streakOpen}
-          onClick={() => setStreakOpen((v) => !v)}
+        <div
+          className={`${STATUS_WIDE_TILE_CLASS} ${
+            status.streakAtRisk
+              ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]'
+              : ''
+          }`}
         >
-          {streakOpen ? copy.streakHide : copy.streakMore}
-        </button>
-        {streakOpen ? (
-          <div className="mt-1 space-y-1 text-[12px] text-[var(--text-muted)]">
-            {shelf.streakCopy.bonusTodayLabel ? (
-              <p>
-                {audience === 'child' ? 'Бонус сегодня: ' : 'Бонус за первый шаг сегодня: '}
-                {shelf.streakCopy.bonusTodayLabel}
-              </p>
-            ) : null}
-            {shelf.streakCopy.introLine ? <p>{shelf.streakCopy.introLine}</p> : null}
-            <p>{shelf.streakCopy.statusLine}</p>
-            {shelf.streakCopy.nextThresholdLine ? (
-              <p>{shelf.streakCopy.nextThresholdLine}</p>
-            ) : null}
-          </div>
-        ) : null}
+          <p className="flex items-center gap-2 break-words leading-snug">
+            <span className="emoji-line shrink-0 text-[18px] leading-none">{DAILY_STREAK_GLYPH}</span>
+            <span
+              className={`min-w-0 ${
+                status.streakAtRisk
+                  ? 'text-[16px] font-semibold text-[var(--status-warning-text)]'
+                  : 'text-[14px] text-[var(--text-muted)]'
+              }`}
+            >
+              {status.streakAtRisk
+                ? status.streakStatusLine
+                : `${copy.recordLabel}: ${shelf.bestDailyStreak} · ${status.streakStatusLine}`}
+              {!status.streakAtRisk && shelf.streakCopy.bonusTodayLabel
+                ? ` · ${shelf.streakCopy.bonusTodayLabel}`
+                : ''}
+            </span>
+          </p>
+          <button
+            type="button"
+            className="mt-2 min-h-[44px] w-full rounded-md px-1 text-left text-[12px] font-medium text-[var(--accent)]"
+            aria-expanded={streakOpen}
+            onClick={() => setStreakOpen((v) => !v)}
+          >
+            {streakOpen ? copy.streakHide : copy.streakMore}
+          </button>
+          {streakOpen ? (
+            <div className="mt-1 space-y-1 text-[12px] text-[var(--text-muted)]">
+              {shelf.streakCopy.bonusTodayLabel ? (
+                <p>
+                  {audience === 'child' ? 'Бонус сегодня: ' : 'Бонус за первый шаг сегодня: '}
+                  {shelf.streakCopy.bonusTodayLabel}
+                </p>
+              ) : null}
+              {shelf.streakCopy.introLine ? <p>{shelf.streakCopy.introLine}</p> : null}
+              <p>{shelf.streakCopy.statusLine}</p>
+              {shelf.streakCopy.nextThresholdLine ? (
+                <p>{shelf.streakCopy.nextThresholdLine}</p>
+              ) : null}
+            </div>
+          ) : null}
+          {status.streakAtRisk ? (
+            <button
+              type="button"
+              className={STATUS_INSET_LAUNCH_BTN}
+              aria-label={copy.saveStreakAria}
+              onClick={saveStreak}
+            >
+              <span className="min-w-0 break-words">{copy.saveStreak}</span>
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2.5">

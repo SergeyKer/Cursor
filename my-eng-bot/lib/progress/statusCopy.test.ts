@@ -80,6 +80,7 @@ describe('buildProgressStatusCopy', () => {
     expect(status.streakAtRisk).toBe(true)
     expect(status.streakEmpty).toBe(false)
     expect(status.streakStatusLine.toLowerCase()).toMatch(/угроз/)
+    expect(status.streakStatusLine.toLowerCase()).not.toContain('цель')
   })
 
   it('marks streak empty at zero', () => {

@@ -8,7 +8,6 @@ export type ProgressAnalyticsEventName =
   | 'progress_weak_zone_click'
   | 'progress_near_reward_click'
   | 'progress_premium_cue_shown'
-  | 'progress_now_click'
   | 'progress_zone_launch'
   | 'progress_mode_strip_click'
   | 'progress_streak_save_click'
@@ -21,7 +20,6 @@ export type ProgressAnalyticsProps = {
   reason?: string
   variant?: 'launch' | 'expand' | 'action'
   surface?:
-    | 'now'
     | 'status'
     | 'near'
     | 'zone'

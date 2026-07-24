@@ -73,7 +73,7 @@ function ReadingDetachedCardBody({
       <div className={headerClass}>
         <p className={readingHeaderTitleClass}>{title}</p>
       </div>
-      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-2.5">
+      <div className="space-y-1.5 border-t border-[var(--chat-section-neutral-border)] bg-white px-4 py-3">
         {bodyLines.map((line, i) => renderBodyLine(line, i, bodyOptions))}
       </div>
     </>
