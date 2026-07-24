@@ -148,12 +148,7 @@ export function ensureLegacyProgressMetadata(): void {
  */
 export function noteLocalLessonProgressWrite(progress: UserLessonProgress): void {
   if (!canUseStorage()) return
-  if (!isSupabaseLessonProgressSyncEnabled()) {
-    console.info('[engvo][lesson_progress] skip noteLocal — sync disabled', {
-      lessonId: progress.lessonId,
-    })
-    return
-  }
+  if (!isSupabaseLessonProgressSyncEnabled()) return
   ensureOnlineListener()
   const metaMap = loadMetaMap()
   const prev = metaMap[progress.lessonId]
@@ -166,10 +161,6 @@ export function noteLocalLessonProgressWrite(progress: UserLessonProgress): void
   const outbox = loadOutbox()
   outbox[progress.lessonId] = nextRevision
   saveOutbox(outbox)
-  console.info('[engvo][lesson_progress] queued', {
-    lessonId: progress.lessonId,
-    revision: nextRevision,
-  })
   scheduleLessonProgressFlush(FLUSH_DEBOUNCE_MS)
 }
 
@@ -336,7 +327,6 @@ export async function flushLessonProgressOutbox(): Promise<void> {
       }
       const outbox = loadOutbox()
       const ids = Object.keys(outbox)
-      console.info('[engvo][lesson_progress] flush', { userId: `${userId.slice(0, 8)}…`, pending: ids })
       if (ids.length === 0) return
       const map = loadProgressMap()
       const metaMap = loadMetaMap()
@@ -361,7 +351,6 @@ export async function flushLessonProgressOutbox(): Promise<void> {
         if (latestMeta && latestMeta.revision === queuedRevision) {
           delete latestOutbox[lessonId]
           saveOutbox(latestOutbox)
-          console.info('[engvo][lesson_progress] upsert ok', { lessonId, revision: queuedRevision })
         }
       }
     } catch (err) {

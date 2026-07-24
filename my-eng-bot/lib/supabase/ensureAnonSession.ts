@@ -15,10 +15,7 @@ export async function ensureAnonSession(): Promise<string | null> {
   inflight = (async () => {
     try {
       const client = getSupabaseBrowserClient()
-      if (!client) {
-        console.warn('[engvo][supabase] no browser client (flag/env)')
-        return null
-      }
+      if (!client) return null
       const { data: existing, error: sessionError } = await client.auth.getSession()
       if (sessionError) {
         console.warn('[engvo][supabase] getSession failed', sessionError.message)
