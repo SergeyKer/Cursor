@@ -1,0 +1,38 @@
+---
+description: Supabase rollout scope and hard limits for Engvo
+alwaysApply: true
+---
+
+# Supabase rollout (Engvo)
+
+## Status
+
+- In scope NOW: phases 0–2 + 3-prep only.
+- Transport: browser `@supabase/supabase-js` + RLS. No `@supabase/ssr`, middleware, profiles, Realtime, service role in client.
+- Out of scope until explicit request: full learning_memory cloud sync, rewards, practice sessions, generated lessons, chat history, OAuth UI, mistakes sync.
+
+## Sequence
+
+0. Infra: browser client, env helpers, feature flags OFF by default
+1. Anonymous Auth only (`ensureAnonSession` via `SupabaseBootstrap`)
+2. `lesson_progress` local-first sync (metadata + persistent outbox + merge)
+3-prep. `learningMemory/record.ts` must use `getLearningMemoryStoragePort()`; local adapter only; no signals tables
+
+## Hard rules
+
+- Do not mirror all localStorage keys into Postgres
+- Do not store MyPlan / AttentionZones (derived)
+- Do not add SERVICE_ROLE / `sb_secret_*` to client or `NEXT_PUBLIC_*`
+- Do not block lesson UX on network; `saveLessonProgress` stays sync `void`
+- Do not edit AppShell for bootstrap (UTF-8 risk); use `SupabaseBootstrap`
+- Do not enable `NEXT_PUBLIC_FEATURE_SUPABASE_LESSON_PROGRESS_SYNC` before SQL + RLS matrix
+- New chats: extend this rollout; do not invent a parallel persistence design
+- Domain engvo.ru: Auth redirect URLs later at deploy; not a blocker for 0–2
+
+## Key files
+
+- `lib/supabase/client.ts`, `env.ts`, `ensureAnonSession.ts`
+- `components/SupabaseBootstrap.tsx`
+- `lib/lessonProgressStorage.ts`, `lib/lessonProgress/*`
+- `lib/learningMemory/port.ts`, `record.ts`
+- `supabase/migrations/*_lesson_progress.sql`

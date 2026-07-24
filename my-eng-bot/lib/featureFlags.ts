@@ -31,5 +31,10 @@ export const featureFlags = {
   myPlanSpaceV1: process.env.NEXT_PUBLIC_FEATURE_MY_PLAN_SPACE_V1 !== 'false',
   /** Разбор звонка после hang-up (? на Call is finished). Default on; =false kill-switch. */
   engvoCallReviewV1: process.env.NEXT_PUBLIC_FEATURE_ENGVO_CALL_REVIEW_V1 !== 'false',
+  /** Supabase anonymous identity. Default off until SQL+RLS ready. */
+  supabaseV1: process.env.NEXT_PUBLIC_FEATURE_SUPABASE_V1 === 'true',
+  /** Cloud sync for lesson_progress. Requires supabaseV1. Default off. */
+  supabaseLessonProgressSync:
+    process.env.NEXT_PUBLIC_FEATURE_SUPABASE_LESSON_PROGRESS_SYNC === 'true',
 } as const
 

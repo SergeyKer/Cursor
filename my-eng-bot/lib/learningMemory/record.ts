@@ -1,11 +1,7 @@
 import { shouldSaveLanguageNoteSignal } from '@/lib/learningMemory/filter'
 import { hashUtterance } from '@/lib/learningMemory/hash'
 import { mapLearningSource } from '@/lib/learningMemory/mapSource'
-import {
-  clearSkillResolved,
-  markSkillsResolved,
-  saveLearningSignal,
-} from '@/lib/learningMemory/storage'
+import { getLearningMemoryStoragePort } from '@/lib/learningMemory/port'
 import { RESOLVE_COOLDOWN_MS } from '@/lib/learningMemory/types'
 import { extractTranslationErrorBlocks } from '@/lib/learningMemory/translationErrors'
 import type { LanguageNote } from '@/lib/languageNote/types'
@@ -26,6 +22,24 @@ function scheduleIdle(fn: () => void): void {
     return
   }
   setTimeout(run, 0)
+}
+
+function saveLearningSignal(
+  ...args: Parameters<ReturnType<typeof getLearningMemoryStoragePort>['saveSignal']>
+) {
+  return getLearningMemoryStoragePort().saveSignal(...args)
+}
+
+function clearSkillResolved(
+  ...args: Parameters<ReturnType<typeof getLearningMemoryStoragePort>['clearSkillResolved']>
+) {
+  return getLearningMemoryStoragePort().clearSkillResolved(...args)
+}
+
+function markSkillsResolved(
+  ...args: Parameters<ReturnType<typeof getLearningMemoryStoragePort>['markSkillsResolved']>
+) {
+  return getLearningMemoryStoragePort().markSkillsResolved(...args)
 }
 
 export function recordPracticeWrongSignal(params: {

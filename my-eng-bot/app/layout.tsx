@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Script from 'next/script'
 import './globals.css'
 import PwaServiceWorkerRegister from '@/components/PwaServiceWorkerRegister'
+import SupabaseBootstrap from '@/components/SupabaseBootstrap'
 import VisualViewportInsets from '@/components/VisualViewportInsets'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 
@@ -41,6 +42,7 @@ export default function RootLayout({
         </Script>
         <ThemeProvider>
           <PwaServiceWorkerRegister />
+          <SupabaseBootstrap />
           <VisualViewportInsets />
           {children}
         </ThemeProvider>

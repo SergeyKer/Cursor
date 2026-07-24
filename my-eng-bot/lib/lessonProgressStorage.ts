@@ -1,6 +1,7 @@
 import { migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import type { PostLessonAction } from '@/types/lesson'
 import type { UserLessonProgress } from '@/types/userProgress'
+import { noteLocalLessonProgressWrite } from '@/lib/lessonProgress/supabaseSync'
 
 const LESSON_PROGRESS_STORAGE_KEY = 'my-eng-bot-lesson-progress'
 
@@ -28,12 +29,18 @@ export function loadLessonProgressMap(): StoredLessonProgressMap {
   }
 }
 
+/**
+ * Sync void write. Cloud sync (if enabled) is fire-and-forget via noteLocalLessonProgressWrite.
+ * Supabase later: do not make this async — AppShell / antiFarm depend on sync API.
+ */
 export function saveLessonProgress(progress: UserLessonProgress): void {
   if (typeof window === 'undefined') return
   try {
     const current = loadLessonProgressMap()
-    current[progress.lessonId] = migrateUserLessonProgress(progress, progress.lessonId)
+    const migrated = migrateUserLessonProgress(progress, progress.lessonId)
+    current[migrated.lessonId] = migrated
     localStorage.setItem(LESSON_PROGRESS_STORAGE_KEY, JSON.stringify(current))
+    noteLocalLessonProgressWrite(migrated)
   } catch {
     // ignore
   }

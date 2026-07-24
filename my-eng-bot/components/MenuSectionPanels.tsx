@@ -42,6 +42,7 @@ import {
   resolveLessonCardMedal, type LessonCardMedalDisplay,
 } from '@/lib/lessonFooter'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
+import { LESSON_PROGRESS_HYDRATED_EVENT } from '@/lib/lessonProgress/cloudTypes'
 import {
   PRACTICE_TOPICS_BY_AUDIENCE,
   getLessonTopicById,
@@ -681,6 +682,12 @@ export default function MenuSectionPanels({
       setLessonProgressMap(loadLessonProgressMap())
     }
   }, [menuView, lessonsPanel, practiceProgressRevision])
+
+  React.useEffect(() => {
+    const onHydrated = () => setLessonProgressMap(loadLessonProgressMap())
+    window.addEventListener(LESSON_PROGRESS_HYDRATED_EVENT, onHydrated)
+    return () => window.removeEventListener(LESSON_PROGRESS_HYDRATED_EVENT, onHydrated)
+  }, [])
 
   const defaultA2LessonId = React.useMemo(
     () =>

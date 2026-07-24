@@ -4,6 +4,8 @@ import * as localStorageAdapter from '@/lib/learningMemory/storage'
 /**
  * Storage port for learning memory (local now → Supabase later).
  * Ranking/UI should depend on this surface, not raw localStorage.
+ * Cloud signals sync is NOT in current rollout — only wire writes through this port
+ * so a future async adapter can plug in without hunting imports (record.ts must use port).
  */
 export type LearningMemoryStoragePort = {
   listSignals: () => LearningSignal[]
