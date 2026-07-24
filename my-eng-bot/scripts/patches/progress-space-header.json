@@ -1,0 +1,22 @@
+[
+  [
+    "import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'",
+    "import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'\nimport { progressCopy } from '@/lib/uiCopy/progress'"
+  ],
+  [
+    "  const hasCommunicationHeaderControls =\n    dialogStarted &&\n    settings.mode === 'communication' &&\n    !isLessonActive &&\n    !isPracticeActive &&\n    !engvoVoiceMode",
+    "  const hasCommunicationHeaderControls =\n    dialogStarted &&\n    settings.mode === 'communication' &&\n    !isProgressSpaceActive &&\n    !isLessonActive &&\n    !isPracticeActive &&\n    !engvoVoiceMode"
+  ],
+  [
+    "    : engvoVoiceMode\n      ? 'Call to Engvo'\n      : activeLessonTitle\n      ? `Урок: ${activeLessonTitle}`\n      : storageLoaded\n        ? getMenuSummary(true)\n        : 'MyEng'",
+    "    : engvoVoiceMode\n      ? 'Call to Engvo'\n      : activeLessonTitle\n      ? `Урок: ${activeLessonTitle}`\n      : isProgressSpaceActive\n      ? progressCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle\n      : storageLoaded\n        ? getMenuSummary(true)\n        : 'MyEng'"
+  ],
+  [
+    "              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (\n                <span className=\"truncate\">{pageTitle}</span>\n              ) : (",
+    "              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isVocabularyHubActive ? (\n                <span className=\"truncate\">{pageTitle}</span>\n              ) : ("
+  ],
+  [
+    "      if (target.kind === 'vocabulary') {\n        openVocabularyWorlds()\n        return\n      }",
+    "      if (target.kind === 'vocabulary') {\n        setProgressSpaceActive(false)\n        openVocabularyWorlds()\n        return\n      }"
+  ]
+]

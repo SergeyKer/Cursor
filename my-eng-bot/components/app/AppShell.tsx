@@ -242,6 +242,7 @@ import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
+import { progressCopy } from '@/lib/uiCopy/progress'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -5340,6 +5341,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return
       }
       if (target.kind === 'vocabulary') {
+        setProgressSpaceActive(false)
         openVocabularyWorlds()
         return
       }
@@ -8872,6 +8874,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const hasCommunicationHeaderControls =
     dialogStarted &&
     settings.mode === 'communication' &&
+    !isProgressSpaceActive &&
     !isLessonActive &&
     !isPracticeActive &&
     !engvoVoiceMode
@@ -8907,6 +8910,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ? 'Call to Engvo'
       : activeLessonTitle
       ? `Урок: ${activeLessonTitle}`
+      : isProgressSpaceActive
+      ? progressCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle
       : storageLoaded
         ? getMenuSummary(true)
         : 'MyEng'
@@ -9052,7 +9057,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 ) : (
                   <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
                 )
-              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive ? (
+              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isVocabularyHubActive ? (
                 <span className="truncate">{pageTitle}</span>
               ) : (
                 <>

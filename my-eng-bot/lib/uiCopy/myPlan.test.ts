@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildIdleNowCardView,
+  buildMoreEmptyCardView,
   myPlanButton,
   myPlanCopy,
   myPlanInviteFromGoalType,
@@ -18,6 +20,24 @@ describe('myPlan copy dictionary', () => {
     expect(c.sectionNow).toBe('Сейчас')
     expect(c.statusLink).toContain('сделал')
     expect(c.referenceLink).toBe('Справочник')
+  })
+
+  it('idle and more-empty placeholders differ by audience', () => {
+    const child = myPlanCopy('child')
+    const adult = myPlanCopy('adult')
+    expect(child.nowIdleTitle).toBe('Пока спокойно')
+    expect(adult.nowIdleTitle).toBe('Срочного шага нет')
+    expect(child.moreEmptyTitle).toBe('Пока ничего рядом')
+    expect(adult.moreEmptyTitle).toBe('Дополнительного шага нет')
+    expect(child.nowIdleReason.length).toBeGreaterThan(0)
+    expect(adult.moreEmptyReason.length).toBeGreaterThan(0)
+
+    const idle = buildIdleNowCardView('adult')
+    expect(idle.headerTitle).toBe('Сейчас')
+    expect(idle.footer).toBeNull()
+    const more = buildMoreEmptyCardView('child')
+    expect(more.headerTitle).toBe('Ещё можно')
+    expect(more.footer).toBeNull()
   })
 
   it('why is one short phrase', () => {

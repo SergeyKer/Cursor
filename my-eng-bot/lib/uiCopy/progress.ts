@@ -73,6 +73,7 @@ const SECTIONS = {
     modesReference: 'Справка',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
+    spaceTitle: 'Прогресс',
   },
   adult: {
     awardsTitle: 'Награды',
@@ -146,6 +147,7 @@ const SECTIONS = {
     modesReference: 'Справка',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
+    spaceTitle: 'Прогресс',
   },
 } as const
 

@@ -21,6 +21,8 @@ import type {
 } from '@/lib/myPlan/types'
 import {
   MY_PLAN_COPY,
+  buildIdleNowCardView,
+  buildMoreEmptyCardView,
   buildNowCardView,
   buildProgramCardView,
   myPlanCopy,
@@ -439,6 +441,7 @@ export default function MyPlanPanel({
       </div>
     ) : null
 
+  const moreEmptyView = buildMoreEmptyCardView(audience)
   const secondaryBlock =
     resolvedSecondary.length > 0 ? (
       <div className="w-full min-w-0 space-y-3">
@@ -475,7 +478,12 @@ export default function MyPlanPanel({
           )
         })}
       </div>
-    ) : null
+    ) : (
+      <MyPlanCard title={moreEmptyView.headerTitle} className="opacity-75">
+        <p className={MY_PLAN_CARD_BODY_TITLE}>{moreEmptyView.bodyTitle}</p>
+        <p className={MY_PLAN_CARD_BODY_REASON}>{moreEmptyView.bodyReason}</p>
+      </MyPlanCard>
+    )
 
   const programView = buildProgramCardView({
     audience,
@@ -520,8 +528,6 @@ export default function MyPlanPanel({
       <p className={MY_PLAN_CARD_BODY_REASON}>{programView.bodyReason}</p>
     </MyPlanCard>
   )
-
-  const showEmptyMainFallback = !resolvedMain && programStatus === 'no_catalog'
 
   const nowCardFromTask = (task: MyPlanRecommendation, source: 'main' | 'secondary') => {
     const view = buildNowCardView({
@@ -588,50 +594,38 @@ export default function MyPlanPanel({
     )
   }
 
-  if (showEmptyMainFallback) {
-    const emptyView = buildNowCardView({ audience, task: null })
-    return (
-      <div className="w-full min-w-0 space-y-3">
-        <MyPlanCard
-          title={emptyView.headerTitle}
-          footer={
-            emptyView.footer && onMenuViewChange ? (
-              <MyPlanCardFooterButton
-                variant={emptyView.footer.variant}
-                label={emptyView.footer.label}
-                ariaLabel={emptyView.footer.ariaLabel}
-                onClick={() => onMenuViewChange('lessons')}
-              />
-            ) : null
-          }
-        >
-          <p className={MY_PLAN_CARD_BODY_TITLE}>{emptyView.bodyTitle}</p>
-          <p className={MY_PLAN_CARD_BODY_REASON}>{emptyView.bodyReason}</p>
-        </MyPlanCard>
-        {programCardBlock}
-        {statusBlock}
-        {zonesBlock}
-        {debugLogBlock}
-      </div>
-    )
-  }
-
-  if (!resolvedMain) {
-    return (
-      <div className="w-full min-w-0 space-y-3">
-        {programCardBlock}
-        {secondaryBlock}
-        {statusBlock}
-        {zonesBlock}
-        {debugLogBlock}
-      </div>
-    )
-  }
+  const emptyNowView = buildNowCardView({ audience, task: null })
+  const idleNowView = buildIdleNowCardView(audience)
+  const nowBlock = resolvedMain ? (
+    nowCardFromTask(resolvedMain, 'main')
+  ) : programStatus === 'no_catalog' ? (
+    <MyPlanCard
+      title={emptyNowView.headerTitle}
+      footer={
+        emptyNowView.footer && onMenuViewChange ? (
+          <MyPlanCardFooterButton
+            variant={emptyNowView.footer.variant}
+            label={emptyNowView.footer.label}
+            ariaLabel={emptyNowView.footer.ariaLabel}
+            onClick={() => onMenuViewChange('lessons')}
+          />
+        ) : null
+      }
+    >
+      <p className={MY_PLAN_CARD_BODY_TITLE}>{emptyNowView.bodyTitle}</p>
+      <p className={MY_PLAN_CARD_BODY_REASON}>{emptyNowView.bodyReason}</p>
+    </MyPlanCard>
+  ) : (
+    <MyPlanCard title={idleNowView.headerTitle} className="opacity-75">
+      <p className={MY_PLAN_CARD_BODY_TITLE}>{idleNowView.bodyTitle}</p>
+      <p className={MY_PLAN_CARD_BODY_REASON}>{idleNowView.bodyReason}</p>
+    </MyPlanCard>
+  )
 
   return (
     <div className="w-full min-w-0 space-y-3">
-      {nowCardFromTask(resolvedMain, 'main')}
       {programCardBlock}
+      {nowBlock}
       {secondaryBlock}
       {statusBlock}
       {zonesBlock}

@@ -222,15 +222,6 @@ export default function ProgressSheetScreen({
         shelf.cupStats ? ` · 🏆 ${shelf.cupStats.cups}` : ''
       }`
 
-  const headerTitle =
-    detail === 'awards'
-      ? 'Прогресс · Награды'
-      : detail === 'calendar'
-        ? 'Прогресс · Календарь'
-        : detail === 'remarks'
-          ? 'Прогресс · Замечания'
-          : 'Прогресс'
-
   const overview = (
     <div className="w-full min-w-0 space-y-2.5">
       <ProgressCard
@@ -768,9 +759,6 @@ export default function ProgressSheetScreen({
         </div>
       }
     >
-      <p className="mb-2 px-1 text-[13px] font-medium text-[var(--text-muted)]" aria-live="polite">
-        {headerTitle}
-      </p>
       {body}
     </LessonReadingShell>
   )

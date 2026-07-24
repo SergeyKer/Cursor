@@ -40,6 +40,10 @@ const SECTIONS = {
     emptyTitle: 'Уроки',
     emptyBody: 'Загляни в Уроки — там начало.',
     emptyCta: 'К урокам',
+    nowIdleTitle: 'Пока спокойно',
+    nowIdleReason: 'Сверху — путь по программе.',
+    moreEmptyTitle: 'Пока ничего рядом',
+    moreEmptyReason: 'Сначала текущее сверху.',
     statusLink: 'Что я уже сделал →',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
@@ -51,6 +55,10 @@ const SECTIONS = {
     emptyTitle: 'Уроки',
     emptyBody: 'Откройте Уроки или начните короткую практику.',
     emptyCta: 'К разделу «Уроки»',
+    nowIdleTitle: 'Срочного шага нет',
+    nowIdleReason: 'Смотри «Дальше по программе» выше.',
+    moreEmptyTitle: 'Дополнительного шага нет',
+    moreEmptyReason: 'Сначала текущий или программный шаг.',
     statusLink: 'Подробнее в «Прогрессе» →',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
@@ -431,5 +439,27 @@ export function buildNowCardView(params: {
       label: copy.emptyCta,
       ariaLabel: copy.emptyCta,
     },
+  }
+}
+
+/** Soft empty «Сейчас» when catalog exists but main is absent (no CTA). */
+export function buildIdleNowCardView(audience?: MyPlanAudience): ProgramCardView {
+  const copy = myPlanCopy(audience === 'child' ? 'child' : 'adult')
+  return {
+    headerTitle: copy.sectionNow,
+    bodyTitle: copy.nowIdleTitle,
+    bodyReason: copy.nowIdleReason,
+    footer: null,
+  }
+}
+
+/** Soft empty «Ещё можно» when secondary is empty (no CTA). */
+export function buildMoreEmptyCardView(audience?: MyPlanAudience): ProgramCardView {
+  const copy = myPlanCopy(audience === 'child' ? 'child' : 'adult')
+  return {
+    headerTitle: copy.sectionMore,
+    bodyTitle: copy.moreEmptyTitle,
+    bodyReason: copy.moreEmptyReason,
+    footer: null,
   }
 }
