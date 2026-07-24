@@ -46,21 +46,15 @@ type QuickTestPageChromeProps = {
 function QuickTestFooterProgress({
   current,
   total,
-  hidden,
   staticLabel,
 }: {
   current: number
   total: number
-  hidden?: boolean
   staticLabel?: string
 }) {
   const pct = Math.max(0, Math.min(100, Math.round((current / Math.max(1, total)) * 100)))
   return (
-    <div
-      className="flex h-full min-h-0 w-full items-center gap-2 px-3"
-      aria-hidden={hidden ? true : undefined}
-      style={hidden ? { visibility: 'hidden' } : undefined}
-    >
+    <div className="flex h-full min-h-0 w-full items-center gap-2 px-3">
       {staticLabel ? (
         <EmojiLeadingStatText text={staticLabel} className="footer-stat-pair shrink-0" />
       ) : null}
@@ -140,6 +134,8 @@ export function QuickTestPageChrome({
   }, [])
 
   const showProgress = progress != null
+  /** Lobby without progress: one footer row (no empty bottom half). Session keeps 2-row. */
+  const compactFooter = !showProgress
   const progressCurrent = progress?.current ?? 0
   const progressTotal = progress?.total ?? 5
   const topLine = formatFooterDynamicLine(footerDynamic.trim())
@@ -157,17 +153,25 @@ export function QuickTestPageChrome({
     onDebugSkipToQuickTestFinale?.()
   }, [onDebugSkipToQuickTestFinale])
 
+  const rootStyle = {
+    minHeight: 'var(--app-vv-height, var(--ios-safari-vv-height, 100dvh))',
+    height: 'var(--app-vv-height, var(--ios-safari-vv-height, 100dvh))',
+    overflow: 'hidden' as const,
+    ...(compactFooter
+      ? {
+          ['--app-footer-chrome-height' as string]:
+            'calc(var(--app-header-row-height) + var(--app-footer-safe-inset))',
+          ['--app-bottom-offset' as string]:
+            'calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px))',
+        }
+      : {
+          ['--app-bottom-offset' as string]:
+            'calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px))',
+        }),
+  }
+
   return (
-    <div
-      className="quick-test-root flex flex-col bg-[var(--bg)] text-[var(--text)]"
-      style={{
-        minHeight: 'var(--app-vv-height, var(--ios-safari-vv-height, 100dvh))',
-        height: 'var(--app-vv-height, var(--ios-safari-vv-height, 100dvh))',
-        overflow: 'hidden',
-        ['--app-bottom-offset' as string]:
-          'calc(var(--app-footer-chrome-height) + var(--vv-bottom-inset, 0px))',
-      }}
-    >
+    <div className="quick-test-root flex flex-col bg-[var(--bg)] text-[var(--text)]" style={rootStyle}>
       <header
         className="app-header-surface fixed left-0 right-0 top-0 z-[65] border-b border-[var(--app-header-border)]"
         style={{ paddingTop: 'var(--app-safe-top-inset)' }}
@@ -228,11 +232,17 @@ export function QuickTestPageChrome({
       {overlay?.(columnBounds)}
 
       <footer className="app-dialog-chrome-footer pointer-events-none fixed bottom-0 left-0 right-0 z-[55] flex flex-col overflow-visible">
-        <div className="app-footer-surface h-[var(--app-footer-row-height)] min-h-[var(--app-footer-row-height)] shrink-0 border-t border-[var(--app-footer-border)]">
-          <div className="app-footer-body pointer-events-none">
-            <div className="app-footer-body__row app-footer-body__row--top">
+        <div
+          className={`app-footer-surface shrink-0 border-t border-[var(--app-footer-border)] ${
+            compactFooter
+              ? 'h-[var(--app-header-row-height)] min-h-[var(--app-header-row-height)]'
+              : 'h-[var(--app-footer-row-height)] min-h-[var(--app-footer-row-height)]'
+          }`}
+        >
+          {compactFooter ? (
+            <div className="pointer-events-none box-border flex h-full w-full items-center overflow-hidden">
               <div
-                className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 px-2 sm:px-3 ${presentation.topLineRowClassName}`}
+                className={`app-footer-body__row-inner mx-auto flex h-full w-full max-w-[23.2rem] min-w-0 flex-1 items-center px-2 sm:px-3 ${presentation.topLineRowClassName}`}
               >
                 {topLine ? (
                   <>
@@ -257,19 +267,48 @@ export function QuickTestPageChrome({
                 )}
               </div>
             </div>
-            <div className="app-footer-body__row app-footer-body__row--bottom">
-              <div
-                className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 ${presentation.bottomLineRowClassName}`}
-              >
-                <QuickTestFooterProgress
-                  current={progressCurrent}
-                  total={progressTotal}
-                  hidden={!showProgress}
-                  staticLabel={showProgress ? bottomLine : undefined}
-                />
+          ) : (
+            <div className="app-footer-body pointer-events-none">
+              <div className="app-footer-body__row app-footer-body__row--top">
+                <div
+                  className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 px-2 sm:px-3 ${presentation.topLineRowClassName}`}
+                >
+                  {topLine ? (
+                    <>
+                      {presentation.markerKind === 'emoji' && presentation.markerText ? (
+                        <span className={presentation.markerClassName} aria-hidden>
+                          {presentation.markerText}
+                        </span>
+                      ) : null}
+                      <TypingText
+                        key={footerTypingKey ?? topLine}
+                        text={topLine}
+                        speed={presentation.typingSpeed}
+                        singleLine
+                        instant
+                        className={presentation.topLineClassName}
+                      />
+                    </>
+                  ) : (
+                    <span className="footer-dynamic-line invisible" aria-hidden>
+                      &nbsp;
+                    </span>
+                  )}
+                </div>
+              </div>
+              <div className="app-footer-body__row app-footer-body__row--bottom">
+                <div
+                  className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 ${presentation.bottomLineRowClassName}`}
+                >
+                  <QuickTestFooterProgress
+                    current={progressCurrent}
+                    total={progressTotal}
+                    staticLabel={bottomLine || undefined}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         <div
           className="shrink-0 bg-[var(--app-footer-bg)]"

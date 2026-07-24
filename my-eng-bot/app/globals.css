@@ -2676,33 +2676,6 @@ html[data-theme='glass3'][data-audience] {
 .dialog-glass-scroll-host > .lesson-scroll-viewport {
   position: relative;
   z-index: 1;
-  /* Override * { thin + scrollbar-color } so webkit :hover works again */
-  scrollbar-width: auto;
-  scrollbar-color: auto;
-}
-
-.dialog-glass-scroll-host > .lesson-scroll-viewport::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-.dialog-glass-scroll-host > .lesson-scroll-viewport::-webkit-scrollbar-button {
-  display: none;
-  width: 0;
-  height: 0;
-}
-
-.dialog-glass-scroll-host > .lesson-scroll-viewport::-webkit-scrollbar-track {
-  background: rgba(148, 163, 184, 0.12);
-}
-
-.dialog-glass-scroll-host > .lesson-scroll-viewport::-webkit-scrollbar-thumb {
-  background: #c8d0c8;
-  border-radius: 4px;
-}
-
-.dialog-glass-scroll-host > .lesson-scroll-viewport::-webkit-scrollbar-thumb:hover {
-  background: #b0b8b0;
 }
 
 .dialog-glass-scroll-host > .lesson-scroll-viewport.chat-feed-wallpaper {

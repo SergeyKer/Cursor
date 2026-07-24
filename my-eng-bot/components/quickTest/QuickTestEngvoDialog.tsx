@@ -22,8 +22,9 @@ import {
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
+import { useLessonComposerHeightLock } from '@/hooks/useLessonComposerHeightLock'
 import { getChatComposerStackLayout } from '@/lib/chatComposerMetrics'
-import { estimateLessonComposerMinHeight, measureChoiceChipsLaneWidthPx } from '@/lib/lessonComposerLayout'
+import { measureChoiceChipsLaneWidthPx } from '@/lib/lessonComposerLayout'
 import {
   isLessonFeedOverflowing,
   LESSON_SCROLL_VIEWPORT_CLASS,
@@ -112,11 +113,6 @@ export function QuickTestEngvoDialog({ onFooterChange, onDebugSlugChange }: Quic
     prefersReducedMotion,
     enabled: introReady,
   })
-
-  const lobbyComposerLockRef = useRef(0)
-  const [stableLobbyComposerMinHeight, setStableLobbyComposerMinHeight] = useState<number | undefined>(
-    undefined
-  )
 
   const pinLobbyFeedTail = useCallback(() => {
     const container = scrollContainerRef.current
@@ -342,89 +338,17 @@ export function QuickTestEngvoDialog({ onFooterChange, onDebugSlugChange }: Quic
     return () => observer.disconnect()
   }, [choiceOptions, introReady, phase])
 
-  const levelsChoiceOptions = useMemo(
-    () => [...levelLabels, QUICK_TEST_COPY.dontKnowChip],
-    [levelLabels]
-  )
-
-  const lobbyComposerMinHeight = useMemo(() => {
-    const levelsHeight = estimateLessonComposerMinHeight({
-      panelKind: 'choice',
-      choiceOptions: levelsChoiceOptions,
-      containerWidthPx: composerInnerWidthPx,
-      compact: true,
-    })
-
-    let topicsHeight = 0
-    for (const levelId of LEVELS) {
-      const labels = getPopularTopicsForLevel(levelId).map((topic) => topic.title)
-      if (labels.length === 0) continue
-      topicsHeight = Math.max(
-        topicsHeight,
-        estimateLessonComposerMinHeight({
-          panelKind: 'choice',
-          choiceOptions: labels,
-          containerWidthPx: composerInnerWidthPx,
-          compact: true,
-        })
-      )
-    }
-
-    return Math.max(levelsHeight, topicsHeight)
-  }, [composerInnerWidthPx, levelsChoiceOptions])
-
-  /** Fallback-width estimate: never shrink below first layout (prevents backdrop jump). */
-  const lobbyComposerMinHeightFloor = useMemo(() => {
-    const levelsHeight = estimateLessonComposerMinHeight({
-      panelKind: 'choice',
-      choiceOptions: levelsChoiceOptions,
-      compact: true,
-    })
-
-    let topicsHeight = 0
-    for (const levelId of LEVELS) {
-      const labels = getPopularTopicsForLevel(levelId).map((topic) => topic.title)
-      if (labels.length === 0) continue
-      topicsHeight = Math.max(
-        topicsHeight,
-        estimateLessonComposerMinHeight({
-          panelKind: 'choice',
-          choiceOptions: labels,
-          compact: true,
-        })
-      )
-    }
-
-    return Math.max(levelsHeight, topicsHeight)
-  }, [levelsChoiceOptions])
-
-  useLayoutEffect(() => {
-    if (!introReady) return
-    const stack = composerStackRef.current
-    const measured = stack ? Math.round(stack.getBoundingClientRect().height) : 0
-    const nextLock = Math.max(
-      lobbyComposerLockRef.current,
-      lobbyComposerMinHeightFloor,
-      lobbyComposerMinHeight,
-      measured
-    )
-    if (nextLock > lobbyComposerLockRef.current) {
-      lobbyComposerLockRef.current = nextLock
-      setStableLobbyComposerMinHeight(nextLock)
-    }
-  }, [
-    introReady,
-    lobbyComposerMinHeight,
-    lobbyComposerMinHeightFloor,
-    phase,
-    feed.length,
-  ])
-
-  const appliedLobbyComposerMinHeight = Math.max(
-    stableLobbyComposerMinHeight ?? 0,
-    lobbyComposerMinHeightFloor,
-    lobbyComposerMinHeight
-  )
+  const lockedComposerMinHeight = useLessonComposerHeightLock({
+    stackRef: composerStackRef,
+    transitionKey: `lobby-${phase}`,
+    panelKind: 'choice',
+    optionCount: choiceOptions.length,
+    choiceOptions,
+    containerWidthPx: composerInnerWidthPx,
+    compact: true,
+    enabled: introReady && chipsVisible,
+    lockReleased: topicTransitionPending || !chipsVisible,
+  })
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
@@ -466,9 +390,9 @@ export function QuickTestEngvoDialog({ onFooterChange, onDebugSlugChange }: Quic
                                 <EngvoFeedServiceTypingText text={ENGVO_TYPING_MESSAGE} />
                               </div>
                             ) : (
-                              <div className="relative w-full px-3 py-2.5">
+                              <div className="relative w-full">
                                 <div
-                                  className={`invisible block w-full ${lobbyBlockBodyClass}`}
+                                  className={`invisible block w-full px-3 py-2.5 ${lobbyBlockBodyClass}`}
                                   aria-hidden="true"
                                 >
                                   {text}
@@ -559,9 +483,7 @@ export function QuickTestEngvoDialog({ onFooterChange, onDebugSlugChange }: Quic
               className={composerStackLayout.verticalClass}
               style={{
                 ...(composerStackLayout.style ?? {}),
-                ...(appliedLobbyComposerMinHeight != null
-                  ? { minHeight: appliedLobbyComposerMinHeight }
-                  : {}),
+                ...(lockedComposerMinHeight != null ? { minHeight: lockedComposerMinHeight } : {}),
               }}
             >
               <div
