@@ -4,7 +4,7 @@ import { createDefaultRewardsState } from '@/lib/rewardsState'
 import { progressCopy } from '@/lib/uiCopy/progress'
 
 describe('buildProgressStatusCopy', () => {
-  it('marks streak active today without action CTA words', () => {
+  it('active today under 3: praise, continue now, path to +10, CTA Продолжить', () => {
     const state = createDefaultRewardsState()
     state.progress.lastActiveDate = '2026-07-18'
     state.progress.dailyStreak = 2
@@ -21,15 +21,18 @@ describe('buildProgressStatusCopy', () => {
       today: '2026-07-18',
     })
 
-    expect(status.streakStatusLine).toMatch(/уже есть|зафиксирована/i)
+    expect(status.streakStatusLine).toMatch(/молодец/i)
+    expect(status.streakStatusLine).toMatch(/серия уже 2 дня/i)
+    expect(status.streakStatusLine).toMatch(/продолжай сейчас/i)
+    expect(status.streakStatusLine).toMatch(/\+10 XP/i)
+    expect(status.streakStatusLine.toLowerCase()).not.toMatch(/угроз|сгор|зафиксирована|на сегодня ок/)
     expect(status.activeToday).toBe(true)
+    expect(status.streakRecoverable).toBe(false)
+    expect(status.streakExpired).toBe(false)
     expect(status.streakAtRisk).toBe(false)
-    expect(status.streakEmpty).toBe(false)
+    expect(status.streakCtaLabel).toBe('Продолжить')
     expect(status.modeGoals[0].line).toContain('3')
-    expect(status.modeGoals[0].line).toContain('7')
     expect(status.focusPercent).toBeGreaterThan(0)
-    expect(JSON.stringify(status).toLowerCase()).not.toContain('открыть челлендж')
-    expect(JSON.stringify(status).toLowerCase()).not.toContain('следующий лучший шаг')
   })
 
   it('hides opportunity when null', () => {
@@ -65,9 +68,10 @@ describe('buildProgressStatusCopy', () => {
     expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('открой')
   })
 
-  it('marks streak at risk when not active today', () => {
+  it('recoverable streak 5: save bonus +15, warning recoverable, CTA Сохранить серию', () => {
     const state = createDefaultRewardsState()
-    state.progress.dailyStreak = 3
+    state.progress.dailyStreak = 5
+    state.progress.bestDailyStreak = 5
     state.progress.lastActiveDate = '2026-07-17'
     const status = buildProgressStatusCopy({
       rewardsState: state,
@@ -77,13 +81,74 @@ describe('buildProgressStatusCopy', () => {
       opportunity: null,
       today: '2026-07-18',
     })
+    expect(status.streakRecoverable).toBe(true)
+    expect(status.streakExpired).toBe(false)
     expect(status.streakAtRisk).toBe(true)
-    expect(status.streakEmpty).toBe(false)
-    expect(status.streakStatusLine.toLowerCase()).toMatch(/угроз/)
-    expect(status.streakStatusLine.toLowerCase()).not.toContain('цель')
+    expect(status.streakStatusLine).toMatch(/отличная серия — 5 дней/i)
+    expect(status.streakStatusLine).toMatch(/\+15 XP/)
+    expect(status.streakStatusLine.toLowerCase()).not.toMatch(/угроз|сгор|потеряешь/)
+    expect(status.streakCtaLabel).toBe('Сохранить серию')
   })
 
-  it('marks streak empty at zero', () => {
+  it('recoverable streak 2: days word and path to +10', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 2
+    state.progress.lastActiveDate = '2026-07-17'
+    const status = buildProgressStatusCopy({
+      rewardsState: state,
+      copy: progressCopy('child'),
+      audience: 'child',
+      cupsEnabled: false,
+      opportunity: null,
+      today: '2026-07-18',
+    })
+    expect(status.streakRecoverable).toBe(true)
+    expect(status.streakStatusLine).toMatch(/серия 2 дня/i)
+    expect(status.streakStatusLine).toMatch(/\+10 XP/)
+    expect(status.streakCtaLabel).toBe('Сохранить серию')
+  })
+
+  it('active today streak 7: opens +20, CTA Продолжить', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 7
+    state.progress.lastActiveDate = '2026-07-18'
+    const status = buildProgressStatusCopy({
+      rewardsState: state,
+      copy: progressCopy('adult'),
+      audience: 'adult',
+      cupsEnabled: false,
+      opportunity: null,
+      today: '2026-07-18',
+    })
+    expect(status.activeToday).toBe(true)
+    expect(status.streakStatusLine).toMatch(/7 дней/)
+    expect(status.streakStatusLine).toMatch(/открывает \+20 XP/)
+    expect(status.streakStatusLine).toMatch(/завтра/)
+    expect(status.streakCtaLabel).toBe('Продолжить')
+  })
+
+  it('expired streak: past record, CTA Начать, no recoverable warning', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 5
+    state.progress.bestDailyStreak = 5
+    state.progress.lastActiveDate = '2026-07-10'
+    const status = buildProgressStatusCopy({
+      rewardsState: state,
+      copy: progressCopy('child'),
+      audience: 'child',
+      cupsEnabled: false,
+      opportunity: null,
+      today: '2026-07-18',
+    })
+    expect(status.streakExpired).toBe(true)
+    expect(status.streakRecoverable).toBe(false)
+    expect(status.streakAtRisk).toBe(false)
+    expect(status.streakStatusLine).toMatch(/прошлый рекорд — 5 дней/i)
+    expect(status.streakStatusLine.toLowerCase()).not.toMatch(/сохрани серию 5|угроз/)
+    expect(status.streakCtaLabel).toBe('Начать')
+  })
+
+  it('marks streak empty at zero with start CTA', () => {
     const status = buildProgressStatusCopy({
       rewardsState: createDefaultRewardsState(),
       copy: progressCopy('child'),
@@ -94,6 +159,9 @@ describe('buildProgressStatusCopy', () => {
     })
     expect(status.streakEmpty).toBe(true)
     expect(status.streakAtRisk).toBe(false)
-    expect(status.streakStatusLine).toMatch(/0 дней/i)
+    expect(status.streakRecoverable).toBe(false)
+    expect(status.streakStatusLine).toMatch(/первый шаг/i)
+    expect(status.streakStatusLine).toMatch(/\+10 XP/)
+    expect(status.streakCtaLabel).toBe('Начать')
   })
 })

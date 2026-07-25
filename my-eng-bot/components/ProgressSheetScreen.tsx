@@ -56,6 +56,9 @@ const STATUS_TILE_CLASS =
 
 const STATUS_WIDE_TILE_CLASS = `${STATUS_TILE_CLASS} !py-3.5`
 
+/** Streak status card: roomier padding than compact tiles. */
+const STATUS_STREAK_TILE_CLASS = `${STATUS_TILE_CLASS} !px-4 !py-4`
+
 /** Level bar card: bottom inset slightly below gap above XP line (`mt-1.5`). */
 const STATUS_LEVEL_TILE_CLASS = `${STATUS_TILE_CLASS} !pt-3.5 !pb-2`
 
@@ -265,38 +268,25 @@ export default function ProgressSheetScreen({
             {shelf.currentLevelXP}/{shelf.xpToNextLevel} XP
           </p>
         </div>
-        <div
-          className={`${STATUS_WIDE_TILE_CLASS} ${
-            status.streakAtRisk
-              ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]'
-              : ''
-          }`}
-        >
-          <p className="flex items-center gap-2 break-words leading-snug">
-            <span className="emoji-line shrink-0 text-[18px] leading-none">{DAILY_STREAK_GLYPH}</span>
-            <span
-              className={`min-w-0 ${
-                status.streakAtRisk
-                  ? 'text-[16px] font-semibold text-[var(--status-warning-text)]'
-                  : 'text-[14px] text-[var(--text-muted)]'
-              }`}
-            >
-              {status.streakAtRisk
-                ? status.streakStatusLine
-                : `${copy.recordLabel}: ${shelf.bestDailyStreak} · ${status.streakStatusLine}`}
-            </span>
-          </p>
-          {status.streakAtRisk ? (
-            <button
-              type="button"
-              className={STATUS_INSET_LAUNCH_BTN}
-              aria-label={copy.saveStreakAria}
-              disabled={practiceBusy}
-              onClick={saveStreak}
-            >
-              <span className="min-w-0 break-words">{copy.saveStreak}</span>
-            </button>
-          ) : null}
+        <div className={STATUS_STREAK_TILE_CLASS}>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2.5 text-[17px] font-semibold leading-snug text-[var(--text)]">
+              <span className="emoji-line shrink-0 text-[20px] leading-none">{DAILY_STREAK_GLYPH}</span>
+              <span className="min-w-0">{status.streakStatusHeadline}</span>
+            </p>
+            {status.streakStatusBody ? (
+              <p className="mt-2 text-[15px] leading-snug text-[var(--text)]">{status.streakStatusBody}</p>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className={STATUS_INSET_LAUNCH_BTN}
+            aria-label={`${status.streakCtaLabel} — открыть Мой план`}
+            disabled={practiceBusy}
+            onClick={saveStreak}
+          >
+            <span className="min-w-0 break-words">{status.streakCtaLabel}</span>
+          </button>
         </div>
       </div>
 

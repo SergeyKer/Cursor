@@ -20,6 +20,7 @@ import {
   progressCopy,
   type ProgressAudience,
 } from '@/lib/uiCopy/progress'
+import { ruDayWord } from '@/lib/uiCopy/myPlan'
 
 export interface ProgressPanelProps {
   rewardsState: RewardsState | undefined
@@ -33,6 +34,9 @@ const STATUS_TILE_CLASS =
   'chat-section-surface glass-surface min-w-0 overflow-hidden rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-3 py-2.5'
 
 const STATUS_WIDE_TILE_CLASS = `${STATUS_TILE_CLASS} !py-3.5`
+
+/** Streak status card: roomier padding than compact tiles. */
+const STATUS_STREAK_TILE_CLASS = `${STATUS_TILE_CLASS} !px-4 !py-4`
 
 /** Level bar card: bottom inset slightly below gap above XP line (`mt-1.5`). */
 const STATUS_LEVEL_TILE_CLASS = `${STATUS_TILE_CLASS} !pt-3.5 !pb-2`
@@ -160,30 +164,16 @@ export default function ProgressPanel({
             {shelf.currentLevelXP}/{shelf.xpToNextLevel} XP
           </p>
         </div>
-        <div
-          className={`${STATUS_WIDE_TILE_CLASS} ${
-            status.streakAtRisk
-              ? 'border-[var(--status-warning-border)] bg-[var(--status-warning-bg)]'
-              : ''
-          }`}
-        >
-          <p className="flex items-center gap-2 break-words leading-snug">
-            <span className="emoji-line shrink-0 text-[18px] leading-none">{DAILY_STREAK_GLYPH}</span>
-            <span
-              className={`min-w-0 ${
-                status.streakAtRisk
-                  ? 'text-[16px] font-semibold text-[var(--status-warning-text)]'
-                  : 'text-[14px] text-[var(--text-muted)]'
-              }`}
-            >
-              {status.streakAtRisk
-                ? status.streakStatusLine
-                : `${copy.recordLabel}: ${shelf.bestDailyStreak} · ${status.streakStatusLine}`}
-              {!status.streakAtRisk && shelf.streakCopy.bonusTodayLabel
-                ? ` · ${shelf.streakCopy.bonusTodayLabel}`
-                : ''}
-            </span>
-          </p>
+        <div className={STATUS_STREAK_TILE_CLASS}>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2.5 text-[17px] font-semibold leading-snug text-[var(--text)]">
+              <span className="emoji-line shrink-0 text-[20px] leading-none">{DAILY_STREAK_GLYPH}</span>
+              <span className="min-w-0">{status.streakStatusHeadline}</span>
+            </p>
+            {status.streakStatusBody ? (
+              <p className="mt-2 text-[15px] leading-snug text-[var(--text)]">{status.streakStatusBody}</p>
+            ) : null}
+          </div>
           <button
             type="button"
             className="mt-2 min-h-[44px] w-full rounded-md px-1 text-left text-[12px] font-medium text-[var(--accent)]"
@@ -194,6 +184,9 @@ export default function ProgressPanel({
           </button>
           {streakOpen ? (
             <div className="mt-1 space-y-1 text-[12px] text-[var(--text-muted)]">
+              <p>
+                {copy.recordLabel}: {shelf.bestDailyStreak} {ruDayWord(shelf.bestDailyStreak)}
+              </p>
               {shelf.streakCopy.bonusTodayLabel ? (
                 <p>
                   {audience === 'child' ? 'Бонус сегодня: ' : 'Бонус за первый шаг сегодня: '}
@@ -207,16 +200,14 @@ export default function ProgressPanel({
               ) : null}
             </div>
           ) : null}
-          {status.streakAtRisk ? (
-            <button
-              type="button"
-              className={STATUS_INSET_LAUNCH_BTN}
-              aria-label={copy.saveStreakAria}
-              onClick={saveStreak}
-            >
-              <span className="min-w-0 break-words">{copy.saveStreak}</span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className={STATUS_INSET_LAUNCH_BTN}
+            aria-label={`${status.streakCtaLabel} — открыть Мой план`}
+            onClick={saveStreak}
+          >
+            <span className="min-w-0 break-words">{status.streakCtaLabel}</span>
+          </button>
         </div>
       </div>
 
