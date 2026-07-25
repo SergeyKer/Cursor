@@ -10,10 +10,12 @@ import {
   createDefaultRewardsState,
   createFooterSsrPlaceholderRewardsState,
   GLOBAL_COINS_GRANT_AMOUNT,
+  loadRewardsState,
   replenishEmptyWalletOnLoad,
   formatGlobalFooterStats,
   getTodayDateString,
   REWARDS_MIGRATIONS_KEY,
+  REWARDS_STATE_KEY,
   reconcileModeGoalSessions,
   spendCoins,
   STARTER_COINS_BONUS,
@@ -26,8 +28,106 @@ describe('rewardsState', () => {
     const state = createDefaultRewardsState()
     const next = awardGlobalXp(state, 120, 'test_xp')
     expect(next.progress.level).toBe(2)
+    expect(next.progress.currentLevelXP).toBe(20)
+    expect(next.progress.xpToNextLevel).toBe(120)
     expect(next.ui.lastLevelUp?.from).toBe(1)
     expect(next.ui.lastLevelUp?.to).toBe(2)
+  })
+
+  it('does not change award totals for valid finite amounts', () => {
+    const state = createDefaultRewardsState()
+    const next = awardGlobalXp(state, 50, 'test_xp', { countsAsDailyActivity: false })
+    expect(next.progress.totalXP).toBe(50)
+    expect(next.ui.lastReward?.amount).toBe(50)
+  })
+
+  it('jumps multiple levels in one award and records from/to', () => {
+    const state = createDefaultRewardsState()
+    const next = awardGlobalXp(state, 300, 'test_xp', { countsAsDailyActivity: false })
+    expect(next.progress.level).toBe(3)
+    expect(next.progress.currentLevelXP).toBe(80)
+    expect(next.progress.xpToNextLevel).toBe(140)
+    expect(next.ui.lastLevelUp).toEqual(
+      expect.objectContaining({
+        from: 1,
+        to: 3,
+      })
+    )
+  })
+
+  it('recalculates derived level fields on load from totalXP', () => {
+    const storage = new Map<string, string>()
+    storage.set(
+      REWARDS_STATE_KEY,
+      JSON.stringify({
+        version: '1.0',
+        timestamp: '2026-05-19T00:00:00.000Z',
+        progress: {
+          totalXP: 250,
+          level: 99,
+          currentLevelXP: 1,
+          xpToNextLevel: 100,
+          dailyStreak: 0,
+          bestDailyStreak: 0,
+          lastActiveDate: null,
+          lastStreakDailyBonusDate: null,
+          activeDays: [],
+        },
+      })
+    )
+    const localStorageMock = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+      removeItem: (key: string) => {
+        storage.delete(key)
+      },
+      clear: () => storage.clear(),
+      key: () => null,
+      length: 0,
+    }
+    vi.stubGlobal('window', { localStorage: localStorageMock })
+    vi.stubGlobal('localStorage', localStorageMock)
+
+    const loaded = loadRewardsState()
+    expect(loaded.progress.totalXP).toBe(250)
+    expect(loaded.progress.level).toBe(3)
+    expect(loaded.progress.currentLevelXP).toBe(30)
+    expect(loaded.progress.xpToNextLevel).toBe(140)
+
+    vi.unstubAllGlobals()
+  })
+
+  it('normalizes infinite totalXP on load', () => {
+    const storage = new Map<string, string>()
+    // JSON number beyond float range parses as Infinity
+    storage.set(
+      REWARDS_STATE_KEY,
+      '{"version":"1.0","timestamp":"2026-05-19T00:00:00.000Z","progress":{"totalXP":1e309,"level":50,"currentLevelXP":0,"xpToNextLevel":100}}'
+    )
+    const localStorageMock = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value)
+      },
+      removeItem: (key: string) => {
+        storage.delete(key)
+      },
+      clear: () => storage.clear(),
+      key: () => null,
+      length: 0,
+    }
+    vi.stubGlobal('window', { localStorage: localStorageMock })
+    vi.stubGlobal('localStorage', localStorageMock)
+
+    const loaded = loadRewardsState()
+    expect(loaded.progress.totalXP).toBe(0)
+    expect(loaded.progress.level).toBe(1)
+    expect(loaded.progress.currentLevelXP).toBe(0)
+    expect(loaded.progress.xpToNextLevel).toBe(100)
+
+    vi.unstubAllGlobals()
   })
 
   it('abandons stale in-progress mode goal session', () => {

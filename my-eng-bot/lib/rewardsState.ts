@@ -1,10 +1,14 @@
 import { DAILY_STREAK_GLYPH, formatDailyStreakFooter } from '@/lib/gamificationGlyphs'
+import {
+  calculateLevelFromTotalXp,
+  normalizeTotalXp,
+  xpBarForLevel,
+} from '@/lib/levelCurve'
 import { resolveStreakDailyBonus } from '@/lib/streakDailyBonus'
 
 export const REWARDS_STATE_KEY = 'myeng_state_v1'
 export const REWARDS_MIGRATIONS_KEY = 'myeng_rewards_migrations_v1'
 const REWARDS_STATE_VERSION = '1.0'
-const XP_PER_LEVEL = 100
 
 /** Стартовый бонус монет (новые пользователи + одноразовая миграция существующих). */
 export const STARTER_COINS_BONUS = 10
@@ -227,12 +231,7 @@ export function getTodayDateString(date: Date = new Date()): string {
 }
 
 export function calculateLevel(totalXP: number): Pick<GlobalProgressState, 'level' | 'currentLevelXP' | 'xpToNextLevel'> {
-  const safeXp = Number.isFinite(totalXP) ? Math.max(0, Math.floor(totalXP)) : 0
-  return {
-    level: Math.floor(safeXp / XP_PER_LEVEL) + 1,
-    currentLevelXP: safeXp % XP_PER_LEVEL,
-    xpToNextLevel: XP_PER_LEVEL,
-  }
+  return calculateLevelFromTotalXp(totalXP)
 }
 
 function createDefaultGoal(goalTarget: number, estimatedDurationMinutes: number): ModeGoalState {
@@ -267,7 +266,7 @@ export function createDefaultRewardsState(): RewardsState {
       totalXP: 0,
       level: 1,
       currentLevelXP: 0,
-      xpToNextLevel: XP_PER_LEVEL,
+      xpToNextLevel: xpBarForLevel(1),
       dailyStreak: 0,
       bestDailyStreak: 0,
       lastActiveDate: null,
@@ -384,7 +383,7 @@ function normalizeRewardsState(raw: unknown): RewardsState {
   const fallback = createDefaultRewardsState()
   if (!raw || typeof raw !== 'object') return fallback
   const src = raw as Partial<RewardsState>
-  const totalXP = typeof src.progress?.totalXP === 'number' ? Math.max(0, Math.floor(src.progress.totalXP)) : 0
+  const totalXP = normalizeTotalXp(typeof src.progress?.totalXP === 'number' ? src.progress.totalXP : 0)
   const levelView = calculateLevel(totalXP)
   const dailyStreak =
     typeof src.progress?.dailyStreak === 'number' ? Math.max(0, Math.floor(src.progress.dailyStreak)) : fallback.progress.dailyStreak
@@ -544,7 +543,7 @@ export function awardGlobalXp(
   }
   const { bonus: streakBonus, nextLastStreakDailyBonusDate } = resolveStreakDailyBonus(nextState, today)
   const totalAward = safeAmount + streakBonus
-  const totalXP = nextState.progress.totalXP + totalAward
+  const totalXP = normalizeTotalXp(nextState.progress.totalXP + totalAward)
   const levelView = calculateLevel(totalXP)
   const defaultTicker =
     streakBonus > 0
