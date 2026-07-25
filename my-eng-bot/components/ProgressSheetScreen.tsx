@@ -56,6 +56,9 @@ const STATUS_TILE_CLASS =
 
 const STATUS_WIDE_TILE_CLASS = `${STATUS_TILE_CLASS} !py-3.5`
 
+/** Level bar card: bottom inset slightly below gap above XP line (`mt-1.5`). */
+const STATUS_LEVEL_TILE_CLASS = `${STATUS_TILE_CLASS} !pt-3.5 !pb-2`
+
 const STATUS_INSET_LAUNCH_BTN = [
   BTN_INTERACTION_BASE,
   CARD_LAUNCH_SKIN,
@@ -229,7 +232,7 @@ export default function ProgressSheetScreen({
             <p className="text-[13px] text-[var(--text-muted)]">{copy.levelShort}</p>
           </div>
         </div>
-        <div className={STATUS_WIDE_TILE_CLASS}>
+        <div className={STATUS_LEVEL_TILE_CLASS}>
           <p className="flex items-center justify-center gap-1.5 text-center text-[15px] font-semibold leading-none text-[var(--text)]">
             <span
               className="inline-flex h-[1em] w-[1em] shrink-0 -translate-y-[3px] items-center justify-center text-[16px] leading-none"
@@ -239,7 +242,7 @@ export default function ProgressSheetScreen({
             </span>
             <span className="leading-none">{copy.levelShort}</span>
           </p>
-          <div className="mt-2.5 flex items-center gap-2.5">
+          <div className="mt-3.5 flex items-center gap-2.5">
             <span className="inline-flex h-3.5 w-7 shrink-0 -translate-y-px items-center justify-center text-[17px] font-bold tabular-nums leading-none text-[var(--text)]">
               {shelf.level}
             </span>
