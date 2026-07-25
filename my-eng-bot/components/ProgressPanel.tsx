@@ -110,18 +110,18 @@ export default function ProgressPanel({
             <p className="text-[13px] text-[var(--text-muted)]">{copy.streakShort}</p>
           </div>
           <div className={`${STATUS_TILE_CLASS} text-center`}>
-            <p className="emoji-line text-[22px] leading-none">👑</p>
-            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">
-              {shelf.level}
-            </p>
-            <p className="text-[13px] text-[var(--text-muted)]">{copy.levelShort}</p>
-          </div>
-          <div className={`${STATUS_TILE_CLASS} text-center`}>
             <p className="emoji-line text-[22px] leading-none">⭐</p>
             <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">
               {shelf.totalXP}
             </p>
             <p className="text-[13px] text-[var(--text-muted)]">{copy.xpShort}</p>
+          </div>
+          <div className={`${STATUS_TILE_CLASS} text-center`}>
+            <p className="emoji-line text-[22px] leading-none">👑</p>
+            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">
+              {shelf.level}
+            </p>
+            <p className="text-[13px] text-[var(--text-muted)]">{copy.levelShort}</p>
           </div>
         </div>
         <div className={STATUS_WIDE_TILE_CLASS}>
