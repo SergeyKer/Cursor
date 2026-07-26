@@ -105,6 +105,9 @@ describe('POST /api/chat translation provider payload', () => {
 
     expect(systemPrompt).toContain('Line 2: "Переведи далее: " + NEXT natural Russian sentence')
     expect(systemPrompt).toContain('In SUCCESS protocol do NOT output separate "Время:", "Конструкция:", "Формы:" or "Скажи:" lines.')
+    expect(systemPrompt).toContain('правильная структура вопроса')
+    expect(systemPrompt).toContain('Engvo voice (critical)')
+    expect(systemPrompt).toContain('Do you — уже хороший старт')
   })
 
   it('при наличии __TRAN__ в истории не дергает лишний gold-вызов в success-flow finalize', async () => {

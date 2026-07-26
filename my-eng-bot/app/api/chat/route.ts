@@ -111,13 +111,21 @@ import {
   foldLatinHomoglyphsForEnglishMatch,
   normalizeEnglishForRepeatMatch,
 } from '@/lib/normalizeEnglishForRepeatMatch'
-import { STATIC_TRANSLATION_LINE, buildTranslationErrorLexiconAndCyrillicLines } from '@/lib/buildTranslationErrorLexiconAndCyrillicLines'
+import {
+  STATIC_TRANSLATION_LINE,
+  buildGenericTranslationErrorFallbackLine,
+  buildTranslationErrorLexiconAndCyrillicLines,
+} from '@/lib/buildTranslationErrorLexiconAndCyrillicLines'
 import {
   buildDeterministicTranslationSupportRu,
   extractKommentariyPerevodBody,
   isBoilerplateTranslationSupportTemplate,
   isSafePreservedTranslationSupportBody,
 } from '@/lib/translationSupportFallback'
+import {
+  resolveTranslationErrorSupport,
+  translationClauseShapesCompatible,
+} from '@/lib/translationErrorSupportPolicy'
 import { stripFalseArticleBeforeEnglishComment } from '@/lib/stripFalseArticleBeforeEnglishComment'
 import { alignDialogueBeVerbCommentWithRepeat } from '@/lib/dialogueBeCommentConsistency'
 import { normalizeDialogueCommentTerminology } from '@/lib/dialogueCommentTerminology'
@@ -679,8 +687,10 @@ ERROR protocol (if there is a mistake), strict order:
   - Honesty beats flattering praise: never praise something that is already wrong for THIS Russian task or violates the Sentence type guard below (declarative vs real question vs negative).
   - Do not praise "good question form" when the Russian drill line is declarative (no "?"). Do not praise declarative delivery when the Russian line is a question. Do not praise positive wording when the Russian line requires negation (and vice versa).
   - Concrete praise in sentence 1 is allowed only for details that stay compatible with the correct sentence type and overall meaning (e.g. a helpful English content word that does not force the wrong clause type).
+  - Engvo voice (critical): sound like a live warm tutor, not an exam form. Do NOT lead with metalanguage praise such as "правильная структура вопроса", "верная конструкция", "правильный порядок слов", or "хорошая структура". Prefer a short human line with a small word/chunk anchor (e.g. "Do you — уже хороший старт. Ниже чуть докрутим.") or neutral warmth ("Близко. Ниже — что поправить и эталон.").
   - If there is no honest specific praise under those constraints, sentence 1 must be neutral warm encouragement in Russian (effort, courage to try, we will fix it step by step) with no invented achievements and no naming of concrete errors.
   - Never imply that Cyrillic mixed into the English answer is acceptable; do not praise mixed-script output.
+  - Still do NOT name the concrete mistake in this line (that belongs only in "Ошибки:" below).
   - When you use two sentences, sentence 2 remains a brief generic pointer to the "Ошибки:" block below, still without naming concrete mistakes.
 - Then block "Ошибки:" (body only, no extra headers). This block may be empty when there are no meaningful errors, otherwise output 1-3 lines only.
   Each error line MUST be exactly in this format:
@@ -4724,7 +4734,8 @@ function forceTranslationWordErrorProtocol(
   repeatSentence: string,
   userAnswer: string | null = null,
   preservedSupportBody: string | null = null,
-  audience: 'child' | 'adult' = 'adult'
+  audience: 'child' | 'adult' = 'adult',
+  ruPrompt: string | null = null
 ): string {
   const repeat = normalizeEnglishSentenceForCard(repeatSentence)
   if (!repeat) return content
@@ -4752,12 +4763,25 @@ function forceTranslationWordErrorProtocol(
   const errorLines =
     userTrim.length > 0
       ? buildTranslationErrorLexiconAndCyrillicLines(userTrim, repeat)
-      : ['- "your sentence" → "full sentence" (уточни формулировку по образцу)']
+      : [buildGenericTranslationErrorFallbackLine('', repeat)]
 
+  const shapesOk = translationClauseShapesCompatible(userTrim, repeat)
   const hasIncompleteHint = errorLines.some((line) => /перевод неполный/i.test(line))
-  if (hasIncompleteHint && (isBoilerplateTranslationSupportTemplate(supportBodyResolved) || !supportBodyResolved.trim())) {
+  if (
+    shapesOk &&
+    hasIncompleteHint &&
+    (isBoilerplateTranslationSupportTemplate(supportBodyResolved) || !supportBodyResolved.trim())
+  ) {
     supportBodyResolved = buildDeterministicTranslationSupportRu(userTrim, repeat, audience, 'incomplete')
   }
+
+  supportBodyResolved = resolveTranslationErrorSupport({
+    modelSupport: supportBodyResolved,
+    userText: userTrim,
+    goldEnglish: repeat,
+    ruPrompt,
+    audience,
+  })
 
   const supportLine = `Комментарий_перевод: ${normalizeSupportiveCommentForErrorsBlock(supportBodyResolved, audience)}`
 
@@ -8040,7 +8064,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           translationGoldForVerdict.trim(),
           lastUserContentForResponse,
           translationPreservedPerevodBody,
-          audience
+          audience,
+          ruForTranslationRepeatClamp ?? lastTranslationPrompt
         )
       }
       canTreatTranslationAsSuccess = !translationAnswerContainsCyrillic && !translationWordMismatch && !translationPromptMismatch
@@ -8179,7 +8204,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 translationCanonicalGoldForTask?.trim() || translationReferenceForm,
                 lastUserContentForResponse,
                 translationPreservedPerevodBody,
-                audience
+                audience,
+                ruForTranslationRepeatClamp ?? lastTranslationPrompt
               )
             }
             let repeatSentence = getTranslationRepeatSentence(sanitized)
@@ -8193,7 +8219,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 translationCanonicalGoldForTask?.trim() || promptAlignedRepeatFromRepeat,
                 lastUserContentForResponse,
                 translationPreservedPerevodBody,
-                audience
+                audience,
+                ruForTranslationRepeatClamp ?? lastTranslationPrompt
               )
               repeatSentence = getTranslationRepeatSentence(sanitized)
             }
@@ -8261,7 +8288,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                 repeatAnchorForError,
                 lastUserContentForResponse,
                 translationPreservedPerevodBody,
-                audience
+                audience,
+                ruForTranslationRepeatClamp ?? lastTranslationPrompt
               )
             }
           }
@@ -8313,7 +8341,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           translationCanonicalGoldForTask?.trim() || translationReferenceFormForTurn,
           lastUserContentForResponse,
           translationPreservedPerevodBody,
-          audience
+          audience,
+          ruForTranslationRepeatClamp ?? lastTranslationPrompt
         )
         repeatSentence = getTranslationRepeatSentence(sanitized)
       }
@@ -8332,7 +8361,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             translationCanonicalGoldForTask?.trim() || promptAlignedRepeatFromRepeat,
             lastUserContentForResponse,
             translationPreservedPerevodBody,
-            audience
+            audience,
+            ruForTranslationRepeatClamp ?? lastTranslationPrompt
           )
           repeatSentence = getTranslationRepeatSentence(sanitized)
         }

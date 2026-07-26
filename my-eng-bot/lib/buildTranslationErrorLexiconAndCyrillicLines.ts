@@ -1,6 +1,11 @@
 import { foldLatinHomoglyphsForEnglishMatch } from '@/lib/normalizeEnglishForRepeatMatch'
 import { normalizeRuTopicKeyword, normalizeTopicToken, RU_TOPIC_KEYWORD_TO_EN } from '@/lib/ruTopicKeywordMap'
 import { normalizeEnglishForLearnerAnswerMatch } from '@/lib/normalizeEnglishForLearnerAnswerMatch'
+import {
+  clauseShapeMismatchReasonRu,
+  detectEnglishClauseShape,
+  shapesCompatible,
+} from '@/lib/translationErrorSupportPolicy'
 
 /** Минимальный стоп-лист для выделения «смысловых» английских токенов в подсказках. */
 const CONTENT_STOP = new Set([
@@ -244,6 +249,96 @@ function formatReplacementLine(pair: ReplacementPair): string {
   return reason ? `- "${wrong}" → "${right}" (${reason})` : `- "${wrong}" → "${right}"`
 }
 
+function escapeRegExpToken(token: string): string {
+  return token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/** Поверхность от одного content-токена до следующего (включительно) в исходной строке. */
+function surfaceSpanBetweenContentTokens(text: string, fromTok: string, toTok: string): string | null {
+  const re = new RegExp(
+    `\\b${escapeRegExpToken(fromTok)}\\b([\\s\\S]*?)\\b${escapeRegExpToken(toTok)}\\b`,
+    'i'
+  )
+  const m = re.exec(text)
+  if (!m?.[0]) return null
+  return m[0].replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Content-токены совпадают, но в эталоне между ними есть служебные слова (to/the/…),
+ * которых нет у ученика — одна фразовая пара. right всегда подстрока эталона.
+ */
+function collectMissingFunctionWordPair(userText: string, repeatEnglish: string): ReplacementPair | null {
+  const userTokens = tokenizeEnglish(userText)
+  const repeatTokens = tokenizeEnglish(repeatEnglish)
+  if (userTokens.length < 2 || repeatTokens.length < 2) return null
+
+  const userContentIdx: number[] = []
+  for (let i = 0; i < userTokens.length; i++) {
+    if (isContentTok(userTokens[i] ?? '')) userContentIdx.push(i)
+  }
+  const repeatContentIdx: number[] = []
+  for (let i = 0; i < repeatTokens.length; i++) {
+    if (isContentTok(repeatTokens[i] ?? '')) repeatContentIdx.push(i)
+  }
+
+  const n = Math.min(userContentIdx.length, repeatContentIdx.length)
+  if (n < 2) return null
+
+  let aligned = 0
+  for (let k = 0; k < n; k++) {
+    if (userTokens[userContentIdx[k]!] !== repeatTokens[repeatContentIdx[k]!]) break
+    aligned++
+  }
+  if (aligned < 2) return null
+
+  for (let k = 0; k < aligned - 1; k++) {
+    const uStart = userContentIdx[k]!
+    const uEnd = userContentIdx[k + 1]!
+    const rStart = repeatContentIdx[k]!
+    const rEnd = repeatContentIdx[k + 1]!
+    const uMid = userTokens.slice(uStart + 1, uEnd)
+    const rMid = repeatTokens.slice(rStart + 1, rEnd)
+    if (uMid.some((t) => isContentTok(t))) continue
+    if (rMid.some((t) => isContentTok(t))) continue
+    if (rMid.length === 0) continue
+    if (uMid.length === rMid.length && uMid.every((t, i) => t === rMid[i])) continue
+    if (uMid.length >= rMid.length) continue
+
+    const leftTok = repeatTokens[rStart] ?? ''
+    const rightTok = repeatTokens[rEnd] ?? ''
+    if (!leftTok || !rightTok) continue
+
+    const wrong =
+      surfaceSpanBetweenContentTokens(userText, leftTok, rightTok) ?? `${leftTok} ${rightTok}`
+    const right =
+      surfaceSpanBetweenContentTokens(repeatEnglish, leftTok, rightTok) ??
+      [leftTok, ...rMid, rightTok].join(' ')
+    const goldNorm = repeatEnglish.replace(/\s+/g, ' ').toLowerCase()
+    if (!goldNorm.includes(right.toLowerCase())) continue
+
+    const missing = rMid.filter((t) => !uMid.includes(t))
+    const missingLabel = missing.join(' ') || rMid.join(' ')
+    return {
+      wrong,
+      right,
+      reason: `перед ${rightTok} обычно ${missingLabel}`,
+    }
+  }
+  return null
+}
+
+/** Last-resort фолбэк без англ. meta-плейсхолдеров your/full sentence. */
+export function buildGenericTranslationErrorFallbackLine(userText: string, repeatEnglish: string): string {
+  const wrong = userText.replace(/\s+/g, ' ').trim() || 'фраза'
+  const right = repeatEnglish.replace(/\s+/g, ' ').trim() || 'эталон'
+  return formatReplacementLine({
+    wrong,
+    right,
+    reason: 'чуть уточни формулировку по эталону',
+  })
+}
+
 function findNearestTypoCandidate(
   userTok: string,
   repeatTokens: string[],
@@ -419,6 +514,20 @@ export const STATIC_TRANSLATION_LINE = 'В ответе остались рус�
  * Строки для блока «Ошибки:» в fallback-ветке.
  * Единый контракт: - "wrong" → "right" (короткая причина), максимум 3 строки.
  */
+function buildClauseShapeMismatchLine(userText: string, repeatEnglish: string): string | null {
+  const userShape = detectEnglishClauseShape(userText)
+  const goldShape = detectEnglishClauseShape(repeatEnglish)
+  if (!userShape || !goldShape || shapesCompatible(userShape, goldShape)) return null
+  const wrong = normalizeReplacementPart(userText).replace(/"/g, "'")
+  const right = normalizeReplacementPart(repeatEnglish).replace(/"/g, "'")
+  if (!wrong || !right) return null
+  return formatReplacementLine({
+    wrong,
+    right,
+    reason: clauseShapeMismatchReasonRu(goldShape),
+  })
+}
+
 export function buildTranslationErrorLexiconAndCyrillicLines(userText: string, repeatEnglish: string): string[] {
   const trimmedUser = userText.trim()
   const trimmedRepeat = repeatEnglish.trim()
@@ -426,16 +535,27 @@ export function buildTranslationErrorLexiconAndCyrillicLines(userText: string, r
 
   const lines: string[] = []
   const ruPairs = hasCyrillic ? collectRussianLexiconPairs(trimmedUser) : []
-  const enPairs = trimmedRepeat ? collectEnglishLexiconPairs(trimmedUser, trimmedRepeat) : []
 
-  // Приоритет: кириллица -> лексика/структура -> опечатка, максимум 3 строки.
+  // Приоритет: кириллица -> clause-shape mismatch -> лексика/структура -> опечатка, максимум 3 строки.
   for (const pair of ruPairs) {
     lines.push(formatReplacementLine(pair))
     if (lines.length >= 3) return lines
   }
+
+  if (!hasCyrillic && trimmedRepeat && lines.length === 0) {
+    const shapeLine = buildClauseShapeMismatchLine(trimmedUser, trimmedRepeat)
+    if (shapeLine) return [shapeLine]
+  }
+
+  const enPairs = trimmedRepeat ? collectEnglishLexiconPairs(trimmedUser, trimmedRepeat) : []
   for (const pair of enPairs) {
     lines.push(formatReplacementLine(pair))
     if (lines.length >= 3) return lines
+  }
+
+  if (!hasCyrillic && trimmedRepeat && lines.length === 0) {
+    const functionWordGap = collectMissingFunctionWordPair(trimmedUser, trimmedRepeat)
+    if (functionWordGap) return [formatReplacementLine(functionWordGap)]
   }
 
   const incompleteLine = !hasCyrillic && trimmedRepeat ? buildIncompleteTranslationLine(trimmedUser, trimmedRepeat) : null
@@ -443,6 +563,5 @@ export function buildTranslationErrorLexiconAndCyrillicLines(userText: string, r
 
   if (lines.length > 0) return lines
 
-  // Фолбэк-строка совместима с новым контрактом.
-  return ['- "your sentence" → "full sentence" (уточни формулировку по образцу)']
+  return [buildGenericTranslationErrorFallbackLine(trimmedUser, trimmedRepeat)]
 }

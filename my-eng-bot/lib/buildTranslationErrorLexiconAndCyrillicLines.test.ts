@@ -33,6 +33,64 @@ describe('buildTranslationErrorLexiconAndCyrillicLines', () => {
     const lines = buildTranslationErrorLexiconAndCyrillicLines('Hello.', 'Hello.')
     expect(lines.length).toBe(1)
     expect(lines[0]).toMatch(/^-\s+"[^"]+"\s+→\s+"[^"]+"(?:\s+\(.+\))?$/)
+    expect(lines[0]).not.toMatch(/your sentence|full sentence|wording/i)
+    expect(lines[0]).toContain('"Hello."')
+    expect(lines[0]).toMatch(/уточни формулировку по эталону/i)
+  })
+
+  it('go Cinema → go to the cinema без your/full sentence; right ⊆ gold', () => {
+    const user = 'Do you often go Cinema.'
+    const gold = 'Do you often go to the cinema?'
+    const lines = buildTranslationErrorLexiconAndCyrillicLines(user, gold)
+    const joined = lines.join('\n')
+    expect(lines.length).toBeGreaterThan(0)
+    expect(joined).toContain('→')
+    expect(joined.toLowerCase()).toContain('to the')
+    expect(joined.toLowerCase()).toContain('cinema')
+    expect(joined).not.toMatch(/your sentence|full sentence/i)
+    expect(joined).not.toMatch(/перевод неполный/i)
+    const rightMatch = lines[0]?.match(/→\s+"([^"]+)"/)
+    const right = rightMatch?.[1] ?? ''
+    expect(right.length).toBeGreaterThan(0)
+    expect(gold.toLowerCase()).toContain(right.toLowerCase())
+  })
+
+  it('polarity mismatch: You don’t like → You like, без token-shift don’t→like', () => {
+    const user = "You don't like to travel."
+    const gold = 'You like to travel.'
+    const lines = buildTranslationErrorLexiconAndCyrillicLines(user, gold)
+    expect(lines.length).toBe(1)
+    expect(lines[0]).toContain(user)
+    expect(lines[0]).toContain(gold)
+    expect(lines[0]).toMatch(/нужно утверждение/i)
+    expect(lines[0]).not.toMatch(/"don't"\s*→\s*"like"/i)
+  })
+
+  it('polarity mismatch: Don’t play → You play some games', () => {
+    const user = "Don't play some games."
+    const gold = 'You play some games.'
+    const lines = buildTranslationErrorLexiconAndCyrillicLines(user, gold)
+    expect(lines.length).toBe(1)
+    expect(lines[0]).toContain(user)
+    expect(lines[0]).toContain(gold)
+    expect(lines[0]).toMatch(/нужно утверждение/i)
+  })
+
+  it('сборка ERROR: Ошибки улучшены, Скажи остаётся полным gold', () => {
+    const user = 'Do you often go Cinema.'
+    const gold = 'Do you often go to the cinema?'
+    const errorLines = buildTranslationErrorLexiconAndCyrillicLines(user, gold)
+    const content = [
+      'Комментарий_перевод: Хорошее начало.',
+      'Ошибки:',
+      ...errorLines,
+      `Скажи: ${gold}`,
+    ].join('\n')
+    expect(content).toContain(`Скажи: ${gold}`)
+    expect(content.match(/^Скажи:/gim)?.length ?? 0).toBe(1)
+    expect(content).not.toContain('your sentence')
+    const sayBody = content.match(/^Скажи:\s*(.+)$/m)?.[1]?.trim()
+    expect(sayBody).toBe(gold)
   })
 
   it('для неполного перевода не использует generic wording fallback', () => {

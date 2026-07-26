@@ -43,7 +43,8 @@ describe('ensureTranslationProtocolBlocks', () => {
       repeatEnglishFallback: 'You like riding a bicycle.',
     })
 
-    expect(out).toContain('Комментарий_перевод: Вижу, что ты стараешься. Сейчас спокойно поправим ключевой момент ниже.')
+    // User wrote a question; gold is declarative → honest shape mismatch (not false question praise).
+    expect(out).toMatch(/Комментарий_перевод:\s*Неверно:/i)
     expect(out).not.toContain('для вопроса')
     expect(out).not.toContain('"do you like"')
     expect(out).toContain('Скажи: You like riding a bicycle.')
