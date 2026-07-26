@@ -502,11 +502,6 @@ export interface MenuSectionPanelsProps {
   homeLayout?: boolean
   /** Slide-out: закрыть overlay-меню без сброса сессии. */
   onCloseMenu?: () => void
-  /**
-   * Активный диалог/звонок: hub deep-link только навигирует, без preset mode/sessionKind
-   * (иначе menuOpenSnapshot → restartChat при закрытии меню).
-   */
-  sessionPresetsLocked?: boolean
   onStartHomeChat?: () => void
   onGoHome?: () => void
   onOpenEngvoVoiceChat?: () => void
@@ -638,7 +633,6 @@ export default function MenuSectionPanels({
   edgeToEdge = false,
   homeLayout = false,
   onCloseMenu,
-  sessionPresetsLocked = false,
   onStartHomeChat,
   onGoHome,
   onOpenEngvoVoiceChat,
@@ -1604,7 +1598,7 @@ export default function MenuSectionPanels({
 
   const openCommunicationChat = () => {
     setCatalogBrowseIntent('lesson')
-    if (!sessionPresetsLocked) update({ mode: 'communication' })
+    update({ mode: 'communication' })
     setAiChatPanel('summary')
     setMenuReturnView('communication')
     onMenuViewChange('aiChat')
@@ -1612,7 +1606,7 @@ export default function MenuSectionPanels({
 
   const openCommunicationCall = () => {
     setCatalogBrowseIntent('lesson')
-    if (!sessionPresetsLocked) onEngvoSessionKindChange?.('free_call')
+    onEngvoSessionKindChange?.('free_call')
     setEngvoPanel('summary')
     setMenuReturnView('communication')
     onMenuViewChange('engvo')
@@ -1628,7 +1622,7 @@ export default function MenuSectionPanels({
 
   const openPracticeChatMode = (mode: Extract<AppMode, 'dialogue' | 'translation'>) => {
     setCatalogBrowseIntent('lesson')
-    if (!sessionPresetsLocked) update({ mode })
+    update({ mode })
     setAiChatPanel('summary')
     setMenuReturnView('practice')
     onMenuViewChange('aiChat')
@@ -1636,7 +1630,7 @@ export default function MenuSectionPanels({
 
   const openPracticeTeacher = () => {
     setCatalogBrowseIntent('lesson')
-    if (!sessionPresetsLocked) onEngvoSessionKindChange?.('teacher')
+    onEngvoSessionKindChange?.('teacher')
     setEngvoPanel('summary')
     setMenuReturnView('practice')
     onMenuViewChange('engvo')

@@ -365,7 +365,6 @@ export default function SlideOutMenu({
         idPrefix="slide-"
         edgeToEdge={false}
         className="flex min-h-0 flex-1 flex-col"
-        sessionPresetsLocked={chatActive || engvoVoiceMode}
         onStartHomeChat={onStartChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
         engvoProvider={engvoProvider}
