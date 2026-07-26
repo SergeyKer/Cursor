@@ -360,6 +360,89 @@ ${JSON.stringify({
     expect(note!.reviewTopics).toEqual([])
   })
 
+  it('drops Stavte comma and oxford chip but keeps grammar (screenshot STT noise)', () => {
+    const original =
+      "yes he practice every day now it's summer so he has been practicing from 11 AM to 4 PM daily during autumn winter and spring he trains from 5 PM to 9:30 PM"
+    const correct =
+      "Yes, he practices every day now. It's summer, so he has been practicing from 11 AM to 4 PM daily. During autumn, winter, and spring, he trains from 5 PM to 9:30 PM."
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original,
+        correct,
+        correctHighlights: ['practices', 'from', 'to'],
+        correctReasons: [
+          'После he нужна форма practices: practice → practices.',
+          'Для диапазона времени from…to, а не since…till.',
+          'Ставьте запятую перед and в перечислении: autumn, winter and spring → autumn, winter, and spring.',
+        ],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [
+          { id: 'he-practices', title: 'he + practices — простое настоящее' },
+          { id: 'from-to', title: 'from...to — от...до' },
+          { id: 'oxford', title: 'autumn, winter, and spring — запятая в списке' },
+        ],
+        lessonId: null,
+      }),
+      original
+    )
+    expect(note!.status).toBe('needs_fix')
+    expect(note!.correctReasons).toEqual([
+      'После he нужна форма practices: practice → practices.',
+      'Для диапазона времени from…to, а не since…till.',
+    ])
+    expect(note!.reviewTopics).toEqual([
+      { id: 'he-practices', title: 'he + practices — простое настоящее' },
+      { id: 'from-to', title: 'from...to — от...до' },
+    ])
+  })
+
+  it('drops Stavte-only comma reason and does not treat zapyatnat as comma junk', () => {
+    const noteComma = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'I like cats dogs and birds',
+        correct: 'I like cats, dogs, and birds.',
+        correctHighlights: [],
+        correctReasons: ['Ставьте запятую перед and.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'list-comma', title: 'cats, dogs, and birds — запятая в списке' }],
+        lessonId: null,
+      }),
+      'I like cats dogs and birds'
+    )
+    expect(noteComma!.status).toBe('already_good')
+    expect(noteComma!.reviewTopics).toEqual([])
+
+    const noteStain = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original: 'He go yesterday',
+        correct: 'He went yesterday.',
+        correctHighlights: ['went'],
+        correctReasons: ['Нужна форма went: go → went. Репутацию не запятнать — говорите точно.'],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [{ id: 'went', title: 'went — прошедшее go' }],
+        lessonId: null,
+      }),
+      'He go yesterday'
+    )
+    expect(noteStain!.status).toBe('needs_fix')
+    expect(noteStain!.correctReasons).toEqual([
+      'Нужна форма went: go → went. Репутацию не запятнать — говорите точно.',
+    ])
+    expect(noteStain!.reviewTopics).toEqual([{ id: 'went', title: 'went — прошедшее go' }])
+  })
+
   it('forces already_good when only punctuation differs', () => {
     const note = parseLanguageNoteResponse(
       JSON.stringify({

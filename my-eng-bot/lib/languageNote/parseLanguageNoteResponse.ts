@@ -20,6 +20,13 @@ import type { CommunicationVoiceInputMode } from '@/lib/types'
 const REASON_JUNK_START_RE =
   /^(так\s+звучит|более\s+правильно|есть\s+несколько\s+ошибок|попробуйте|практикуйтесь|неправильно|ошибка\b|use\b|chang)/i
 
+/** Comma / Oxford-comma lessons from STT noise — not learner mistakes. Avoids «запятнать». */
+function isCommaJunkText(text: string): boolean {
+  if (/запят(?!н)/i.test(text)) return true
+  if (/\bcommas?\b|oxford\s+comma/i.test(text)) return true
+  return false
+}
+
 /** Сухой EN-filler и «уроки» про пунктуацию/регистр TTS — не показываем ученику. */
 function isJunkReason(text: string): boolean {
   if (REASON_JUNK_START_RE.test(text)) return true
@@ -38,7 +45,7 @@ function isJunkReason(text: string): boolean {
   if (/добав(ил|ила|или|ьте|лять)?\s+точк/i.test(text)) return true
   if (/добав(ил|ила|или|ьте|лять)?\s+вопросительн/i.test(text)) return true
   if (/восклицательн/i.test(text)) return true
-  if (/(поставь|нужна|нужен|добавь)\s+запят/i.test(text)) return true
+  if (isCommaJunkText(text)) return true
   if (/(поставь|нужна|нужен)\s+точк/i.test(text)) return true
   if (/заглавн/i.test(text)) return true
   if (/с\s+большой\s+букв/i.test(text)) return true
@@ -48,6 +55,7 @@ function isJunkReason(text: string): boolean {
 
 function isJunkReviewTopic(topic: LanguageNoteReviewTopic): boolean {
   const blob = `${topic.id} ${topic.title}`.toLowerCase()
+  if (isCommaJunkText(blob)) return true
   if (/заглавн/.test(blob)) return true
   if (/capital/.test(blob)) return true
   if (/punctuation/.test(blob)) return true

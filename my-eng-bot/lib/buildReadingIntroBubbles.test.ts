@@ -67,6 +67,25 @@ describe('buildReadingIntroBubbles', () => {
   it('matches shared builder output', () => {
     expect(buildReadingIntroBubbles(baseIntro, 'child')).toEqual(buildLessonReadingBubbles(baseIntro))
   })
+
+  it('formats paired commonMistakes as ✗ wrong → ✓ right without Не/а', () => {
+    const intro: LessonIntro = {
+      ...baseIntro,
+      deepDive: {
+        ...baseIntro.deepDive!,
+        commonMistakes: [
+          'Не I go sleep — а I go to sleep.',
+          'Пытаться переводить дословно.',
+        ],
+      },
+    }
+    const mistakesCard = buildReadingIntroBubbles(intro, 'adult').find((b) =>
+      b.content.startsWith(LESSON_READING_CARD_LABELS.mistakes)
+    )
+    expect(mistakesCard?.content).toContain('✗ I go sleep → ✓ I go to sleep')
+    expect(mistakesCard?.content).not.toContain('Не I go sleep — а')
+    expect(mistakesCard?.content).toContain('• Пытаться переводить дословно.')
+  })
 })
 
 describe('reference mirror', () => {

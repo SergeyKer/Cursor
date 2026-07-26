@@ -473,6 +473,31 @@ export function parseCommonMistakePair(mistake: string): { wrong: string; right:
   return right ? { wrong, right } : { wrong, right: '' }
 }
 
+const FORMATTED_MISTAKE_PAIR_RE = /^✗\s+.+\s+→\s+✓\s+.+$/u
+
+/** Reading-card display: `✗ wrong → ✓ right` (storage stays `Не X — а Y`). */
+export function formatCommonMistakeDisplayLine(mistake: string): string {
+  const trimmed = mistake.trim()
+  if (!trimmed) return ''
+  if (FORMATTED_MISTAKE_PAIR_RE.test(trimmed)) return trimmed
+
+  const pair = parseCommonMistakePair(trimmed)
+  if (!pair?.wrong || !pair.right) return trimmed
+  return `✗ ${pair.wrong} → ✓ ${pair.right}`
+}
+
+/** Mistakes card body: pair lines without `•`; unpaired keep `• ` prefix. */
+export function formatCommonMistakesList(items: string[]): string {
+  return items
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((raw) => {
+      const display = formatCommonMistakeDisplayLine(raw)
+      return FORMATTED_MISTAKE_PAIR_RE.test(display) ? display : `• ${raw}`
+    })
+    .join('\n')
+}
+
 function russianTrapPairCoherent(wrong: string, right: string): boolean {
   if (/\bfrom\s+in\b/i.test(wrong)) {
     return /\bfrom\b/i.test(right) && !/\bfrom\s+in\b/i.test(right)

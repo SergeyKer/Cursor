@@ -3,6 +3,7 @@ import {
   resolveHowBlock,
   resolveTheoryBlock,
 } from '@/lib/lessonIntroBlocks'
+import { formatCommonMistakesList } from '@/lib/lessonExtraTips'
 import { LESSON_READING_CARD_LABELS } from '@/lib/uiCopy/lessonReadingCards'
 import type { Bubble, LessonIntro } from '@/types/lesson'
 
@@ -67,7 +68,7 @@ export function buildLessonReadingBubbles(
   if (mistakes.length > 0) {
     bubbles.push({
       type: 'positive',
-      content: `${LESSON_READING_CARD_LABELS.mistakes}\n${formatList(mistakes)}`,
+      content: `${LESSON_READING_CARD_LABELS.mistakes}\n${formatCommonMistakesList(mistakes)}`,
     })
   }
 

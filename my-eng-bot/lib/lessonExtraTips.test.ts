@@ -13,6 +13,8 @@ import {
   nativeSpeechWrongLooksLikeLearnerError,
   normalizeLessonExtraTips,
   parseCommonMistakePair,
+  formatCommonMistakeDisplayLine,
+  formatCommonMistakesList,
   pickNativeSpeechSwapFirst,
   russianTrapCalqueLooksInvalid,
   toCachedLessonExtraTips,
@@ -212,6 +214,37 @@ describe('lessonExtraTips', () => {
     expect(calque?.wrong).not.toContain('вместо')
     expect(calque?.right).not.toBe("I'm happy.")
     expect(russianTrapCalqueLooksInvalid(calque!)).toBe(false)
+  })
+
+  it('formats commonMistake display as ✗ wrong → ✓ right', () => {
+    expect(formatCommonMistakeDisplayLine('Не I go sleep — а I go to sleep.')).toBe(
+      '✗ I go sleep → ✓ I go to sleep'
+    )
+    expect(formatCommonMistakeDisplayLine("It's time to going вместо It's time to go.")).toBe(
+      "✗ It's time to going → ✓ It's time to go"
+    )
+    expect(
+      formatCommonMistakeDisplayLine('Пытаться переводить каждое русское "пора" через одно слово.')
+    ).toBe('Пытаться переводить каждое русское "пора" через одно слово.')
+    expect(formatCommonMistakeDisplayLine('✗ I go sleep → ✓ I go to sleep')).toBe(
+      '✗ I go sleep → ✓ I go to sleep'
+    )
+  })
+
+  it('formats commonMistakes list with bullets only for unpaired lines', () => {
+    expect(
+      formatCommonMistakesList([
+        'Не I go sleep — а I go to sleep.',
+        'Пытаться переводить дословно.',
+        '✗ Already formatted → ✓ Keep as is',
+      ])
+    ).toBe(
+      [
+        '✗ I go sleep → ✓ I go to sleep',
+        '• Пытаться переводить дословно.',
+        '✗ Already formatted → ✓ Keep as is',
+      ].join('\n')
+    )
   })
 
   it('sanitizes invalid russian traps calque from AI payload', () => {

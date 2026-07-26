@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { callProviderChat } from '@/lib/callProviderChat'
+import { formatCommonMistakesList } from '@/lib/lessonExtraTips'
 import { isValidLessonIntro } from '@/lib/lessonIntro'
 import { extractJsonObject } from '@/lib/structuredLessonFactory'
 import type { AiProvider, Audience, OpenAiChatPreset } from '@/lib/types'
@@ -50,7 +51,7 @@ function buildBubbles(deepDive: { commonMistakes: string[]; contrastNotes: strin
   return [
     {
       type: 'positive',
-      content: `🔬 ЧАСТЫЕ ОШИБКИ\n${formatList(deepDive.commonMistakes)}`,
+      content: `🔬 ЧАСТЫЕ ОШИБКИ\n${formatCommonMistakesList(deepDive.commonMistakes)}`,
     },
     {
       type: 'info',
