@@ -15,8 +15,17 @@ import type {
   SentenceType,
   TopicId,
   LevelId,
+  TranslationDrillKind,
 } from '@/lib/types'
 import type { AiChatPanel } from '@/lib/aiChatPanel'
+import {
+  LESSON_AXIS_MENU_LEVEL_IDS,
+  clampLevelForLessonAxis,
+  lessonExistsAndEnabled,
+  listEnabledTranslationLessonsForLevel,
+  normalizeLessonForLevel,
+} from '@/lib/lessonTranslationBridge'
+import { TRANSLATION_MENU_COPY } from '@/lib/uiCopy/translationMenu'
 import {
   APP_BTN_SECONDARY_MENU,
   APP_BTN_SECONDARY_SMALL,
@@ -247,6 +256,7 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   sentenceType: 'Тип предложений',
   topic: 'Тема',
   level: 'Уровень',
+  translationFocus: TRANSLATION_MENU_COPY.focusLabel,
 }
 
 function resolveAiChatSummaryTitle(mode: AppMode): string {
@@ -690,6 +700,10 @@ export default function MenuSectionPanels({
   const pid = (suffix: string) => `${idPrefix}${suffix}`
 
   const [aiChatPanel, setAiChatPanel] = React.useState<AiChatPanel>('summary')
+  const [aiChatTenseReturnPanel, setAiChatTenseReturnPanel] = React.useState<'summary' | 'translationFocus'>(
+    'summary'
+  )
+  const [lessonPickContext, setLessonPickContext] = React.useState<'practice' | 'translation' | null>(null)
   const [settingsPanel, setSettingsPanel] = React.useState<SettingsMenuPanel>('summary')
   const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
   const [selectedXaiVoiceSectionId, setSelectedXaiVoiceSectionId] =
@@ -1234,6 +1248,12 @@ export default function MenuSectionPanels({
   const isChild = settings.audience === 'child'
   const childAllowedLevels = new Set(['all', 'a1', 'a2'])
   const levelOptions = isChild ? LEVELS.filter((l) => childAllowedLevels.has(l.id)) : LEVELS
+  const isTranslationLessonTopic =
+    settings.mode === 'translation' &&
+    (settings.translationDrillKind ?? 'tense_drill') === 'lesson_topic'
+  const aiChatLevelOptions = isTranslationLessonTopic
+    ? levelOptions.filter((l) => (LESSON_AXIS_MENU_LEVEL_IDS as readonly string[]).includes(l.id))
+    : levelOptions
   const topicOptions = isChild ? TOPICS.filter((t) => CHILD_SAFE_TOPICS.has(t.id as TopicId)) : TOPICS
   const allowedTenseIdsForMenu = React.useMemo(() => {
     const base = getAllowedTensesForLevel(settings.level)
@@ -1248,10 +1268,20 @@ export default function MenuSectionPanels({
   const applyAudienceSelection = (id: Settings['audience']) => {
     if (id === 'child') {
       const safeTopic = CHILD_SAFE_TOPICS.has(settings.topic) ? settings.topic : 'hobbies'
-      update({ audience: id, level: 'all', tenses: ['present_simple'], topic: safeTopic })
+      const nextLevel: LevelId = 'all'
+      update({
+        audience: id,
+        level: nextLevel,
+        tenses: ['present_simple'],
+        topic: safeTopic,
+        translationLessonId: normalizeLessonForLevel(settings.translationLessonId, nextLevel),
+      })
       return
     }
-    update({ audience: id })
+    update({
+      audience: id,
+      translationLessonId: normalizeLessonForLevel(settings.translationLessonId, settings.level),
+    })
   }
 
   const applyTopicSelection = (id: TopicId) => {
@@ -1310,12 +1340,36 @@ export default function MenuSectionPanels({
 
   const modeLabel = MODE_OPTIONS.find((m) => m.id === settings.mode)?.label ?? settings.mode
   const audienceLabel = AUDIENCE_OPTIONS.find((a) => a.id === settings.audience)?.label ?? settings.audience
-  const levelLabel = levelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
+  const levelLabel = aiChatLevelOptions.find((l) => l.id === settings.level)?.label ?? settings.level
   const providerLabel = PROVIDER_OPTIONS.find((p) => p.id === settings.provider)?.label ?? settings.provider
   const tenseLabel =
     tenseOptions.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
     TENSES.find((t) => t.id === (settings.tenses[0] ?? 'present_simple'))?.label ??
     settings.tenses[0]
+  const translationDrillKind = settings.translationDrillKind ?? 'tense_drill'
+  const translationFocusValue =
+    translationDrillKind === 'lesson_topic'
+      ? TRANSLATION_MENU_COPY.focusLesson
+      : TRANSLATION_MENU_COPY.focusTense
+  const translationLessonValue = (() => {
+    const lessonId = settings.translationLessonId
+    if (lessonId == null) return TRANSLATION_MENU_COPY.lessonNotSelected
+    if (lessonId === 'all') return TRANSLATION_MENU_COPY.anyLesson
+    return getLessonTopicById(lessonId)?.title ?? TRANSLATION_MENU_COPY.lessonNotSelected
+  })()
+  const translationLessonAxisIncomplete =
+    settings.mode === 'translation' &&
+    translationDrillKind === 'lesson_topic' &&
+    (() => {
+      const lessonId = settings.translationLessonId
+      if (lessonId == null) return true
+      if (lessonId === 'all') return listEnabledTranslationLessonsForLevel(settings.level).length === 0
+      return !lessonExistsAndEnabled(lessonId)
+    })()
+  const isTranslationLessonPick = lessonPickContext === 'translation'
+  const practiceTopicsForPanel = isTranslationLessonPick
+    ? catalogPracticeItems
+    : catalogPracticeItemsFiltered
   const sentenceTypeLabel =
     SENTENCE_TYPES.find((t) => t.id === settings.sentenceType)?.label ?? settings.sentenceType
   const topicLabel = topicOptions.find((t) => t.id === settings.topic)?.label ?? settings.topic
@@ -1430,6 +1484,13 @@ export default function MenuSectionPanels({
         return
       }
       if (lessonsPanel === 'practiceLevelsHub') {
+        if (lessonPickContext === 'translation') {
+          setLessonPickContext(null)
+          setLessonsPanel('summary')
+          onMenuViewChange('aiChat')
+          setAiChatPanel('summary')
+          return
+        }
         setLessonsPanel('practice')
         return
       }
@@ -1483,6 +1544,11 @@ export default function MenuSectionPanels({
       return
     }
     if (menuView === 'aiChat' && aiChatPanel !== 'summary') {
+      if (aiChatPanel === 'tense') {
+        setAiChatPanel(aiChatTenseReturnPanel)
+        setAiChatTenseReturnPanel('summary')
+        return
+      }
       setAiChatPanel('summary')
       return
     }
@@ -1553,6 +1619,7 @@ export default function MenuSectionPanels({
   }
 
   const openPracticeByLesson = () => {
+    setLessonPickContext(null)
     setCatalogBrowseIntent('lesson')
     setLessonsPanel('practice')
     setMenuReturnView('practice')
@@ -1661,6 +1728,11 @@ export default function MenuSectionPanels({
       return LESSONS_PANEL_TITLE[lessonsPanel]
     }
     if (menuView === 'lessons') {
+      if (isTranslationLessonPick) {
+        if (lessonsPanel === 'practiceLevelsHub') return TRANSLATION_MENU_COPY.lessonsHubTitle
+        if (lessonsPanel === 'practiceLevel') return TRANSLATION_MENU_COPY.lessonsLevelTitle
+        if (lessonsPanel === 'practiceLevelTopics') return TRANSLATION_MENU_COPY.lessonsTopicsTitle
+      }
       if (isReferenceBrowse) {
         if (lessonsPanel === 'theory') return REFERENCE_COPY.hubTitle
         if (lessonsPanel === 'theoryTagLevels') return REFERENCE_COPY.tagLevelsTitle
@@ -3384,6 +3456,22 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             {lessonsPanel === 'practiceLevelsHub' && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
+                  {isTranslationLessonPick ? (
+                    <MenuNavRow
+                      label={TRANSLATION_MENU_COPY.anyLesson}
+                      showChevron={false}
+                      onClick={() => {
+                        update({
+                          translationDrillKind: 'lesson_topic',
+                          translationLessonId: 'all',
+                        })
+                        setLessonPickContext(null)
+                        setLessonsPanel('summary')
+                        onMenuViewChange('aiChat')
+                        setAiChatPanel('summary')
+                      }}
+                    />
+                  ) : null}
                   <MenuNavRow label="Уровни" onClick={() => setLessonsPanel('practiceLevel')} />
                 </div>
               </div>
@@ -3422,14 +3510,19 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
 
             {lessonsPanel === 'practiceLevelTopics' && (
               <>
-                {practiceTheoryTagFilterId && catalogPracticeItemsFiltered.length === 0 ? (
+                {!isTranslationLessonPick && practiceTheoryTagFilterId && catalogPracticeItemsFiltered.length === 0 ? (
                   <p className="mb-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                     На этом уровне нет уроков с выбранным тегом. Сбросьте фильтр на экране «Практика» или выберите другой уровень.
                   </p>
                 ) : null}
+                {isTranslationLessonPick && practiceTopicsForPanel.length === 0 ? (
+                  <p className="mb-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
+                    {TRANSLATION_MENU_COPY.emptyLessonPool}
+                  </p>
+                ) : null}
                 <div className={MENU_GROUP_OUTER}>
                   <div className={MENU_GROUP_CLASS}>
-                  {catalogPracticeItemsFiltered.map((item) => (
+                  {practiceTopicsForPanel.map((item) => (
                     <A2LessonChoiceRow
                       key={item.id}
                       label={item.label}
@@ -3441,11 +3534,27 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         item.id,
                         lessonProgressMap[item.id]
                       )}
-                      selected={item.enabled && selectedPracticeLessonId === item.id}
+                      selected={
+                        item.enabled &&
+                        (isTranslationLessonPick
+                          ? settings.translationLessonId === item.id
+                          : selectedPracticeLessonId === item.id)
+                      }
                       enabled={item.enabled}
                       onClick={
                         item.enabled
                           ? () => {
+                              if (isTranslationLessonPick) {
+                                update({
+                                  translationDrillKind: 'lesson_topic',
+                                  translationLessonId: item.id,
+                                })
+                                setLessonPickContext(null)
+                                setLessonsPanel('summary')
+                                onMenuViewChange('aiChat')
+                                setAiChatPanel('summary')
+                                return
+                              }
                               setSelectedPracticeLessonId(item.id)
                               setPracticeError(null)
                               setLessonsPanel('practice')
@@ -3882,8 +3991,44 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 disabled={modeSwitcherDisabled}
               />
               <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setAiChatPanel('audience')} />
-              {settings.mode !== 'communication' && (
-                <MenuSettingRow label="Время" value={tenseLabel} onClick={() => setAiChatPanel('tense')} />
+              {settings.mode === 'dialogue' && (
+                <MenuSettingRow
+                  label="Время"
+                  value={tenseLabel}
+                  onClick={() => {
+                    setAiChatTenseReturnPanel('summary')
+                    setAiChatPanel('tense')
+                  }}
+                />
+              )}
+              {settings.mode === 'translation' && (
+                <>
+                  <MenuSettingRow
+                    label={TRANSLATION_MENU_COPY.focusLabel}
+                    value={translationFocusValue}
+                    onClick={() => setAiChatPanel('translationFocus')}
+                  />
+                  {translationDrillKind === 'tense_drill' ? (
+                    <MenuSettingRow
+                      label={TRANSLATION_MENU_COPY.focusTense}
+                      value={tenseLabel}
+                      onClick={() => {
+                        setAiChatTenseReturnPanel('summary')
+                        setAiChatPanel('tense')
+                      }}
+                    />
+                  ) : (
+                    <MenuSettingRow
+                      label={TRANSLATION_MENU_COPY.focusLesson}
+                      value={translationLessonValue}
+                      onClick={() => {
+                        setLessonPickContext('translation')
+                        onMenuViewChange('lessons')
+                        setLessonsPanel('practiceLevelsHub')
+                      }}
+                    />
+                  )}
+                </>
               )}
               {settings.mode === 'translation' && (
                 <MenuSettingRow
@@ -3901,7 +4046,12 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
 
             {onStartHomeChat && (
               <div className="pt-2">
-                <button type="button" onClick={onStartHomeChat} className={MENU_PRIMARY_CTA_CLASS}>
+                <button
+                  type="button"
+                  onClick={onStartHomeChat}
+                  disabled={translationLessonAxisIncomplete}
+                  className={MENU_PRIMARY_CTA_CLASS}
+                >
                   {settings.mode === 'dialogue'
                     ? 'Начать диалог'
                     : settings.mode === 'translation'
@@ -3935,13 +4085,38 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           />
         )}
 
+        {menuView === 'aiChat' && aiChatPanel === 'translationFocus' && (
+          <PickerList
+            options={[
+              { id: 'tense_drill' as TranslationDrillKind, label: TRANSLATION_MENU_COPY.focusTense },
+              { id: 'lesson_topic' as TranslationDrillKind, label: TRANSLATION_MENU_COPY.focusLesson },
+            ]}
+            value={translationDrillKind}
+            onSelect={(id) => {
+              if (id === 'tense_drill') {
+                update({ translationDrillKind: 'tense_drill' })
+                setAiChatPanel('summary')
+                return
+              }
+              const level = clampLevelForLessonAxis(settings.level)
+              update({
+                translationDrillKind: 'lesson_topic',
+                level,
+                translationLessonId: normalizeLessonForLevel(settings.translationLessonId, level),
+              })
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
         {menuView === 'aiChat' && aiChatPanel === 'tense' && (
           <PickerList
             options={tenseOptions.map((t) => ({ id: t.id as TenseId, label: t.label }))}
             value={settings.tenses[0] ?? 'present_simple'}
             onSelect={(id) => {
               update({ tenses: [id] })
-              setAiChatPanel('summary')
+              setAiChatPanel(aiChatTenseReturnPanel)
+              setAiChatTenseReturnPanel('summary')
             }}
           />
         )}
@@ -3970,14 +4145,21 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
 
         {menuView === 'aiChat' && aiChatPanel === 'level' && (
           <PickerList
-            options={levelOptions.map((l) => ({ id: l.id, label: l.label }))}
+            options={aiChatLevelOptions.map((l) => ({ id: l.id, label: l.label }))}
             value={settings.level}
             onSelect={(id) => {
               const newLevel = id as LevelId
               const base = getAllowedTensesForLevel(newLevel)
               const allowed = isChild ? base.filter((tid) => CHILD_TENSE_SET.has(tid)) : base
               const tenses = normalizeSingleTenseSelection(settings.tenses, allowed, 'present_simple')
-              update({ level: newLevel, tenses })
+              const patch: Partial<Settings> = { level: newLevel, tenses }
+              if (
+                settings.mode === 'translation' &&
+                (settings.translationDrillKind ?? 'tense_drill') === 'lesson_topic'
+              ) {
+                patch.translationLessonId = normalizeLessonForLevel(settings.translationLessonId, newLevel)
+              }
+              update(patch)
               setAiChatPanel('summary')
             }}
           />

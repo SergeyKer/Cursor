@@ -45,6 +45,8 @@ const DEFAULT_SETTINGS: Settings = {
   voiceId: '',
   communicationInputExpectedLang: 'en',
   communicationVoiceInputMode: 'en',
+  translationDrillKind: 'tense_drill',
+  translationLessonId: 'all',
 }
 
 export function loadState(): StoredState {
@@ -73,6 +75,20 @@ export function loadState(): StoredState {
         ? merged.communicationVoiceInputMode
         : merged.communicationInputExpectedLang
     merged.openAiChatPreset = normalizeOpenAiChatPreset(merged.openAiChatPreset)
+    merged.translationDrillKind =
+      merged.translationDrillKind === 'lesson_topic' || merged.translationDrillKind === 'tense_drill'
+        ? merged.translationDrillKind
+        : DEFAULT_SETTINGS.translationDrillKind
+    if (
+      merged.translationLessonId !== null &&
+      merged.translationLessonId !== undefined &&
+      typeof merged.translationLessonId !== 'string'
+    ) {
+      merged.translationLessonId = DEFAULT_SETTINGS.translationLessonId
+    }
+    if (merged.translationLessonId === undefined) {
+      merged.translationLessonId = DEFAULT_SETTINGS.translationLessonId
+    }
     return {
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],
       settings: merged as Settings,

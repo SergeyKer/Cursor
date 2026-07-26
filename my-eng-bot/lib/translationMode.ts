@@ -1,4 +1,5 @@
 import type { SentenceType } from './types'
+import { pickLessonRuSeed } from './lessonTranslationBridge'
 
 function stableHash32(input: string): number {
   let hash = 0x811c9dc5
@@ -110,6 +111,51 @@ export function modelRussianDrillMismatchesPresentPerfectContinuous(ru: string):
     `${notCyr}уже\\s+(?:прочитал|прочитала|прочитали|сделал|сделала|сделали|успел|успела|увидел|купил|позвонил|получил|закончил|решил|отправил|посмотрел|посмотрела|слышал|съел|ушёл|пришёл|сдал|выучил|понял|написал|забыл|нашёл|изучил|начал)(?![А-Яа-яЁё])`,
     'iu'
   ).test(t)
+}
+
+/** Детерминированный RU для оси «Урок» — не life-topic pool. */
+export function fallbackLessonTopicTranslationSentence(params: {
+  lessonId: string
+  audience: 'child' | 'adult'
+  seedText?: string | null
+  sentenceType?: SentenceType
+  excludeRu?: string | null
+}): string {
+  const { lessonId, seedText = '', sentenceType = 'mixed', excludeRu = null } = params
+  // audience reserved for future child-specific seeds; seeds are CEFR-safe for both.
+  void params.audience
+  const ru = pickLessonRuSeed({ lessonId, seedText, excludeRu })
+  return normalizeDrillRuSentenceForSentenceType(ru, sentenceType)
+}
+
+/** Единая точка выбора fallback RU: lesson pool или life-topic×tense. */
+export function resolveTranslationDrillFallbackRu(params: {
+  lessonId?: string | null
+  topic: string
+  tense: string
+  level: string
+  audience: 'child' | 'adult'
+  seedText?: string | null
+  sentenceType?: SentenceType
+  excludeRu?: string | null
+}): string {
+  if (params.lessonId) {
+    return fallbackLessonTopicTranslationSentence({
+      lessonId: params.lessonId,
+      audience: params.audience,
+      seedText: params.seedText,
+      sentenceType: params.sentenceType,
+      excludeRu: params.excludeRu,
+    })
+  }
+  return fallbackTranslationSentenceForContext({
+    topic: params.topic,
+    tense: params.tense,
+    level: params.level,
+    audience: params.audience,
+    seedText: params.seedText,
+    sentenceType: params.sentenceType,
+  })
 }
 
 export function fallbackTranslationSentenceForContext(params: {

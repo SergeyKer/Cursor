@@ -7,6 +7,7 @@ export type AiChatPanel =
   | 'sentenceType'
   | 'topic'
   | 'level'
+  | 'translationFocus'
 
 /** Подсказки у робота (узкая колонка на iPhone - до ~3 строк). Без призывов к действию. */
 export const AI_CHAT_PANEL_HINTS: Record<AiChatPanel, string> = {
@@ -17,4 +18,5 @@ export const AI_CHAT_PANEL_HINTS: Record<AiChatPanel, string> = {
   sentenceType: 'Тип фраз в ответах для этого режима.',
   topic: 'Тема - контекст диалога или перевода.',
   level: 'Сложность лексики и грамматики.',
+  translationFocus: 'Время глагола или грамматика урока.',
 }

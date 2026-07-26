@@ -50,7 +50,15 @@ import {
   modelRussianDrillMismatchesPresentPerfectContinuous,
   normalizeDrillRuSentenceForSentenceType,
   normalizeTranslationPracticeSentence,
+  resolveTranslationDrillFallbackRu,
 } from '@/lib/translationMode'
+import {
+  isTranslationLessonTopicKind,
+  normalizeTranslationDrillKind,
+  resolveEffectiveTranslationLessonId,
+  resolveLessonTranslationMeta,
+} from '@/lib/lessonTranslationBridge'
+import { buildTranslationLessonTopicSystemPrompt } from '@/lib/translationLessonTopicPrompt'
 import { runTranslationFirstTurnContractGuard } from '@/lib/translationFirstTurnGuard'
 import { ADVERB_PLACEMENT_TUTOR_BLOCK } from '@/lib/adverbPlacementPrompt'
 import { normalizeTranslationBulbEmojisInContent } from '@/lib/normalizeCommentBulbEmoji'
@@ -525,6 +533,11 @@ function buildSystemPrompt(params: {
   translationPromptLevel?: string
   translationPromptTense?: string
   translationDrillSentenceType?: string
+  translationLessonTopic?: {
+    lessonId: string
+    title: string
+    grammarFocusLines: string[]
+  } | null
 }): string {
   const {
     mode,
@@ -545,6 +558,7 @@ function buildSystemPrompt(params: {
     translationPromptLevel,
     translationPromptTense,
     translationDrillSentenceType,
+    translationLessonTopic = null,
   } = params
   const levelPrompt = buildLevelPrompt(level)
   const cefrPromptBlock = buildCefrPromptBlock({
@@ -641,6 +655,22 @@ No other format. Output only the chat message text.`
     const tenseNameTr = TENSE_NAMES[trTense] ?? 'Present Simple'
     const drillSt = translationDrillSentenceType ?? sentenceType ?? 'mixed'
     const sentenceTypeNameTr = SENTENCE_TYPE_NAMES[drillSt] ?? 'mixed'
+    if (translationLessonTopic) {
+      return buildTranslationLessonTopicSystemPrompt({
+        topicName,
+        levelPrompt: levelPromptTr,
+        cefrPromptBlock: cefrPromptBlockTr,
+        sentenceTypeName: sentenceTypeNameTr,
+        lessonTitle: translationLessonTopic.title,
+        grammarFocusLines: translationLessonTopic.grammarFocusLines,
+        audienceStyleRule,
+        childTopicSafetyRule,
+        styleRule,
+        grammarFocusRule,
+        topicRetentionRule,
+        strictTopicRule,
+      })
+    }
     const translationDrillContract = `Russian drill sentence (the line before "Переведи на английский" on the first assistant turn, and the next Russian line after SUCCESS): contract for THIS turn only:
 - Exactly one Russian sentence for the task; target length 3–12 words (slightly longer is OK for natural questions or negatives if still clear).
 - Must simultaneously match ALL active controls for this turn: topic, CEFR level, Required tense, sentence type (${sentenceTypeNameTr}), and audience/style constraints stated below.
@@ -3703,6 +3733,7 @@ function normalizeTranslationSuccessPayload(
     fallbackPrompt: string | null
     userText: string
     sentenceType?: SentenceType
+    lessonId?: string | null
   }
 ): string {
   if (!isTranslationSuccessLikeContent(content)) return content
@@ -3721,6 +3752,7 @@ function enforceStrictTranslationOutputContract(params: {
   fallbackPrompt: string | null
   userText: string
   repeatEnglishFallback: string | null
+  lessonId?: string | null
 }): string {
   const {
     isFirstTurn,
@@ -3733,6 +3765,7 @@ function enforceStrictTranslationOutputContract(params: {
     fallbackPrompt,
     userText,
     repeatEnglishFallback,
+    lessonId = null,
   } = params
   let out = params.content
   if (isFirstTurn) {
@@ -3747,6 +3780,7 @@ function enforceStrictTranslationOutputContract(params: {
       fallbackPrompt,
       userText,
       sentenceType,
+      lessonId,
     })
     return stripVisibleTranslationSayLines(out)
   }
@@ -3791,9 +3825,29 @@ function ensureTranslationSuccessBlocks(
     fallbackPrompt: string | null
     userText: string
     sentenceType?: SentenceType
+    lessonId?: string | null
   }
 ): string {
-  const { tense, topic, level, audience, fallbackPrompt, userText, sentenceType = 'mixed' } = params
+  const {
+    tense,
+    topic,
+    level,
+    audience,
+    fallbackPrompt,
+    userText,
+    sentenceType = 'mixed',
+    lessonId = null,
+  } = params
+  const pickFallback = (seedText?: string | null, st: SentenceType = sentenceType) =>
+    resolveTranslationDrillFallbackRu({
+      lessonId,
+      topic,
+      tense,
+      level,
+      audience,
+      seedText: seedText ?? fallbackPrompt,
+      sentenceType: st,
+    })
   const lines = content
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())
@@ -3884,26 +3938,14 @@ function ensureTranslationSuccessBlocks(
     if (cleanedNextSentence) {
       const normalizedNextSentence = normalizeDrillRuSentenceForSentenceType(cleanedNextSentence, sentenceType)
       if (sentenceType === 'negative' && !isLikelyRussianNegativeSentence(normalizedNextSentence)) {
-        nextPrompt = fallbackTranslationSentenceForContext({
-          topic,
-          tense,
-          level,
-          audience,
-          seedText: `${fallbackPrompt ?? ''}|next:${cleanedNextSentence}|user:${userText.slice(0, 80)}`,
-          sentenceType,
-        })
+        nextPrompt = pickFallback(
+          `${fallbackPrompt ?? ''}|next:${cleanedNextSentence}|user:${userText.slice(0, 80)}`
+        )
       } else {
         nextPrompt = normalizedNextSentence
       }
     } else {
-      nextPrompt = fallbackTranslationSentenceForContext({
-        topic,
-        tense,
-        level,
-        audience,
-        seedText: fallbackPrompt,
-        sentenceType,
-      })
+      nextPrompt = pickFallback(fallbackPrompt)
     }
 
     if (
@@ -3911,40 +3953,21 @@ function ensureTranslationSuccessBlocks(
       tense === 'present_perfect_continuous' &&
       modelRussianDrillMismatchesPresentPerfectContinuous(nextPrompt)
     ) {
-      nextPrompt = fallbackTranslationSentenceForContext({
-        topic,
-        tense,
-        level,
-        audience,
-        seedText: `${fallbackPrompt ?? ''}|ppc-guard|${nextPrompt.slice(0, 96)}|${userText.slice(0, 48)}`,
-        sentenceType,
-      })
+      nextPrompt = pickFallback(
+        `${fallbackPrompt ?? ''}|ppc-guard|${nextPrompt.slice(0, 96)}|${userText.slice(0, 48)}`
+      )
     }
 
     if (nextPrompt) {
       out.push(`Переведи далее: ${nextPrompt}`)
     } else {
-      const fb = fallbackTranslationSentenceForContext({
-        topic,
-        tense,
-        level,
-        audience,
-        seedText: fallbackPrompt,
-        sentenceType,
-      })
+      const fb = pickFallback(fallbackPrompt)
       if (fb?.trim()) {
         out.push(`Переведи далее: ${fb.trim()}`)
       }
     }
   } else {
-    const fallbackNextPrompt = fallbackTranslationSentenceForContext({
-      topic,
-      tense,
-      level,
-      audience,
-      seedText: fallbackPrompt,
-      sentenceType,
-    })
+    const fallbackNextPrompt = pickFallback(fallbackPrompt)
     out.push(`Переведи далее: ${fallbackNextPrompt}`)
   }
   return appendPreservedHiddenRefFromOriginal(out.join('\n').trim(), content, fallbackPrompt)
@@ -4175,6 +4198,7 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   req: NextRequest
   resolveGoldTranslation?: ResolveGoldTranslation
   openAiChatPreset?: OpenAiChatPreset
+  lessonId?: string | null
 }): Promise<string> {
   if (params.tense === 'all') return params.content
   const ru = extractRussianTranslationTaskFromAssistantContent(params.content)
@@ -4212,14 +4236,24 @@ async function ensureFirstTranslationDrillMatchesRequiredTense(params: {
   }
   if (!gold?.trim()) return params.content
   if (isUserLikelyCorrectForTense(gold, params.tense)) return params.content
-  const replacement = fallbackTranslationSentenceForContext({
-    topic: params.topic,
-    tense: params.tense,
-    level: params.level,
-    audience: params.audience,
-    seedText: `${params.seedText}|guard|${ru.slice(0, 80)}`,
-    sentenceType: params.sentenceType,
-  })
+  const replacement = params.lessonId
+    ? resolveTranslationDrillFallbackRu({
+        lessonId: params.lessonId,
+        topic: params.topic,
+        tense: params.tense,
+        level: params.level,
+        audience: params.audience,
+        seedText: `${params.seedText}|guard|${ru.slice(0, 80)}`,
+        sentenceType: params.sentenceType,
+      })
+    : fallbackTranslationSentenceForContext({
+        topic: params.topic,
+        tense: params.tense,
+        level: params.level,
+        audience: params.audience,
+        seedText: `${params.seedText}|guard|${ru.slice(0, 80)}`,
+        sentenceType: params.sentenceType,
+      })
   const rebuilt = `${replacement.trim()}\nПереведи на английский язык.`
   return ensureFirstTranslationInvitation(rebuilt, params.sentenceType)
 }
@@ -6559,6 +6593,18 @@ export async function POST(req: NextRequest) {
     let normalizedGrammarFocus = normalizeGrammarFocusForLevel(grammarFocus, level)
     const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : ''
     const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
+    let translationDrillKind = normalizeTranslationDrillKind(body.translationDrillKind)
+    const translationLessonIdRaw =
+      typeof body.translationLessonId === 'string' ? body.translationLessonId.trim() : ''
+    const translationEffectiveLessonIdFromBody =
+      typeof body.translationEffectiveLessonId === 'string'
+        ? body.translationEffectiveLessonId.trim()
+        : ''
+    let activeTranslationLessonId: string | null = null
+    const translationLessonResponseMeta = () =>
+      activeTranslationLessonId
+        ? { translationEffectiveLessonId: activeTranslationLessonId }
+        : {}
     const normalizedRequestContext = {
       mode,
       level,
@@ -6787,6 +6833,23 @@ export async function POST(req: NextRequest) {
         tense: translationDrillTense,
       })
       tutorGradingTense = translationDrillTense
+
+      if (isTranslationLessonTopicKind(translationDrillKind)) {
+        activeTranslationLessonId = resolveEffectiveTranslationLessonId({
+          translationLessonId: translationLessonIdRaw || null,
+          level: level as LevelId,
+          dialogSeed,
+          drillIndex: translationAssistantDrillIndex,
+          pinnedLessonId: translationEffectiveLessonIdFromBody || null,
+        })
+        if (!activeTranslationLessonId) {
+          translationDrillKind = 'tense_drill'
+        } else {
+          const lessonMeta = resolveLessonTranslationMeta(activeTranslationLessonId)
+          tutorGradingTense = lessonMeta.gradingTense
+          translationDrillTense = lessonMeta.gradingTense
+        }
+      }
     }
 
     const translationStrictReferenceFirst = mode === 'translation' && isTranslationStrictReferenceFirstEnabled()
@@ -6826,6 +6889,8 @@ export async function POST(req: NextRequest) {
             translationDrillLevel,
             translationDrillSentenceType,
             translationAssistantDrillIndex: translationAssistantCount,
+            translationDrillKind,
+            activeTranslationLessonId,
           }
         : {}),
     })
@@ -6915,7 +6980,8 @@ export async function POST(req: NextRequest) {
       const ruPromptRaw = (ruForTranslationRepeatClamp ?? lastTranslationPrompt)?.trim() ?? ''
       const ruPromptBody = ruPromptRaw
         ? normalizeDrillRuSentenceForSentenceType(ruPromptRaw, translationDrillSentenceType)
-        : fallbackTranslationSentenceForContext({
+        : resolveTranslationDrillFallbackRu({
+            lessonId: activeTranslationLessonId,
             topic,
             tense: tutorGradingTense,
             level: translationDrillLevel,
@@ -6937,7 +7003,10 @@ export async function POST(req: NextRequest) {
         linesOut.push(`Скажи: ${en}`)
         linesOut.push(`Скажи: ${en}`)
       }
-      return NextResponse.json({ content: linesOut.filter(Boolean).join('\n') })
+      return NextResponse.json({
+        content: linesOut.filter(Boolean).join('\n'),
+        ...translationLessonResponseMeta(),
+      })
     }
     if (mode === 'communication' && explicitTranslateTarget) {
       const translateSystem =
@@ -7444,6 +7513,17 @@ export async function POST(req: NextRequest) {
             translationPromptLevel: translationDrillLevel,
             translationPromptTense: translationDrillTense,
             translationDrillSentenceType: translationDrillSentenceType,
+            translationLessonTopic:
+              activeTranslationLessonId != null
+                ? (() => {
+                    const meta = resolveLessonTranslationMeta(activeTranslationLessonId)
+                    return {
+                      lessonId: activeTranslationLessonId,
+                      title: meta.title,
+                      grammarFocusLines: meta.grammarFocusLines,
+                    }
+                  })()
+                : null,
           }
         : {}),
     })
@@ -8155,6 +8235,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
+            lessonId: activeTranslationLessonId,
           })
           sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
           translationSuccessFlow = true
@@ -8168,6 +8249,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userText: lastUserContentForResponse,
               sentenceType: translationDrillSentenceType,
+              lessonId: activeTranslationLessonId,
             })
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             translationSuccessFlow = true
@@ -8185,6 +8267,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userText: lastUserContentForResponse,
               sentenceType: translationDrillSentenceType,
+              lessonId: activeTranslationLessonId,
             })
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             translationSuccessFlow = true
@@ -8303,6 +8386,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
               userText: lastUserContentForResponse,
               sentenceType: translationDrillSentenceType,
+              lessonId: activeTranslationLessonId,
             })
             sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
             translationSuccessFlow = canTreatTranslationAsSuccess
@@ -8327,6 +8411,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
           userText: lastUserContentForResponse,
           sentenceType: translationDrillSentenceType,
+          lessonId: activeTranslationLessonId,
         })
         sanitized = applyTranslationRepeatSourceClampToContent(sanitized, ruForTranslationRepeatClamp ?? lastTranslationPrompt)
         translationSuccessFlow = true
@@ -8384,6 +8469,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
+            lessonId: activeTranslationLessonId,
           })
           translationSuccessFlow = true
         } else if (isGenericTranslationRepeatFallback(repeatSentence) && userLikelyCorrect) {
@@ -8622,6 +8708,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
           userText: lastUserContentForResponse,
           sentenceType: translationDrillSentenceType,
+          lessonId: activeTranslationLessonId,
         })
       }
       sanitized = applyTranslationCommentCoachVoice({
@@ -8635,7 +8722,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       const shouldExitRepeatLoopAfterTwoAttempts = translationRepeatAttemptsInCurrentCycle >= 2
       if (shouldExitRepeatLoopAfterTwoAttempts) {
-        const nextPrompt = fallbackTranslationSentenceForContext({
+        const nextPrompt = resolveTranslationDrillFallbackRu({
+          lessonId: activeTranslationLessonId,
           tense: tutorGradingTense,
           topic,
           level: translationDrillLevel,
@@ -8645,7 +8733,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         })
         const nextPromptResolved =
           nextPrompt?.trim() ||
-          fallbackTranslationSentenceForContext({
+          resolveTranslationDrillFallbackRu({
+            lessonId: activeTranslationLessonId,
             tense: tutorGradingTense,
             topic,
             level: translationDrillLevel,
@@ -9181,6 +9270,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
                   userText: lastUserContentForResponse,
                   sentenceType: translationDrillSentenceType,
+                  lessonId: activeTranslationLessonId,
                 })
               } else if (translationAnswerContainsCyrillic) {
                 repaired = ensureTranslationRepeatFallbackForMixedInput(repaired, lastUserContentForResponse)
@@ -9203,6 +9293,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   userText: lastUserContentForResponse,
                   repeatEnglishFallback:
                     translationCanonicalGoldForTask?.trim() || null,
+                  lessonId: activeTranslationLessonId,
                 })
               }
               if (getTranslationRepeatSentence(repaired)) {
@@ -9253,9 +9344,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   userText: lastUserContentForResponse,
                   repeatEnglishFallback:
                     translationCanonicalGoldForTask?.trim() || null,
+                  lessonId: activeTranslationLessonId,
                 })
               }
-              return NextResponse.json({ content: repaired })
+              return NextResponse.json({ content: repaired, ...translationLessonResponseMeta() })
             }
             const dialogueGuard = applyCefrOutputGuard({
               mode: 'dialogue',
@@ -9433,6 +9525,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
+            lessonId: activeTranslationLessonId,
           })
         }
       }
@@ -9457,6 +9550,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
             fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
             userText: lastUserContentForResponse,
             sentenceType: translationDrillSentenceType,
+            lessonId: activeTranslationLessonId,
           })
         : translationSuccessPayloadWithoutGold
           ? translationGuard.content
@@ -9474,6 +9568,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           req,
           resolveGoldTranslation,
           openAiChatPreset,
+          lessonId: activeTranslationLessonId,
         })
       }
       if (translationStrictReferenceFirst && !translationJunkFlow) {
@@ -9490,6 +9585,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           userText: lastUserContentForResponse,
           repeatEnglishFallback:
             translationCanonicalGoldForTask?.trim() || null,
+          lessonId: activeTranslationLessonId,
         })
       }
       guardedContent = await finalizeTranslationResponsePayload({
@@ -9520,6 +9616,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           userText: lastUserContentForResponse,
           repeatEnglishFallback:
             translationCanonicalGoldForTask?.trim() || null,
+          lessonId: activeTranslationLessonId,
         })
       }
       logRetentionSignals({
@@ -9530,7 +9627,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         outputText: guardedContent,
       })
-      return NextResponse.json({ content: guardedContent })
+      return NextResponse.json({ content: guardedContent, ...translationLessonResponseMeta() })
     }
 
     if (mode === 'dialogue') {

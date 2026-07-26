@@ -81,6 +81,9 @@ export type TopicId =
   | 'work'
   | 'technology'
 
+/** Ось дрилла в режиме «Перевод»: по времени или по грамматике урока. */
+export type TranslationDrillKind = 'tense_drill' | 'lesson_topic'
+
 export interface Settings {
   provider: AiProvider
   openAiChatPreset?: OpenAiChatPreset
@@ -96,6 +99,15 @@ export interface Settings {
   communicationInputExpectedLang: CommunicationInputExpectedLang
   /** Режим голосового ввода в «Общение»: обычный язык или смешанный (`mix`). */
   communicationVoiceInputMode?: CommunicationVoiceInputMode
+  /**
+   * Перевод: ось дрилла. Default `tense_drill` (как раньше).
+   * `lesson_topic` — грамматика выбранного урока (`translationLessonId`).
+   */
+  translationDrillKind?: TranslationDrillKind
+  /**
+   * Перевод + ось Урок: id урока каталога, `'all'` (любой из пула уровня) или `null` (не выбран).
+   */
+  translationLessonId?: string | null
 }
 
 export interface UsageInfo {

@@ -93,6 +93,7 @@ import type {
   Settings,
   TenseId,
   TopicId,
+  TranslationDrillKind,
   UsageInfo,
 } from '@/lib/types'
 import {
@@ -238,6 +239,7 @@ import { requestLanguageNote } from '@/lib/client/requestLanguageNote'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
 import type { LanguageNote, LanguageNoteReviewTopic } from '@/lib/languageNote/types'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
+import { TRANSLATION_MENU_COPY } from '@/lib/uiCopy/translationMenu'
 import { progressCopy } from '@/lib/uiCopy/progress'
 import { myPlanCopy } from '@/lib/uiCopy/myPlan'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
@@ -590,6 +592,8 @@ type MenuOpenSnapshot = {
   topic?: TopicId
   tensesKey?: string
   sentenceType?: SentenceType
+  translationDrillKind?: TranslationDrillKind
+  translationLessonId?: string | null
 }
 
 type LessonOverlayState = {
@@ -611,6 +615,17 @@ function buildMenuOpenSnapshot(s: Settings): MenuOpenSnapshot {
   if (s.mode === 'communication') {
     return { mode: s.mode, audience: s.audience }
   }
+  if (s.mode === 'translation') {
+    return {
+      mode: s.mode,
+      audience: s.audience,
+      topic: s.topic,
+      tensesKey: tensesToKey(s.tenses),
+      sentenceType: s.sentenceType,
+      translationDrillKind: s.translationDrillKind ?? 'tense_drill',
+      translationLessonId: s.translationLessonId ?? null,
+    }
+  }
   return {
     mode: s.mode,
     audience: s.audience,
@@ -626,12 +641,19 @@ function menuSettingsRestartNeeded(snap: MenuOpenSnapshot, current: Settings): b
     return snap.audience !== current.audience
   }
   if (current.mode === 'dialogue' || current.mode === 'translation') {
-    return (
+    const baseChanged =
       snap.topic !== current.topic ||
       snap.tensesKey !== tensesToKey(current.tenses) ||
       snap.sentenceType !== current.sentenceType ||
       snap.audience !== current.audience
-    )
+    if (current.mode === 'translation') {
+      return (
+        baseChanged ||
+        (snap.translationDrillKind ?? 'tense_drill') !== (current.translationDrillKind ?? 'tense_drill') ||
+        (snap.translationLessonId ?? null) !== (current.translationLessonId ?? null)
+      )
+    }
+    return baseChanged
   }
   return false
 }
@@ -1227,6 +1249,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [dialogStarted, chatColumnBounds, headerColumnBounds, homeColumnBounds])
   /** Настройки при открытии меню: режим + поля для сравнения при закрытии (без уровня). */
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
+  /** Pin урока для ERROR-freeze при translationLessonId === 'all'. */
+  const translationEffectiveLessonIdRef = React.useRef<string | null>(null)
   const prevMenuOpenForSnapshotRef = React.useRef(false)
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
@@ -3692,6 +3716,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           : 'en',
                     }
                   : {}),
+                ...(settings.mode === 'translation'
+                  ? {
+                      translationDrillKind: settings.translationDrillKind ?? 'tense_drill',
+                      translationLessonId: settings.translationLessonId ?? null,
+                      ...((settings.translationDrillKind ?? 'tense_drill') === 'lesson_topic' &&
+                      settings.translationLessonId === 'all' &&
+                      translationEffectiveLessonIdRef.current
+                        ? { translationEffectiveLessonId: translationEffectiveLessonIdRef.current }
+                        : {}),
+                    }
+                  : {}),
               }),
               signal: controller.signal,
             })
@@ -3706,6 +3741,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               webSearchSourcesRequested?: boolean
               webSearchSourcesHiddenCount?: number
               webSearchTriggered?: boolean
+              translationEffectiveLessonId?: string
             }
             try {
               data = (await res.json()) as {
@@ -3718,6 +3754,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 webSearchSourcesRequested?: boolean
                 webSearchSourcesHiddenCount?: number
                 webSearchTriggered?: boolean
+                translationEffectiveLessonId?: string
               }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
@@ -3752,6 +3789,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               if (freeTalkTopicSelection) {
                 saveFreeTalkTopicRotationState(freeTalkTopicSelection.nextState)
               }
+              const effectiveLessonId =
+                typeof data.translationEffectiveLessonId === 'string'
+                  ? data.translationEffectiveLessonId.trim()
+                  : ''
+              // Pin only for ERROR chain; SUCCESS (Переведи далее) must resample «Любой».
+              if (/Переведи\s+далее\s*:/i.test(text)) {
+                translationEffectiveLessonIdRef.current = null
+              } else if (effectiveLessonId) {
+                translationEffectiveLessonIdRef.current = effectiveLessonId
+              }
               return {
                 content: text,
                 dialogueCorrect,
@@ -3759,6 +3806,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 webSearchSourcesRequested: data.webSearchSourcesRequested,
                 webSearchSourcesHiddenCount: data.webSearchSourcesHiddenCount,
                 webSearchTriggered: data.webSearchTriggered,
+                ...(effectiveLessonId ? { translationEffectiveLessonId: effectiveLessonId } : {}),
               }
             }
             lastError = new Error(EMPTY_RESPONSE_FALLBACK)
@@ -3893,11 +3941,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   }, [messages, sendToApi, fetchUsage, settings.mode, settings.tenses, settings.topic, engvoVoiceMode])
 
+  React.useEffect(() => {
+    if ((settings.translationDrillKind ?? 'tense_drill') !== 'lesson_topic') {
+      translationEffectiveLessonIdRef.current = null
+    }
+  }, [settings.translationDrillKind])
+
   const ensureFirstMessage = useCallback(async () => {
     if (firstMessageInFlightRef.current) return
     firstMessageInFlightRef.current = true
     const requestId = ++firstMessageRequestIdRef.current
     const isNewDialog = newDialogRef.current
+    if (isNewDialog) {
+      translationEffectiveLessonIdRef.current = null
+    }
     setLoading(true)
     setRetryMessage(null)
     try {
@@ -3994,6 +4051,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
+    translationEffectiveLessonIdRef.current = null
     newDialogRef.current = true
     setMessages([])
     setSettingsAtLastSend(null)
@@ -6188,6 +6246,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
+    translationEffectiveLessonIdRef.current = null
     setMessages([])
     setSettingsAtLastSend(null)
     setLoading(true)
@@ -7172,6 +7231,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     const sameTenses =
       current.tenses.length === last.tenses.length &&
       current.tenses.every((t, i) => t === last.tenses[i])
+    const sameTranslationFocus =
+      (current.translationDrillKind ?? 'tense_drill') === (last.translationDrillKind ?? 'tense_drill') &&
+      (current.translationLessonId ?? null) === (last.translationLessonId ?? null)
 
     if (
       (current.mode === 'dialogue' && last.mode === 'dialogue') ||
@@ -7182,6 +7244,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         sameTenses &&
         current.audience === last.audience &&
         current.sentenceType === last.sentenceType &&
+        sameTranslationFocus &&
         current.level !== last.level
       return onlyLevelChanged
     }
@@ -7215,6 +7278,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       selectedTense === 'all'
         ? 'Любое время'
         : (TENSES.find((t) => t.id === selectedTense)?.label ?? selectedTense)
+    const isTranslationLessonTopic =
+      settings.mode === 'translation' &&
+      (settings.translationDrillKind ?? 'tense_drill') === 'lesson_topic'
+    const translationLessonId = settings.translationLessonId ?? null
+    const translationFocusLabel = isTranslationLessonTopic
+      ? translationLessonId === 'all'
+        ? TRANSLATION_MENU_COPY.anyLesson
+        : translationLessonId
+          ? (getLessonTopicById(translationLessonId)?.title ?? TRANSLATION_MENU_COPY.lessonNotSelected)
+          : TRANSLATION_MENU_COPY.lessonNotSelected
+      : tenseLabel
     const levelEntry = LEVELS.find((l) => l.id === settings.level)
     const levelShort = levelEntry ? (levelEntry.label.split(' - ')[0]?.trim() ?? levelEntry.label) : settings.level
     const normalizedLevelShort = settings.level === 'all' ? 'Все уровни' : levelShort
@@ -7224,9 +7298,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       Boolean(topicLabel) &&
       !(settings.mode === 'dialogue' && settings.topic === 'free_talk')
     if (shouldShowTopic && topicLabel) {
-      return `${modeLabel} - ${topicLabel}, ${tenseLabel}, ${normalizedLevelShort}`
+      return `${modeLabel} - ${topicLabel}, ${translationFocusLabel}, ${normalizedLevelShort}`
     }
-    return `${modeLabel} - ${tenseLabel}, ${normalizedLevelShort}`
+    return `${modeLabel} - ${translationFocusLabel}, ${normalizedLevelShort}`
   }
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null
