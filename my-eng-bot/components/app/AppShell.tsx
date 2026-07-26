@@ -8187,15 +8187,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         })
       )
       setHomeAudienceChosen(true)
-      if (openMyPlanFromStart) {
-        if (featureFlags.myPlanSpaceV1) {
-          openMyPlanSpace()
-          return
-        }
-        setHomeMenuView('myPlan')
-      }
     },
-    [openMyPlanFromStart, openMyPlanSpace]
+    []
   )
 
   const resolveFooterWithStreakLayer = React.useCallback(
