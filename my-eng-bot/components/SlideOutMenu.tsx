@@ -76,7 +76,7 @@ interface SlideOutMenuProps {
   onGoHome?: () => void
   /** Если чат уже идёт - при открытии меню сразу «Чат с MyEng»; если нет - корень списка разделов. */
   chatActive?: boolean
-  /** Режим звонка Engvo: при открытии меню показать «Позвонить» (как при переходе к звонку). */
+  /** Режим звонка Engvo: при открытии меню показать экран звонка (как при переходе к звонку). */
   engvoVoiceMode?: boolean
   /** Открыть урок из ветки «Обучение». */
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
@@ -143,6 +143,9 @@ interface SlideOutMenuProps {
   lessonMenuContext?: LessonMenuContext | null
   /** Одноразовый флаг: при следующем открытии восстановить панель уроков (кнопка «Назад» в уроке). */
   restoreLessonMenuOnNextOpenRef?: React.MutableRefObject<boolean>
+  /** Открыть меню сразу на стадии (Уроки/Практика/…). Сбрасывается через onRequestedMenuViewConsumed. */
+  requestedMenuView?: MenuView | null
+  onRequestedMenuViewConsumed?: () => void
   /** Верхний offset (шапка + safe-area), общий с основным layout. */
   topOffset?: string
   /** Нижний offset (футер + safe-area), чтобы панель не перекрывала низ. */
@@ -219,6 +222,8 @@ export default function SlideOutMenu({
   onPracticeTheoryTagFilterPersist,
   lessonMenuContext,
   restoreLessonMenuOnNextOpenRef,
+  requestedMenuView = null,
+  onRequestedMenuViewConsumed,
   topOffset = 'calc(2.75rem + env(safe-area-inset-top, 0px))',
   bottomOffset = '0px',
   columnBounds = null,
@@ -227,6 +232,8 @@ export default function SlideOutMenu({
   const [menuView, setMenuView] = React.useState<MenuView>('root')
   /** Восстановить подпанель уроков только при открытии меню из активного урока/практики, не при ручном «Уроки». */
   const [lessonsRestorePanel, setLessonsRestorePanel] = React.useState<LessonsPanel | undefined>(undefined)
+  const [forceLessonsSummary, setForceLessonsSummary] = React.useState(false)
+  const prevOpenRef = React.useRef(false)
   const panelPositioned = columnBounds != null
   const horizontalLayout = resolveAppPanelHorizontalLayout(columnBounds)
   const useFullWidthPanel = horizontalLayout != null && 'right' in horizontalLayout
@@ -259,7 +266,7 @@ export default function SlideOutMenu({
 
   const handleMenuViewChange = React.useCallback(
     (v: MenuView) => {
-      if (v === 'root') {
+      if (v === 'root' || v === 'communication' || v === 'practice') {
         setLessonsRestorePanel(undefined)
       } else if (v === 'lessons' && menuView === 'root') {
         setLessonsRestorePanel(undefined)
@@ -270,9 +277,14 @@ export default function SlideOutMenu({
   )
 
   React.useLayoutEffect(() => {
+    const wasOpen = prevOpenRef.current
+    prevOpenRef.current = open
+
     if (!open) {
       setMenuView('root')
       setLessonsRestorePanel(undefined)
+      setForceLessonsSummary(false)
+      if (requestedMenuView) onRequestedMenuViewConsumed?.()
       return
     }
     if (
@@ -280,22 +292,48 @@ export default function SlideOutMenu({
       lessonMenuContext?.menuView === 'lessons'
     ) {
       restoreLessonMenuOnNextOpenRef.current = false
+      setForceLessonsSummary(false)
       setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
       setMenuView('lessons')
+      if (requestedMenuView) onRequestedMenuViewConsumed?.()
       return
     }
+    if (requestedMenuView) {
+      if (requestedMenuView === 'lessons') {
+        setForceLessonsSummary(true)
+        setLessonsRestorePanel(undefined)
+      } else {
+        setForceLessonsSummary(false)
+        setLessonsRestorePanel(undefined)
+      }
+      setMenuView(requestedMenuView)
+      onRequestedMenuViewConsumed?.()
+      return
+    }
+    // Defaults only when the panel just opened; ignore request-clear re-runs.
+    if (wasOpen) return
     if (chatActive && lessonMenuContext?.menuView === 'lessons') {
+      setForceLessonsSummary(false)
       setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
       setMenuView('lessons')
       return
     }
+    setForceLessonsSummary(false)
     setLessonsRestorePanel(undefined)
     if (chatActive && engvoVoiceMode) {
       setMenuView('engvo')
       return
     }
     setMenuView(chatActive ? 'aiChat' : 'root')
-  }, [open, chatActive, engvoVoiceMode, lessonMenuContext, restoreLessonMenuOnNextOpenRef])
+  }, [
+    open,
+    chatActive,
+    engvoVoiceMode,
+    lessonMenuContext,
+    restoreLessonMenuOnNextOpenRef,
+    requestedMenuView,
+    onRequestedMenuViewConsumed,
+  ])
 
   const menuPanelPaddingClass = 'px-3 pb-3 pt-3'
 
@@ -327,6 +365,7 @@ export default function SlideOutMenu({
         idPrefix="slide-"
         edgeToEdge={false}
         className="flex min-h-0 flex-1 flex-col"
+        sessionPresetsLocked={chatActive || engvoVoiceMode}
         onStartHomeChat={onStartChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
         engvoProvider={engvoProvider}
@@ -381,7 +420,13 @@ export default function SlideOutMenu({
         onOpenTutorLesson={onOpenTutorLesson}
         onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
         practiceProgressRevision={practiceProgressRevision}
-        initialLessonsPanel={menuView === 'lessons' ? lessonsRestorePanel : undefined}
+        initialLessonsPanel={
+          menuView === 'lessons'
+            ? forceLessonsSummary
+              ? 'summary'
+              : lessonsRestorePanel
+            : undefined
+        }
         initialLessonMenuContext={
           menuView === 'lessons' && lessonsRestorePanel && lessonMenuContext
             ? {

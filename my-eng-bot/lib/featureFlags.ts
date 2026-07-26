@@ -36,5 +36,8 @@ export const featureFlags = {
   /** Cloud sync for lesson_progress. Requires supabaseV1. Default off. */
   supabaseLessonProgressSync:
     process.env.NEXT_PUBLIC_FEATURE_SUPABASE_LESSON_PROGRESS_SYNC === 'true',
+  /** Unlock «Режим» / «Формат звонка» branch switchers in menu (eng). Default off. */
+  engMenuBranchSwitchersUnlocked:
+    process.env.NEXT_PUBLIC_FEATURE_ENG_MENU_BRANCH_SWITCHERS_UNLOCKED === 'true',
 } as const
 

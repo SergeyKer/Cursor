@@ -2,8 +2,6 @@
 
 import Image from 'next/image'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
-import type { AiChatPanel } from '@/lib/aiChatPanel'
-import { getHomeMenuInstruction } from '@/lib/homeMenuInstruction'
 import { featureFlags } from '@/lib/featureFlags'
 import {
   clearOpenLessonIntent,
@@ -15,7 +13,6 @@ import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
-import { HomeMenuInstructionBubble } from '@/components/HomeMenuInstructionBubble'
 import { AppIconFrame } from '@/components/AppIconFrame'
 import type {
   LessonMenuContext,
@@ -137,7 +134,6 @@ import { getLessonBadgeDefinition, resolveLessonBadgeProgress } from '@/lib/less
 import { mergeLessonProgressOnComplete, migrateUserLessonProgress } from '@/lib/lessonProgressMigration'
 import { loadLessonProgress, loadLessonProgressMap, saveLessonProgress } from '@/lib/lessonProgressStorage'
 import {
-  listLearningSignals,
   recordAssistantTurnLearningSignal,
   recordLanguageNoteSignal,
   recordLessonOrPracticeResolved,
@@ -152,7 +148,7 @@ import {
   buildTeacherAcceptedNote,
 } from '@/lib/engvo/teacherMatch'
 import { applyTeacherEtalonLock } from '@/lib/languageNote/applyTeacherEtalonLock'
-import { hasAnyLearningHistory, resolveReturningHomeMenuView, shouldOpenMyPlanHome } from '@/lib/myPlan/returningHome'
+import { resolveReturningHomeMenuView } from '@/lib/myPlan/returningHome'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -818,8 +814,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
-  const [homeAiChatPanel, setHomeAiChatPanel] = useState<AiChatPanel>('summary')
   const [homeAudienceChosen, setHomeAudienceChosen] = useState(false)
+  const [requestedMenuView, setRequestedMenuView] = useState<MenuView | null>(null)
   const { ensureBranchMounted, isBranchMounted } = useBranchLoader()
   usePrefetchBranchesOnIdle(PREFETCH_BRANCH_IDS)
   /** На стартовом экране при выходе из чата домой сбрасывается в false. */
@@ -842,8 +838,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   /** Увеличение сбрасывает поле ввода/голос (меню «Начать …»). */
   const [composerSessionKey, setComposerSessionKey] = useState(0)
   const [lessonMenuContext, setLessonMenuContext] = useState<LessonMenuContext | null>(null)
-  /** Откуда запущен урок: боковое меню или встроенный блок на главной. */
-  const lessonMenuLaunchSurfaceRef = React.useRef<'slide' | 'home'>('home')
+  /** Откуда запущен урок: всегда slide после снятия robot-shell. */
+  const lessonMenuLaunchSurfaceRef = React.useRef<'slide' | 'home'>('slide')
   /** Session from My Plan: return to myPlan after exit. */
   const openedFromMyPlanRef = React.useRef(false)
   const markOpenedFromMyPlan = React.useCallback(() => {
@@ -851,8 +847,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [])
   /** Одноразовое восстановление панели уроков в боковом меню после «Назад». */
   const restoreLessonMenuOnNextOpenRef = React.useRef(false)
-  /** Одноразовое восстановление встроенного меню уроков на главной после «Назад». */
-  const [pendingHomeLessonMenuRestore, setPendingHomeLessonMenuRestore] = useState(false)
   const [activeLearningLessonId, setActiveLearningLessonId] = useState<string | null>(null)
   const [activeStructuredLessonRuntime, setActiveStructuredLessonRuntime] = useState<LessonData | null>(null)
   const [structuredLessonLoadingId, setStructuredLessonLoadingId] = useState<string | null>(null)
@@ -1448,20 +1442,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   }, [dialogStarted, greetingNonce])
 
-  const handleHomeMenuViewChange = useCallback(
-    (v: MenuView) => {
-      if (v === 'root' && homeMenuView !== 'root' && !dialogStarted) {
-        setWelcomeCompact(false)
-        setGreetingNonce((n) => n + 1)
-      }
-      if (v !== homeMenuView) {
-        setFooterTransitionText(null)
-        bumpFooterSessionContext()
-      }
-      setHomeMenuView(v)
-    },
-    [homeMenuView, dialogStarted, bumpFooterSessionContext]
-  )
+  const openMenuAt = useCallback((view: MenuView) => {
+    setHomeMenuView('root')
+    setRequestedMenuView(view)
+    setMenuOpen(true)
+  }, [])
+
+  const clearRequestedMenuView = useCallback(() => {
+    setRequestedMenuView(null)
+  }, [])
 
   React.useEffect(() => {
     const prev = prevHomeMenuViewForModelResetRef.current
@@ -1473,10 +1462,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       normalizeSettingsForAudience({ ...s, openAiChatPreset: 'gpt-4o-mini' })
     )
   }, [homeMenuView, dialogStarted])
-
-  React.useEffect(() => {
-    if (homeMenuView !== 'aiChat') setHomeAiChatPanel('summary')
-  }, [homeMenuView])
 
   /** Ограничение лимитов отключено: отправка и перевод всегда доступны. */
   const atLimit = false
@@ -4034,16 +4019,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMenuOpen(false)
   }, [cleanupEngvoRuntime, dialogStarted, restartChatForNewModeFromMenu, resetStructuredLessonSession])
 
-  const handleStartChatFromHome = useCallback(() => {
-    setComposerSessionKey((k) => k + 1)
-    cleanupEngvoRuntime({ markIgnoredCurrent: true })
-    setEngvoVoiceMode(false)
-    setEngvoCallPhase('idle')
-    setEngvoErrorText(null)
-    resetStructuredLessonSession()
-    setDialogStarted(true)
-  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
-
   const handleOpenEngvoVoiceChat = useCallback(() => {
     engvoRedialWithoutWelcomeRef.current = false
     setComposerSessionKey((k) => k + 1)
@@ -4315,7 +4290,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     ) => {
       const lesson = getLearningLessonById(lessonId)
       if (!lesson) return
-      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
+      lessonMenuLaunchSurfaceRef.current = 'slide'
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
@@ -4398,7 +4373,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       const clearMessages = options?.clearMessages ?? from !== 'chat'
       setReferenceLaunchFrom(from)
       setRuntimeReferenceSheet(null)
-      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
+      lessonMenuLaunchSurfaceRef.current = 'slide'
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
@@ -4459,7 +4434,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (sheet: ReferenceSheet) => {
       setReferenceLaunchFrom('chat')
       setRuntimeReferenceSheet({ ...sheet, hasPractice: false })
-      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
+      lessonMenuLaunchSurfaceRef.current = 'slide'
       menuLessonGenerateCleanupRef.current?.()
       menuLessonBgFetchEpochRef.current += 1
       setStructuredLessonVariantRegenerating(false)
@@ -4608,7 +4583,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         throw new Error('Для выбранного урока пока нет алгоритма генерации.')
       }
 
-      lessonMenuLaunchSurfaceRef.current = menuOpen ? 'slide' : 'home'
+      lessonMenuLaunchSurfaceRef.current = 'slide'
       menuLessonGenerateCleanupRef.current?.()
 
       abandonPracticeSession()
@@ -5312,9 +5287,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const openLessonsFromMyPlanSpace = useCallback(() => {
     setMyPlanSpaceActive(false)
     setDialogStarted(false)
-    setHomeMenuView('lessons')
-    setMenuOpen(true)
-  }, [])
+    openMenuAt('lessons')
+  }, [openMenuAt])
 
   const openMyPlanFromProgress = useCallback(() => {
     openMyPlanSpace()
@@ -5460,10 +5434,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }).catch((error) => {
         const message = error instanceof Error ? error.message : 'Не удалось открыть практику по выбранной цели.'
         setMenuLessonBgError(message)
-        setHomeMenuView('lessons')
+        openMenuAt('lessons')
       })
     },
-    [openPracticeSession]
+    [openMenuAt, openPracticeSession]
   )
 
   const restartPracticeFromExistingSession = useCallback(
@@ -6136,6 +6110,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setSettingsAtLastSend(null)
     setHomeMenuView('root')
     setHomeAudienceChosen(false)
+    setRequestedMenuView(null)
     setMenuOpen(false)
     setLoading(false)
     setRetryMessage(null)
@@ -6155,33 +6130,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     saveState([], nextSettings)
   }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession, settings])
 
-  const homeLessonMenuRestore = React.useMemo(() => {
-    if (!pendingHomeLessonMenuRestore || dialogStarted || homeMenuView !== 'lessons' || !lessonMenuContext) {
-      return null
-    }
-    return {
-      panel: lessonMenuContext.lessonsPanel,
-      context: {
-        activeGrammarCategoryId: lessonMenuContext.activeGrammarCategoryId,
-        activeTheoryTagId: lessonMenuContext.activeTheoryTagId,
-        theorySearchQuery: lessonMenuContext.theorySearchQuery,
-        activeTheoryTagIds: lessonMenuContext.activeTheoryTagIds,
-        theoryLessonSource: lessonMenuContext.theoryLessonSource,
-        theoryTagBrowseLevel: lessonMenuContext.theoryTagBrowseLevel,
-        practiceTheoryTagFilterId: lessonMenuContext.practiceTheoryTagFilterId,
-        selectedLessonId: lessonMenuContext.selectedLessonId,
-        catalogBrowseIntent: lessonMenuContext.catalogBrowseIntent ?? null,
-      },
-    }
-  }, [pendingHomeLessonMenuRestore, dialogStarted, homeMenuView, lessonMenuContext])
-
-  React.useEffect(() => {
-    if (!pendingHomeLessonMenuRestore || dialogStarted || homeMenuView !== 'lessons') return
-    setPendingHomeLessonMenuRestore(false)
-  }, [pendingHomeLessonMenuRestore, dialogStarted, homeMenuView, homeLessonMenuRestore])
-
   const backToLessonList = useCallback(() => {
-    const launchSurface = lessonMenuLaunchSurfaceRef.current
     const fromMyPlan = openedFromMyPlanRef.current
     if (fromMyPlan) openedFromMyPlanRef.current = false
     firstMessageRequestIdRef.current += 1
@@ -6201,29 +6150,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession({ keepLessonMenuContext: !fromMyPlan })
     setFooterTransitionText(null)
     bumpFooterSessionContext()
+    setHomeMenuView('root')
     if (fromMyPlan) {
       if (featureFlags.myPlanSpaceV1) {
         openMyPlanSpace()
         return
       }
-      setHomeMenuView('myPlan')
-      if (launchSurface === 'slide') {
-        setMenuOpen(true)
-        return
-      }
-      setMenuOpen(false)
+      openMenuAt('myPlan')
       return
     }
-    if (launchSurface === 'slide') {
-      restoreLessonMenuOnNextOpenRef.current = true
-      setHomeMenuView('lessons')
-      setMenuOpen(true)
-      return
-    }
-    setHomeMenuView('lessons')
-    setPendingHomeLessonMenuRestore(true)
-    setMenuOpen(false)
-  }, [bumpFooterSessionContext, cleanupEngvoRuntime, openMyPlanSpace, resetStructuredLessonSession])
+    restoreLessonMenuOnNextOpenRef.current = true
+    setMenuOpen(true)
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, openMenuAt, openMyPlanSpace, resetStructuredLessonSession])
 
   const backToVocabularyMenu = useCallback(() => {
     firstMessageRequestIdRef.current += 1
@@ -6231,8 +6169,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setDialogStarted(false)
     setMessages([])
     setSettingsAtLastSend(null)
-    setHomeMenuView('lessons')
-    setMenuOpen(false)
+    setHomeMenuView('root')
     setLoading(false)
     setRetryMessage(null)
     setForceNextMicLang(null)
@@ -6245,6 +6182,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     bumpFooterSessionContext()
     resetStructuredLessonSession()
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
+    restoreLessonMenuOnNextOpenRef.current = true
+    setMenuOpen(true)
   }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const retryFirstMessage = useCallback(async () => {
@@ -6306,10 +6245,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           const view = resolveReturningHomeMenuView({
             branchIntent: entryBridge.branchIntent,
           })
-          if (view) setHomeMenuView(view)
+          if (view) {
+            setHomeMenuView('root')
+            setRequestedMenuView(view)
+            setMenuOpen(true)
+          } else {
+            setMenuOpen(false)
+          }
+        } else {
+          setMenuOpen(false)
         }
         setDialogStarted(false)
-        setMenuOpen(false)
         setEngvoProvider(loadEngvoProvider())
         setEngvoRealtimeVoice(loadEngvoRealtimeVoice())
         setEngvoXaiVoice(loadEngvoXaiVoice())
@@ -6368,7 +6314,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     const view = resolveReturningHomeMenuView({
       branchIntent: entryBridge.branchIntent,
     })
-    if (view) setHomeMenuView(view)
+    if (view) {
+      setHomeMenuView('root')
+      setRequestedMenuView(view)
+      setMenuOpen(true)
+    }
   }, [
     storageLoaded,
     entryBridge?.audience,
@@ -7358,6 +7308,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   useEffect(() => {
     if (!storageLoaded) return
+    if (menuOpen && (requestedMenuView === 'lessons' || requestedMenuView === 'practice')) {
+      prefetchBranch('lesson')
+      prefetchBranch('practice')
+      return
+    }
+    if (menuOpen && requestedMenuView === 'aiChat') {
+      prefetchBranch('chat')
+      return
+    }
     if (homeMenuView === 'lessons') {
       prefetchBranch('lesson')
       prefetchBranch('practice')
@@ -7366,7 +7325,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (homeMenuView === 'aiChat') {
       prefetchBranch('chat')
     }
-  }, [storageLoaded, homeMenuView])
+  }, [storageLoaded, homeMenuView, menuOpen, requestedMenuView])
 
   useEffect(() => {
     if (!storageLoaded || !dialogStarted) return
@@ -8165,18 +8124,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (!shouldShowStreakHomeBanner(rewardsState, Boolean(streakFooterPreview))) return null
     return formatStreakHomeBannerText(rewardsState, settings.audience)
   }, [dialogStarted, homeMenuView, rewardsState, streakFooterPreview, settings.audience])
-
-  const openMyPlanFromStart = React.useMemo(() => {
-    if (!storageLoaded) return false
-    return shouldOpenMyPlanHome({
-      myPlanHomeEnabled: featureFlags.myPlanHomeV1,
-      hasAnyHistory: hasAnyLearningHistory({
-        lastActiveDate: rewardsState.progress.lastActiveDate,
-        lessonProgressCount: Object.keys(loadLessonProgressMap()).length,
-        signalCount: listLearningSignals().length,
-      }),
-    })
-  }, [storageLoaded, rewardsState.progress.lastActiveDate])
 
   const completeHomeAudienceChoice = useCallback(
     (audience: 'child' | 'adult') => {
@@ -9253,7 +9200,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             ) : null}
             {homeMenuView === 'root' && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
-                <HomeWelcomeBubble text={buildCompactGreeting()} />
+                <HomeWelcomeBubble text={buildCompactGreeting({ audienceChosen: homeAudienceChosen })} />
                 {homeStreakBannerText ? (
                   <div className="w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2.5 text-center">
                     <p className="text-[13px] font-medium leading-snug text-[var(--status-info-text)]">
@@ -9280,42 +9227,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           {APP_SHELL_HOME_COPY.audienceAdultLabel}
                         </button>
                       </>
-                    ) : openMyPlanFromStart ? (
-                      <>
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setHomeAudienceChosen(false)}
-                            className={PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS}
-                            aria-label={APP_SHELL_HOME_COPY.homeBackAriaLabel}
-                          >
-                            <span className="mr-1" aria-hidden>
-                              &lt;
-                            </span>
-                            {APP_SHELL_HOME_COPY.homeBackLabel}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (featureFlags.myPlanSpaceV1) {
-                                openMyPlanSpace()
-                                return
-                              }
-                              setHomeMenuView('myPlan')
-                            }}
-                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
-                          >
-                            {APP_SHELL_HOME_COPY.startMyPlanLabel}
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setHomeMenuView('lessons')}
-                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
-                        >
-                          Все уроки и режимы
-                        </button>
-                      </>
                     ) : (
                       <>
                         <div className="flex w-full items-center justify-between gap-2">
@@ -9332,18 +9243,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           </button>
                           <button
                             type="button"
-                            onClick={() => setHomeMenuView('aiChat')}
+                            onClick={() => openMenuAt('lessons')}
                             className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
                           >
-                            {APP_SHELL_HOME_COPY.startChatLabel}
+                            {APP_SHELL_HOME_COPY.lessonsLabel}
                           </button>
                         </div>
                         <button
                           type="button"
-                          onClick={() => setHomeMenuView('lessons')}
+                          onClick={() => openMenuAt('practice')}
                           className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
                         >
-                          Все уроки и режимы
+                          {APP_SHELL_HOME_COPY.practiceLabel}
                         </button>
                       </>
                     )}
@@ -9353,105 +9264,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   <HomeEmptyBubble text={welcomeFactLine} className="w-full" />
                 ) : null}
               </div>
-            )}
-            {homeMenuView !== 'root' && (
-              <>
-                <div className="flex w-full shrink-0 flex-row items-center gap-2.5 sm:gap-3">
-                  <div className="w-[22%] max-w-[5.5rem] shrink-0">
-                    <AppIconFrame
-                      variant="home"
-                      src="/engvo-mascot.png"
-                      alt="Engvo AI"
-                      className="w-full"
-                      priority
-                    />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <HomeMenuInstructionBubble
-                      text={getHomeMenuInstruction(homeMenuView, homeAiChatPanel)}
-                      ariaLabel={
-                        homeMenuView === 'aiChat'
-                          ? 'Подсказка по настройкам чата'
-                          : 'Инструкция по разделу'
-                      }
-                    />
-                  </div>
-                </div>
-                <div className="flex w-full shrink-0 flex-col rounded-2xl border border-[var(--border)] bg-[var(--home-menu-bg)] px-3 py-3 shadow-sm">
-                  <MenuSectionPanels
-                    menuView={homeMenuView}
-                    onMenuViewChange={handleHomeMenuViewChange}
-                    settings={settings}
-                    onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
-                    usage={usage}
-                    dialogueCorrectAnswers={dialogueCorrectAnswers}
-                    rewardsState={rewardsState}
-                    onRewardsStateChange={setRewardsState}
-                    idPrefix="home-"
-                    className="flex min-h-0 flex-col"
-                    homeLayout
-                    initialLessonsPanel={homeLessonMenuRestore?.panel}
-                    initialLessonMenuContext={homeLessonMenuRestore?.context ?? null}
-                    onStartHomeChat={handleStartChatFromHome}
-                    onGoHome={goToStartScreen}
-                    onAiChatPanelChange={setHomeAiChatPanel}
-                    onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
-                    engvoProvider={engvoProvider}
-                    engvoRealtimeVoice={engvoRealtimeVoice}
-                    engvoXaiVoice={engvoXaiVoice}
-                    engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}
-                    engvoCefrLevel={engvoCefrLevel}
-                    engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
-                    onEngvoProviderChange={handleEngvoProviderChange}
-                    onEngvoVoiceChange={handleEngvoVoiceChange}
-                    onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}
-                    onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}
-                    onEngvoLevelChange={handleEngvoLevelChange}
-                    onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
-                    engvoSessionKind={engvoSessionKind}
-                    engvoTeacherTense={engvoTeacherTense}
-                    engvoTeacherSentenceType={engvoTeacherSentenceType}
-                    engvoSettingsLocked={
-                      engvoVoiceMode &&
-                      (engvoCallPhase === 'connecting' ||
-                        engvoCallPhase === 'listening' ||
-                        engvoCallPhase === 'assistantPending' ||
-                        engvoCallPhase === 'assistantSpeaking' ||
-                        engvoCallPhase === 'userFinalizing')
-                    }
-                    onEngvoSessionKindChange={handleEngvoSessionKindChange}
-                    onEngvoTeacherTenseChange={handleEngvoTeacherTenseChange}
-                    onEngvoTeacherSentenceTypeChange={handleEngvoTeacherSentenceTypeChange}
-                    practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
-                    onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
-                    chatPatternId={chatPatternId}
-                    onChatPatternChange={handleChatPatternChange}
-                    chatPatternTuningMap={chatPatternTuningMap}
-                    onChatPatternTuningChange={handleChatPatternTuningChange}
-                    onChatPatternTuningReset={handleChatPatternTuningReset}
-                    onOpenLearningLesson={openOrContinueLearningLesson}
-                    onOpenReferenceTopic={openReferenceTopic}
-                    onOpenProgressSpace={openProgressSpace}
-                    onOpenMyPlanSpace={openMyPlanSpace}
-                    onOpenQuickTest={openQuickTest}
-                    onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
-                    onDebugSkipToPracticeFinale={handleDebugSkipToPracticeFinale}
-                    practiceSessionActiveForDebug={practiceSessionActiveForDebug}
-                    onGenerateLearningLesson={openGeneratedLearningLesson}
-                    onOpenPracticeSession={openPracticeSession}
-                    onGeneratePracticeSession={generatePracticeSession}
-                    onOpenAccentTrainer={openAccentTrainer}
-                    onOpenVocabularyWorlds={openVocabularyWorlds}
-                    onOpenVocabularyByLevel={openVocabularyByLevel}
-                    onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
-                    onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
-                    onOpenTutorLesson={openTutorLesson}
-                    onAdaptiveFooterViewChange={setAdaptiveFooterView}
-                    onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
-                    practiceProgressRevision={practiceProgressRevision}
-                  />
-                </div>
-              </>
             )}
             </div>
           </div>
@@ -9626,7 +9438,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     setPracticeCompletionMeta(null)
                     practiceSession.abandonSession()
                     setDialogStarted(false)
-                    setHomeMenuView('lessons')
+                    setHomeMenuView('root')
                     setLessonMenuContext((prev) => ({
                       menuView: 'lessons',
                       lessonsPanel: 'practice',
@@ -9638,6 +9450,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,
                       practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
                     }))
+                    restoreLessonMenuOnNextOpenRef.current = true
+                    setMenuOpen(true)
                   }}
                   generationBusy={loading}
                 />
@@ -10026,6 +9840,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
         lessonMenuContext={lessonMenuContext}
         restoreLessonMenuOnNextOpenRef={restoreLessonMenuOnNextOpenRef}
+        requestedMenuView={requestedMenuView}
+        onRequestedMenuViewConsumed={clearRequestedMenuView}
         practiceProgressRevision={practiceProgressRevision}
         topOffset="var(--app-top-offset)"
         bottomOffset="var(--app-menu-panel-bottom)"

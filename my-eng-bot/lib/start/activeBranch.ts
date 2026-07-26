@@ -34,6 +34,5 @@ export function resolveActiveBranch(input: ActiveBranchInput): BranchId | null {
     return 'lesson'
   }
   if (input.dialogStarted) return 'chat'
-  if (!input.dialogStarted && input.homeMenuView !== 'root') return 'hub'
   return null
 }

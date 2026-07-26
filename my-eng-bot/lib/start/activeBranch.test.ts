@@ -17,8 +17,8 @@ const base = {
 }
 
 describe('resolveActiveBranch', () => {
-  it('returns hub when home menu is open', () => {
-    expect(resolveActiveBranch({ ...base, homeMenuView: 'lessons' })).toBe('hub')
+  it('returns null on idle home even if homeMenuView is non-root leftover', () => {
+    expect(resolveActiveBranch({ ...base, homeMenuView: 'lessons' })).toBeNull()
   })
 
   it('returns chat when dialog started', () => {

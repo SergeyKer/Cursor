@@ -160,7 +160,17 @@ const CHILD_SAFE_TOPICS = new Set<TopicId>([
   'travel',
 ])
 
-export type MenuView = 'root' | 'lessons' | 'aiChat' | 'settings' | 'progress' | 'myPlan' | 'profile' | 'engvo'
+export type MenuView =
+  | 'root'
+  | 'communication'
+  | 'lessons'
+  | 'practice'
+  | 'aiChat'
+  | 'settings'
+  | 'progress'
+  | 'myPlan'
+  | 'profile'
+  | 'engvo'
 
 export type { AiChatPanel }
 
@@ -230,13 +240,23 @@ export type LearningLessonMenuMeta = Pick<
 >
 
 const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
-  summary: 'Чат с Engvo',
+  summary: 'Чат',
   mode: 'Режим',
   audience: 'Стиль общения',
   tense: 'Время',
   sentenceType: 'Тип предложений',
   topic: 'Тема',
   level: 'Уровень',
+}
+
+function resolveAiChatSummaryTitle(mode: AppMode): string {
+  if (mode === 'dialogue') return 'Диалог'
+  if (mode === 'translation') return 'Перевод'
+  return 'Чат'
+}
+
+function resolveEngvoSummaryTitle(kind: EngvoVoiceSessionKind): string {
+  return kind === 'teacher' ? 'Преподаватель' : 'Звонок'
 }
 
 type SettingsMenuPanel =
@@ -273,7 +293,7 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   patternBlend: 'Режим смешивания',
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
-  summary: 'Позвонить',
+  summary: 'Звонок',
   kind: 'Формат звонка',
   provider: 'Провайдер',
   audience: 'Стиль общения',
@@ -296,8 +316,8 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   theoryTagLessons: 'Теория · урок по теме',
   a1: 'A1',
   a2: 'A2',
-  practice: 'Практика',
-  practiceLevelsHub: 'Практика · уровни',
+  practice: 'По урокам',
+  practiceLevelsHub: 'По урокам · уровни',
   practiceLevel: 'Уровень',
   practiceLevelTopics: 'Темы',
   practiceFormat: 'Формат',
@@ -472,6 +492,11 @@ export interface MenuSectionPanelsProps {
   homeLayout?: boolean
   /** Slide-out: закрыть overlay-меню без сброса сессии. */
   onCloseMenu?: () => void
+  /**
+   * Активный диалог/звонок: hub deep-link только навигирует, без preset mode/sessionKind
+   * (иначе menuOpenSnapshot → restartChat при закрытии меню).
+   */
+  sessionPresetsLocked?: boolean
   onStartHomeChat?: () => void
   onGoHome?: () => void
   onOpenEngvoVoiceChat?: () => void
@@ -603,6 +628,7 @@ export default function MenuSectionPanels({
   edgeToEdge = false,
   homeLayout = false,
   onCloseMenu,
+  sessionPresetsLocked = false,
   onStartHomeChat,
   onGoHome,
   onOpenEngvoVoiceChat,
@@ -669,6 +695,8 @@ export default function MenuSectionPanels({
   const [selectedXaiVoiceSectionId, setSelectedXaiVoiceSectionId] =
     React.useState<EngvoXaiVoiceSectionId>('classic')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
+  /** Hub to return to from aiChat/engvo/practice leaf (cleared on root/Home). */
+  const [menuReturnView, setMenuReturnView] = React.useState<MenuView | null>(null)
   const [lessonProgressMap, setLessonProgressMap] = React.useState(loadLessonProgressMap)
 
   const resolveMenuVariantCtaForLesson = React.useCallback(
@@ -1386,6 +1414,7 @@ export default function MenuSectionPanels({
         if (catalogBrowseIntent === 'reference') {
           setCatalogBrowseIntent('lesson')
           setReferenceHubSearchQuery('')
+          setMenuReturnView(null)
           onMenuViewChange('root')
           return
         }
@@ -1406,6 +1435,12 @@ export default function MenuSectionPanels({
       }
       if (lessonsPanel === 'practiceFormat' || lessonsPanel === 'practiceReferenceType') {
         setLessonsPanel('practice')
+        return
+      }
+      if (lessonsPanel === 'practice') {
+        setMenuReturnView(null)
+        setLessonsPanel('summary')
+        onMenuViewChange('practice')
         return
       }
       if (lessonsPanel === 'pronunciationRussianGroup') {
@@ -1479,8 +1514,70 @@ export default function MenuSectionPanels({
         return
       }
     }
+    if (menuView === 'communication' || menuView === 'practice') {
+      setMenuReturnView(null)
+      onMenuViewChange('root')
+      return
+    }
+    if (
+      (menuView === 'aiChat' || menuView === 'engvo') &&
+      (menuReturnView === 'communication' || menuReturnView === 'practice')
+    ) {
+      const ret = menuReturnView
+      setMenuReturnView(null)
+      onMenuViewChange(ret)
+      return
+    }
+    setMenuReturnView(null)
     onMenuViewChange('root')
   }
+
+  const clearMenuReturn = React.useCallback(() => {
+    setMenuReturnView(null)
+  }, [])
+
+  const openCommunicationChat = () => {
+    setCatalogBrowseIntent('lesson')
+    if (!sessionPresetsLocked) update({ mode: 'communication' })
+    setAiChatPanel('summary')
+    setMenuReturnView('communication')
+    onMenuViewChange('aiChat')
+  }
+
+  const openCommunicationCall = () => {
+    setCatalogBrowseIntent('lesson')
+    if (!sessionPresetsLocked) onEngvoSessionKindChange?.('free_call')
+    setEngvoPanel('summary')
+    setMenuReturnView('communication')
+    onMenuViewChange('engvo')
+  }
+
+  const openPracticeByLesson = () => {
+    setCatalogBrowseIntent('lesson')
+    setLessonsPanel('practice')
+    setMenuReturnView('practice')
+    onMenuViewChange('lessons')
+  }
+
+  const openPracticeChatMode = (mode: Extract<AppMode, 'dialogue' | 'translation'>) => {
+    setCatalogBrowseIntent('lesson')
+    if (!sessionPresetsLocked) update({ mode })
+    setAiChatPanel('summary')
+    setMenuReturnView('practice')
+    onMenuViewChange('aiChat')
+  }
+
+  const openPracticeTeacher = () => {
+    setCatalogBrowseIntent('lesson')
+    if (!sessionPresetsLocked) onEngvoSessionKindChange?.('teacher')
+    setEngvoPanel('summary')
+    setMenuReturnView('practice')
+    onMenuViewChange('engvo')
+  }
+
+  const branchSwitchersUnlocked = featureFlags.engMenuBranchSwitchersUnlocked
+  const modeSwitcherDisabled = !branchSwitchersUnlocked
+  const kindSwitcherDisabled = !branchSwitchersUnlocked || engvoSettingsLocked
 
   const canMenuNavigateUp = menuView !== 'root'
 
@@ -1504,10 +1601,14 @@ export default function MenuSectionPanels({
               engvoPanel === 'voiceSection' ||
               engvoPanel === 'level' ||
               engvoPanel === 'speed')
-          ? 'К разделу «Позвонить»'
-          : menuView === 'lessons' && lessonsPanel === 'tutor' && tutorStep === 'select'
-            ? 'К форме репетитора'
-            : 'К разделам'
+          ? 'К настройкам звонка'
+          : menuView === 'communication'
+            ? 'К разделам'
+            : menuView === 'practice'
+              ? 'К разделам'
+              : menuView === 'lessons' && lessonsPanel === 'tutor' && tutorStep === 'select'
+                ? 'К форме репетитора'
+                : 'К разделам'
 
   const menuNavIconButtonClass =
     'btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none'
@@ -1567,9 +1668,17 @@ export default function MenuSectionPanels({
       }
       return LESSONS_PANEL_TITLE[lessonsPanel]
     }
-    if (menuView === 'aiChat') return AI_CHAT_PANEL_TITLE[aiChatPanel]
+    if (menuView === 'communication') return 'Общение'
+    if (menuView === 'practice') return 'Практика'
+    if (menuView === 'aiChat') {
+      if (aiChatPanel === 'summary') return resolveAiChatSummaryTitle(settings.mode)
+      return AI_CHAT_PANEL_TITLE[aiChatPanel]
+    }
     if (menuView === 'settings') return SETTINGS_PANEL_TITLE[settingsPanel]
-    if (menuView === 'engvo') return ENGVO_PANEL_TITLE[engvoPanel]
+    if (menuView === 'engvo') {
+      if (engvoPanel === 'summary') return resolveEngvoSummaryTitle(engvoSessionKind)
+      return ENGVO_PANEL_TITLE[engvoPanel]
+    }
     if (menuView === 'progress') return 'Прогресс'
     if (menuView === 'myPlan') return 'Мой план'
     if (menuView === 'profile') return 'Профиль'
@@ -1610,6 +1719,7 @@ export default function MenuSectionPanels({
       : `${panelScrollAreaEnter} min-h-0 flex-1 space-y-2.5 overflow-y-auto pb-1`
 
   const handleGoHome = () => {
+    clearMenuReturn()
     if (onGoHome) onGoHome()
     else onMenuViewChange('root')
   }
@@ -2007,30 +2117,46 @@ export default function MenuSectionPanels({
                 ? `settings-${settingsPanel}`
                 : menuView === 'engvo'
                   ? `engvo-${engvoPanel}`
-                : menuView
+                  : menuView === 'communication'
+                    ? 'communication'
+                    : menuView === 'practice'
+                      ? 'practice'
+                      : menuView
         }
         className={panelScrollAreaClass}
       >
         {menuView === 'root' && !homeLayout && (
           <div className={MENU_GROUP_OUTER}>
             <div className={MENU_GROUP_CLASS}>
-              <MenuNavRow label="Чат с Engvo" onClick={() => onMenuViewChange('aiChat')} />
-              {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat && (
-                <MenuNavRow label="Позвонить" onClick={() => onMenuViewChange('engvo')} />
-              )}
+              <MenuNavRow
+                label="Общение"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('communication')
+                }}
+              />
               <MenuNavRow
                 label="Уроки"
                 onClick={() => {
+                  clearMenuReturn()
                   setCatalogBrowseIntent('lesson')
                   setReferenceHubSearchQuery('')
                   setLessonsPanel('summary')
                   onMenuViewChange('lessons')
                 }}
               />
+              <MenuNavRow
+                label="Практика"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('practice')
+                }}
+              />
               {featureFlags.referenceV1 ? (
                 <MenuNavRow
                   label={REFERENCE_COPY.menuRootLabel}
                   onClick={() => {
+                    clearMenuReturn()
                     setCatalogBrowseIntent('reference')
                     setReferenceHubSearchQuery('')
                     setLessonsPanel('theory')
@@ -2041,6 +2167,7 @@ export default function MenuSectionPanels({
               <MenuNavRow
                 label="Прогресс"
                 onClick={() => {
+                  clearMenuReturn()
                   if (featureFlags.progressSpaceV1 && onOpenProgressSpace) {
                     onOpenProgressSpace()
                     return
@@ -2051,6 +2178,7 @@ export default function MenuSectionPanels({
               <MenuNavRow
                 label="Мой план"
                 onClick={() => {
+                  clearMenuReturn()
                   if (featureFlags.myPlanSpaceV1 && onOpenMyPlanSpace) {
                     onOpenMyPlanSpace()
                     return
@@ -2058,8 +2186,49 @@ export default function MenuSectionPanels({
                   onMenuViewChange('myPlan')
                 }}
               />
-              <MenuNavRow label="Настройки" onClick={() => onMenuViewChange('settings')} />
-              <MenuNavRow label="Профиль" onClick={() => onMenuViewChange('profile')} />
+              <MenuNavRow
+                label="Настройки"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('settings')
+                }}
+              />
+              <MenuNavRow
+                label="Профиль"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('profile')
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {menuView === 'communication' && (
+          <div className={MENU_GROUP_OUTER}>
+            <div className={MENU_GROUP_CLASS}>
+              <MenuNavRow label="Чат" onClick={openCommunicationChat} />
+              {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
+                <MenuNavRow label="Звонок" onClick={openCommunicationCall} />
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {menuView === 'practice' && (
+          <div className={MENU_GROUP_OUTER}>
+            <div className={MENU_GROUP_CLASS}>
+              {featureFlags.practiceEngineV1 ? (
+                <MenuNavRow label="По урокам" onClick={openPracticeByLesson} />
+              ) : null}
+              <MenuNavRow label="Диалог" onClick={() => openPracticeChatMode('dialogue')} />
+              <MenuNavRow label="Перевод" onClick={() => openPracticeChatMode('translation')} />
+              {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
+                <MenuNavRow label="Преподаватель" onClick={openPracticeTeacher} />
+              ) : null}
+              {featureFlags.quickTestV1 && onOpenQuickTest ? (
+                <MenuNavRow label="Быстрый тест" showChevron={false} onClick={() => onOpenQuickTest()} />
+              ) : null}
             </div>
           </div>
         )}
@@ -2074,10 +2243,10 @@ export default function MenuSectionPanels({
                       label="Формат звонка"
                       value={engvoSessionKindLabel}
                       onClick={() => {
-                        if (engvoSettingsLocked) return
+                        if (kindSwitcherDisabled) return
                         setEngvoPanel('kind')
                       }}
-                      disabled={engvoSettingsLocked}
+                      disabled={kindSwitcherDisabled}
                     />
                     <MenuSettingRow
                       label="Провайдер"
@@ -2317,16 +2486,6 @@ export default function MenuSectionPanels({
             {lessonsPanel === 'summary' && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
-                  {featureFlags.referenceV1 ? (
-                    <MenuNavRow
-                      label={REFERENCE_COPY.menuRootLabel}
-                      onClick={() => {
-                        setCatalogBrowseIntent('reference')
-                        setReferenceHubSearchQuery('')
-                        setLessonsPanel('theory')
-                      }}
-                    />
-                  ) : null}
                   <MenuNavRow
                     label="Теория"
                     onClick={() => {
@@ -2334,12 +2493,6 @@ export default function MenuSectionPanels({
                       setLessonsPanel('theory')
                     }}
                   />
-                  {featureFlags.practiceEngineV1 && (
-                    <MenuNavRow label="Практика" onClick={() => setLessonsPanel('practice')} />
-                  )}
-                  {featureFlags.quickTestV1 && onOpenQuickTest ? (
-                    <MenuNavRow label="Быстрый тест" showChevron={false} onClick={() => onOpenQuickTest()} />
-                  ) : null}
                   {featureFlags.accentTrainerV1 ? (
                     <MenuNavRow label="Произношение" onClick={() => setLessonsPanel('pronunciation')} />
                   ) : (
@@ -3719,7 +3872,15 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
           <>
             <div className={MENU_GROUP_OUTER}>
               <div className={MENU_GROUP_CLASS}>
-              <MenuSettingRow label="Режим" value={modeLabel} onClick={() => setAiChatPanel('mode')} />
+              <MenuSettingRow
+                label="Режим"
+                value={modeLabel}
+                onClick={() => {
+                  if (modeSwitcherDisabled) return
+                  setAiChatPanel('mode')
+                }}
+                disabled={modeSwitcherDisabled}
+              />
               <MenuSettingRow label="Стиль общения" value={audienceLabel} onClick={() => setAiChatPanel('audience')} />
               {settings.mode !== 'communication' && (
                 <MenuSettingRow label="Время" value={tenseLabel} onClick={() => setAiChatPanel('tense')} />
