@@ -5488,7 +5488,7 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
       maxTokens,
       openAiChatPreset,
     })
-    if (resBlind.ok) {
+    if (resBlind?.ok) {
       const repairedRaw = sanitizeInstructionLeak(resBlind.content)
       if (repairedRaw && !isMetaGarbage(repairedRaw)) {
         let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
@@ -5537,14 +5537,14 @@ async function repairDialogueAllTenseRepeatMismatch(params: {
     repairApiMessages.unshift({ role: 'system', content: `${systemContent}\n\n${repairBlock}` })
   }
 
-    const res = await callProviderChat({
-      provider,
-      req,
-      apiMessages: repairApiMessages,
-      maxTokens,
-      openAiChatPreset,
-    })
-  if (!res.ok) return content
+  const res = await callProviderChat({
+    provider,
+    req,
+    apiMessages: repairApiMessages,
+    maxTokens,
+    openAiChatPreset,
+  })
+  if (!res?.ok) return content
   const repairedRaw = sanitizeInstructionLeak(res.content)
   if (!repairedRaw || isMetaGarbage(repairedRaw)) return content
   let repaired = stripOffContextCorrections(repairedRaw, lastUserText)
@@ -6808,7 +6808,11 @@ export async function POST(req: NextRequest) {
 
     let dialogueEffectiveTense = normalizedTense
     if (useDialogueAnyAxis && dialogueAnyCurrentAxis) {
-      dialogueEffectiveTense = dialogueAnyCurrentAxis.tense
+      // Grade against the live question/Повтори tense when known; axis only seeds the next pose.
+      dialogueEffectiveTense =
+        !isFirstTurn && inferredLastAssistantTense
+          ? inferredLastAssistantTense
+          : dialogueAnyCurrentAxis.tense
     } else if (mode === 'dialogue' && topic === 'free_talk') {
       if (isTopicChoiceTurn) {
         dialogueEffectiveTense = pickWeightedFreeTalkTense({
@@ -6836,15 +6840,13 @@ export async function POST(req: NextRequest) {
     let tutorGradingTense = mode === 'dialogue' ? tenseForDialogueOps : normalizedTense
 
     if (mode === 'dialogue' && extractLastAssistantRepeatSentence(recentMessages)) {
-      if (useDialogueAnyAxis && dialogueAnyCurrentAxis) {
+      const inferredRepeatTense = inferTenseFromDialogueAssistantContent(
+        getLastAssistantContent(recentMessages) ?? ''
+      )
+      if (inferredRepeatTense) {
+        tutorGradingTense = inferredRepeatTense
+      } else if (useDialogueAnyAxis && dialogueAnyCurrentAxis) {
         tutorGradingTense = dialogueAnyCurrentAxis.tense
-      } else {
-        const inferredRepeatTense = inferTenseFromDialogueAssistantContent(
-          getLastAssistantContent(recentMessages) ?? ''
-        )
-        if (inferredRepeatTense) {
-          tutorGradingTense = inferredRepeatTense
-        }
       }
     }
 
