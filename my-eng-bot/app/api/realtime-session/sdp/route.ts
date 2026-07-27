@@ -106,6 +106,8 @@ export async function POST(req: NextRequest) {
       teacherLessonId?: string | null
       teacherEffectiveLessonId?: string | null
       sessionSeed?: string
+      teacherCurrentTense?: string | null
+      teacherNextTense?: string | null
     }
     const sdpRaw = typeof body.sdp === 'string' ? body.sdp : ''
     const sdp = sdpRaw
