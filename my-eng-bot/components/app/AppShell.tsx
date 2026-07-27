@@ -7297,10 +7297,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       includeTopic &&
       Boolean(topicLabel) &&
       !(settings.mode === 'dialogue' && settings.topic === 'free_talk')
+    const hideLevelInSummary =
+      isTranslationLessonTopic &&
+      typeof translationLessonId === 'string' &&
+      translationLessonId !== '' &&
+      translationLessonId !== 'all'
     if (shouldShowTopic && topicLabel) {
-      return `${modeLabel} - ${topicLabel}, ${translationFocusLabel}, ${normalizedLevelShort}`
+      return hideLevelInSummary
+        ? `${modeLabel} - ${topicLabel}, ${translationFocusLabel}`
+        : `${modeLabel} - ${topicLabel}, ${translationFocusLabel}, ${normalizedLevelShort}`
     }
-    return `${modeLabel} - ${translationFocusLabel}, ${normalizedLevelShort}`
+    return hideLevelInSummary
+      ? `${modeLabel} - ${translationFocusLabel}`
+      : `${modeLabel} - ${translationFocusLabel}, ${normalizedLevelShort}`
   }
 
   const activeLearningLesson = activeLearningLessonId ? getLearningLessonById(activeLearningLessonId) : null

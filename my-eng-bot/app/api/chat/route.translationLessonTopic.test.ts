@@ -80,6 +80,38 @@ describe('POST /api/chat translation lesson_topic gate', () => {
     expect(system).not.toContain('Required tense:')
   })
 
+  it('level all + concrete lesson_topic uses catalog CEFR for drill (A1)', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: ['Я из России.', 'Переведи на английский.', '__TRAN_REPEAT_REF__: I am from Russia.'].join('\n'),
+    })
+
+    const res = await POST(
+      makeRequest({
+        mode: 'translation',
+        audience: 'adult',
+        level: 'all',
+        tenses: ['present_simple'],
+        sentenceType: 'affirmative',
+        topic: 'food',
+        translationDrillKind: 'lesson_topic',
+        translationLessonId: '4',
+        messages: [],
+        dialogSeed: 'seed-lesson-all',
+      }) as never
+    )
+    expect(res.status).toBe(200)
+    const data = (await res.json()) as { translationEffectiveLessonId?: string }
+    expect(data.translationEffectiveLessonId).toBe('4')
+    const firstCall = callProviderChatMock.mock.calls[0]?.[0] as
+      | { apiMessages?: Array<{ role: string; content: string }> }
+      | undefined
+    const system = firstCall?.apiMessages?.find((m) => m.role === 'system')?.content ?? ''
+    expect(system).toContain('Required lesson grammar')
+    // A1 lesson → drill level must not stay as random pick from "all"
+    expect(system).toMatch(/A1|Beginner|starter|элементарн/i)
+  })
+
   it('invalid lesson id falls back to tense path safely', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,

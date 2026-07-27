@@ -21,8 +21,10 @@ import type { AiChatPanel } from '@/lib/aiChatPanel'
 import {
   LESSON_AXIS_MENU_LEVEL_IDS,
   clampLevelForLessonAxis,
+  isTranslationLevelLocked,
   lessonExistsAndEnabled,
   listEnabledTranslationLessonsForLevel,
+  menuLevelIdForConcreteTranslationLesson,
   normalizeLessonForLevel,
 } from '@/lib/lessonTranslationBridge'
 import { TRANSLATION_MENU_COPY } from '@/lib/uiCopy/translationMenu'
@@ -976,6 +978,15 @@ export default function MenuSectionPanels({
   }, [menuView])
 
   React.useEffect(() => {
+    if (
+      isTranslationLevelLocked(settings) &&
+      aiChatPanel === 'level'
+    ) {
+      setAiChatPanel('summary')
+    }
+  }, [settings, aiChatPanel])
+
+  React.useEffect(() => {
     if (menuView !== 'settings') setSettingsPanel('summary')
   }, [menuView])
 
@@ -1259,9 +1270,31 @@ export default function MenuSectionPanels({
     onSettingsChange({ ...settings, ...patch })
   }
 
+  /** level + tenses (как пикер уровня); без translationLessonId. */
+  const applyChatLevelPatch = (newLevel: LevelId): Partial<Settings> => {
+    const base = getAllowedTensesForLevel(newLevel)
+    const allowed = isChild ? base.filter((tid) => CHILD_TENSE_SET.has(tid)) : base
+    const tenses = normalizeSingleTenseSelection(settings.tenses, allowed, 'present_simple')
+    return { level: newLevel, tenses }
+  }
+
   const applyAudienceSelection = (id: Settings['audience']) => {
+    const concreteLessonLocked = isTranslationLevelLocked(settings)
+
     if (id === 'child') {
       const safeTopic = CHILD_SAFE_TOPICS.has(settings.topic) ? settings.topic : 'hobbies'
+      if (concreteLessonLocked) {
+        const lessonLevel = menuLevelIdForConcreteTranslationLesson(settings.translationLessonId)
+        const childSafeLevel: LevelId =
+          lessonLevel === 'a1' || lessonLevel === 'a2' ? lessonLevel : 'a2'
+        update({
+          audience: id,
+          ...applyChatLevelPatch(childSafeLevel),
+          topic: safeTopic,
+          // concrete id сохраняем — не гоняем через normalizeLessonForLevel
+        })
+        return
+      }
       const nextLevel: LevelId = 'all'
       update({
         audience: id,
@@ -1270,6 +1303,10 @@ export default function MenuSectionPanels({
         topic: safeTopic,
         translationLessonId: normalizeLessonForLevel(settings.translationLessonId, nextLevel),
       })
+      return
+    }
+    if (concreteLessonLocked) {
+      update({ audience: id })
       return
     }
     update({
@@ -1360,6 +1397,8 @@ export default function MenuSectionPanels({
       if (lessonId === 'all') return listEnabledTranslationLessonsForLevel(settings.level).length === 0
       return !lessonExistsAndEnabled(lessonId)
     })()
+  const translationLevelLocked = isTranslationLevelLocked(settings)
+  const showLevelRow = settings.mode !== 'translation' || !translationLevelLocked
   const isTranslationLessonPick = lessonPickContext === 'translation'
   const practiceTopicsForPanel = isTranslationLessonPick
     ? catalogPracticeItems
@@ -3539,9 +3578,11 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         item.enabled
                           ? () => {
                               if (isTranslationLessonPick) {
+                                const lessonLevel = menuLevelIdForConcreteTranslationLesson(item.id)
                                 update({
                                   translationDrillKind: 'lesson_topic',
                                   translationLessonId: item.id,
+                                  ...(lessonLevel ? applyChatLevelPatch(lessonLevel) : {}),
                                 })
                                 setLessonPickContext(null)
                                 setLessonsPanel('summary')
@@ -4034,7 +4075,9 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
               {(settings.mode === 'dialogue' || settings.mode === 'translation') && (
                 <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setAiChatPanel('topic')} />
               )}
-              <MenuSettingRow label="Уровень" value={levelLabel} onClick={() => setAiChatPanel('level')} />
+              {showLevelRow ? (
+                <MenuSettingRow label="Уровень" value={levelLabel} onClick={() => setAiChatPanel('level')} />
+              ) : null}
               </div>
             </div>
 
@@ -4092,10 +4135,26 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 setAiChatPanel('summary')
                 return
               }
+              const existingLessonId = settings.translationLessonId
+              const concreteLevel =
+                typeof existingLessonId === 'string' &&
+                existingLessonId !== '' &&
+                existingLessonId !== 'all'
+                  ? menuLevelIdForConcreteTranslationLesson(existingLessonId)
+                  : null
+              if (concreteLevel) {
+                update({
+                  translationDrillKind: 'lesson_topic',
+                  translationLessonId: existingLessonId,
+                  ...applyChatLevelPatch(concreteLevel),
+                })
+                setAiChatPanel('summary')
+                return
+              }
               const level = clampLevelForLessonAxis(settings.level)
               update({
                 translationDrillKind: 'lesson_topic',
-                level,
+                ...applyChatLevelPatch(level),
                 translationLessonId: normalizeLessonForLevel(settings.translationLessonId, level),
               })
               setAiChatPanel('summary')
@@ -4142,11 +4201,9 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             options={aiChatLevelOptions.map((l) => ({ id: l.id, label: l.label }))}
             value={settings.level}
             onSelect={(id) => {
+              if (isTranslationLevelLocked(settings)) return
               const newLevel = id as LevelId
-              const base = getAllowedTensesForLevel(newLevel)
-              const allowed = isChild ? base.filter((tid) => CHILD_TENSE_SET.has(tid)) : base
-              const tenses = normalizeSingleTenseSelection(settings.tenses, allowed, 'present_simple')
-              const patch: Partial<Settings> = { level: newLevel, tenses }
+              const patch: Partial<Settings> = applyChatLevelPatch(newLevel)
               if (
                 settings.mode === 'translation' &&
                 (settings.translationDrillKind ?? 'tense_drill') === 'lesson_topic'

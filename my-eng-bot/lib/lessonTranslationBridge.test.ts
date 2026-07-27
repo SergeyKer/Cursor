@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   clampLevelForLessonAxis,
+  isTranslationLevelLocked,
   listEnabledTranslationLessonsForLevel,
+  menuLevelIdForConcreteTranslationLesson,
   normalizeLessonForLevel,
   normalizeTranslationDrillKind,
   pickTranslationLessonId,
   resolveEffectiveTranslationLessonId,
+  syncTranslationLevelFromConcreteLesson,
 } from '@/lib/lessonTranslationBridge'
 
 describe('lessonTranslationBridge', () => {
@@ -38,6 +41,62 @@ describe('lessonTranslationBridge', () => {
     expect(clampLevelForLessonAxis('a1')).toBe('a1')
     expect(clampLevelForLessonAxis('all')).toBe('all')
     expect(clampLevelForLessonAxis('starter')).toBe('a1')
+  })
+
+  it('menuLevelIdForConcreteTranslationLesson maps catalog CEFR', () => {
+    expect(menuLevelIdForConcreteTranslationLesson('1')).toBe('a2')
+    expect(menuLevelIdForConcreteTranslationLesson('4')).toBe('a1')
+    expect(menuLevelIdForConcreteTranslationLesson('all')).toBeNull()
+    expect(menuLevelIdForConcreteTranslationLesson(null)).toBeNull()
+    expect(menuLevelIdForConcreteTranslationLesson('missing')).toBeNull()
+  })
+
+  it('isTranslationLevelLocked only for translation + lesson_topic + concrete id', () => {
+    expect(
+      isTranslationLevelLocked({
+        mode: 'translation',
+        translationDrillKind: 'lesson_topic',
+        translationLessonId: '1',
+      })
+    ).toBe(true)
+    expect(
+      isTranslationLevelLocked({
+        mode: 'translation',
+        translationDrillKind: 'lesson_topic',
+        translationLessonId: 'all',
+      })
+    ).toBe(false)
+    expect(
+      isTranslationLevelLocked({
+        mode: 'translation',
+        translationDrillKind: 'tense_drill',
+        translationLessonId: '1',
+      })
+    ).toBe(false)
+    expect(
+      isTranslationLevelLocked({
+        mode: 'dialogue',
+        translationDrillKind: 'lesson_topic',
+        translationLessonId: '1',
+      })
+    ).toBe(false)
+  })
+
+  it('syncTranslationLevelFromConcreteLesson returns catalog level when locked', () => {
+    expect(
+      syncTranslationLevelFromConcreteLesson({
+        mode: 'translation',
+        translationDrillKind: 'lesson_topic',
+        translationLessonId: '4',
+      })
+    ).toEqual({ level: 'a1' })
+    expect(
+      syncTranslationLevelFromConcreteLesson({
+        mode: 'translation',
+        translationDrillKind: 'lesson_topic',
+        translationLessonId: 'all',
+      })
+    ).toBeNull()
   })
 
   it('pickTranslationLessonId is stable for same seed/index', () => {
@@ -100,5 +159,17 @@ describe('lessonTranslationBridge', () => {
         drillIndex: 0,
       })
     ).toBeNull()
+  })
+
+  it('resolveEffectiveTranslationLessonId keeps concrete lesson even if menu level pool mismatches', () => {
+    // A1 lesson while menu level is A2 — concrete id still resolves
+    expect(
+      resolveEffectiveTranslationLessonId({
+        translationLessonId: '4',
+        level: 'a2',
+        dialogSeed: 's',
+        drillIndex: 0,
+      })
+    ).toBe('4')
   })
 })

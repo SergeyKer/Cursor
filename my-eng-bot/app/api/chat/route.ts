@@ -6848,6 +6848,9 @@ export async function POST(req: NextRequest) {
           const lessonMeta = resolveLessonTranslationMeta(activeTranslationLessonId)
           tutorGradingTense = lessonMeta.gradingTense
           translationDrillTense = lessonMeta.gradingTense
+          if (lessonMeta.menuLevelHint && lessonMeta.menuLevelHint !== 'all') {
+            translationDrillLevel = lessonMeta.menuLevelHint
+          }
         }
       }
     }

@@ -1,3 +1,4 @@
+import { syncTranslationLevelFromConcreteLesson } from '@/lib/lessonTranslationBridge'
 import type { StoredState, Settings, ChatMessage, TenseId, OpenAiChatPreset } from './types'
 
 export function normalizeOpenAiChatPreset(_value: unknown): OpenAiChatPreset {
@@ -88,6 +89,14 @@ export function loadState(): StoredState {
     }
     if (merged.translationLessonId === undefined) {
       merged.translationLessonId = DEFAULT_SETTINGS.translationLessonId
+    }
+    const syncedLevel = syncTranslationLevelFromConcreteLesson({
+      mode: 'translation',
+      translationDrillKind: merged.translationDrillKind,
+      translationLessonId: merged.translationLessonId,
+    })
+    if (syncedLevel) {
+      merged.level = syncedLevel.level
     }
     return {
       messages: Array.isArray(parsed.messages) ? parsed.messages : [],

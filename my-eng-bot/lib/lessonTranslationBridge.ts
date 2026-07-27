@@ -5,7 +5,12 @@ import {
   type LessonCatalogLevel,
 } from '@/lib/lessonCatalog'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
-import type { LevelId, TenseId, TranslationDrillKind } from '@/lib/types'
+import type { LevelId, Settings, TenseId, TranslationDrillKind } from '@/lib/types'
+
+type TranslationLevelLockSlice = Pick<
+  Settings,
+  'mode' | 'translationDrillKind' | 'translationLessonId'
+>
 
 /** Уровни меню, допустимые на оси «Урок» в Переводе (без starter/C1/C2). */
 export const LESSON_AXIS_MENU_LEVEL_IDS: readonly LevelId[] = ['all', 'a1', 'a2', 'b1', 'b2']
@@ -128,6 +133,37 @@ export function clampLevelForLessonAxis(level: LevelId): LevelId {
   return 'a2'
 }
 
+/**
+ * CEFR меню из каталога для конкретного урока перевода.
+ * `null` для пустого / `'all'` / неизвестного id.
+ */
+export function menuLevelIdForConcreteTranslationLesson(
+  lessonId: string | null | undefined
+): LevelId | null {
+  if (lessonId == null || lessonId === '' || lessonId === 'all') return null
+  const topic = getLessonTopicById(lessonId)
+  return topic ? catalogLevelToLevelId(topic.level) : null
+}
+
+/** Конкретный урок на оси «Урок» в Переводе — уровень UI скрыт / lock. */
+export function isTranslationLevelLocked(settings: TranslationLevelLockSlice): boolean {
+  if (settings.mode !== 'translation') return false
+  if ((settings.translationDrillKind ?? 'tense_drill') !== 'lesson_topic') return false
+  const id = settings.translationLessonId
+  return typeof id === 'string' && id !== '' && id !== 'all'
+}
+
+/**
+ * Если locked на конкретном уроке — `{ level }` из каталога; иначе `null` (не трогать settings).
+ */
+export function syncTranslationLevelFromConcreteLesson(
+  settings: TranslationLevelLockSlice
+): { level: LevelId } | null {
+  if (!isTranslationLevelLocked(settings)) return null
+  const level = menuLevelIdForConcreteTranslationLesson(settings.translationLessonId)
+  return level ? { level } : null
+}
+
 export function pickTranslationLessonId(params: {
   level: LevelId
   dialogSeed: string
@@ -158,22 +194,21 @@ export function resolveEffectiveTranslationLessonId(params: {
 }): string | null {
   const raw = params.translationLessonId
   if (raw == null || raw === '') return null
+  // Конкретный id: не зависит от пула меню-уровня (CEFR дрилла — из meta на route).
+  if (raw !== 'all') {
+    return lessonExistsAndEnabled(raw) ? raw : null
+  }
   const pool = listEnabledTranslationLessonsForLevel(params.level)
   if (pool.length === 0) return null
-  if (raw === 'all') {
-    if (params.pinnedLessonId && pool.some((t) => t.id === params.pinnedLessonId)) {
-      return params.pinnedLessonId
-    }
-    return pickTranslationLessonId({
-      level: params.level,
-      dialogSeed: params.dialogSeed,
-      drillIndex: params.drillIndex,
-      excludeId: params.excludeId,
-    })
+  if (params.pinnedLessonId && pool.some((t) => t.id === params.pinnedLessonId)) {
+    return params.pinnedLessonId
   }
-  // Конкретный id: только если enabled и в пуле уровня; иначе null → tense_drill на API.
-  if (pool.some((t) => t.id === raw)) return raw
-  return null
+  return pickTranslationLessonId({
+    level: params.level,
+    dialogSeed: params.dialogSeed,
+    drillIndex: params.drillIndex,
+    excludeId: params.excludeId,
+  })
 }
 
 export function getLessonGrammarFocusLines(lessonId: string): string[] {
