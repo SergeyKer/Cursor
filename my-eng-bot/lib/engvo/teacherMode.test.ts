@@ -124,6 +124,23 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/Скажи/)
   })
 
+  it('dual any-tense axis keeps sentence type/CEFR and splits current vs next', () => {
+    const text = buildEngvoTeacherRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      tense: 'present_simple',
+      nextTense: 'past_simple',
+      sentenceType: 'interrogative',
+    })
+    expect(text).toMatch(/Current drill axis/)
+    expect(text).toMatch(/Next drill axis/)
+    expect(text).toMatch(/Present Simple|present_simple/i)
+    expect(text).toMatch(/Past Simple|past_simple/i)
+    expect(text).toMatch(/Вопросительные|interrogative/i)
+    expect(text).toMatch(/CEFR level for this drill: a2/)
+    expect(text).not.toMatch(/Required tense: Все/)
+  })
+
   it('A1/A2 requires micro-reason, soft error tone, and turn order', () => {
     const text = buildEngvoTeacherRealtimeInstructions({
       audience: 'adult',
@@ -453,6 +470,90 @@ describe('instructions branching', () => {
     expect(text).toContain('Keep the greeting short; do not add a second greeting or a long preamble.')
     expect(text).not.toContain('Conversational delivery:')
     expect(text).toMatch(/conversationally/i)
+  })
+
+  it('without kind / tense_drill keeps Required tense path unchanged', () => {
+    const omitted = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'b1',
+      topic: 'travel',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    const explicit = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'b1',
+      topic: 'travel',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      lessonAxis: null,
+    })
+    expect(omitted).toContain('Required tense for the English target:')
+    expect(omitted).not.toContain('Required lesson grammar')
+    expect(omitted).toBe(explicit)
+    expect(omitted).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(omitted).toMatch(/Say:\s*"/)
+  })
+
+  it('lesson_topic axis uses Required lesson grammar and keeps Say markers', () => {
+    const lessonAxis = {
+      effectiveLessonId: '4',
+      title: 'I am / I am from',
+      grammarFocusLines: ['I am', 'I am from'],
+      ruSeedOrientations: ['Я Анна.', 'Я из России.'],
+    }
+    const text = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'a1',
+      topic: 'travel',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+      lessonAxis,
+    })
+    expect(text).toContain('Required lesson grammar')
+    expect(text).toContain('I am / I am from')
+    expect(text).not.toContain('Required tense for the English target:')
+    expect(text).toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
+    expect(text).toContain('Скажи:')
+    expect(text).toMatch(/Lesson-aligned Russian seed orientations/)
+  })
+
+  it('lesson reclaim matches grammar not tense', () => {
+    const lessonAxis = {
+      effectiveLessonId: '4',
+      title: 'I am / I am from',
+      grammarFocusLines: ['I am'],
+      ruSeedOrientations: ['Я Анна.'],
+    }
+    const text = buildEngvoTeacherDrillReclaimInstructions({
+      level: 'a1',
+      tense: 'past_simple',
+      sentenceType: 'general',
+      lessonAxis,
+    })
+    expect(text).toContain('Match Required lesson grammar')
+    expect(text).not.toMatch(/Match tense Past Simple/)
+    expect(text).toContain('Я Анна')
+  })
+
+  it('free_call instructions exclude lesson focus axis', () => {
+    const text = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'travel',
+      kind: 'free_call',
+      lessonAxis: {
+        effectiveLessonId: '4',
+        title: 'I am',
+        grammarFocusLines: ['I am'],
+        ruSeedOrientations: ['Я Анна.'],
+      },
+    })
+    expect(text).not.toContain('Required lesson grammar')
+    expect(text).not.toContain('Required tense for the English target:')
   })
 })
 

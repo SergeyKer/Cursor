@@ -1,0 +1,18 @@
+[
+  [
+    "  React.useEffect(() => {\n    if ((settings.translationDrillKind ?? 'tense_drill') !== 'lesson_topic') {\n      translationEffectiveLessonIdRef.current = null\n    }\n  }, [settings.translationDrillKind])",
+    "  React.useEffect(() => {\n    if ((settings.translationDrillKind ?? 'tense_drill') !== 'lesson_topic') {\n      translationEffectiveLessonIdRef.current = null\n    }\n    if (\n      (settings.translationDrillKind ?? 'tense_drill') !== 'tense_drill' ||\n      !settings.tenses.includes('all')\n    ) {\n      translationCurrentDrillAxisRef.current = null\n      translationUsedAnyTensesRef.current = []\n    }\n  }, [settings.translationDrillKind, settings.tenses])"
+  ],
+  [
+    "    if (isNewDialog) {\n      translationEffectiveLessonIdRef.current = null\n    }",
+    "    if (isNewDialog) {\n      translationEffectiveLessonIdRef.current = null\n      translationCurrentDrillAxisRef.current = null\n      translationUsedAnyTensesRef.current = []\n    }"
+  ],
+  [
+    "    dialogSeedRef.current = createDialogSeed()\n    translationEffectiveLessonIdRef.current = null\n    newDialogRef.current = true",
+    "    dialogSeedRef.current = createDialogSeed()\n    translationEffectiveLessonIdRef.current = null\n    translationCurrentDrillAxisRef.current = null\n    translationUsedAnyTensesRef.current = []\n    newDialogRef.current = true"
+  ],
+  [
+    "  const retryFirstMessage = useCallback(async () => {\n    const requestId = ++firstMessageRequestIdRef.current\n    translationEffectiveLessonIdRef.current = null",
+    "  const retryFirstMessage = useCallback(async () => {\n    const requestId = ++firstMessageRequestIdRef.current\n    translationEffectiveLessonIdRef.current = null\n    translationCurrentDrillAxisRef.current = null\n    translationUsedAnyTensesRef.current = []"
+  ]
+]

@@ -92,6 +92,18 @@ import { validateDialogueRussianNaturalness } from '@/lib/dialogueRussianNatural
 import { validateDialogueMixedInputOutput } from '@/lib/dialogueMixedInputGuard'
 import { findDialoguePinCandidateFromMessages } from '@/lib/dialogueRepeatPin'
 import { buildAdultFullTensePool, pickWeightedFreeTalkTense } from '@/lib/freeTalkDialogueTense'
+import {
+  buildTranslationAnyAxisPromptRules,
+  detectTranslationAdvancedToNextDrill,
+  resolveTranslationAnyAxes,
+} from '@/lib/translationAnyAxis'
+import {
+  buildDialogueAnyAxisPromptRules,
+  detectDialogueAdvancedToNextDrill,
+  resolveDialogueAnyAxes,
+} from '@/lib/dialogueAnyAxis'
+import type { AnyDrillAxis } from '@/lib/anyTensePool'
+import { validateAnyDrillAxis } from '@/lib/anyTensePool'
 import { isFixedTopicSwitchRequest } from '@/lib/freeTalkTopicChange'
 import { buildFreeTalkTopicChoiceKeywordList } from '@/lib/freeTalkTopicChoiceKeywords'
 import { normalizeDialogueEntityForTopic, stripLeadingAnswerVerbPhrases } from '@/lib/dialogueEntityNormalization'
@@ -6601,10 +6613,6 @@ export async function POST(req: NextRequest) {
         ? body.translationEffectiveLessonId.trim()
         : ''
     let activeTranslationLessonId: string | null = null
-    const translationLessonResponseMeta = () =>
-      activeTranslationLessonId
-        ? { translationEffectiveLessonId: activeTranslationLessonId }
-        : {}
     const normalizedRequestContext = {
       mode,
       level,
@@ -6686,15 +6694,17 @@ export async function POST(req: NextRequest) {
       : body.tense != null
         ? [body.tense]
         : ['present_simple']
+    const requestedAnyTense = rawTenses.includes('all')
     const childAllowedTenses = new Set(CHILD_TENSES)
     if (audience === 'child') {
-      rawTenses = rawTenses.filter((t) => childAllowedTenses.has(t as TenseId))
+      rawTenses = rawTenses.filter((t) => t === 'all' || childAllowedTenses.has(t as TenseId))
       if (rawTenses.length === 0) rawTenses = ['present_simple']
     }
     const levelAllowedTenses = new Set(getAllowedTensesForLevel(String(level)))
-    rawTenses = rawTenses.filter((t) => levelAllowedTenses.has(t as TenseId))
-    if (rawTenses.length === 0) rawTenses = ['present_simple']
-    const isAnyTense = rawTenses.includes('all')
+    // Meta `all` may be requested on a concrete CEFR; do not drop the any-flag when CEFR list omits `all`.
+    rawTenses = rawTenses.filter((t) => t === 'all' || levelAllowedTenses.has(t as TenseId))
+    if (rawTenses.length === 0) rawTenses = requestedAnyTense ? ['all'] : ['present_simple']
+    const isAnyTense = requestedAnyTense || rawTenses.includes('all')
     const normalizedRawTenses = Array.from(new Set(rawTenses.filter((t) => t !== 'all')))
     const prioritizedDialogueTenses =
       mode === 'dialogue' && normalizedRawTenses.length > 1
@@ -6758,21 +6768,48 @@ export async function POST(req: NextRequest) {
       return pool
     })()
 
-    const freeTalkExpectedNextQuestionTense: string | null =
-      mode === 'dialogue' &&
-      topic === 'free_talk' &&
-      !isFirstTurn &&
-      !isTopicChoiceTurn &&
-      inferredLastAssistantTense
-        ? pickWeightedFreeTalkTense({
-            candidates: tensePoolForFreeTalkWeighted,
-            seed: `${dialogSeed}|nextQ|${recentMessages.length}|${lastUserText}`,
-            excludeTense: inferredLastAssistantTense,
-          })
-        : null
+    let dialogueAnyCurrentAxis: AnyDrillAxis | null = null
+    let dialogueAnyNextAxis: AnyDrillAxis | null = null
+    const useDialogueAnyAxis =
+      mode === 'dialogue' && isAnyTense && !(topic === 'free_talk' && isFirstTurn)
+    if (useDialogueAnyAxis) {
+      const dialogueAssistantDrillIndex = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant')
+        .length
+      const axes = resolveDialogueAnyAxes({
+        audience,
+        menuLevel: level,
+        menuSentenceType: sentenceType as SentenceType,
+        dialogSeed,
+        drillIndex: dialogueAssistantDrillIndex,
+        topic,
+        usedTensesRaw: body.usedAnyTenses,
+        currentAxisRaw: body.currentDrillAxis,
+        pickTranslationEffectiveLevel,
+        stableHash32,
+      })
+      dialogueAnyCurrentAxis = axes.current
+      dialogueAnyNextAxis = axes.next
+    }
+
+    let freeTalkExpectedNextQuestionTense: string | null =
+      useDialogueAnyAxis && dialogueAnyNextAxis
+        ? dialogueAnyNextAxis.tense
+        : mode === 'dialogue' &&
+            topic === 'free_talk' &&
+            !isFirstTurn &&
+            !isTopicChoiceTurn &&
+            inferredLastAssistantTense
+          ? pickWeightedFreeTalkTense({
+              candidates: tensePoolForFreeTalkWeighted,
+              seed: `${dialogSeed}|nextQ|${recentMessages.length}|${lastUserText}`,
+              excludeTense: inferredLastAssistantTense,
+            })
+          : null
 
     let dialogueEffectiveTense = normalizedTense
-    if (mode === 'dialogue' && topic === 'free_talk') {
+    if (useDialogueAnyAxis && dialogueAnyCurrentAxis) {
+      dialogueEffectiveTense = dialogueAnyCurrentAxis.tense
+    } else if (mode === 'dialogue' && topic === 'free_talk') {
       if (isTopicChoiceTurn) {
         dialogueEffectiveTense = pickWeightedFreeTalkTense({
           candidates: tensePoolForFreeTalkWeighted,
@@ -6793,21 +6830,55 @@ export async function POST(req: NextRequest) {
     }
 
     const tenseForDialogueOps =
-      mode === 'dialogue' && topic === 'free_talk' ? dialogueEffectiveTense : normalizedTense
+      mode === 'dialogue' && (topic === 'free_talk' || useDialogueAnyAxis)
+        ? dialogueEffectiveTense
+        : normalizedTense
     let tutorGradingTense = mode === 'dialogue' ? tenseForDialogueOps : normalizedTense
 
     if (mode === 'dialogue' && extractLastAssistantRepeatSentence(recentMessages)) {
-      const inferredRepeatTense = inferTenseFromDialogueAssistantContent(
-        getLastAssistantContent(recentMessages) ?? ''
+      if (useDialogueAnyAxis && dialogueAnyCurrentAxis) {
+        tutorGradingTense = dialogueAnyCurrentAxis.tense
+      } else {
+        const inferredRepeatTense = inferTenseFromDialogueAssistantContent(
+          getLastAssistantContent(recentMessages) ?? ''
+        )
+        if (inferredRepeatTense) {
+          tutorGradingTense = inferredRepeatTense
+        }
+      }
+    }
+
+    const dialogueAnyResponseMeta = (content?: string, dialogueCorrect?: boolean) => {
+      if (!dialogueAnyCurrentAxis || !dialogueAnyNextAxis) return {}
+      const hadClientCurrent = Boolean(
+        validateAnyDrillAxis(body.currentDrillAxis, {
+          audience,
+          menuLevel: level,
+          menuSentenceType: sentenceType as SentenceType,
+        })
       )
-      if (inferredRepeatTense) {
-        tutorGradingTense = inferredRepeatTense
+      const contentAdvances =
+        typeof content === 'string' ? detectDialogueAdvancedToNextDrill(content) : false
+      // First pose keeps current. Graded SUCCESS (dialogueCorrect true) or clean next-Q advances.
+      const advancedToNextDrill = !hadClientCurrent
+        ? false
+        : dialogueCorrect === false
+          ? false
+          : dialogueCorrect === true
+            ? true
+            : contentAdvances
+      return {
+        currentDrillAxis: advancedToNextDrill ? dialogueAnyNextAxis : dialogueAnyCurrentAxis,
+        nextDrillAxis: dialogueAnyNextAxis,
+        advancedToNextDrill,
       }
     }
 
     let translationDrillLevel = level
     let translationDrillTense = normalizedTense
     let translationDrillSentenceType = sentenceType as SentenceType
+    let translationAnyCurrentAxis: AnyDrillAxis | null = null
+    let translationAnyNextAxis: AnyDrillAxis | null = null
     if (mode === 'translation') {
       const translationAssistantDrillIndex = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant')
         .length
@@ -6819,19 +6890,43 @@ export async function POST(req: NextRequest) {
           topic,
         })
       }
-      if (normalizedTense === 'all') {
-        translationDrillTense = pickWeightedFreeTalkTense({
-          candidates: (audience === 'child' ? [...CHILD_TENSES] : buildAdultFullTensePool()) as string[],
-          seed: `${dialogSeed}|trt|${translationAssistantDrillIndex}|${topic}|${lastUserText.slice(0, 160)}`,
+
+      const useAnyTenseAxis =
+        normalizedTense === 'all' && !isTranslationLessonTopicKind(translationDrillKind)
+
+      if (useAnyTenseAxis) {
+        const axes = resolveTranslationAnyAxes({
+          audience,
+          menuLevel: level,
+          menuSentenceType: sentenceType as SentenceType,
+          dialogSeed,
+          drillIndex: translationAssistantDrillIndex,
+          topic,
+          usedTensesRaw: body.usedAnyTenses,
+          currentAxisRaw: body.currentDrillAxis,
+          pickTranslationEffectiveLevel,
+          stableHash32,
+        })
+        translationAnyCurrentAxis = axes.current
+        translationAnyNextAxis = axes.next
+        translationDrillTense = axes.current.tense
+        translationDrillLevel = axes.current.effectiveLevel
+        translationDrillSentenceType = axes.current.effectiveSentenceType
+      } else {
+        if (normalizedTense === 'all') {
+          translationDrillTense = pickWeightedFreeTalkTense({
+            candidates: (audience === 'child' ? [...CHILD_TENSES] : buildAdultFullTensePool()) as string[],
+            seed: `${dialogSeed}|trt|${translationAssistantDrillIndex}|${topic}|${lastUserText.slice(0, 160)}`,
+          })
+        }
+        translationDrillSentenceType = resolveTranslationDrillSentenceType({
+          sentenceType: sentenceType as SentenceType,
+          dialogSeed,
+          drillIndex: translationAssistantDrillIndex,
+          topic,
+          tense: translationDrillTense,
         })
       }
-      translationDrillSentenceType = resolveTranslationDrillSentenceType({
-        sentenceType: sentenceType as SentenceType,
-        dialogSeed,
-        drillIndex: translationAssistantDrillIndex,
-        topic,
-        tense: translationDrillTense,
-      })
       tutorGradingTense = translationDrillTense
 
       if (isTranslationLessonTopicKind(translationDrillKind)) {
@@ -6848,12 +6943,30 @@ export async function POST(req: NextRequest) {
           const lessonMeta = resolveLessonTranslationMeta(activeTranslationLessonId)
           tutorGradingTense = lessonMeta.gradingTense
           translationDrillTense = lessonMeta.gradingTense
+          translationAnyCurrentAxis = null
+          translationAnyNextAxis = null
           if (lessonMeta.menuLevelHint && lessonMeta.menuLevelHint !== 'all') {
             translationDrillLevel = lessonMeta.menuLevelHint
           }
         }
       }
     }
+
+    const translationAnyResponseMeta = (content?: string) => {
+      const lessonMeta = activeTranslationLessonId
+        ? { translationEffectiveLessonId: activeTranslationLessonId }
+        : {}
+      if (!translationAnyCurrentAxis || !translationAnyNextAxis) return lessonMeta
+      const advancedToNextDrill =
+        typeof content === 'string' ? detectTranslationAdvancedToNextDrill(content) : false
+      return {
+        ...lessonMeta,
+        currentDrillAxis: advancedToNextDrill ? translationAnyNextAxis : translationAnyCurrentAxis,
+        nextDrillAxis: translationAnyNextAxis,
+        advancedToNextDrill,
+      }
+    }
+    const translationLessonResponseMeta = (content?: string) => translationAnyResponseMeta(content)
 
     const translationStrictReferenceFirst = mode === 'translation' && isTranslationStrictReferenceFirstEnabled()
     const translationAssistantCount = nonSystemMessages.filter((m: ChatMessage) => m.role === 'assistant').length
@@ -6886,6 +6999,13 @@ export async function POST(req: NextRequest) {
       isAnyTense,
       normalizedTense,
       tutorGradingTense,
+      ...(useDialogueAnyAxis && dialogueAnyCurrentAxis && dialogueAnyNextAxis
+        ? {
+            dialogueAnyCurrentTense: dialogueAnyCurrentAxis.tense,
+            dialogueAnyNextTense: dialogueAnyNextAxis.tense,
+            dialogueAnyPhase: 'axis',
+          }
+        : {}),
       ...(mode === 'translation'
         ? {
             translationDrillTense,
@@ -6894,6 +7014,12 @@ export async function POST(req: NextRequest) {
             translationAssistantDrillIndex: translationAssistantCount,
             translationDrillKind,
             activeTranslationLessonId,
+            ...(translationAnyCurrentAxis && translationAnyNextAxis
+              ? {
+                  translationAnyCurrentTense: translationAnyCurrentAxis.tense,
+                  translationAnyNextTense: translationAnyNextAxis.tense,
+                }
+              : {}),
           }
         : {}),
     })
@@ -7006,9 +7132,10 @@ export async function POST(req: NextRequest) {
         linesOut.push(`Скажи: ${en}`)
         linesOut.push(`Скажи: ${en}`)
       }
+      const lowSignalContent = linesOut.filter(Boolean).join('\n')
       return NextResponse.json({
-        content: linesOut.filter(Boolean).join('\n'),
-        ...translationLessonResponseMeta(),
+        content: lowSignalContent,
+        ...translationLessonResponseMeta(lowSignalContent),
       })
     }
     if (mode === 'communication' && explicitTranslateTarget) {
@@ -7094,7 +7221,9 @@ export async function POST(req: NextRequest) {
         !isDialogueAnswerEffectivelyCorrect(lastUserContentForResponse, cyrillicRepeatAnchor ?? '', tutorGradingTense)
       if (shouldExitRepeatOnCyrillicFallback) {
         const nextQuestionTense =
-          topic === 'free_talk' ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense) : tutorGradingTense
+          topic === 'free_talk' || useDialogueAnyAxis
+            ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense)
+            : tutorGradingTense
         const repeatExitComment = buildDialogueRepeatExitComment(
           `${recentMessages.length}|repeat-exit-cyrillic|${lastUserContentForResponse}`
         )
@@ -7108,6 +7237,7 @@ export async function POST(req: NextRequest) {
             recentMessages,
           })}`,
           dialogueCorrect: true,
+          ...dialogueAnyResponseMeta(undefined, true),
         })
       }
       const repeatBody = finalizeDialogueRepeatEnglishBody({
@@ -7129,6 +7259,7 @@ export async function POST(req: NextRequest) {
             userText: lastUserContentForResponse,
           })}\nПовтори: ${repeatBody}`,
           dialogueCorrect: false,
+          ...dialogueAnyResponseMeta(undefined, false),
         })
       }
     }
@@ -7500,7 +7631,7 @@ export async function POST(req: NextRequest) {
       sentenceType,
       topic,
       level,
-      tense: tutorGradingTense,
+      tense: useDialogueAnyAxis ? 'all' : tutorGradingTense,
       grammarFocus: normalizedGrammarFocus,
       style,
       lastUserText,
@@ -7530,6 +7661,24 @@ export async function POST(req: NextRequest) {
           }
         : {}),
     })
+    const translationAnyAxisPromptSuffix =
+      mode === 'translation' && translationAnyCurrentAxis && translationAnyNextAxis
+        ? buildTranslationAnyAxisPromptRules({
+            current: translationAnyCurrentAxis,
+            next: translationAnyNextAxis,
+            tenseLabel: (id) => TENSE_NAMES[id] ?? id,
+          })
+        : ''
+    const dialogueAnyAxisPromptSuffix =
+      useDialogueAnyAxis && dialogueAnyCurrentAxis && dialogueAnyNextAxis
+        ? buildDialogueAnyAxisPromptRules({
+            current: dialogueAnyCurrentAxis,
+            next: dialogueAnyNextAxis,
+            tenseLabel: (id) => TENSE_NAMES[id] ?? id,
+          })
+        : ''
+    const systemPromptWithAnyAxis =
+      systemPrompt + translationAnyAxisPromptSuffix + dialogueAnyAxisPromptSuffix
 
     const topicChoicePrefix = mode === 'dialogue' && isTopicChoiceTurn
       ? 'This turn only: the user is naming their topic. Output ONLY one question in English - nothing else. Do NOT output "Комментарий:", "Отлично", "Молодец", "Верно", or any praise. Do NOT output "Правильно:", "Скажи:", or "Повтори:". The user may write in English, Russian, or a mix of both (they are learning and may not know the English word). Infer the topic from their words regardless of language (e.g. "I played tennis" → tennis; "i swam" → swimming; "река" → river; "I река" → river; "транзисторы" → transistors; "я люблю кошки" → cats). Ask exactly ONE question in the required tense about the inferred topic. The question must sound natural, as if asked by a professional English tutor in a real lesson. Relate the topic to the learner\'s personal experience, feelings, or everyday life. Do NOT mechanically combine the topic word with a generic verb - think about what aspect of the topic a real person would discuss. For Future Simple and other tenses: output a full grammatical sentence - subject + auxiliary + main verb in the correct form (e.g. infinitive or -ing after "will try", never a stray third-person -s fragment like "try inspires"). Do NOT paste topic-label words into the middle of a broken pattern. Good examples: topic "sun" + Past Simple → "Did you spend time outside in the sun yesterday?"; topic "cats" + Present Simple → "Do you have a cat at home?". Bad examples: "What did you do with the sun?" (nonsensical); "What do you usually do involving cats?" (robotic). If the message gives absolutely no hint (e.g. "sdf"), ask what they mean. Your reply must be ONLY that one question, no other lines. Ignore all correction rules below for this turn.\n\n'
@@ -7537,6 +7686,7 @@ export async function POST(req: NextRequest) {
     const dialogueInferredTenseHint =
       mode === 'dialogue' &&
       normalizedTense === 'all' &&
+      !useDialogueAnyAxis &&
       !isFirstTurn &&
       !isTopicChoiceTurn &&
       !(topic === 'free_talk' && inferredLastAssistantTense)
@@ -7552,6 +7702,7 @@ export async function POST(req: NextRequest) {
     const freeTalkPromptSuffix =
       mode === 'dialogue' &&
       topic === 'free_talk' &&
+      !useDialogueAnyAxis &&
       !isFirstTurn &&
       !isTopicChoiceTurn &&
       inferredLastAssistantTense &&
@@ -7590,7 +7741,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     })()
     const systemContent =
       topicChoicePrefix +
-      systemPrompt +
+      systemPromptWithAnyAxis +
       dialogueInferredTenseHint +
       freeTalkPromptSuffix +
       freeTalkTopicHint +
@@ -8960,24 +9111,28 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       repeatAttemptsInCurrentCycle >= 2
     if (shouldExitRepeatLoopAfterTwoAttempts) {
       const nextQuestionTense =
-        topic === 'free_talk' ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense) : tutorGradingTense
+        topic === 'free_talk' || useDialogueAnyAxis
+          ? (freeTalkExpectedNextQuestionTense ?? tutorGradingTense)
+          : tutorGradingTense
       const gentleEncouragementComment = buildDialogueRepeatExitComment(
         `${recentMessages.length}|repeat-exit|${lastUserContentForResponse}`
       )
-      return NextResponse.json({
-        content: finalizeDialogueFallbackWithCefr({
-          content: `${gentleEncouragementComment}\n${fallbackNextQuestion({
-            topic,
-            tense: nextQuestionTense,
-            level,
-            audience,
-            diversityKey: `${recentMessages.length}|repeat-exit|${lastUserContentForResponse}`,
-            recentMessages,
-          })}`,
-          level: level as LevelId,
+      const repeatExitContent = finalizeDialogueFallbackWithCefr({
+        content: `${gentleEncouragementComment}\n${fallbackNextQuestion({
+          topic,
+          tense: nextQuestionTense,
+          level,
           audience,
-        }),
+          diversityKey: `${recentMessages.length}|repeat-exit|${lastUserContentForResponse}`,
+          recentMessages,
+        })}`,
+        level: level as LevelId,
+        audience,
+      })
+      return NextResponse.json({
+        content: repeatExitContent,
         dialogueCorrect: true,
+        ...dialogueAnyResponseMeta(repeatExitContent, true),
       })
     }
     const canUseSoftNextQuestionFallback =
@@ -9350,7 +9505,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
                   lessonId: activeTranslationLessonId,
                 })
               }
-              return NextResponse.json({ content: repaired, ...translationLessonResponseMeta() })
+              return NextResponse.json({ content: repaired, ...translationLessonResponseMeta(repaired) })
             }
             const dialogueGuard = applyCefrOutputGuard({
               mode: 'dialogue',
@@ -9359,13 +9514,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               audience: audience as Audience,
             })
             repaired = dialogueGuard.content
+            const repairedDialogueCorrect = isDialogueFinalCorrectResponse({
+              content: repaired,
+              userText: lastUserContentForResponse,
+              requiredTense: tutorGradingTense,
+            })
             return NextResponse.json({
               content: repaired,
-              dialogueCorrect: isDialogueFinalCorrectResponse({
-                content: repaired,
-                userText: lastUserContentForResponse,
-                requiredTense: tutorGradingTense,
-              }),
+              dialogueCorrect: repairedDialogueCorrect,
+              ...dialogueAnyResponseMeta(repaired, repairedDialogueCorrect),
             })
           }
         }
@@ -9373,20 +9530,22 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
       // Если repair не помог - безопасный fallback, чтобы не показывать мусор.
       if (canUseSoftNextQuestionFallback) {
-        return NextResponse.json({
-          content: finalizeDialogueFallbackWithCefr({
-            content: fallbackNextQuestion({
-              topic,
-              tense: freeTalkExpectedNextQuestionTense!,
-              level,
-              audience,
-              diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
-              recentMessages,
-            }),
-            level: level as LevelId,
+        const softNextContent = finalizeDialogueFallbackWithCefr({
+          content: fallbackNextQuestion({
+            topic,
+            tense: freeTalkExpectedNextQuestionTense!,
+            level,
             audience,
+            diversityKey: `${recentMessages.length}|${lastUserContentForResponse}`,
+            recentMessages,
           }),
+          level: level as LevelId,
+          audience,
+        })
+        return NextResponse.json({
+          content: softNextContent,
           dialogueCorrect: true,
+          ...dialogueAnyResponseMeta(softNextContent, true),
         })
       }
       if (mode === 'dialogue' && !isFirstTurn && !isTopicChoiceTurn && !isLowSignalDialogueInput(lastUserContentForResponse)) {
@@ -9630,7 +9789,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         userText: lastUserContentForResponse,
         outputText: guardedContent,
       })
-      return NextResponse.json({ content: guardedContent, ...translationLessonResponseMeta() })
+      return NextResponse.json({ content: guardedContent, ...translationLessonResponseMeta(guardedContent) })
     }
 
     if (mode === 'dialogue') {
@@ -9700,13 +9859,15 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       userText: lastUserContentForResponse,
       outputText: sanitized,
     })
+    const finalDialogueCorrect = isDialogueFinalCorrectResponse({
+      content: sanitized,
+      userText: lastUserContentForResponse,
+      requiredTense: tutorGradingTense,
+    })
     return NextResponse.json({
       content: sanitized,
-      dialogueCorrect: isDialogueFinalCorrectResponse({
-        content: sanitized,
-        userText: lastUserContentForResponse,
-        requiredTense: tutorGradingTense,
-      }),
+      dialogueCorrect: finalDialogueCorrect,
+      ...dialogueAnyResponseMeta(sanitized, finalDialogueCorrect),
     })
   } catch (e) {
     console.error(e)

@@ -1,7 +1,7 @@
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec'
 import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
 import { clampEngvoRealtimeSpeed, type EngvoCefrLevel } from '@/lib/engvo/constants'
-import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import type { EngvoTeacherDrillParams, EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
 import {
   buildPreferredOpeningInstruction,
   pickOpeningSeed,
@@ -155,6 +155,7 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
   skipTopicChoice?: boolean
   topicPreset?: string | null
   openingSeedIndex?: number
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   if (params.kind === 'teacher') {
     return buildEngvoTeacherFirstTurnResponseInstructions({
@@ -165,6 +166,7 @@ export function buildEngvoFirstTurnResponseInstructions(params: {
       tense: params.tense ?? 'present_simple',
       sentenceType: params.sentenceType ?? 'general',
       openingSeedIndex: params.openingSeedIndex,
+      lessonAxis: params.lessonAxis,
     })
   }
 
@@ -213,6 +215,7 @@ export function buildEngvoTeacherDrillReclaimResponseInstructions(params: {
   level: EngvoCefrLevel
   tense: TenseId
   sentenceType: SentenceType
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   return buildEngvoTeacherDrillReclaimInstructions(params)
 }
@@ -222,6 +225,7 @@ export function buildEngvoTeacherDuplicateDrillReclaimResponseInstructions(param
   tense: TenseId
   sentenceType: SentenceType
   previousRussian: string
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   return buildEngvoTeacherDuplicateDrillReclaimInstructions(params)
 }
@@ -231,6 +235,7 @@ export function buildEngvoTeacherRussianEchoReclaimResponseInstructions(params: 
   tense: TenseId
   sentenceType: SentenceType
   previousRussian: string
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   return buildEngvoTeacherRussianEchoReclaimInstructions(params)
 }
@@ -285,6 +290,8 @@ export function buildEngvoRealtimeInstructions(params: {
   sentenceType?: SentenceType
   skipTopicChoice?: boolean
   topicPreset?: string | null
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
+  nextTense?: TenseId | null
 }): string {
   if (params.kind === 'teacher') {
     return buildEngvoTeacherRealtimeInstructions({
@@ -295,6 +302,8 @@ export function buildEngvoRealtimeInstructions(params: {
       speechSpeed: params.speechSpeed,
       skipTopicChoice: params.skipTopicChoice,
       topicPreset: params.topicPreset,
+      lessonAxis: params.lessonAxis,
+      nextTense: params.nextTense ?? null,
     })
   }
 

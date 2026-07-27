@@ -1,0 +1,6 @@
+[
+  [
+    "  const completeHomeAudienceChoice = useCallback(\n    (audience: 'child' | 'adult') => {\n      setSettings((prev) =>\n        normalizeSettingsForAudience({\n          ...prev,\n          audience,\n        })\n      )\n      setHomeAudienceChosen(true)\n      if (openMyPlanFromStart) {\n        if (featureFlags.myPlanSpaceV1) {\n          openMyPlanSpace()\n          return\n        }\n        setHomeMenuView('myPlan')\n      }\n    },\n    [openMyPlanFromStart, openMyPlanSpace]\n  )",
+    "  const completeHomeAudienceChoice = useCallback(\n    (audience: 'child' | 'adult') => {\n      setSettings((prev) =>\n        normalizeSettingsForAudience({\n          ...prev,\n          audience,\n        })\n      )\n      setHomeAudienceChosen(true)\n    },\n    []\n  )"
+  ]
+]

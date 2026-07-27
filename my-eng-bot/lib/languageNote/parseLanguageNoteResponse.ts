@@ -1,4 +1,5 @@
 import { getLearningLessonById } from '@/lib/learningLessons'
+import { isPunctuationOrCapitalizationLessonText } from '@/lib/languageNote/isPunctuationLessonText'
 import {
   LANGUAGE_NOTE_KNOWN_LESSONS,
 } from '@/lib/languageNote/prompt'
@@ -20,47 +21,24 @@ import type { CommunicationVoiceInputMode } from '@/lib/types'
 const REASON_JUNK_START_RE =
   /^(так\s+звучит|более\s+правильно|есть\s+несколько\s+ошибок|попробуйте|практикуйтесь|неправильно|ошибка\b|use\b|chang)/i
 
-/** Comma / Oxford-comma lessons from STT noise — not learner mistakes. Avoids «запятнать». */
-function isCommaJunkText(text: string): boolean {
-  if (/запят(?!н)/i.test(text)) return true
-  if (/\bcommas?\b|oxford\s+comma/i.test(text)) return true
-  return false
-}
-
 /** Сухой EN-filler и «уроки» про пунктуацию/регистр TTS — не показываем ученику. */
 function isJunkReason(text: string): boolean {
   if (REASON_JUNK_START_RE.test(text)) return true
   if (/\bfor past action\b/i.test(text)) return true
   if (/\bsounds better\b/i.test(text)) return true
-  if (/\bperiod after\b/i.test(text)) return true
-  if (/\bquestion mark/i.test(text)) return true
-  if (/\bexclamation mark/i.test(text)) return true
-  if (/\badded a period\b/i.test(text)) return true
-  if (/\badded question mark/i.test(text)) return true
-  if (/\bfor clear separation\b/i.test(text)) return true
-  if (/\bcapital\s+letter/i.test(text)) return true
-  if (/\bshould\s+be\s+capitalized/i.test(text)) return true
-  if (/\bstart(?:s|ing)?\s+with\s+a\s+capital/i.test(text)) return true
-  if (/знак(а|ов)?\s+препинания/i.test(text)) return true
-  if (/добав(ил|ила|или|ьте|лять)?\s+точк/i.test(text)) return true
-  if (/добав(ил|ила|или|ьте|лять)?\s+вопросительн/i.test(text)) return true
-  if (/восклицательн/i.test(text)) return true
-  if (isCommaJunkText(text)) return true
-  if (/(поставь|нужна|нужен)\s+точк/i.test(text)) return true
-  if (/заглавн/i.test(text)) return true
-  if (/с\s+большой\s+букв/i.test(text)) return true
-  if (/с\s+заглавной/i.test(text)) return true
+  if (isPunctuationOrCapitalizationLessonText(text)) return true
   return false
 }
 
 function isJunkReviewTopic(topic: LanguageNoteReviewTopic): boolean {
-  const blob = `${topic.id} ${topic.title}`.toLowerCase()
-  if (isCommaJunkText(blob)) return true
-  if (/заглавн/.test(blob)) return true
-  if (/capital/.test(blob)) return true
-  if (/punctuation/.test(blob)) return true
-  if (/знак(а|ов)?\s+препинания/.test(blob)) return true
-  if (/^знаки$/.test(topic.title.trim().toLowerCase())) return true
+  const id = topic.id.trim().toLowerCase()
+  if (/^(punctuation|period|comma|oxford|capital|capitals|full-?stop|знаки)$/i.test(id)) {
+    return true
+  }
+  if (/точк|period|punct|comma|capital|заглавн|знаки/i.test(id)) return true
+  const blob = `${topic.id} ${topic.title}`
+  if (isPunctuationOrCapitalizationLessonText(blob)) return true
+  if (isPunctuationOrCapitalizationLessonText(topic.title)) return true
   return false
 }
 
@@ -147,6 +125,9 @@ export function sanitizeChangedHighlights(params: {
 
   for (const raw of candidates) {
     let h = raw
+    // Punctuation-only highlight (STT noise) — never bold.
+    if (/^[.,!?;:…]+$/u.test(h.trim())) continue
+
     if (!next.includes(h)) {
       const capped = h.charAt(0).toUpperCase() + h.slice(1)
       const lowered = h.charAt(0).toLowerCase() + h.slice(1)
@@ -158,13 +139,20 @@ export function sanitizeChangedHighlights(params: {
     // Unchanged vs previous layer → drop (this kills false "cat" / "from" bolds).
     if (containsPhraseInsensitive(previous, h)) continue
 
-    // Never bold almost the whole sentence.
-    if (h.length >= Math.max(24, Math.floor(next.length * 0.55))) continue
+    // Trailing punct only (e.g. swimming. vs swimming) — not a real word change.
+    const hCore = h.replace(/[.,!?;:…]+$/u, '').trim()
+    if (!hCore || containsPhraseInsensitive(previous, hCore)) continue
 
-    const key = h.toLowerCase()
+    // Prefer core without trailing punct for bold (period is display normalize, not a fix).
+    const toPush = next.includes(hCore) ? hCore : h
+
+    // Never bold almost the whole sentence.
+    if (toPush.length >= Math.max(24, Math.floor(next.length * 0.55))) continue
+
+    const key = toPush.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
-    out.push(h)
+    out.push(toPush)
     if (out.length >= LANGUAGE_NOTE_MAX_HIGHLIGHTS) break
   }
 

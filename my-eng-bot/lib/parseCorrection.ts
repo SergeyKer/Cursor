@@ -1,3 +1,5 @@
+import { isPunctuationOrCapitalizationLessonText } from '@/lib/languageNote/isPunctuationLessonText'
+
 export function parseCorrection(text: string): {
   comment: string | null
   rest: string
@@ -110,26 +112,24 @@ export function parseCorrection(text: string): {
     comment = null
   }
 
-  // Пользователь часто диктует ответы голосом: модель иногда всё равно упоминает запятые в "Комментарий".
-  // Уберем упоминания про пунктуацию, чтобы правило "не смотреть на запятые" работало на UI.
-  if (comment && /(запят(?:ую|ые)|знаки\s+препинания|пунктуац|comma)/i.test(comment)) {
+  // STT/диктовка: не учим запятым, точкам и прочей пунктуации в «Комментарий».
+  if (comment && isPunctuationOrCapitalizationLessonText(comment)) {
     const original = comment.trim()
     const punctTail = /[.!?]\s*$/.exec(original)?.[0] ?? ''
 
     // Типовой случай: "Нужно добавить запятые и исправить 'work' на 'walk'."
-    // Берем часть после "и" (после упоминания запятых) и оставляем остальное.
-    const m = original.match(/запят(?:ую|ые)[^.!?]*\sи\s(.+?)\s*([.!?])?\s*$/i)
+    const m = original.match(
+      /(?:запят(?:ую|ые)|точк[уеаи]|знаки\s+препинания|пунктуац|comma|period)[^.!?]*\sи\s(.+?)\s*([.!?])?\s*$/i
+    )
     if (m?.[1]?.trim()) {
       let candidate = m[1].trim()
       if (!/[.!?]\s*$/.test(candidate) && punctTail) candidate += punctTail
-      // На всякий случай: если в результате снова остались слова про запятые - скрываем комментарий.
-      if (!/(запят(?:ую|ые)|знаки\s+препинания|пунктуац|comma)/i.test(candidate)) {
+      if (!isPunctuationOrCapitalizationLessonText(candidate)) {
         comment = candidate
       } else {
         comment = null
       }
     } else {
-      // Если структура не распознана - лучше скрыть "Комментарий", чем показывать пунктуацию.
       comment = null
     }
   }

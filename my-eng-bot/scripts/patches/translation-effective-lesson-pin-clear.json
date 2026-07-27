@@ -1,0 +1,6 @@
+[
+  [
+    "              if (effectiveLessonId) {\n                translationEffectiveLessonIdRef.current = effectiveLessonId\n              }",
+    "              // Pin only for ERROR chain; SUCCESS (Переведи далее) must resample «Любой».\n              if (/Переведи\\s+далее\\s*:/i.test(text)) {\n                translationEffectiveLessonIdRef.current = null\n              } else if (effectiveLessonId) {\n                translationEffectiveLessonIdRef.current = effectiveLessonId\n              }"
+  ]
+]

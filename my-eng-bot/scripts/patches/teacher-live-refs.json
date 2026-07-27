@@ -1,0 +1,6 @@
+[
+  [
+    "  const engvoTeacherDrillProgressRef = React.useRef(createTeacherDrillProgressState())\n  const maybeReclaimTeacherDrillRef = React.useRef<(rawText: string) => boolean>(() => false)",
+    "  const engvoTeacherDrillProgressRef = React.useRef(createTeacherDrillProgressState())\n  /** Preference `all`: live current/next; never written back to engvoTeacherTense storage. */\n  const engvoTeacherCurrentTenseRef = React.useRef<string | null>(null)\n  const engvoTeacherNextTenseRef = React.useRef<string | null>(null)\n  const engvoTeacherUsedAnyTensesRef = React.useRef<string[]>([])\n  const engvoTeacherPostAttemptRotateArmedRef = React.useRef(false)\n  const maybeReclaimTeacherDrillRef = React.useRef<(rawText: string) => boolean>(() => false)"
+  ]
+]

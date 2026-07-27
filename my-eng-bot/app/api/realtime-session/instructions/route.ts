@@ -30,6 +30,16 @@ export async function POST(req: NextRequest) {
       sentenceType: typeof body.sentenceType === 'string' ? body.sentenceType : undefined,
       skipTopicChoice: body.skipTopicChoice === true,
       topicPreset: typeof body.topicPreset === 'string' ? body.topicPreset : null,
+      teacherDrillKind: typeof body.teacherDrillKind === 'string' ? body.teacherDrillKind : undefined,
+      teacherLessonId:
+        typeof body.teacherLessonId === 'string' || body.teacherLessonId === null
+          ? (body.teacherLessonId as string | null)
+          : undefined,
+      teacherEffectiveLessonId:
+        typeof body.teacherEffectiveLessonId === 'string' || body.teacherEffectiveLessonId === null
+          ? (body.teacherEffectiveLessonId as string | null)
+          : undefined,
+      sessionSeed: typeof body.sessionSeed === 'string' ? body.sessionSeed : undefined,
     },
     body.provider === 'xai' ? 'xai' : 'openai'
   )

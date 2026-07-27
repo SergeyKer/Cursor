@@ -102,6 +102,10 @@ export async function POST(req: NextRequest) {
       sentenceType?: string
       skipTopicChoice?: boolean
       topicPreset?: string
+      teacherDrillKind?: string
+      teacherLessonId?: string | null
+      teacherEffectiveLessonId?: string | null
+      sessionSeed?: string
     }
     const sdpRaw = typeof body.sdp === 'string' ? body.sdp : ''
     const sdp = sdpRaw
@@ -121,8 +125,17 @@ export async function POST(req: NextRequest) {
       sentenceType: body.sentenceType,
       skipTopicChoice: body.skipTopicChoice === true,
       topicPreset: typeof body.topicPreset === 'string' ? body.topicPreset : null,
+      teacherDrillKind: body.teacherDrillKind,
+      teacherLessonId: body.teacherLessonId,
+      teacherEffectiveLessonId: body.teacherEffectiveLessonId,
+      sessionSeed: body.sessionSeed,
+      teacherCurrentTense: body.teacherCurrentTense,
+      teacherNextTense: body.teacherNextTense,
     })
-    const instructions = buildEngvoRealtimeInstructions(instructionParams)
+    const instructions = buildEngvoRealtimeInstructions({
+      ...instructionParams,
+      nextTense: instructionParams.nextTense,
+    })
 
     const form = new FormData()
     form.append('sdp', sdp)

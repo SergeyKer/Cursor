@@ -19,7 +19,7 @@ import type {
   EngvoXaiCallVoice,
   EngvoXaiVoiceRotationMode,
 } from '@/lib/engvo/constants'
-import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import type { EngvoVoiceSessionKind, EngvoTeacherDrillKind } from '@/lib/engvo/sessionKind'
 import type { SentenceType, TenseId } from '@/lib/types'
 import type { ChatPatternId } from '@/lib/chatPattern'
 import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
@@ -55,6 +55,8 @@ interface SlideOutMenuProps {
   engvoSessionKind?: EngvoVoiceSessionKind
   engvoTeacherTense?: TenseId
   engvoTeacherSentenceType?: SentenceType
+  engvoTeacherDrillKind?: EngvoTeacherDrillKind
+  engvoTeacherLessonId?: string | null
   engvoSettingsLocked?: boolean
   onEngvoProviderChange?: (provider: EngvoProvider) => void
   onEngvoVoiceChange?: (voice: EngvoRealtimeVoice) => void
@@ -65,6 +67,8 @@ interface SlideOutMenuProps {
   onEngvoSessionKindChange?: (kind: EngvoVoiceSessionKind) => void
   onEngvoTeacherTenseChange?: (tense: TenseId) => void
   onEngvoTeacherSentenceTypeChange?: (sentenceType: SentenceType) => void
+  onEngvoTeacherDrillKindChange?: (kind: EngvoTeacherDrillKind) => void
+  onEngvoTeacherLessonIdChange?: (lessonId: string | null) => void
   practiceTtsSpeedDefaultIndex?: number
   onPracticeTtsSpeedDefaultChange?: (index: number) => void
   chatPatternId?: ChatPatternId
@@ -177,6 +181,8 @@ export default function SlideOutMenu({
   engvoSessionKind,
   engvoTeacherTense,
   engvoTeacherSentenceType,
+  engvoTeacherDrillKind,
+  engvoTeacherLessonId,
   engvoSettingsLocked,
   onEngvoProviderChange,
   onEngvoVoiceChange,
@@ -187,6 +193,8 @@ export default function SlideOutMenu({
   onEngvoSessionKindChange,
   onEngvoTeacherTenseChange,
   onEngvoTeacherSentenceTypeChange,
+  onEngvoTeacherDrillKindChange,
+  onEngvoTeacherLessonIdChange,
   practiceTtsSpeedDefaultIndex,
   onPracticeTtsSpeedDefaultChange,
   chatPatternId,
@@ -376,6 +384,8 @@ export default function SlideOutMenu({
         engvoSessionKind={engvoSessionKind}
         engvoTeacherTense={engvoTeacherTense}
         engvoTeacherSentenceType={engvoTeacherSentenceType}
+        engvoTeacherDrillKind={engvoTeacherDrillKind}
+        engvoTeacherLessonId={engvoTeacherLessonId}
         engvoSettingsLocked={engvoSettingsLocked}
         onEngvoProviderChange={onEngvoProviderChange}
         onEngvoVoiceChange={onEngvoVoiceChange}
@@ -386,6 +396,8 @@ export default function SlideOutMenu({
         onEngvoSessionKindChange={onEngvoSessionKindChange}
         onEngvoTeacherTenseChange={onEngvoTeacherTenseChange}
         onEngvoTeacherSentenceTypeChange={onEngvoTeacherSentenceTypeChange}
+        onEngvoTeacherDrillKindChange={onEngvoTeacherDrillKindChange}
+        onEngvoTeacherLessonIdChange={onEngvoTeacherLessonIdChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
         onPracticeTtsSpeedDefaultChange={onPracticeTtsSpeedDefaultChange}
         chatPatternId={chatPatternId}

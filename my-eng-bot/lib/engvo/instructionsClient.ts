@@ -1,6 +1,6 @@
 import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
 import type { EngvoCefrLevel } from '@/lib/engvo/constants'
-import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import type { EngvoTeacherDrillParams, EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
 import { buildEngvoRealtimeInstructions } from '@/lib/engvo/instructions'
 
 export function buildEngvoRealtimeInstructionsClient(params: {
@@ -13,6 +13,8 @@ export function buildEngvoRealtimeInstructionsClient(params: {
   sentenceType?: SentenceType
   skipTopicChoice?: boolean
   topicPreset?: string | null
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
+  nextTense?: TenseId | null
 }): string {
   return buildEngvoRealtimeInstructions(params)
 }

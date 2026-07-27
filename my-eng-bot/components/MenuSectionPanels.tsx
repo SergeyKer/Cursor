@@ -6,6 +6,7 @@ import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
 import { getAllowedTensesForLevel, normalizeSingleTenseSelection } from '@/lib/levelAllowedTenses'
+import { withAnyTenseMenuOption } from '@/lib/anyTensePool'
 import type {
   Settings,
   UsageInfo,
@@ -123,11 +124,22 @@ import {
 } from '@/lib/engvo/constants'
 import {
   ENGVO_DEFAULT_SESSION_KIND,
+  ENGVO_DEFAULT_TEACHER_DRILL_KIND,
+  ENGVO_DEFAULT_TEACHER_LESSON_ID,
   ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
   ENGVO_DEFAULT_TEACHER_TENSE,
   ENGVO_SESSION_KIND_OPTIONS,
+  type EngvoTeacherDrillKind,
   type EngvoVoiceSessionKind,
 } from '@/lib/engvo/sessionKind'
+import {
+  clampEngvoCefrForLessonAxis,
+  filterEngvoLevelsForLessonAxis,
+  isEngvoTeacherLessonAxisIncomplete,
+  isEngvoTeacherLevelLocked,
+  normalizeEngvoTeacherLessonForLevel,
+  syncEngvoCefrFromConcreteLesson,
+} from '@/lib/engvo/teacherLessonAxis'
 import { formatEngvoVoiceDisplayName } from '@/lib/engvo/voiceDisplayName'
 import { listEngvoCustomVoices } from '@/lib/engvo/voiceLab/customVoicesManifest'
 import {
@@ -286,6 +298,7 @@ type EngvoPanel =
   | 'provider'
   | 'audience'
   | 'topic'
+  | 'teacherFocus'
   | 'tense'
   | 'sentenceType'
   | 'voice'
@@ -310,6 +323,7 @@ const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   provider: 'Провайдер',
   audience: 'Стиль общения',
   topic: 'Тема',
+  teacherFocus: TRANSLATION_MENU_COPY.focusLabel,
   tense: 'Время',
   sentenceType: 'Тип предложений',
   voice: 'Голос',
@@ -516,6 +530,8 @@ export interface MenuSectionPanelsProps {
   engvoSessionKind?: EngvoVoiceSessionKind
   engvoTeacherTense?: TenseId
   engvoTeacherSentenceType?: SentenceType
+  engvoTeacherDrillKind?: EngvoTeacherDrillKind
+  engvoTeacherLessonId?: string | null
   /** Lock format / drill params while a live call is in progress. */
   engvoSettingsLocked?: boolean
   onEngvoProviderChange?: (provider: EngvoProvider) => void
@@ -527,6 +543,8 @@ export interface MenuSectionPanelsProps {
   onEngvoSessionKindChange?: (kind: EngvoVoiceSessionKind) => void
   onEngvoTeacherTenseChange?: (tense: TenseId) => void
   onEngvoTeacherSentenceTypeChange?: (sentenceType: SentenceType) => void
+  onEngvoTeacherDrillKindChange?: (kind: EngvoTeacherDrillKind) => void
+  onEngvoTeacherLessonIdChange?: (lessonId: string | null) => void
   practiceTtsSpeedDefaultIndex?: number
   onPracticeTtsSpeedDefaultChange?: (index: number) => void
   chatPatternId?: ChatPatternId
@@ -647,6 +665,8 @@ export default function MenuSectionPanels({
   engvoSessionKind = ENGVO_DEFAULT_SESSION_KIND,
   engvoTeacherTense = ENGVO_DEFAULT_TEACHER_TENSE,
   engvoTeacherSentenceType = ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
+  engvoTeacherDrillKind = ENGVO_DEFAULT_TEACHER_DRILL_KIND,
+  engvoTeacherLessonId = ENGVO_DEFAULT_TEACHER_LESSON_ID,
   engvoSettingsLocked = false,
   onEngvoProviderChange,
   onEngvoVoiceChange,
@@ -657,6 +677,8 @@ export default function MenuSectionPanels({
   onEngvoSessionKindChange,
   onEngvoTeacherTenseChange,
   onEngvoTeacherSentenceTypeChange,
+  onEngvoTeacherDrillKindChange,
+  onEngvoTeacherLessonIdChange,
   practiceTtsSpeedDefaultIndex = 0,
   onPracticeTtsSpeedDefaultChange,
   chatPatternId = 'none',
@@ -699,7 +721,9 @@ export default function MenuSectionPanels({
   const [aiChatTenseReturnPanel, setAiChatTenseReturnPanel] = React.useState<'summary' | 'translationFocus'>(
     'summary'
   )
-  const [lessonPickContext, setLessonPickContext] = React.useState<'practice' | 'translation' | null>(null)
+  const [lessonPickContext, setLessonPickContext] = React.useState<
+    'practice' | 'translation' | 'engvo_teacher' | null
+  >(null)
   const [settingsPanel, setSettingsPanel] = React.useState<SettingsMenuPanel>('summary')
   const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
   const [selectedXaiVoiceSectionId, setSelectedXaiVoiceSectionId] =
@@ -1262,7 +1286,8 @@ export default function MenuSectionPanels({
   const topicOptions = isChild ? TOPICS.filter((t) => CHILD_SAFE_TOPICS.has(t.id as TopicId)) : TOPICS
   const allowedTenseIdsForMenu = React.useMemo(() => {
     const base = getAllowedTensesForLevel(settings.level)
-    return isChild ? base.filter((id) => CHILD_TENSE_SET.has(id)) : base
+    const concrete = isChild ? base.filter((id) => CHILD_TENSE_SET.has(id)) : base
+    return withAnyTenseMenuOption(concrete)
   }, [settings.level, isChild])
   const allowedTenseMenuSet = React.useMemo(() => new Set(allowedTenseIdsForMenu), [allowedTenseIdsForMenu])
   const tenseOptions = TENSES.filter((t) => allowedTenseMenuSet.has(t.id))
@@ -1273,8 +1298,11 @@ export default function MenuSectionPanels({
   /** level + tenses (как пикер уровня); без translationLessonId. */
   const applyChatLevelPatch = (newLevel: LevelId): Partial<Settings> => {
     const base = getAllowedTensesForLevel(newLevel)
-    const allowed = isChild ? base.filter((tid) => CHILD_TENSE_SET.has(tid)) : base
-    const tenses = normalizeSingleTenseSelection(settings.tenses, allowed, 'present_simple')
+    const concrete = isChild ? base.filter((tid) => CHILD_TENSE_SET.has(tid)) : base
+    const allowed = withAnyTenseMenuOption(concrete)
+    const tenses = settings.tenses.includes('all')
+      ? (['all'] as import('@/lib/types').TenseId[])
+      : normalizeSingleTenseSelection(settings.tenses, allowed, 'present_simple')
     return { level: newLevel, tenses }
   }
 
@@ -1299,7 +1327,7 @@ export default function MenuSectionPanels({
       update({
         audience: id,
         level: nextLevel,
-        tenses: ['present_simple'],
+        tenses: settings.tenses.includes('all') ? (['all'] as import('@/lib/types').TenseId[]) : ['present_simple'],
         topic: safeTopic,
         translationLessonId: normalizeLessonForLevel(settings.translationLessonId, nextLevel),
       })
@@ -1400,7 +1428,9 @@ export default function MenuSectionPanels({
   const translationLevelLocked = isTranslationLevelLocked(settings)
   const showLevelRow = settings.mode !== 'translation' || !translationLevelLocked
   const isTranslationLessonPick = lessonPickContext === 'translation'
-  const practiceTopicsForPanel = isTranslationLessonPick
+  const isEngvoTeacherLessonPick = lessonPickContext === 'engvo_teacher'
+  const isExternalLessonPick = isTranslationLessonPick || isEngvoTeacherLessonPick
+  const practiceTopicsForPanel = isExternalLessonPick
     ? catalogPracticeItems
     : catalogPracticeItemsFiltered
   const sentenceTypeLabel =
@@ -1451,10 +1481,43 @@ export default function MenuSectionPanels({
     TENSES.find((t) => t.id === engvoTeacherTense)?.label ?? engvoTeacherTense
   const engvoTeacherSentenceTypeLabel =
     SENTENCE_TYPES.find((t) => t.id === engvoTeacherSentenceType)?.label ?? engvoTeacherSentenceType
-  const engvoTeacherTenseOptions =
-    settings.audience === 'child'
-      ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id as (typeof CHILD_TENSES)[number]))
-      : TENSES.filter((t) => t.id !== 'all')
+  const engvoTeacherDrillKindNormalized = engvoTeacherDrillKind ?? ENGVO_DEFAULT_TEACHER_DRILL_KIND
+  const engvoTeacherFocusValue =
+    engvoTeacherDrillKindNormalized === 'lesson_topic'
+      ? TRANSLATION_MENU_COPY.focusLesson
+      : TRANSLATION_MENU_COPY.focusTense
+  const engvoTeacherLessonValue = (() => {
+    const lessonId = engvoTeacherLessonId
+    if (lessonId == null) return TRANSLATION_MENU_COPY.lessonNotSelected
+    if (lessonId === 'all') return TRANSLATION_MENU_COPY.anyLesson
+    return getLessonTopicById(lessonId)?.title ?? TRANSLATION_MENU_COPY.lessonNotSelected
+  })()
+  const engvoTeacherLessonAxisIncomplete = isEngvoTeacherLessonAxisIncomplete({
+    sessionKind: engvoSessionKind,
+    drillKind: engvoTeacherDrillKindNormalized,
+    lessonId: engvoTeacherLessonId,
+    level: engvoCefrLevel ?? 'a2',
+  })
+  const engvoTeacherLevelLocked = isEngvoTeacherLevelLocked({
+    sessionKind: engvoSessionKind,
+    drillKind: engvoTeacherDrillKindNormalized,
+    lessonId: engvoTeacherLessonId,
+  })
+  const engvoLevelPickerOptions =
+    engvoSessionKind === 'teacher' && engvoTeacherDrillKindNormalized === 'lesson_topic'
+      ? filterEngvoLevelsForLessonAxis(ENGVO_LEVEL_OPTIONS, settings.audience)
+      : ENGVO_LEVEL_OPTIONS
+  const engvoTeacherTenseOptions = (() => {
+    const level = engvoCefrLevel ?? settings.level
+    const base = getAllowedTensesForLevel(level)
+    const concrete =
+      settings.audience === 'child'
+        ? base.filter((id) => CHILD_TENSE_SET.has(id as (typeof CHILD_TENSES)[number]))
+        : base.filter((id) => id !== 'all')
+    const allowed = withAnyTenseMenuOption(concrete)
+    const allowedSet = new Set(allowed)
+    return TENSES.filter((t) => allowedSet.has(t.id))
+  })()
   const isTeacherFormat = engvoSessionKind === 'teacher'
   const practiceTtsSpeedLabel = getPracticeTtsSpeedPreset(practiceTtsSpeedDefaultIndex).label
   const chatPatternLabel = getChatPatternLabel(chatPatternId)
@@ -1522,6 +1585,13 @@ export default function MenuSectionPanels({
           setLessonsPanel('summary')
           onMenuViewChange('aiChat')
           setAiChatPanel('summary')
+          return
+        }
+        if (lessonPickContext === 'engvo_teacher') {
+          setLessonPickContext(null)
+          setLessonsPanel('summary')
+          onMenuViewChange('engvo')
+          setEngvoPanel('summary')
           return
         }
         setLessonsPanel('practice')
@@ -1603,6 +1673,7 @@ export default function MenuSectionPanels({
         engvoPanel === 'kind' ||
         engvoPanel === 'audience' ||
         engvoPanel === 'topic' ||
+        engvoPanel === 'teacherFocus' ||
         engvoPanel === 'tense' ||
         engvoPanel === 'sentenceType' ||
         engvoPanel === 'voice' ||
@@ -1694,6 +1765,7 @@ export default function MenuSectionPanels({
               engvoPanel === 'kind' ||
               engvoPanel === 'audience' ||
               engvoPanel === 'topic' ||
+              engvoPanel === 'teacherFocus' ||
               engvoPanel === 'tense' ||
               engvoPanel === 'sentenceType' ||
               engvoPanel === 'voice' ||
@@ -1761,7 +1833,7 @@ export default function MenuSectionPanels({
       return LESSONS_PANEL_TITLE[lessonsPanel]
     }
     if (menuView === 'lessons') {
-      if (isTranslationLessonPick) {
+      if (isExternalLessonPick) {
         if (lessonsPanel === 'practiceLevelsHub') return TRANSLATION_MENU_COPY.lessonsHubTitle
         if (lessonsPanel === 'practiceLevel') return TRANSLATION_MENU_COPY.lessonsLevelTitle
         if (lessonsPanel === 'practiceLevelTopics') return TRANSLATION_MENU_COPY.lessonsTopicsTitle
@@ -2373,14 +2445,38 @@ export default function MenuSectionPanels({
                     {isTeacherFormat && (
                       <>
                         <MenuSettingRow
-                          label="Время"
-                          value={engvoTeacherTenseLabel}
+                          label={TRANSLATION_MENU_COPY.focusLabel}
+                          value={engvoTeacherFocusValue}
                           onClick={() => {
                             if (engvoSettingsLocked) return
-                            setEngvoPanel('tense')
+                            setEngvoPanel('teacherFocus')
                           }}
                           disabled={engvoSettingsLocked}
                         />
+                        {engvoTeacherDrillKindNormalized === 'tense_drill' ? (
+                          <MenuSettingRow
+                            label={TRANSLATION_MENU_COPY.focusTense}
+                            value={engvoTeacherTenseLabel}
+                            onClick={() => {
+                              if (engvoSettingsLocked) return
+                              setEngvoPanel('tense')
+                            }}
+                            disabled={engvoSettingsLocked}
+                          />
+                        ) : (
+                          <MenuSettingRow
+                            label={TRANSLATION_MENU_COPY.focusLesson}
+                            value={engvoTeacherLessonValue}
+                            onClick={() => {
+                              if (engvoSettingsLocked) return
+                              setLessonPickContext('engvo_teacher')
+                              setMenuReturnView('engvo')
+                              onMenuViewChange('lessons')
+                              setLessonsPanel('practiceLevelsHub')
+                            }}
+                            disabled={engvoSettingsLocked}
+                          />
+                        )}
                         <MenuSettingRow
                           label="Тип предложений"
                           value={engvoTeacherSentenceTypeLabel}
@@ -2393,15 +2489,17 @@ export default function MenuSectionPanels({
                       </>
                     )}
                     <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
-                    <MenuSettingRow
-                      label="Уровень"
-                      value={engvoLevelLabel}
-                      onClick={() => {
-                        if (engvoSettingsLocked) return
-                        setEngvoPanel('level')
-                      }}
-                      disabled={engvoSettingsLocked}
-                    />
+                    {!engvoTeacherLevelLocked ? (
+                      <MenuSettingRow
+                        label="Уровень"
+                        value={engvoLevelLabel}
+                        onClick={() => {
+                          if (engvoSettingsLocked) return
+                          setEngvoPanel('level')
+                        }}
+                        disabled={engvoSettingsLocked}
+                      />
+                    ) : null}
                     <MenuSettingRow
                       label="Скорость речи"
                       value={engvoSpeechSpeedLabel}
@@ -2411,7 +2509,12 @@ export default function MenuSectionPanels({
                 </div>
                 {onOpenEngvoVoiceChat && (
                   <div className="pt-2">
-                    <button type="button" onClick={onOpenEngvoVoiceChat} className={MENU_PRIMARY_CTA_CLASS}>
+                    <button
+                      type="button"
+                      onClick={onOpenEngvoVoiceChat}
+                      disabled={engvoTeacherLessonAxisIncomplete}
+                      className={MENU_PRIMARY_CTA_CLASS}
+                    >
                       Перейти к звонку
                     </button>
                   </div>
@@ -2424,6 +2527,36 @@ export default function MenuSectionPanels({
                 value={engvoSessionKind}
                 onSelect={(id) => {
                   onEngvoSessionKindChange?.(id as EngvoVoiceSessionKind)
+                  setEngvoPanel('summary')
+                }}
+              />
+            )}
+            {engvoPanel === 'teacherFocus' && (
+              <PickerList
+                options={[
+                  { id: 'tense_drill', label: TRANSLATION_MENU_COPY.focusTense },
+                  { id: 'lesson_topic', label: TRANSLATION_MENU_COPY.focusLesson },
+                ]}
+                value={engvoTeacherDrillKindNormalized}
+                onSelect={(id) => {
+                  const kind = id as EngvoTeacherDrillKind
+                  onEngvoTeacherDrillKindChange?.(kind)
+                  if (kind === 'lesson_topic') {
+                    const nextLevel = clampEngvoCefrForLessonAxis(
+                      engvoCefrLevel ?? 'a2',
+                      settings.audience
+                    )
+                    if (nextLevel !== engvoCefrLevel) onEngvoLevelChange?.(nextLevel)
+                    const normalized = normalizeEngvoTeacherLessonForLevel(
+                      engvoTeacherLessonId,
+                      nextLevel
+                    )
+                    if (normalized !== engvoTeacherLessonId) {
+                      onEngvoTeacherLessonIdChange?.(normalized)
+                    }
+                    const synced = syncEngvoCefrFromConcreteLesson(normalized)
+                    if (synced) onEngvoLevelChange?.(synced)
+                  }
                   setEngvoPanel('summary')
                 }}
               />
@@ -2443,7 +2576,25 @@ export default function MenuSectionPanels({
                 options={AUDIENCE_OPTIONS}
                 value={settings.audience}
                 onSelect={(id) => {
-                  applyAudienceSelection(id as Settings['audience'])
+                  const audience = id as Settings['audience']
+                  applyAudienceSelection(audience)
+                  if (
+                    engvoSessionKind === 'teacher' &&
+                    engvoTeacherDrillKindNormalized === 'lesson_topic'
+                  ) {
+                    const nextLevel = clampEngvoCefrForLessonAxis(
+                      engvoCefrLevel ?? 'a2',
+                      audience
+                    )
+                    if (nextLevel !== engvoCefrLevel) onEngvoLevelChange?.(nextLevel)
+                    const normalized = normalizeEngvoTeacherLessonForLevel(
+                      engvoTeacherLessonId,
+                      nextLevel
+                    )
+                    if (normalized !== engvoTeacherLessonId) {
+                      onEngvoTeacherLessonIdChange?.(normalized)
+                    }
+                  }
                   setEngvoPanel('summary')
                 }}
               />
@@ -2565,10 +2716,23 @@ export default function MenuSectionPanels({
             )}
             {engvoPanel === 'level' && (
               <PickerList
-                options={ENGVO_LEVEL_OPTIONS.map((l) => ({ id: l.id, label: l.label }))}
+                options={engvoLevelPickerOptions.map((l) => ({ id: l.id, label: l.label }))}
                 value={engvoCefrLevel ?? 'a2'}
                 onSelect={(id) => {
-                  onEngvoLevelChange?.(id as EngvoCefrLevel)
+                  const next = id as EngvoCefrLevel
+                  onEngvoLevelChange?.(next)
+                  if (
+                    engvoSessionKind === 'teacher' &&
+                    engvoTeacherDrillKindNormalized === 'lesson_topic'
+                  ) {
+                    const normalized = normalizeEngvoTeacherLessonForLevel(
+                      engvoTeacherLessonId,
+                      next
+                    )
+                    if (normalized !== engvoTeacherLessonId) {
+                      onEngvoTeacherLessonIdChange?.(normalized)
+                    }
+                  }
                   setEngvoPanel('summary')
                 }}
               />
@@ -3489,11 +3653,20 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             {lessonsPanel === 'practiceLevelsHub' && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
-                  {isTranslationLessonPick ? (
+                  {isExternalLessonPick ? (
                     <MenuNavRow
                       label={TRANSLATION_MENU_COPY.anyLesson}
                       showChevron={false}
                       onClick={() => {
+                        if (isEngvoTeacherLessonPick) {
+                          onEngvoTeacherDrillKindChange?.('lesson_topic')
+                          onEngvoTeacherLessonIdChange?.('all')
+                          setLessonPickContext(null)
+                          setLessonsPanel('summary')
+                          onMenuViewChange('engvo')
+                          setEngvoPanel('summary')
+                          return
+                        }
                         update({
                           translationDrillKind: 'lesson_topic',
                           translationLessonId: 'all',
@@ -3543,12 +3716,12 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
 
             {lessonsPanel === 'practiceLevelTopics' && (
               <>
-                {!isTranslationLessonPick && practiceTheoryTagFilterId && catalogPracticeItemsFiltered.length === 0 ? (
+                {!isExternalLessonPick && practiceTheoryTagFilterId && catalogPracticeItemsFiltered.length === 0 ? (
                   <p className="mb-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                     На этом уровне нет уроков с выбранным тегом. Сбросьте фильтр на экране «Практика» или выберите другой уровень.
                   </p>
                 ) : null}
-                {isTranslationLessonPick && practiceTopicsForPanel.length === 0 ? (
+                {isExternalLessonPick && practiceTopicsForPanel.length === 0 ? (
                   <p className="mb-2 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                     {TRANSLATION_MENU_COPY.emptyLessonPool}
                   </p>
@@ -3571,7 +3744,9 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                         item.enabled &&
                         (isTranslationLessonPick
                           ? settings.translationLessonId === item.id
-                          : selectedPracticeLessonId === item.id)
+                          : isEngvoTeacherLessonPick
+                            ? engvoTeacherLessonId === item.id
+                            : selectedPracticeLessonId === item.id)
                       }
                       enabled={item.enabled}
                       onClick={
@@ -3588,6 +3763,17 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                                 setLessonsPanel('summary')
                                 onMenuViewChange('aiChat')
                                 setAiChatPanel('summary')
+                                return
+                              }
+                              if (isEngvoTeacherLessonPick) {
+                                onEngvoTeacherDrillKindChange?.('lesson_topic')
+                                onEngvoTeacherLessonIdChange?.(item.id)
+                                const synced = syncEngvoCefrFromConcreteLesson(item.id)
+                                if (synced) onEngvoLevelChange?.(synced)
+                                setLessonPickContext(null)
+                                setLessonsPanel('summary')
+                                onMenuViewChange('engvo')
+                                setEngvoPanel('summary')
                                 return
                               }
                               setSelectedPracticeLessonId(item.id)

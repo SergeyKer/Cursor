@@ -1,0 +1,11 @@
+[
+  [
+    "                noteTeacherDrillUserAttempt(engvoTeacherDrillProgressRef.current, transcript)",
+    "                noteTeacherDrillUserAttempt(engvoTeacherDrillProgressRef.current, transcript)\n                if (\n                  engvoTeacherTense === 'all' &&\n                  engvoTeacherDrillKind === 'tense_drill' &&\n                  !engvoTeacherDrillProgressRef.current.drillAwaitingAnswer\n                ) {\n                  engvoTeacherPostAttemptRotateArmedRef.current = true\n                }"
+  ],
+  [
+    "    resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)\n",
+    "    resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)\n    engvoTeacherCurrentTenseRef.current = null\n    engvoTeacherNextTenseRef.current = null\n    engvoTeacherUsedAnyTensesRef.current = []\n    engvoTeacherPostAttemptRotateArmedRef.current = false\n",
+    true
+  ]
+]

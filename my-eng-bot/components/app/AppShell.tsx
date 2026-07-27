@@ -35,6 +35,11 @@ import {
   saveFreeTalkTopicRotationState,
 } from '@/lib/storage'
 import {
+  applySettingsWithModeSlice,
+  ensureModeSettingsStore,
+  persistActiveModeSlice,
+} from '@/lib/modeSettingsSlice'
+import {
   appendFooterRewardSnapshot,
   createDefaultRewardsState,
   createFooterSsrPlaceholderRewardsState,
@@ -293,6 +298,10 @@ import {
   noteTeacherDrillUserAttempt,
   resetTeacherDrillProgress,
 } from '@/lib/engvo/teacherDrillProgress'
+import {
+  advanceTeacherAnyAxes,
+  resolveTeacherAnyAxes,
+} from '@/lib/engvo/teacherAnyAxis'
 import { buildEngvoRealtimeInstructionsClient } from '@/lib/engvo/instructionsClient'
 import {
   ENGVO_XAI_WS_USER_MESSAGE,
@@ -337,6 +346,8 @@ import {
   loadEngvoRealtimeVoice,
   loadEngvoSessionKind,
   loadEngvoSpeechSpeedPreset,
+  loadEngvoTeacherDrillKind,
+  loadEngvoTeacherLessonId,
   loadEngvoTeacherSentenceType,
   loadEngvoTeacherTense,
   loadEngvoXaiVoice,
@@ -348,6 +359,8 @@ import {
   saveEngvoRealtimeVoice,
   saveEngvoSessionKind,
   saveEngvoSpeechSpeedPreset,
+  saveEngvoTeacherDrillKind,
+  saveEngvoTeacherLessonId,
   saveEngvoTeacherSentenceType,
   saveEngvoTeacherTense,
   saveEngvoXaiVoice,
@@ -357,13 +370,23 @@ import {
 } from '@/lib/engvo/preferences'
 import {
   ENGVO_DEFAULT_SESSION_KIND,
+  ENGVO_DEFAULT_TEACHER_DRILL_KIND,
+  ENGVO_DEFAULT_TEACHER_LESSON_ID,
   ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
   ENGVO_DEFAULT_TEACHER_TENSE,
   resolveEngvoTeacherPhase,
   sanitizeEngvoTeacherTenseForAudience,
+  type EngvoTeacherDrillKind,
+  type EngvoTeacherDrillParams,
   type EngvoTeacherPhase,
   type EngvoVoiceSessionKind,
 } from '@/lib/engvo/sessionKind'
+import {
+  clampEngvoCefrForLessonAxis,
+  normalizeEngvoTeacherLessonForLevel,
+  resolveTeacherLessonAxis,
+  toTeacherLessonAxisPrompt,
+} from '@/lib/engvo/teacherLessonAxis'
 import {
   loadPracticeTtsSpeedDefaultIndex,
   savePracticeTtsSpeedDefaultIndex,
@@ -1079,12 +1102,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [engvoTeacherSentenceType, setEngvoTeacherSentenceType] = useState<SentenceType>(
     ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE
   )
+  const [engvoTeacherDrillKind, setEngvoTeacherDrillKind] = useState<EngvoTeacherDrillKind>(
+    ENGVO_DEFAULT_TEACHER_DRILL_KIND
+  )
+  const [engvoTeacherLessonId, setEngvoTeacherLessonId] = useState<string | null>(
+    ENGVO_DEFAULT_TEACHER_LESSON_ID
+  )
+  const engvoTeacherEffectiveLessonIdRef = React.useRef<string | null>(null)
+  const engvoTeacherSessionSeedRef = React.useRef<string>('engvo-teacher')
+  const engvoTeacherLessonAxisRef = React.useRef<EngvoTeacherDrillParams['lessonAxis']>(null)
   const engvoTeacherPhaseRef = React.useRef<EngvoTeacherPhase | null>(null)
   const engvoTeacherUserFinalCountRef = React.useRef(0)
   const engvoTeacherAwaitingFirstDrillRef = React.useRef(false)
   const engvoTeacherReclaimUsedThisUserTurnRef = React.useRef(false)
   const engvoTeacherReclaimInFlightRef = React.useRef(false)
   const engvoTeacherDrillProgressRef = React.useRef(createTeacherDrillProgressState())
+  /** Preference `all`: live current/next; never written back to engvoTeacherTense storage. */
+  const engvoTeacherCurrentTenseRef = React.useRef<string | null>(null)
+  const engvoTeacherNextTenseRef = React.useRef<string | null>(null)
+  const engvoTeacherUsedAnyTensesRef = React.useRef<string[]>([])
+  const engvoTeacherPostAttemptRotateArmedRef = React.useRef(false)
   const maybeReclaimTeacherDrillRef = React.useRef<(rawText: string) => boolean>(() => false)
   const engvoSessionKindRef = React.useRef<EngvoVoiceSessionKind>(ENGVO_DEFAULT_SESSION_KIND)
   engvoSessionKindRef.current = engvoSessionKind
@@ -1251,6 +1288,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const menuOpenSnapshotRef = React.useRef<MenuOpenSnapshot | null>(null)
   /** Pin урока для ERROR-freeze при translationLessonId === 'all'. */
   const translationEffectiveLessonIdRef = React.useRef<string | null>(null)
+  /** Any-tense: current drill axis (tense/level/sentenceType) for ERROR freeze. */
+  const translationCurrentDrillAxisRef = React.useRef<{
+    tense: string
+    effectiveLevel: string
+    effectiveSentenceType: string
+  } | null>(null)
+  /** Any-tense: tenses already posed in this translation chat. */
+  const translationUsedAnyTensesRef = React.useRef<string[]>([])
+  /** Any-tense dialogue: current drill axis for ERROR freeze. */
+  const dialogueCurrentDrillAxisRef = React.useRef<{
+    tense: string
+    effectiveLevel: string
+    effectiveSentenceType: string
+  } | null>(null)
+  /** Any-tense dialogue: tenses already posed in this dialogue chat. */
+  const dialogueUsedAnyTensesRef = React.useRef<string[]>([])
   const prevMenuOpenForSnapshotRef = React.useRef(false)
   /** Не показывать баннер «настройки изменены» сразу после автоперезапуска из меню (до синхронизации с отправкой). */
   const suppressSettingsChangeBannerRef = React.useRef(false)
@@ -1952,6 +2005,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherCurrentTenseRef.current = null
+    engvoTeacherNextTenseRef.current = null
+    engvoTeacherUsedAnyTensesRef.current = []
+    engvoTeacherPostAttemptRotateArmedRef.current = false
     engvoLastFinalUserTranscriptRef.current = ''
     if (featureFlags.engvoCallReviewV1 && engvoSessionKindRef.current === 'teacher') {
       const epoch = callReviewEpochRef.current
@@ -2016,12 +2073,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       kind: engvoSessionKind,
       teacherTense: engvoSessionKind === 'teacher' ? engvoTeacherTense : undefined,
       teacherSentenceType: engvoSessionKind === 'teacher' ? engvoTeacherSentenceType : undefined,
+      teacherDrillKind: engvoSessionKind === 'teacher' ? engvoTeacherDrillKind : undefined,
+      teacherLessonId: engvoSessionKind === 'teacher' ? engvoTeacherLessonId : undefined,
+      teacherEffectiveLessonId:
+        engvoSessionKind === 'teacher' ? engvoTeacherEffectiveLessonIdRef.current : undefined,
     })
   }, [
     engvoCefrLevel,
     engvoRealtimeVoice,
     engvoSessionKind,
     engvoSpeechSpeedPreset,
+    engvoTeacherDrillKind,
+    engvoTeacherLessonId,
     engvoTeacherSentenceType,
     engvoTeacherTense,
     engvoXaiVoice,
@@ -2029,22 +2092,113 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     settings.topic,
   ])
 
+  const resolveEngvoTeacherLessonAxisForCall = useCallback(() => {
+    if (engvoSessionKind !== 'teacher') {
+      engvoTeacherEffectiveLessonIdRef.current = null
+      engvoTeacherLessonAxisRef.current = null
+      return null
+    }
+    const axis = resolveTeacherLessonAxis({
+      sessionKind: engvoSessionKind,
+      drillKind: engvoTeacherDrillKind,
+      lessonId: engvoTeacherLessonId,
+      level: engvoCefrLevel,
+      sessionSeed: engvoTeacherSessionSeedRef.current,
+      pinnedEffectiveLessonId: engvoTeacherEffectiveLessonIdRef.current,
+    })
+    if (!axis.active) {
+      engvoTeacherEffectiveLessonIdRef.current = null
+      engvoTeacherLessonAxisRef.current = null
+      return null
+    }
+    engvoTeacherEffectiveLessonIdRef.current = axis.effectiveLessonId
+    const prompt = toTeacherLessonAxisPrompt(axis)
+    engvoTeacherLessonAxisRef.current = prompt
+    return { axis, prompt }
+  }, [engvoCefrLevel, engvoSessionKind, engvoTeacherDrillKind, engvoTeacherLessonId])
+
+  const ensureTeacherAnyLiveAxes = useCallback(() => {
+    if (
+      engvoSessionKind !== 'teacher' ||
+      engvoTeacherDrillKind !== 'tense_drill' ||
+      engvoTeacherTense !== 'all'
+    ) {
+      return null
+    }
+    if (engvoTeacherCurrentTenseRef.current && engvoTeacherNextTenseRef.current) {
+      return {
+        current: engvoTeacherCurrentTenseRef.current,
+        next: engvoTeacherNextTenseRef.current,
+      }
+    }
+    const axes = resolveTeacherAnyAxes({
+      level: engvoCefrLevel,
+      audience: settings.audience,
+      usedTensesRaw: engvoTeacherUsedAnyTensesRef.current,
+      seed: engvoTeacherSessionSeedRef.current,
+    })
+    engvoTeacherCurrentTenseRef.current = axes.current
+    engvoTeacherNextTenseRef.current = axes.next
+    engvoTeacherUsedAnyTensesRef.current = axes.usedTenses
+    return { current: axes.current, next: axes.next }
+  }, [
+    engvoCefrLevel,
+    engvoSessionKind,
+    engvoTeacherDrillKind,
+    engvoTeacherTense,
+    settings.audience,
+  ])
+
+  const resolveTeacherLiveTense = useCallback((): string => {
+    const resolved = resolveEngvoTeacherLessonAxisForCall()
+    if (resolved?.axis.active && engvoTeacherDrillKind === 'lesson_topic') {
+      return resolved.axis.inferredTense
+    }
+    if (engvoTeacherTense === 'all') {
+      const live = ensureTeacherAnyLiveAxes()
+      return live?.current ?? 'present_simple'
+    }
+    return engvoTeacherTense
+  }, [
+    engvoTeacherDrillKind,
+    engvoTeacherTense,
+    ensureTeacherAnyLiveAxes,
+    resolveEngvoTeacherLessonAxisForCall,
+  ])
+
   const buildEngvoLiveInstructions = useCallback(
-    (speechSpeed: number) =>
-      buildEngvoRealtimeInstructionsClient({
+    (speechSpeed: number) => {
+      const resolved = resolveEngvoTeacherLessonAxisForCall()
+      const tenseForPrompt = resolveTeacherLiveTense()
+      const anyLive =
+        engvoTeacherTense === 'all' &&
+        engvoTeacherDrillKind === 'tense_drill' &&
+        !resolved?.axis.active
+          ? ensureTeacherAnyLiveAxes()
+          : null
+      return buildEngvoRealtimeInstructionsClient({
         audience: settings.audience,
         level: engvoCefrLevel,
         topic: settings.topic,
         speechSpeed,
         kind: engvoSessionKind,
-        tense: engvoTeacherTense,
+        tense: tenseForPrompt as import('@/lib/types').TenseId,
         sentenceType: engvoTeacherSentenceType,
-      }),
+        lessonAxis: resolved?.prompt ?? null,
+        nextTense: anyLive?.next
+          ? (anyLive.next as import('@/lib/types').TenseId)
+          : null,
+      })
+    },
     [
       engvoCefrLevel,
       engvoSessionKind,
+      engvoTeacherDrillKind,
       engvoTeacherSentenceType,
       engvoTeacherTense,
+      ensureTeacherAnyLiveAxes,
+      resolveTeacherLiveTense,
+      resolveEngvoTeacherLessonAxisForCall,
       settings.audience,
       settings.topic,
     ]
@@ -2118,8 +2272,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           response: {
             instructions: buildEngvoTeacherDrillReclaimResponseInstructions({
               level: engvoCefrLevel,
-              tense: engvoTeacherTense,
+              tense: resolveTeacherLiveTense() as import('@/lib/types').TenseId,
               sentenceType: engvoTeacherSentenceType,
+              lessonAxis: engvoTeacherLessonAxisRef.current,
             }),
           },
         })
@@ -2140,6 +2295,59 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoTeacherDrillProgressRef.current,
         rawText
       )
+      if (progress.action === 'commit') {
+        if (
+          engvoTeacherTense === 'all' &&
+          engvoTeacherDrillKind === 'tense_drill' &&
+          engvoTeacherPostAttemptRotateArmedRef.current &&
+          engvoTeacherNextTenseRef.current
+        ) {
+          const advanced = advanceTeacherAnyAxes({
+            level: engvoCefrLevel,
+            audience: settings.audience,
+            usedTenses: engvoTeacherUsedAnyTensesRef.current,
+            previousNext: engvoTeacherNextTenseRef.current as import('@/lib/types').TenseId,
+            seed: `${engvoTeacherSessionSeedRef.current}|${Date.now()}`,
+          })
+          engvoTeacherCurrentTenseRef.current = advanced.current
+          engvoTeacherNextTenseRef.current = advanced.next
+          engvoTeacherUsedAnyTensesRef.current = advanced.usedTenses
+          engvoTeacherPostAttemptRotateArmedRef.current = false
+          const provider = engvoActiveProviderRef.current
+          const speechSpeed = clampEngvoRealtimeSpeed(
+            engvoSpeechSpeedFromPreset(engvoSpeechSpeedPreset, provider),
+            provider
+          )
+          const instructions = buildEngvoLiveInstructions(speechSpeed)
+          if (provider === 'xai') {
+            sendEngvoRealtimeEvent(
+              buildEngvoXaiClientSessionUpdate({
+                instructions,
+                voice: engvoXaiVoice,
+                speed: speechSpeed,
+                teacherCurrentTense: advanced.current,
+                teacherNextTense: advanced.next,
+              })
+            )
+          } else {
+            sendEngvoRealtimeEvent({
+              type: 'session.update',
+              session: buildEngvoClientSessionUpdate({
+                model: ENGVO_REALTIME_MODEL,
+                voice: engvoRealtimeVoice,
+                speed: speechSpeed,
+                instructions,
+                inputAudioTranscription: {
+                  ...buildEngvoInputAudioTranscriptionConfig(),
+                },
+              }),
+            })
+          }
+        } else if (engvoTeacherTense === 'all' && engvoTeacherDrillKind === 'tense_drill') {
+          ensureTeacherAnyLiveAxes()
+        }
+        return false
+      }
       if (
         progress.action !== 'reclaim_duplicate' &&
         progress.action !== 'reclaim_russian_echo'
@@ -2169,15 +2377,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         progress.action === 'reclaim_russian_echo'
           ? buildEngvoTeacherRussianEchoReclaimResponseInstructions({
               level: engvoCefrLevel,
-              tense: engvoTeacherTense,
+              tense: resolveTeacherLiveTense() as import('@/lib/types').TenseId,
               sentenceType: engvoTeacherSentenceType,
               previousRussian: progress.previousRussian ?? '',
+              lessonAxis: engvoTeacherLessonAxisRef.current,
             })
           : buildEngvoTeacherDuplicateDrillReclaimResponseInstructions({
               level: engvoCefrLevel,
-              tense: engvoTeacherTense,
+              tense: resolveTeacherLiveTense() as import('@/lib/types').TenseId,
               sentenceType: engvoTeacherSentenceType,
               previousRussian: progress.previousRussian ?? '',
+              lessonAxis: engvoTeacherLessonAxisRef.current,
             })
       const sent = sendEngvoRealtimeEvent({
         type: 'response.create',
@@ -2196,7 +2406,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
       return true
     },
-    [engvoCefrLevel, engvoTeacherSentenceType, engvoTeacherTense, sendEngvoRealtimeEvent]
+    [engvoCefrLevel, engvoTeacherDrillKind, engvoTeacherSentenceType, engvoTeacherTense, engvoCefrLevel, engvoRealtimeVoice, engvoSpeechSpeedPreset, engvoXaiVoice, buildEngvoLiveInstructions, ensureTeacherAnyLiveAxes, resolveTeacherLiveTense, sendEngvoRealtimeEvent, settings.audience]
   )
   maybeReclaimTeacherDrillRef.current = maybeReclaimTeacherDrill
 
@@ -2234,6 +2444,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       )
       // Voice/speed-only: omit instructions so OpenAI keeps SDP/server safety text.
       const policyUpdate = payload.level != null
+      const liveAny =
+        engvoTeacherTense === 'all' && engvoTeacherDrillKind === 'tense_drill'
+          ? ensureTeacherAnyLiveAxes()
+          : null
       const instructions = policyUpdate
         ? buildEngvoRealtimeInstructionsClient({
             audience: settings.audience,
@@ -2241,8 +2455,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             topic: settings.topic,
             speechSpeed,
             kind: engvoSessionKind,
-            tense: engvoTeacherTense,
+            tense: resolveTeacherLiveTense() as import('@/lib/types').TenseId,
             sentenceType: engvoTeacherSentenceType,
+            lessonAxis: engvoTeacherLessonAxisRef.current,
+            nextTense: liveAny?.next
+              ? (liveAny.next as import('@/lib/types').TenseId)
+              : null,
           })
         : undefined
       if (provider === 'xai') {
@@ -2252,6 +2470,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             ...(instructions ? { instructions } : {}),
             voice,
             speed: speechSpeed,
+            teacherCurrentTense: engvoTeacherCurrentTenseRef.current,
+            teacherNextTense: engvoTeacherNextTenseRef.current,
           })
         )
       }
@@ -2274,6 +2494,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       engvoRealtimeVoice,
       engvoSessionKind,
       engvoSpeechSpeedPreset,
+      engvoTeacherDrillKind,
       engvoTeacherSentenceType,
       engvoTeacherTense,
       engvoXaiVoice,
@@ -2502,8 +2723,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   level: engvoCefrLevel,
                   topic: settings.topic,
                   kind: engvoSessionKind,
-                  tense: engvoTeacherTense,
+                  tense: resolveTeacherLiveTense() as import('@/lib/types').TenseId,
                   sentenceType: engvoTeacherSentenceType,
+                  lessonAxis: engvoTeacherLessonAxisRef.current,
                 }),
               },
             })
@@ -2720,6 +2942,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 engvoTeacherUserFinalCountRef.current += 1
                 engvoTeacherReclaimUsedThisUserTurnRef.current = false
                 noteTeacherDrillUserAttempt(engvoTeacherDrillProgressRef.current, transcript)
+                if (
+                  engvoTeacherTense === 'all' &&
+                  engvoTeacherDrillKind === 'tense_drill' &&
+                  !engvoTeacherDrillProgressRef.current.drillAwaitingAnswer
+                ) {
+                  engvoTeacherPostAttemptRotateArmedRef.current = true
+                }
                 if (
                   engvoTeacherPhaseRef.current === 'topic_choice' &&
                   engvoTeacherUserFinalCountRef.current >= 1
@@ -2974,6 +3203,26 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherCurrentTenseRef.current = null
+    engvoTeacherNextTenseRef.current = null
+    engvoTeacherUsedAnyTensesRef.current = []
+    engvoTeacherPostAttemptRotateArmedRef.current = false
+    engvoTeacherSessionSeedRef.current = `engvo-teacher-${Date.now()}`
+    engvoTeacherEffectiveLessonIdRef.current = null
+    engvoTeacherLessonAxisRef.current = null
+    if (engvoSessionKind === 'teacher' && engvoTeacherDrillKind === 'lesson_topic') {
+      const axis = resolveTeacherLessonAxis({
+        sessionKind: engvoSessionKind,
+        drillKind: engvoTeacherDrillKind,
+        lessonId: engvoTeacherLessonId,
+        level: engvoCefrLevel,
+        sessionSeed: engvoTeacherSessionSeedRef.current,
+      })
+      if (axis.active) {
+        engvoTeacherEffectiveLessonIdRef.current = axis.effectiveLessonId
+        engvoTeacherLessonAxisRef.current = toTeacherLessonAxisPrompt(axis)
+      }
+    }
     engvoLastFinalUserTranscriptRef.current = ''
     setEngvoCallPhase('connecting')
     setEngvoErrorText(null)
@@ -3108,9 +3357,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             level: engvoCefrLevel,
             topic: settings.topic,
             kind: engvoSessionKind,
-            tense: engvoTeacherTense,
+            tense: (ensureTeacherAnyLiveAxes()?.current ?? resolveTeacherLiveTense()) as import('@/lib/types').TenseId,
             sentenceType: engvoTeacherSentenceType,
             speed: speechSpeedForCall,
+            teacherDrillKind: engvoTeacherDrillKind,
+            teacherLessonId: engvoTeacherLessonId,
+            teacherEffectiveLessonId: engvoTeacherEffectiveLessonIdRef.current,
+            sessionSeed: engvoTeacherSessionSeedRef.current,
+            teacherCurrentTense: engvoTeacherCurrentTenseRef.current,
+            teacherNextTense: engvoTeacherNextTenseRef.current,
           },
           handlers: {
             onEvent: (raw) => {
@@ -3290,8 +3545,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           level: engvoCefrLevel,
           speed: clampEngvoRealtimeSpeed(speechSpeedForCall, 'openai'),
           kind: engvoSessionKind,
-          tense: engvoTeacherTense,
+          tense: (ensureTeacherAnyLiveAxes()?.current ?? resolveTeacherLiveTense()) as import('@/lib/types').TenseId,
           sentenceType: engvoTeacherSentenceType,
+          teacherDrillKind: engvoTeacherDrillKind,
+          teacherLessonId: engvoTeacherLessonId,
+          teacherEffectiveLessonId: engvoTeacherEffectiveLessonIdRef.current,
+          sessionSeed: engvoTeacherSessionSeedRef.current,
+          teacherCurrentTense: engvoTeacherCurrentTenseRef.current,
+          teacherNextTense: engvoTeacherNextTenseRef.current,
         }),
         signal: sdpController.signal,
       }).finally(() => {
@@ -3341,13 +3602,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       suppressSettingsChangeBannerRef.current = false
     }
   }, [
+    buildEngvoLiveInstructions,
     clearEngvoTimeout,
     cleanupEngvoRuntime,
     engvoCallPhase,
     engvoCefrLevel,
     engvoProvider,
     engvoRealtimeVoice,
+    engvoSessionKind,
     engvoSpeechSpeedPreset,
+    engvoTeacherDrillKind,
+    engvoTeacherLessonId,
+    engvoTeacherSentenceType,
+    engvoTeacherTense,
     engvoXaiVoice,
     engvoXaiVoiceRotationMode,
     handleEngvoRealtimeMessage,
@@ -3524,6 +3791,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherCurrentTenseRef.current = null
+    engvoTeacherNextTenseRef.current = null
+    engvoTeacherUsedAnyTensesRef.current = []
+    engvoTeacherPostAttemptRotateArmedRef.current = false
   }, [])
 
   const handleEngvoTeacherTenseChange = useCallback(
@@ -3538,6 +3809,32 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const handleEngvoTeacherSentenceTypeChange = useCallback((sentenceType: SentenceType) => {
     setEngvoTeacherSentenceType(sentenceType)
     saveEngvoTeacherSentenceType(sentenceType)
+  }, [])
+
+  const handleEngvoTeacherDrillKindChange = useCallback((kind: EngvoTeacherDrillKind) => {
+    setEngvoTeacherDrillKind(kind)
+    saveEngvoTeacherDrillKind(kind)
+    engvoTeacherEffectiveLessonIdRef.current = null
+    engvoTeacherLessonAxisRef.current = null
+    if (kind === 'lesson_topic') {
+      setEngvoCefrLevel((prev) => {
+        const next = clampEngvoCefrForLessonAxis(prev, settings.audience)
+        if (next !== prev) saveEngvoCefrLevel(next)
+        return next
+      })
+      setEngvoTeacherLessonId((prev) => {
+        const normalized = normalizeEngvoTeacherLessonForLevel(prev, engvoCefrLevel)
+        saveEngvoTeacherLessonId(normalized)
+        return normalized
+      })
+    }
+  }, [engvoCefrLevel, settings.audience])
+
+  const handleEngvoTeacherLessonIdChange = useCallback((lessonId: string | null) => {
+    setEngvoTeacherLessonId(lessonId)
+    saveEngvoTeacherLessonId(lessonId)
+    engvoTeacherEffectiveLessonIdRef.current = null
+    engvoTeacherLessonAxisRef.current = null
   }, [])
 
   const handlePracticeTtsSpeedDefaultChange = useCallback((index: number) => {
@@ -3725,8 +4022,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       translationEffectiveLessonIdRef.current
                         ? { translationEffectiveLessonId: translationEffectiveLessonIdRef.current }
                         : {}),
+                      ...((settings.translationDrillKind ?? 'tense_drill') === 'tense_drill' &&
+                      settings.tenses.includes('all')
+                        ? {
+                            ...(translationCurrentDrillAxisRef.current
+                              ? { currentDrillAxis: translationCurrentDrillAxisRef.current }
+                              : {}),
+                            usedAnyTenses: translationUsedAnyTensesRef.current,
+                          }
+                        : {}),
                     }
-                  : {}),
+                  : settings.mode === 'dialogue' && settings.tenses.includes('all')
+                    ? {
+                        ...(dialogueCurrentDrillAxisRef.current
+                          ? { currentDrillAxis: dialogueCurrentDrillAxisRef.current }
+                          : {}),
+                        usedAnyTenses: dialogueUsedAnyTensesRef.current,
+                      }
+                    : {}),
               }),
               signal: controller.signal,
             })
@@ -3742,6 +4055,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               webSearchSourcesHiddenCount?: number
               webSearchTriggered?: boolean
               translationEffectiveLessonId?: string
+              currentDrillAxis?: {
+                tense: string
+                effectiveLevel: string
+                effectiveSentenceType: string
+              }
+              nextDrillAxis?: {
+                tense: string
+                effectiveLevel: string
+                effectiveSentenceType: string
+              }
+              advancedToNextDrill?: boolean
             }
             try {
               data = (await res.json()) as {
@@ -3755,6 +4079,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 webSearchSourcesHiddenCount?: number
                 webSearchTriggered?: boolean
                 translationEffectiveLessonId?: string
+                currentDrillAxis?: {
+                  tense: string
+                  effectiveLevel: string
+                  effectiveSentenceType: string
+                }
+                nextDrillAxis?: {
+                  tense: string
+                  effectiveLevel: string
+                  effectiveSentenceType: string
+                }
+                advancedToNextDrill?: boolean
               }
             } catch {
               throw new Error(res.ok ? 'Неверный ответ сервера.' : `Ошибка ${res.status}: ${res.statusText}`)
@@ -3798,6 +4133,35 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 translationEffectiveLessonIdRef.current = null
               } else if (effectiveLessonId) {
                 translationEffectiveLessonIdRef.current = effectiveLessonId
+              }
+              if (
+                data.currentDrillAxis &&
+                typeof data.currentDrillAxis.tense === 'string' &&
+                typeof data.currentDrillAxis.effectiveLevel === 'string' &&
+                typeof data.currentDrillAxis.effectiveSentenceType === 'string'
+              ) {
+                const nextAxis = {
+                  tense: data.currentDrillAxis.tense,
+                  effectiveLevel: data.currentDrillAxis.effectiveLevel,
+                  effectiveSentenceType: data.currentDrillAxis.effectiveSentenceType,
+                }
+                if (settings.mode === 'translation') {
+                  translationCurrentDrillAxisRef.current = nextAxis
+                  if (!translationUsedAnyTensesRef.current.includes(nextAxis.tense)) {
+                    translationUsedAnyTensesRef.current = [
+                      ...translationUsedAnyTensesRef.current,
+                      nextAxis.tense,
+                    ]
+                  }
+                } else if (settings.mode === 'dialogue') {
+                  dialogueCurrentDrillAxisRef.current = nextAxis
+                  if (!dialogueUsedAnyTensesRef.current.includes(nextAxis.tense)) {
+                    dialogueUsedAnyTensesRef.current = [
+                      ...dialogueUsedAnyTensesRef.current,
+                      nextAxis.tense,
+                    ]
+                  }
+                }
               }
               return {
                 content: text,
@@ -3945,7 +4309,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if ((settings.translationDrillKind ?? 'tense_drill') !== 'lesson_topic') {
       translationEffectiveLessonIdRef.current = null
     }
-  }, [settings.translationDrillKind])
+    if (
+      (settings.translationDrillKind ?? 'tense_drill') !== 'tense_drill' ||
+      !settings.tenses.includes('all')
+    ) {
+      translationCurrentDrillAxisRef.current = null
+      translationUsedAnyTensesRef.current = []
+    }
+    if (settings.mode !== 'dialogue' || !settings.tenses.includes('all')) {
+      dialogueCurrentDrillAxisRef.current = null
+      dialogueUsedAnyTensesRef.current = []
+    }
+  }, [settings.translationDrillKind, settings.tenses, settings.mode])
 
   const ensureFirstMessage = useCallback(async () => {
     if (firstMessageInFlightRef.current) return
@@ -3954,6 +4329,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     const isNewDialog = newDialogRef.current
     if (isNewDialog) {
       translationEffectiveLessonIdRef.current = null
+      translationCurrentDrillAxisRef.current = null
+      translationUsedAnyTensesRef.current = []
+      dialogueCurrentDrillAxisRef.current = null
+      dialogueUsedAnyTensesRef.current = []
     }
     setLoading(true)
     setRetryMessage(null)
@@ -4052,6 +4431,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     firstMessageInFlightRef.current = false
     dialogSeedRef.current = createDialogSeed()
     translationEffectiveLessonIdRef.current = null
+    translationCurrentDrillAxisRef.current = null
+    translationUsedAnyTensesRef.current = []
+    dialogueCurrentDrillAxisRef.current = null
+    dialogueUsedAnyTensesRef.current = []
     newDialogRef.current = true
     setMessages([])
     setSettingsAtLastSend(null)
@@ -4098,6 +4481,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherCurrentTenseRef.current = null
+    engvoTeacherNextTenseRef.current = null
+    engvoTeacherUsedAnyTensesRef.current = []
+    engvoTeacherPostAttemptRotateArmedRef.current = false
     engvoLastFinalUserTranscriptRef.current = ''
     setLoading(false)
     setSearchingInternet(false)
@@ -6247,6 +6634,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const retryFirstMessage = useCallback(async () => {
     const requestId = ++firstMessageRequestIdRef.current
     translationEffectiveLessonIdRef.current = null
+    translationCurrentDrillAxisRef.current = null
+    translationUsedAnyTensesRef.current = []
+    dialogueCurrentDrillAxisRef.current = null
+    dialogueUsedAnyTensesRef.current = []
     setMessages([])
     setSettingsAtLastSend(null)
     setLoading(true)
@@ -6299,6 +6690,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             : {}),
         })
         setSettings(mergedSettings)
+        ensureModeSettingsStore(mergedSettings)
+        persistActiveModeSlice(mergedSettings)
         if (entryBridge?.audienceChosen) {
           setHomeAudienceChosen(true)
           const view = resolveReturningHomeMenuView({
@@ -6330,6 +6723,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setEngvoSessionKind(loadEngvoSessionKind())
         setEngvoTeacherTense(loadEngvoTeacherTense(mergedSettings.audience))
         setEngvoTeacherSentenceType(loadEngvoTeacherSentenceType())
+        setEngvoTeacherDrillKind(loadEngvoTeacherDrillKind())
+        setEngvoTeacherLessonId(loadEngvoTeacherLessonId())
         setPracticeTtsSpeedDefaultIndex(loadPracticeTtsSpeedDefaultIndex())
         const loadedChatPattern = loadChatPattern()
         const loadedChatPatternTuningMap = loadChatPatternTuningMap()
@@ -9860,7 +10255,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         chatActive={dialogStarted}
         engvoVoiceMode={engvoVoiceMode}
         settings={settings}
-        onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}
+        onSettingsChange={(s) => {
+          setSettings((prev) =>
+            normalizeSettingsForAudience(applySettingsWithModeSlice(prev, s))
+          )
+        }}
         usage={usage}
         dialogueCorrectAnswers={dialogueCorrectAnswers}
         rewardsState={rewardsState}
@@ -9882,6 +10281,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoSessionKind={engvoSessionKind}
         engvoTeacherTense={engvoTeacherTense}
         engvoTeacherSentenceType={engvoTeacherSentenceType}
+        engvoTeacherDrillKind={engvoTeacherDrillKind}
+        engvoTeacherLessonId={engvoTeacherLessonId}
         engvoSettingsLocked={
           engvoVoiceMode &&
           (engvoCallPhase === 'connecting' ||
@@ -9893,6 +10294,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onEngvoSessionKindChange={handleEngvoSessionKindChange}
         onEngvoTeacherTenseChange={handleEngvoTeacherTenseChange}
         onEngvoTeacherSentenceTypeChange={handleEngvoTeacherSentenceTypeChange}
+        onEngvoTeacherDrillKindChange={handleEngvoTeacherDrillKindChange}
+        onEngvoTeacherLessonIdChange={handleEngvoTeacherLessonIdChange}
         practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
         onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
         chatPatternId={chatPatternId}

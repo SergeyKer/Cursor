@@ -131,13 +131,14 @@ export async function GET(request: NextRequest) {
     const maybeRewriteSessionUpdateFrame = (
       frame: EngvoXaiRelayForwardPayload
     ): EngvoXaiRelayForwardPayload => {
-      if (!rewriteEnabled || frame.binary) return frame
+      if (frame.binary) return frame
       const asString =
         typeof frame.payload === 'string' ? frame.payload : frame.payload.toString('utf8')
       if (!isRelaySessionUpdatePayload(asString)) return frame
       const rewritten = rewriteXaiRelaySessionUpdateInstructions({
         payload: asString,
         bootstrap,
+        rewriteEnabled,
       })
       return { payload: rewritten, binary: false }
     }

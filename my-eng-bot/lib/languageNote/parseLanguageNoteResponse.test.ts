@@ -562,4 +562,43 @@ ${JSON.stringify({
     expect(note!.voiceMode).toBe('mix')
     expect(note!.correctTarget).toBe('en')
   })
+
+  it('screenshot regression: drops Добавляем точку and swimming. highlight, keeps grammar', () => {
+    const original =
+      'I like swimming I like to walk through the streets in the evenings because in this country on the seaside they are a lot of bars and the restaurants. Where I can sit with my family to eat some delicious food?'
+    const correct =
+      'I like swimming. I like to walk through the streets in the evenings because in this country by the seaside, there are a lot of bars and restaurants. Where can I sit with my family to eat some delicious food?'
+    const note = parseLanguageNoteResponse(
+      JSON.stringify({
+        status: 'needs_fix',
+        original,
+        correct,
+        correctHighlights: ['swimming.', 'by the seaside', 'there are', 'restaurants', 'can I'],
+        correctReasons: [
+          "Добавляем точку после 'swimming' для завершенности мысли.",
+          'Правильный предлог: by the seaside вместо on the seaside.',
+          'Существительное во множественном числе: bars and restaurants без артикля.',
+        ],
+        better: null,
+        betterHighlights: [],
+        betterReasons: [],
+        betterAlternatives: [],
+        reviewTopics: [
+          { id: 'period', title: 'точка в конце' },
+          { id: 'seaside', title: 'by the seaside — у моря' },
+        ],
+        lessonId: null,
+      }),
+      original
+    )
+    expect(note!.status).toBe('needs_fix')
+    expect(note!.correctReasons).toEqual([
+      'Правильный предлог: by the seaside вместо on the seaside.',
+      'Существительное во множественном числе: bars and restaurants без артикля.',
+    ])
+    expect(note!.correctHighlights).not.toContain('swimming.')
+    expect(note!.correctHighlights).not.toContain('swimming')
+    expect(note!.correctHighlights).toContain('by the seaside')
+    expect(note!.reviewTopics).toEqual([{ id: 'seaside', title: 'by the seaside — у моря' }])
+  })
 })

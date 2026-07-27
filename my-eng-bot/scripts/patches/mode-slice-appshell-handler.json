@@ -1,0 +1,6 @@
+[
+  [
+    "        onSettingsChange={(s) => setSettings(normalizeSettingsForAudience(s))}",
+    "        onSettingsChange={(s) => {\n          setSettings((prev) =>\n            normalizeSettingsForAudience(applySettingsWithModeSlice(prev, s))\n          )\n        }}"
+  ]
+]

@@ -67,6 +67,12 @@ export function connectEngvoXaiRealtime(params: {
     speed?: number | string
     skipTopicChoice?: boolean
     topicPreset?: string | null
+    teacherDrillKind?: string
+    teacherLessonId?: string | null
+    teacherEffectiveLessonId?: string | null
+    sessionSeed?: string | null
+    teacherCurrentTense?: string | null
+    teacherNextTense?: string | null
   }
 }): EngvoXaiTransport {
   const model = params.model ?? ENGVO_XAI_MODEL

@@ -1,0 +1,6 @@
+[
+  [
+    "      const nextLevel: LevelId = 'all'\n      update({\n        audience: id,\n        level: nextLevel,\n        tenses: ['present_simple'],\n        topic: safeTopic,\n        translationLessonId: normalizeLessonForLevel(settings.translationLessonId, nextLevel),\n      })",
+    "      const nextLevel: LevelId = 'all'\n      update({\n        audience: id,\n        level: nextLevel,\n        tenses: settings.tenses.includes('all') ? (['all'] as import('@/lib/types').TenseId[]) : ['present_simple'],\n        topic: safeTopic,\n        translationLessonId: normalizeLessonForLevel(settings.translationLessonId, nextLevel),\n      })"
+  ]
+]

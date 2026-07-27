@@ -53,12 +53,57 @@ function buildEngvoTeacherLanguageRule(level: EngvoCefrLevel, audience: Audience
 }
 
 function buildEngvoTeacherDrillContract(params: EngvoTeacherDrillParams): string {
-  const tenseName = tenseLabel(params.tense)
   const sentenceName = sentenceTypeLabel(params.sentenceType)
+  const lessonAxis = params.lessonAxis
+  if (lessonAxis && lessonAxis.grammarFocusLines.length > 0) {
+    const grammarLines = lessonAxis.grammarFocusLines.map((line) => `- ${line}`).join('\n')
+    const seedHint =
+      lessonAxis.ruSeedOrientations.length > 0
+        ? `Lesson-aligned Russian seed orientations (structure examples only — vary wording; do not treat as a new topic list): ${lessonAxis.ruSeedOrientations
+            .slice(0, 6)
+            .map((s) => `"${s}"`)
+            .join('; ')}.`
+        : ''
+    return [
+      'Translation drill contract (voice):',
+      `Required lesson grammar (Primary axis for this turn):`,
+      `Lesson: ${lessonAxis.title}`,
+      grammarLines,
+      `Sentence type for the Russian drill and English target: ${sentenceName}.`,
+      'Each drill turn: exactly one Russian sentence (about 3-12 words) matching topic, Required lesson grammar, sentence type, and CEFR.',
+      'Required lesson grammar rule: write the Russian sentence so that its natural English translation clearly practices the lesson construction(s) listed under Required lesson grammar; do not drift to unrelated grammar just to fit a simpler template.',
+      'Short identity/location patterns that match Required lesson grammar (e.g. "Я студент", "Я из Испании") ARE allowed when they practice this lesson.',
+      'Topic thread: keep consecutive Russian drills in one mini-situation on the chosen topic — do not jump topics at random under the same lesson grammar.',
+      seedHint,
+      'Then ask the learner to translate it into English aloud.',
+      'Never narrate the drill without speaking the Russian sentence (forbidden: "Here\'s the first sentence" / "Here is your sentence" with no Cyrillic in the same turn).',
+      'Never give an English sentence as the line to translate; the drill line must be Russian (Cyrillic). Forbidden: English clause + "Translate into English."',
+      'Do not give multiple Russian sentences in one turn.',
+      'Do not use chat-only labels like "Ошибки:", "Комментарий:", or "__TRAN_REPEAT_REF__".',
+    ]
+      .filter(Boolean)
+      .join(' ')
+  }
+
+  const tenseName = tenseLabel(params.tense)
+  const nextTenseName =
+    params.nextTense && params.nextTense !== params.tense && params.nextTense !== 'all'
+      ? tenseLabel(params.nextTense)
+      : null
+  const dualAxisLines = nextTenseName
+    ? [
+        `Current drill axis (ERROR / Say / Скажи / reclaim): Required tense=${tenseName}; CEFR=${params.level}; sentence type=${sentenceName}.`,
+        `Next drill axis (SUCCESS only — next Russian drill after a correct attempt): Required tense=${nextTenseName}; CEFR=${params.level}; sentence type=${sentenceName}.`,
+        'ERROR path: use ONLY the current drill axis. Do not switch to the next-axis tense in Say/Скажи.',
+        'SUCCESS path: praise the current answer; the next Russian drill MUST follow the next drill axis tense.',
+      ]
+    : []
   return [
     'Translation drill contract (voice):',
     `Required tense for the English target: ${tenseName}.`,
     `Sentence type for the Russian drill and English target: ${sentenceName}.`,
+    `CEFR level for this drill: ${params.level}.`,
+    ...dualAxisLines,
     'Each drill turn: exactly one Russian sentence (about 3-12 words) matching topic, tense, sentence type, and CEFR.',
     'Topic thread: keep consecutive Russian drills in one mini-situation on the chosen topic — do not jump topics at random under the same tense.',
     'Then ask the learner to translate it into English aloud.',
@@ -67,6 +112,26 @@ function buildEngvoTeacherDrillContract(params: EngvoTeacherDrillParams): string
     'Do not give multiple Russian sentences in one turn.',
     'Do not use chat-only labels like "Ошибки:", "Комментарий:", or "__TRAN_REPEAT_REF__".',
   ].join(' ')
+}
+
+function buildTeacherAxisMatchLine(params: {
+  tense: TenseId
+  sentenceType: SentenceType
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
+}): string {
+  const sentenceName = sentenceTypeLabel(params.sentenceType)
+  if (params.lessonAxis && params.lessonAxis.grammarFocusLines.length > 0) {
+    const lines = params.lessonAxis.grammarFocusLines.slice(0, 4).join('; ')
+    return `Match Required lesson grammar (${params.lessonAxis.title}: ${lines}) and sentence type ${sentenceName}.`
+  }
+  return `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceName}.`
+}
+
+function buildTeacherLessonRuSeedCue(lessonAxis: EngvoTeacherDrillParams['lessonAxis']): string {
+  if (!lessonAxis?.ruSeedOrientations?.length) return ''
+  const sample = lessonAxis.ruSeedOrientations[0]?.trim()
+  if (!sample) return ''
+  return `Prefer a Russian drill aligned with lesson grammar (orientation e.g. «${sample}»); vary wording; do not switch to unrelated life-topic templates.`
 }
 
 function buildEngvoTeacherLiveDeliveryRule(level: EngvoCefrLevel, audience: Audience): string {
@@ -313,10 +378,12 @@ export function buildEngvoTeacherDrillReclaimInstructions(params: {
   level: EngvoCefrLevel
   tense: TenseId
   sentenceType: SentenceType
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   const translateHint = isLowLevel(params.level)
     ? 'Then a short varied translate prompt (e.g. «Переведи на английский.» / «Переведи.»).'
     : 'Then a short varied translate prompt (e.g. Translate into English. / Your turn — in English.).'
+  const seedCue = buildTeacherLessonRuSeedCue(params.lessonAxis)
   return [
     'Incomplete teacher turn reclaim — continue immediately.',
     'Do not greet again. Do not re-ask the topic. Do not discuss the learner\'s previous topic-naming line.',
@@ -324,11 +391,14 @@ export function buildEngvoTeacherDrillReclaimInstructions(params: {
     'Output only: one NEW Russian drill sentence (about 3-12 words) on the locked topic, then a translate cue — e.g. «Море сегодня тёплое. Переведи на английский.»',
     'If the previous turn used an English sentence as the drill, replace it — output Russian Cyrillic only, then translate cue.',
     'If the topic is unclear, silently use sea/travel; still give RU + translate — do not ask what they meant.',
-    `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
+    seedCue,
+    buildTeacherAxisMatchLine(params),
     translateHint,
     'Never say "Here\'s the first sentence" / "Here is your sentence" without uttering the Russian sentence in this same turn.',
     'Do not wait silently for the learner.',
-  ].join(' ')
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /** Per-response cue when SUCCESS re-posed the same Russian drill after an English attempt. */
@@ -337,11 +407,13 @@ export function buildEngvoTeacherDuplicateDrillReclaimInstructions(params: {
   tense: TenseId
   sentenceType: SentenceType
   previousRussian: string
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   const prev = params.previousRussian.trim().slice(0, 80)
   const translateHint = isLowLevel(params.level)
     ? 'Then a short varied translate prompt (e.g. «Переведи на английский.» / «Переведи.»).'
     : 'Then a short varied translate prompt (e.g. Translate into English. / Your turn — in English.).'
+  const seedCue = buildTeacherLessonRuSeedCue(params.lessonAxis)
   return [
     'Duplicate teacher drill reclaim — continue immediately.',
     'The previous Russian drill is already done after the learner\'s English attempt.',
@@ -349,10 +421,13 @@ export function buildEngvoTeacherDuplicateDrillReclaimInstructions(params: {
     'Output only: one DIFFERENT Russian drill sentence (about 3-12 words) on the locked topic, then a translate cue.',
     'Do not greet again. Do not re-ask the topic. Do not ask any question (no Where/What/How/Tell/«Расскажи»).',
     'Do not use Say: / Скажи: / You meant on this turn.',
-    `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
+    seedCue,
+    buildTeacherAxisMatchLine(params),
     translateHint,
     'Do not wait silently for the learner.',
-  ].join(' ')
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 /** Per-response cue when SUCCESS advanced after the learner echoed the Russian drill. */
@@ -361,6 +436,7 @@ export function buildEngvoTeacherRussianEchoReclaimInstructions(params: {
   tense: TenseId
   sentenceType: SentenceType
   previousRussian: string
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   const prev = params.previousRussian.trim().slice(0, 80)
   const sayHint = isLowLevel(params.level)
@@ -373,7 +449,7 @@ export function buildEngvoTeacherRussianEchoReclaimInstructions(params: {
     sayHint,
     'Do not greet. Do not re-ask the topic. Do not ask interview questions.',
     'Do not praise. Do not say Верно / That\'s it / Natural / next.',
-    `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
+    buildTeacherAxisMatchLine(params),
     'Do not wait silently for the learner.',
   ].join(' ')
 }
@@ -386,6 +462,7 @@ export function buildEngvoTeacherFirstTurnResponseInstructions(params: {
   tense: TenseId
   sentenceType: SentenceType
   openingSeedIndex?: number
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
 }): string {
   const pool = resolveTeacherOpeningPool(params.level, params.audience)
   const seed = pickOpeningSeed(pool, params.openingSeedIndex)
@@ -393,6 +470,7 @@ export function buildEngvoTeacherFirstTurnResponseInstructions(params: {
 
   if (params.skipTopicChoice && params.topicPreset?.trim()) {
     const topic = params.topicPreset.trim()
+    const seedCue = buildTeacherLessonRuSeedCue(params.lessonAxis)
     if (isLowLevel(params.level)) {
       return [
         'This is the first spoken turn of a teacher call.',
@@ -400,8 +478,11 @@ export function buildEngvoTeacherFirstTurnResponseInstructions(params: {
         `After the frame-greeting, give one Russian drill sentence about: ${topic}.`,
         'Then give a short varied translate prompt (e.g. «Переведи на английский.» / «Переведи.»).',
         'Do not ask what they want to talk about.',
-        `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
-      ].join(' ')
+        seedCue,
+        buildTeacherAxisMatchLine(params),
+      ]
+        .filter(Boolean)
+        .join(' ')
     }
     return [
       'This is the first spoken turn of a teacher call.',
@@ -409,8 +490,11 @@ export function buildEngvoTeacherFirstTurnResponseInstructions(params: {
       `After the frame-greeting, give one Russian drill sentence about: ${topic}.`,
       'Then give a short varied translate prompt (e.g. Translate into English. / Your turn — in English.).',
       'Do not ask what they want to talk about.',
-      `Match tense ${tenseLabel(params.tense)} and sentence type ${sentenceTypeLabel(params.sentenceType)}.`,
-    ].join(' ')
+      seedCue,
+      buildTeacherAxisMatchLine(params),
+    ]
+      .filter(Boolean)
+      .join(' ')
   }
 
   return [
@@ -428,6 +512,8 @@ export function buildEngvoTeacherRealtimeInstructions(params: {
   speechSpeed?: number
   skipTopicChoice?: boolean
   topicPreset?: string | null
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
+  nextTense?: TenseId | null
 }): string {
   const drillParams: EngvoTeacherDrillParams = {
     tense: params.tense,
@@ -436,6 +522,8 @@ export function buildEngvoTeacherRealtimeInstructions(params: {
     audience: params.audience,
     skipTopicChoice: params.skipTopicChoice,
     topicPreset: params.topicPreset,
+    lessonAxis: params.lessonAxis,
+    nextTense: params.nextTense ?? null,
   }
 
   const topicPresetLine =

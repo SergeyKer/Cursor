@@ -1,0 +1,10 @@
+[
+  [
+    "} from '@/lib/storage'\nimport {\n  appendFooterRewardSnapshot,",
+    "} from '@/lib/storage'\nimport {\n  applySettingsWithModeSlice,\n  ensureModeSettingsStore,\n  persistActiveModeSlice,\n} from '@/lib/modeSettingsSlice'\nimport {\n  appendFooterRewardSnapshot,"
+  ],
+  [
+    "        setSettings(mergedSettings)\n        if (entryBridge?.audienceChosen) {",
+    "        setSettings(mergedSettings)\n        ensureModeSettingsStore(mergedSettings)\n        persistActiveModeSlice(mergedSettings)\n        if (entryBridge?.audienceChosen) {"
+  ]
+]

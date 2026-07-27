@@ -30,15 +30,22 @@ import {
 } from '@/lib/engvo/constants'
 import {
   ENGVO_DEFAULT_SESSION_KIND,
+  ENGVO_DEFAULT_TEACHER_DRILL_KIND,
+  ENGVO_DEFAULT_TEACHER_LESSON_ID,
   ENGVO_DEFAULT_TEACHER_SENTENCE_TYPE,
   ENGVO_DEFAULT_TEACHER_TENSE,
   ENGVO_SESSION_KIND_STORAGE_KEY,
+  ENGVO_TEACHER_DRILL_KIND_STORAGE_KEY,
+  ENGVO_TEACHER_LESSON_ID_STORAGE_KEY,
   ENGVO_TEACHER_SENTENCE_TYPE_STORAGE_KEY,
   ENGVO_TEACHER_TENSE_STORAGE_KEY,
+  isEngvoTeacherDrillKind,
   isEngvoTeacherSentenceType,
   isEngvoTeacherTense,
   isEngvoVoiceSessionKind,
+  normalizeEngvoTeacherLessonId,
   sanitizeEngvoTeacherTenseForAudience,
+  type EngvoTeacherDrillKind,
   type EngvoVoiceSessionKind,
 } from '@/lib/engvo/sessionKind'
 import { sanitizeXaiVoiceShuffleRemaining } from '@/lib/engvo/xaiVoiceRotation'
@@ -288,6 +295,55 @@ export function saveEngvoTeacherSentenceType(value: SentenceType): void {
   if (!isEngvoTeacherSentenceType(value)) return
   try {
     localStorage.setItem(ENGVO_TEACHER_SENTENCE_TYPE_STORAGE_KEY, value)
+  } catch {
+    // ignore
+  }
+}
+
+export function loadEngvoTeacherDrillKind(): EngvoTeacherDrillKind {
+  if (typeof window === 'undefined') return ENGVO_DEFAULT_TEACHER_DRILL_KIND
+  try {
+    const raw = localStorage.getItem(ENGVO_TEACHER_DRILL_KIND_STORAGE_KEY)?.trim() ?? ''
+    return isEngvoTeacherDrillKind(raw) ? raw : ENGVO_DEFAULT_TEACHER_DRILL_KIND
+  } catch {
+    return ENGVO_DEFAULT_TEACHER_DRILL_KIND
+  }
+}
+
+export function saveEngvoTeacherDrillKind(value: EngvoTeacherDrillKind): void {
+  if (typeof window === 'undefined') return
+  if (!isEngvoTeacherDrillKind(value)) return
+  try {
+    localStorage.setItem(ENGVO_TEACHER_DRILL_KIND_STORAGE_KEY, value)
+  } catch {
+    // ignore
+  }
+}
+
+export function loadEngvoTeacherLessonId(): string | null {
+  if (typeof window === 'undefined') return ENGVO_DEFAULT_TEACHER_LESSON_ID
+  try {
+    const raw = localStorage.getItem(ENGVO_TEACHER_LESSON_ID_STORAGE_KEY)
+    if (raw == null) return ENGVO_DEFAULT_TEACHER_LESSON_ID
+    return normalizeEngvoTeacherLessonId(raw)
+  } catch {
+    return ENGVO_DEFAULT_TEACHER_LESSON_ID
+  }
+}
+
+export function saveEngvoTeacherLessonId(value: string | null): void {
+  if (typeof window === 'undefined') return
+  try {
+    if (value == null) {
+      localStorage.removeItem(ENGVO_TEACHER_LESSON_ID_STORAGE_KEY)
+      return
+    }
+    const normalized = normalizeEngvoTeacherLessonId(value)
+    if (normalized == null) {
+      localStorage.removeItem(ENGVO_TEACHER_LESSON_ID_STORAGE_KEY)
+      return
+    }
+    localStorage.setItem(ENGVO_TEACHER_LESSON_ID_STORAGE_KEY, normalized)
   } catch {
     // ignore
   }

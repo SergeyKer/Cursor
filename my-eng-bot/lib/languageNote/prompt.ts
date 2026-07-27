@@ -215,6 +215,7 @@ export function buildLanguageNoteSystemPrompt(
     '- Speech-to-text often omits . ? ! , and returns lowercase — that is NOT a learner mistake.',
     '- You MAY normalize punctuation/capitalization inside correct for readability (silently).',
     '- Do NOT write reasons about periods, question marks, commas, exclamation marks, or capitalization / capital letters / «с заглавной / с большой буквы».',
+    '- Forbidden reason examples: «Добавляем точку после…», «Нужна точка в конце», «Added a period after…».',
     '- Do NOT spend a correctReasons slot on capitalization or punctuation when real grammar/lexis fixes exist.',
     '- Do NOT highlight punctuation or case-only token changes (e.g. Did when original was did).',
     '- Do NOT create reviewTopics from punctuation or capitalization.',

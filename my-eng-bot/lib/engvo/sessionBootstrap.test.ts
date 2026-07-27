@@ -36,14 +36,27 @@ describe('Engvo session bootstrap snapshot', () => {
     expect(isEngvoSessionBootstrapRedundantUpdate(baseA, { ...baseA, kind: 'teacher' })).toBe(false)
   })
 
-  it('A→B→A: after refresh to B, return to A is not redundant; after refresh to A, redundant again', () => {
-    let bootstrap = baseA
-    expect(isEngvoSessionBootstrapRedundantUpdate(bootstrap, baseA)).toBe(true)
-
-    bootstrap = baseB
-    expect(isEngvoSessionBootstrapRedundantUpdate(bootstrap, baseA)).toBe(false)
-
-    bootstrap = baseA
-    expect(isEngvoSessionBootstrapRedundantUpdate(bootstrap, baseA)).toBe(true)
+  it('detects teacher drill/lesson axis changes', () => {
+    const teacher = buildEngvoSessionBootstrapSnapshot({
+      ...baseA,
+      kind: 'teacher',
+      teacherTense: 'present_simple',
+      teacherSentenceType: 'general',
+      teacherDrillKind: 'tense_drill',
+      teacherLessonId: 'all',
+      teacherEffectiveLessonId: null,
+    })
+    expect(
+      isEngvoSessionBootstrapRedundantUpdate(teacher, {
+        ...teacher,
+        teacherDrillKind: 'lesson_topic',
+      })
+    ).toBe(false)
+    expect(
+      isEngvoSessionBootstrapRedundantUpdate(teacher, {
+        ...teacher,
+        teacherEffectiveLessonId: '4',
+      })
+    ).toBe(false)
   })
 })

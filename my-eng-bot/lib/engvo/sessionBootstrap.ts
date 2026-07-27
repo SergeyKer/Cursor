@@ -4,7 +4,7 @@ import type {
   EngvoRealtimeVoice,
   EngvoXaiCallVoice,
 } from '@/lib/engvo/constants'
-import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
+import type { EngvoTeacherDrillKind, EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
 import type { Audience, SentenceType, TenseId, TopicId } from '@/lib/types'
 
 export type EngvoSessionBootstrapSnapshot = {
@@ -17,6 +17,9 @@ export type EngvoSessionBootstrapSnapshot = {
   kind: EngvoVoiceSessionKind
   teacherTense?: TenseId
   teacherSentenceType?: SentenceType
+  teacherDrillKind?: EngvoTeacherDrillKind
+  teacherLessonId?: string | null
+  teacherEffectiveLessonId?: string | null
 }
 
 export function buildEngvoSessionBootstrapSnapshot(
@@ -39,7 +42,10 @@ export function areEngvoSessionBootstrapSnapshotsEqual(
     a.provider === b.provider &&
     a.kind === b.kind &&
     (a.teacherTense ?? null) === (b.teacherTense ?? null) &&
-    (a.teacherSentenceType ?? null) === (b.teacherSentenceType ?? null)
+    (a.teacherSentenceType ?? null) === (b.teacherSentenceType ?? null) &&
+    (a.teacherDrillKind ?? null) === (b.teacherDrillKind ?? null) &&
+    (a.teacherLessonId ?? null) === (b.teacherLessonId ?? null) &&
+    (a.teacherEffectiveLessonId ?? null) === (b.teacherEffectiveLessonId ?? null)
   )
 }
 

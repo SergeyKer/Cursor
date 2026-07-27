@@ -1,0 +1,6 @@
+[
+  [
+    "    if (shouldShowTopic && topicLabel) {\n      return `${modeLabel} - ${topicLabel}, ${translationFocusLabel}, ${normalizedLevelShort}`\n    }\n    return `${modeLabel} - ${translationFocusLabel}, ${normalizedLevelShort}`",
+    "    const hideLevelInSummary =\n      isTranslationLessonTopic &&\n      typeof translationLessonId === 'string' &&\n      translationLessonId !== '' &&\n      translationLessonId !== 'all'\n    if (shouldShowTopic && topicLabel) {\n      return hideLevelInSummary\n        ? `${modeLabel} - ${topicLabel}, ${translationFocusLabel}`\n        : `${modeLabel} - ${topicLabel}, ${translationFocusLabel}, ${normalizedLevelShort}`\n    }\n    return hideLevelInSummary\n      ? `${modeLabel} - ${translationFocusLabel}`\n      : `${modeLabel} - ${translationFocusLabel}, ${normalizedLevelShort}`"
+  ]
+]

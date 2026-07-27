@@ -107,4 +107,18 @@ describe('parseCorrection', () => {
       ['Скажи: I read books every day.', 'Переведи далее: Я играю в футбол по выходным.'].join('\n')
     )
   })
+
+  it('скрывает Комментарий только про точку (STT)', () => {
+    const result = parseCorrection(
+      "Комментарий: Добавляем точку после 'swimming' для завершенности мысли."
+    )
+    expect(result.comment).toBeNull()
+  })
+
+  it('из смешанного комментария про точку оставляет грамматический хвост', () => {
+    const result = parseCorrection(
+      "Комментарий: Нужна точка в конце и исправить 'go' на 'went'."
+    )
+    expect(result.comment).toBe("исправить 'go' на 'went'.")
+  })
 })

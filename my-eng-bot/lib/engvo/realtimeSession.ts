@@ -113,6 +113,9 @@ export function buildEngvoXaiClientSessionUpdate(params: {
   instructions?: string
   voice: EngvoXaiCallVoice
   speed?: number
+  /** Live any-tense overrides; stripped by relay before upstream. */
+  teacherCurrentTense?: string | null
+  teacherNextTense?: string | null
 }): { type: 'session.update'; session: Record<string, unknown> } {
   const speed = clampEngvoRealtimeSpeed(params.speed ?? 1, 'xai')
   const session: Record<string, unknown> = {
@@ -138,6 +141,12 @@ export function buildEngvoXaiClientSessionUpdate(params: {
   }
   if (typeof params.instructions === 'string') {
     session.instructions = params.instructions
+  }
+  if (params.teacherCurrentTense) {
+    session.teacherCurrentTense = params.teacherCurrentTense
+  }
+  if (params.teacherNextTense) {
+    session.teacherNextTense = params.teacherNextTense
   }
   return {
     type: 'session.update',

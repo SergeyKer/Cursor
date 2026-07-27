@@ -1,0 +1,6 @@
+[
+  [
+    "  const engvoTeacherTenseOptions =\n    settings.audience === 'child'\n      ? TENSES.filter((t) => CHILD_TENSE_SET.has(t.id as (typeof CHILD_TENSES)[number]))\n      : TENSES.filter((t) => t.id !== 'all')",
+    "  const engvoTeacherTenseOptions = (() => {\n    const level = engvoCefrLevel ?? settings.level\n    const base = getAllowedTensesForLevel(level)\n    const concrete =\n      settings.audience === 'child'\n        ? base.filter((id) => CHILD_TENSE_SET.has(id as (typeof CHILD_TENSES)[number]))\n        : base.filter((id) => id !== 'all')\n    const allowed = withAnyTenseMenuOption(concrete)\n    const allowedSet = new Set(allowed)\n    return TENSES.filter((t) => allowedSet.has(t.id))\n  })()"
+  ]
+]

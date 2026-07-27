@@ -66,6 +66,12 @@ export function buildEngvoXaiRelayWsUrl(
     speed?: number | string
     skipTopicChoice?: boolean
     topicPreset?: string | null
+    teacherDrillKind?: string
+    teacherLessonId?: string | null
+    teacherEffectiveLessonId?: string | null
+    sessionSeed?: string | null
+    teacherCurrentTense?: string | null
+    teacherNextTense?: string | null
   }
 ): string {
   const protocol =
@@ -91,6 +97,18 @@ export function buildEngvoXaiRelayWsUrl(
     }
     if (bootstrap.skipTopicChoice) url.searchParams.set('skipTopicChoice', '1')
     if (bootstrap.topicPreset?.trim()) url.searchParams.set('topicPreset', bootstrap.topicPreset.trim())
+    if (bootstrap.teacherDrillKind) url.searchParams.set('teacherDrillKind', bootstrap.teacherDrillKind)
+    if (bootstrap.teacherLessonId) url.searchParams.set('teacherLessonId', bootstrap.teacherLessonId)
+    if (bootstrap.teacherEffectiveLessonId) {
+      url.searchParams.set('teacherEffectiveLessonId', bootstrap.teacherEffectiveLessonId)
+    }
+    if (bootstrap.sessionSeed?.trim()) url.searchParams.set('sessionSeed', bootstrap.sessionSeed.trim())
+    if (bootstrap.teacherCurrentTense) {
+      url.searchParams.set('teacherCurrentTense', bootstrap.teacherCurrentTense)
+    }
+    if (bootstrap.teacherNextTense) {
+      url.searchParams.set('teacherNextTense', bootstrap.teacherNextTense)
+    }
   }
   return url.toString()
 }
