@@ -6,11 +6,15 @@ import {
   pickOpeningSeed,
 } from '@/lib/engvo/openingSeeds'
 import {
+  buildEngvoTeacherAntiLoopReclaimInstructions,
+  buildEngvoTeacherMicroReasonReclaimInstructions,
   buildEngvoTeacherDrillReclaimInstructions,
   buildEngvoTeacherDuplicateDrillReclaimInstructions,
   buildEngvoTeacherRussianEchoReclaimInstructions,
   buildEngvoTeacherFirstTurnResponseInstructions,
   buildEngvoTeacherRealtimeInstructions,
+  TEACHER_ANTI_LOOP_RECLAIM_MARKER,
+  TEACHER_MICRO_REASON_RECLAIM_MARKER,
   TEACHER_RHYTHM_LOCK_MARKER,
 } from '@/lib/engvo/teacherPrompts'
 import {
@@ -331,6 +335,28 @@ describe('teacher prompts', () => {
     expect(text).toMatch(/Скажи:/)
     expect(text).toMatch(/Do NOT give a next Russian drill/i)
     expect(text).toMatch(/мы идем в школу/i)
+  })
+
+  it('anti-loop reclaim forbids second Say and requires NEW Russian drill', () => {
+    const text = buildEngvoTeacherAntiLoopReclaimInstructions({
+      level: 'a2',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toContain(TEACHER_ANTI_LOOP_RECLAIM_MARKER)
+    expect(text).toMatch(/Do NOT output Say:/i)
+    expect(text).toMatch(/NEW Russian drill/i)
+  })
+
+  it('micro-reason reclaim speaks contrast only and forbids Say/Скажи', () => {
+    const text = buildEngvoTeacherMicroReasonReclaimInstructions({
+      contrastLine: 'так: went — не так: go',
+    })
+    expect(text).toContain(TEACHER_MICRO_REASON_RECLAIM_MARKER)
+    expect(text).toContain('так: went — не так: go')
+    expect(text).toMatch(/Do NOT output Say:/i)
+    expect(text).toMatch(/Скажи:/)
+    expect(text).toMatch(/Do NOT give a next Russian drill/i)
   })
 
   it('drill contract forbids English sentence as the line to translate', () => {

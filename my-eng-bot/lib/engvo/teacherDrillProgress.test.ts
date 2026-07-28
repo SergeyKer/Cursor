@@ -188,19 +188,36 @@ describe('teacherDrillProgress', () => {
     expect(state.lastWasRussianEcho).toBe(true)
   })
 
-  it('other RU phrase is not echo; SUCCESS next commits', () => {
+  it('other RU phrase (cyrillic-only) → reclaim_russian_echo on SUCCESS', () => {
     const state = createTeacherDrillProgressState()
     commitTeacherDrillFromAssistant(
       state,
       'Мы идём в школу. Переведи.'
     )
     noteTeacherDrillUserAttempt(state, 'Давай про парк')
-    expect(state.lastWasRussianEcho).toBe(false)
+    expect(state.lastWasRussianEcho).toBe(true)
     const r = commitTeacherDrillFromAssistant(
       state,
       'Ок. Мы часто идём в парк. Переведи.'
     )
-    expect(r.action).toBe('commit')
+    expect(r.action).toBe('reclaim_russian_echo')
+  })
+
+  it('topic naming before first drill does not set non-EN flag', () => {
+    const state = createTeacherDrillProgressState()
+    noteTeacherDrillUserAttempt(state, 'Путешествия с семьей на море.')
+    expect(state.lastWasRussianEcho).toBe(false)
+    expect(state.lastDrillRuNormalized).toBeNull()
+  })
+
+  it('partial RU non-echo is non-EN', () => {
+    const state = createTeacherDrillProgressState()
+    commitTeacherDrillFromAssistant(
+      state,
+      'Мы едем на море с семьей. Переведи на английский.'
+    )
+    noteTeacherDrillUserAttempt(state, 'Я еду на море.')
+    expect(state.lastWasRussianEcho).toBe(true)
   })
 
   it('echo + ERROR Скажи → ignore and clears echo flag', () => {

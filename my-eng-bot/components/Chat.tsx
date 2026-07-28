@@ -49,6 +49,7 @@ import {
   shouldUseMediaRecorderFallback,
   sttLangFromLocale,
 } from '@/lib/sttClient'
+import { resolveDialogueSttLang } from '@/lib/dialogueMicLocale'
 import { normalizeWebSearchSourceUrl } from '@/lib/openAiWebSearchShared'
 import type { ChatMessage as ChatMessageType, Settings } from '@/lib/types'
 import {
@@ -59,6 +60,7 @@ import {
 import { isErrorLikeAssistantMessage } from '@/lib/errorLikeAssistantMessage'
 import { resolveEngvoMeterFlags } from '@/lib/engvo/meterFlags'
 import { hasEngvoAssistantChatBubble, type EngvoCallPhase } from '@/lib/engvo/state'
+import type { EngvoVoiceSessionKind } from '@/lib/engvo/sessionKind'
 import EngvoCallTimer from '@/components/EngvoCallTimer'
 import { EngvoCallTranslationButton } from '@/components/EngvoCallTranslationButton'
 import { TranslationButtonDot, type TranslationDotState } from '@/components/TranslationButtonDot'
@@ -180,6 +182,8 @@ interface ChatProps {
     callStartedAt?: number | null
     showAssistantPending: boolean
     assistantIndicatorText: string
+    /** free_call | teacher — UI ERROR cue only for teacher. */
+    sessionKind?: EngvoVoiceSessionKind
     onStartCall: () => void
     onHangUp: () => void
     onVoiceChange: (voice: EngvoRealtimeVoice) => void
@@ -411,6 +415,8 @@ function buildAssistantSections(params: {
   translationHeadingWelcome?: boolean
   /** Звонок Engvo: emerald-карточка без UI-label «Скажи:» (маркер в тексте модели для парсера остаётся). */
   isEngvoCall?: boolean
+  /** Teacher voice only: never showOnlyRepeat emerald; cue even with empty correction. */
+  isEngvoTeacherCall?: boolean
   /** Engvo ERROR with correction + Say:/Скажи: — one bubble, bold marker in UI. */
   engvoRepeatCue?: EngvoAssistantRepeatCue | null
 }): AssistantSection[] {
@@ -433,10 +439,13 @@ function buildAssistantSections(params: {
     mode,
     translationHeadingWelcome = true,
     isEngvoCall = false,
+    isEngvoTeacherCall = false,
     engvoRepeatCue = null,
   } = params
   const hasEngvoCorrectionCue = Boolean(
-    isEngvoCall && engvoRepeatCue?.correction.trim() && engvoRepeatCue.repeatText.trim()
+    isEngvoCall &&
+      engvoRepeatCue?.repeatText.trim() &&
+      (isEngvoTeacherCall || engvoRepeatCue.correction.trim())
   )
 
   if (mode === 'translation' && translationProtocolStatus === 'junk_repeat') {
@@ -568,7 +577,7 @@ function buildAssistantSections(params: {
     })
   } else if (
     !hidePromptBlocks &&
-    mainBefore &&
+    (mainBefore || hasEngvoCorrectionCue) &&
     !hideRussianNonQuestionMainBefore &&
     !isTranslationErrorCoach
   ) {
@@ -716,17 +725,21 @@ export function buildAssistantSectionsForTranslationJunkRepeatTest(options: {
 export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
   repeatTextForCard: string
   isEngvoCall?: boolean
+  isEngvoTeacherCall?: boolean
   showOnlyRepeat?: boolean
   mainAfter?: string
   mainBefore?: string
   engvoRepeatCue?: EngvoAssistantRepeatCue | null
 }): AssistantSection[] {
+  const isEngvoTeacherCall = options.isEngvoTeacherCall ?? false
+  const showOnlyRepeat =
+    options.showOnlyRepeat ?? (isEngvoTeacherCall ? false : true)
   return buildAssistantSections({
     comment: null,
     translationErrorCoachUi: false,
     translationProtocolStatus: 'prompt_only',
     translationSuccessPraiseCard: false,
-    showOnlyRepeat: options.showOnlyRepeat ?? true,
+    showOnlyRepeat,
     hidePromptBlocks: false,
     repeatTextForCard: options.repeatTextForCard,
     mainBefore: options.mainBefore ?? '',
@@ -735,6 +748,7 @@ export function buildAssistantSectionsForEngvoCallRepeatTest(options: {
     mainAfter: options.mainAfter ?? '',
     mode: 'communication',
     isEngvoCall: options.isEngvoCall ?? true,
+    isEngvoTeacherCall,
     engvoRepeatCue: options.engvoRepeatCue ?? null,
   })
 }
@@ -1444,7 +1458,12 @@ export default function Chat({
             })
             const data = (await res.json()) as { text?: string; error?: string }
             if (!res.ok || !data.text) {
-              failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              const err = (data.error ?? '').toLowerCase()
+              if (/not configured|missing_key|stt is not configured/i.test(err)) {
+                failVoiceSoft('[Распознавание речи на сервере не настроено. Введите текст.]')
+              } else {
+                failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              }
               return
             }
             const correctedText = await finalizeVoiceTranscript(data.text.trim())
@@ -1762,6 +1781,26 @@ export default function Chat({
       }
     }
 
+    if (settings.mode === 'dialogue') {
+      const dialogueLang = resolveDialogueSttLang(forceNextMicLang)
+      if (dialogueLang === 'auto') {
+        await startMediaRecorderFallback('auto')
+      } else {
+        const locale = dialogueLang === 'ru' ? 'ru-RU' : 'en-US'
+        const useFallback = shouldUseMediaRecorderFallback({
+          hasSpeechRecognition: Boolean(SpeechRecognitionAPI),
+          isIosChrome,
+        })
+        if (useFallback) {
+          await startMediaRecorderFallback(dialogueLang)
+        } else {
+          startBrowserSpeechRecognition(locale)
+        }
+      }
+      if (forceNextMicLang) onConsumeForceNextMicLang?.()
+      return
+    }
+
     if (isCommunicationMixMode) {
       const mixHasBrowserSpeechRecognition = Boolean(SpeechRecognitionAPI)
       if (mixHasBrowserSpeechRecognition) {
@@ -1884,6 +1923,8 @@ export default function Chat({
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
   const typingDelayTimerRef = useRef<number | null>(null)
   const isEngvoActive = Boolean(engvo?.active)
+  const isEngvoTeacherCall =
+    isEngvoActive && engvo?.sessionKind === 'teacher'
   const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
   /** Нижний bootstrap-индикатор Engvo: родитель может на один кадр отставать от messages - не показываем, если пузырь уже в ленте. */
   const engvoBootstrapTypingActive =
@@ -2169,14 +2210,13 @@ export default function Chat({
         }
       }
       const maxTop = Math.max(0, el.scrollHeight - el.clientHeight)
-      el.scrollTo({ top: maxTop, behavior: 'smooth' })
+      el.scrollTo({ top: maxTop, behavior: 'auto' })
     })
   }, [
     messages.length,
     chatFeedScrollTailKey,
     isLearningFlow,
     engvo?.showAssistantPending,
-    canShowTypingIndicator,
   ])
 
   useDialogFeedKeyboardScroll(scrollContainerRef, !isEngvoActive)
@@ -2286,6 +2326,7 @@ export default function Chat({
                       bubblePosition={bubblePosition}
                       engvoSlideEnter={feedSlideEnter}
                       isEngvoCall={isEngvoActive}
+                      isEngvoTeacherCall={isEngvoTeacherCall}
                       engvoCallInProgress={engvoCallInProgress}
                       communicationVoiceInputMode={communicationVoiceInputMode}
                       onRequestTranslation={onRequestTranslation}
@@ -2712,6 +2753,7 @@ function MessageBubble({
   bubblePosition,
   engvoSlideEnter = false,
   isEngvoCall = false,
+  isEngvoTeacherCall = false,
   engvoCallInProgress = false,
   communicationVoiceInputMode,
   onRequestTranslation,
@@ -2736,6 +2778,8 @@ function MessageBubble({
   engvoSlideEnter?: boolean
   /** Активен звонок Engvo - показываем «Перевод_звонок», скрываем обычную «Перевод». */
   isEngvoCall?: boolean
+  /** Teacher voice: no emerald showOnlyRepeat; cue with empty correction OK. */
+  isEngvoTeacherCall?: boolean
   /** Live Engvo call (before hang-up) — language-note `?` stays hidden. */
   engvoCallInProgress?: boolean
   communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
@@ -3006,8 +3050,13 @@ function MessageBubble({
   let showOnlyRepeat = !isTranslationMode && Boolean(repeatTextForCard)
   if (isEngvoCall && engvoRepeatCue) {
     effectiveMainBefore = engvoRepeatCue.correction
-    // correction + Say/Скажи → one bubble; marker-only → emerald as before
-    showOnlyRepeat = !engvoRepeatCue.correction.trim()
+    if (isEngvoTeacherCall) {
+      // Teacher: never emerald-only; one bubble with cue (marker-only OK).
+      showOnlyRepeat = false
+    } else {
+      // free_call / non-teacher Engvo: correction + Say → one bubble; marker-only → emerald
+      showOnlyRepeat = !engvoRepeatCue.correction.trim()
+    }
   }
   // Источник истины: в error-repeat показываем только коррекционные карточки.
   const hideTranslationPromptBlocks =
@@ -3017,8 +3066,10 @@ function MessageBubble({
 
   /** После разбора перевода: для «Перевод» в панели нужен актуальный repeat/тело задания. */
   const engvoSpeakText =
-    isEngvoCall && engvoRepeatCue?.correction.trim()
-      ? [engvoRepeatCue.correction, `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`].join(' ')
+    isEngvoCall && engvoRepeatCue?.repeatText.trim()
+      ? engvoRepeatCue.correction.trim()
+        ? [engvoRepeatCue.correction, `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`].join(' ')
+        : `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`
       : null
   const textToTranslate = engvoSpeakText || repeatTextForCard || rest || visibleContent
 
@@ -3117,8 +3168,13 @@ function MessageBubble({
         mode,
         translationHeadingWelcome: translationMainDrillHeadingWelcome,
         isEngvoCall,
+        isEngvoTeacherCall,
         engvoRepeatCue:
-          isEngvoCall && engvoRepeatCue?.correction.trim() ? engvoRepeatCue : null,
+          isEngvoCall && engvoRepeatCue?.repeatText.trim()
+            ? isEngvoTeacherCall || engvoRepeatCue.correction.trim()
+              ? engvoRepeatCue
+              : null
+            : null,
       })
 
   React.useLayoutEffect(() => {

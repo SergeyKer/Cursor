@@ -116,6 +116,32 @@ export function isTeacherRussianDrillEcho(
   return normalizeTeacherDrillRu(t) === lastDrillRuNormalized
 }
 
+/** Cyrillic present, no Latin letters — non-English attempt on a RU→EN drill. */
+export function isTeacherCyrillicOnlyInput(userText: string): boolean {
+  const t = userText.trim()
+  if (!t) return false
+  if (!/[А-Яа-яЁё]/.test(t)) return false
+  if (/[A-Za-z]/.test(t)) return false
+  return true
+}
+
+/**
+ * Non-English drill answer: exact echo OR other cyrillic-only (not meta).
+ * Used to reclaim if the model wrongly advances SUCCESS.
+ */
+export function isTeacherNonEnglishDrillAnswer(
+  userText: string,
+  lastDrillRuNormalized: string | null
+): boolean {
+  if (!lastDrillRuNormalized) return false
+  const t = userText.trim()
+  if (!t) return false
+  if (looksLikeTeacherEnglishAttempt(t)) return false
+  if (REFUSE_META_RE.test(t) || RU_META_RE.test(t)) return false
+  if (isTeacherRussianDrillEcho(t, lastDrillRuNormalized)) return true
+  return isTeacherCyrillicOnlyInput(t)
+}
+
 export function noteTeacherDrillUserAttempt(
   state: TeacherDrillProgressState,
   userText: string
@@ -128,7 +154,7 @@ export function noteTeacherDrillUserAttempt(
     return state
   }
 
-  state.lastWasRussianEcho = isTeacherRussianDrillEcho(
+  state.lastWasRussianEcho = isTeacherNonEnglishDrillAnswer(
     userText,
     state.lastDrillRuNormalized
   )

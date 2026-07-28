@@ -29,6 +29,11 @@ export function sttLangFromLocale(locale: 'ru-RU' | 'en-US'): 'ru' | 'en' {
   return locale.startsWith('ru') ? 'ru' : 'en'
 }
 
+/**
+ * Speech locale for communication / translation mic.
+ * Dialogue mic language is resolved in `resolveDialogueSttLang` (Chat early branch);
+ * this helper’s `en-US` default must not be used for dialogue mic.
+ */
 export function resolvePreferredSpeechLocale(params: {
   mode: 'dialogue' | 'translation' | 'communication'
   communicationInputExpectedLang: 'ru' | 'en'

@@ -287,10 +287,13 @@ import type { EngvoRealtimeReplayItem } from '@/lib/engvo/realtimeReplay'
 import {
   buildEngvoContinuationResponseInstructions,
   buildEngvoFirstTurnResponseInstructions,
+  buildEngvoTeacherAntiLoopReclaimResponseInstructions,
   buildEngvoTeacherDrillReclaimResponseInstructions,
   buildEngvoTeacherDuplicateDrillReclaimResponseInstructions,
+  buildEngvoTeacherMicroReasonReclaimResponseInstructions,
   buildEngvoTeacherRussianEchoReclaimResponseInstructions,
 } from '@/lib/engvo/instructions'
+import { ensureTeacherErrorMicroReason } from '@/lib/engvo/teacherErrorMicroReason'
 import { isIncompleteTeacherAssistantTurn } from '@/lib/engvo/teacherDrillCompleteness'
 import {
   commitTeacherDrillFromAssistant,
@@ -298,6 +301,14 @@ import {
   noteTeacherDrillUserAttempt,
   resetTeacherDrillProgress,
 } from '@/lib/engvo/teacherDrillProgress'
+import {
+  applyTeacherErrorRepeatGate,
+  createTeacherErrorRepeatGateState,
+  noteErrorRepeatCompleteDrill,
+  noteErrorRepeatUserTry,
+  resetTeacherErrorRepeatGate,
+  type TeacherErrorRepeatGateState,
+} from '@/lib/engvo/teacherErrorRepeatGate'
 import {
   advanceTeacherAnyAxes,
   resolveTeacherAnyAxes,
@@ -1116,7 +1127,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const engvoTeacherAwaitingFirstDrillRef = React.useRef(false)
   const engvoTeacherReclaimUsedThisUserTurnRef = React.useRef(false)
   const engvoTeacherReclaimInFlightRef = React.useRef(false)
+  const engvoTeacherMicroReasonAudioOnlyRef = React.useRef(false)
   const engvoTeacherDrillProgressRef = React.useRef(createTeacherDrillProgressState())
+  const engvoTeacherErrorRepeatGateRef = React.useRef<TeacherErrorRepeatGateState>(
+    createTeacherErrorRepeatGateState()
+  )
+  const maybeReclaimTeacherAntiLoopRef = React.useRef<() => boolean>(() => false)
+  const maybeReclaimTeacherMicroReasonRef = React.useRef<(contrastLine: string) => boolean>(
+    () => false
+  )
   /** Preference `all`: live current/next; never written back to engvoTeacherTense storage. */
   const engvoTeacherCurrentTenseRef = React.useRef<string | null>(null)
   const engvoTeacherNextTenseRef = React.useRef<string | null>(null)
@@ -1658,7 +1677,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const commitEngvoAssistantText = useCallback(
     (text: string, responseId?: string | null): boolean => {
       const rawText = prepareEngvoAssistantRawText(text)
-      const cleanText = guardEngvoAssistantContent(rawText)
+      let cleanText = guardEngvoAssistantContent(rawText)
       if (!cleanText) return false
       const id = responseId ?? engvoAssistantResponseIdRef.current
       if (id) {
@@ -1666,12 +1685,77 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         engvoCommittedResponseIdsRef.current.add(id)
       }
 
-      let teacherMatchAttach: ReturnType<typeof resolveTeacherMatchAttach> = null
+      if (engvoTeacherMicroReasonAudioOnlyRef.current) {
+        engvoTeacherMicroReasonAudioOnlyRef.current = false
+        engvoTeacherReclaimInFlightRef.current = false
+        console.info('[engvo] teacher-reclaim', {
+          reason: 'micro_reason',
+          audioOnly: true,
+          preview: cleanText.slice(0, 80),
+        })
+        resetEngvoAssistantTurn()
+        setEngvoCallPhase('listening')
+        setEngvoErrorText(null)
+        return false
+      }
+
+      let errorGateBlocked = false
+      let shouldAntiLoopReclaim = false
+      let microReasonContrastLine: string | null = null
       if (
         engvoSessionKindRef.current === 'teacher' &&
         engvoTeacherPhaseRef.current === 'drill'
       ) {
-        const extracted = extractTeacherCorrection(rawText || cleanText)
+        const policy = applyTeacherErrorRepeatGate(
+          engvoTeacherErrorRepeatGateRef.current,
+          rawText || cleanText
+        )
+        engvoTeacherErrorRepeatGateRef.current = policy.state
+        if (policy.armed || policy.blocked) {
+          console.info('[engvo] teacher-error-gate', {
+            action: policy.blocked ? 'block' : 'arm',
+            preview: (rawText || cleanText).slice(0, 80),
+          })
+        }
+        if (policy.blocked) {
+          errorGateBlocked = true
+          shouldAntiLoopReclaim = policy.shouldAntiLoopReclaim
+          const strippedGuarded = guardEngvoAssistantContent(policy.displayText)
+          cleanText = strippedGuarded
+        }
+      }
+
+      let sourceText = rawText || cleanText
+      if (
+        engvoSessionKindRef.current === 'teacher' &&
+        engvoTeacherPhaseRef.current === 'drill' &&
+        !errorGateBlocked
+      ) {
+        const micro = ensureTeacherErrorMicroReason(sourceText, {
+          userText: engvoLastFinalUserTranscriptRef.current.trim(),
+          level: engvoCefrLevel,
+        })
+        if (micro.patched) {
+          const guarded = guardEngvoAssistantContent(micro.text)
+          if (guarded) {
+            cleanText = guarded
+            sourceText = micro.text
+            microReasonContrastLine = micro.contrastLine
+            console.info('[engvo] teacher-micro-reason', {
+              patched: true,
+              preview: sourceText.slice(0, 80),
+            })
+          }
+        }
+      }
+
+      let teacherMatchAttach: ReturnType<typeof resolveTeacherMatchAttach> = null
+      if (
+        engvoSessionKindRef.current === 'teacher' &&
+        engvoTeacherPhaseRef.current === 'drill' &&
+        !errorGateBlocked
+      ) {
+        const extracted = extractTeacherCorrection(sourceText)
         const userText = engvoLastFinalUserTranscriptRef.current.trim()
         if (extracted.corrected && userText) {
           recordTeacherCorrectionSignal({
@@ -1692,7 +1776,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           )
         }
         teacherMatchAttach = resolveTeacherMatchAttach({
-          assistantRawText: rawText || cleanText,
+          assistantRawText: sourceText,
           userText,
         })
       }
@@ -1700,68 +1784,88 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       markEngvoAssistantAheadOfPendingUserTranscript()
       engvoLastMeaningfulActivityAtRef.current = Date.now()
       engvoGotAssistantForCurrentUserTurnRef.current = true
-      setMessages((prev) => {
-        const withoutDial = prev.filter((m) => !m.engvoServiceLine)
-        const streamingIndex = engvoStreamingAssistantIndexRef.current
-        let nextMessages = withoutDial
-        if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < withoutDial.length) {
-          const candidate = withoutDial[streamingIndex]
-          if (candidate?.role === 'assistant') {
-            const updated = [...withoutDial]
-            let patched = {
-              ...candidate,
-              content: cleanText,
-              engvoServiceLine: undefined,
+
+      if (cleanText.trim()) {
+        setMessages((prev) => {
+          const withoutDial = prev.filter((m) => !m.engvoServiceLine)
+          const streamingIndex = engvoStreamingAssistantIndexRef.current
+          let nextMessages = withoutDial
+          if (streamingIndex !== null && streamingIndex >= 0 && streamingIndex < withoutDial.length) {
+            const candidate = withoutDial[streamingIndex]
+            if (candidate?.role === 'assistant') {
+              const updated = [...withoutDial]
+              let patched = {
+                ...candidate,
+                content: cleanText,
+                engvoServiceLine: undefined,
+              }
+              if (id) {
+                const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
+                if (pending) {
+                  engvoPendingTranslationByResponseIdRef.current.delete(id)
+                  patched = {
+                    ...patched,
+                    translation: pending.translation,
+                    translationError: pending.translationError,
+                  }
+                }
+              }
+              updated[streamingIndex] = patched
+              nextMessages = updated
+              return patchMessagesWithTeacherMatchAttach(nextMessages, teacherMatchAttach)
             }
-            if (id) {
-              const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
-              if (pending) {
-                engvoPendingTranslationByResponseIdRef.current.delete(id)
-                patched = {
-                  ...patched,
+          }
+          const last = withoutDial[withoutDial.length - 1]
+          const lastNormalized = normalizeForEchoCompare(last?.content ?? '')
+          const nextNormalized = normalizeForEchoCompare(cleanText)
+          if (
+            last?.role === 'assistant' &&
+            last.engvoLocalWelcome !== true &&
+            !last.engvoServiceLine &&
+            last.content.trim() !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT &&
+            lastNormalized === nextNormalized
+          ) {
+            return patchMessagesWithTeacherMatchAttach(withoutDial, teacherMatchAttach)
+          }
+          const assistantMsg: ChatMessage = { role: 'assistant', content: cleanText }
+          nextMessages = [...withoutDial, assistantMsg]
+          if (id) {
+            const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
+            if (pending) {
+              engvoPendingTranslationByResponseIdRef.current.delete(id)
+              const idx = findAssistantIndexByTranslationText(nextMessages, nextMessages.length - 1, cleanText)
+              if (nextMessages[idx]?.role === 'assistant') {
+                const patched = [...nextMessages]
+                patched[idx] = {
+                  ...patched[idx],
                   translation: pending.translation,
                   translationError: pending.translationError,
                 }
+                return patchMessagesWithTeacherMatchAttach(patched, teacherMatchAttach)
               }
             }
-            updated[streamingIndex] = patched
-            nextMessages = updated
-            return patchMessagesWithTeacherMatchAttach(nextMessages, teacherMatchAttach)
           }
-        }
-        const last = withoutDial[withoutDial.length - 1]
-        const lastNormalized = normalizeForEchoCompare(last?.content ?? '')
-        const nextNormalized = normalizeForEchoCompare(cleanText)
-        if (
-          last?.role === 'assistant' &&
-          last.engvoLocalWelcome !== true &&
-          !last.engvoServiceLine &&
-          last.content.trim() !== ENGVO_CALL_FINISHED_ASSISTANT_TEXT &&
-          lastNormalized === nextNormalized
-        ) {
-          return patchMessagesWithTeacherMatchAttach(withoutDial, teacherMatchAttach)
-        }
-        const assistantMsg: ChatMessage = { role: 'assistant', content: cleanText }
-        nextMessages = [...withoutDial, assistantMsg]
-        if (id) {
-          const pending = engvoPendingTranslationByResponseIdRef.current.get(id)
-          if (pending) {
-            engvoPendingTranslationByResponseIdRef.current.delete(id)
-            const idx = findAssistantIndexByTranslationText(nextMessages, nextMessages.length - 1, cleanText)
-            if (nextMessages[idx]?.role === 'assistant') {
-              const patched = [...nextMessages]
-              patched[idx] = {
-                ...patched[idx],
-                translation: pending.translation,
-                translationError: pending.translationError,
-              }
-              return patchMessagesWithTeacherMatchAttach(patched, teacherMatchAttach)
-            }
-          }
-        }
-        return patchMessagesWithTeacherMatchAttach(nextMessages, teacherMatchAttach)
-      })
+          return patchMessagesWithTeacherMatchAttach(nextMessages, teacherMatchAttach)
+        })
+      }
+
       resetEngvoAssistantTurn()
+      if (shouldAntiLoopReclaim) {
+        const reclaimStarted = maybeReclaimTeacherAntiLoopRef.current()
+        if (!reclaimStarted) {
+          setEngvoCallPhase('listening')
+        }
+        setEngvoErrorText(null)
+        return reclaimStarted
+      }
+      if (microReasonContrastLine) {
+        const reclaimStarted = maybeReclaimTeacherMicroReasonRef.current(microReasonContrastLine)
+        if (!reclaimStarted) {
+          setEngvoCallPhase('listening')
+        }
+        setEngvoErrorText(null)
+        return reclaimStarted
+      }
       const reclaimStarted = maybeReclaimTeacherDrillRef.current(rawText)
       if (!reclaimStarted) {
         setEngvoCallPhase('listening')
@@ -1770,6 +1874,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       return reclaimStarted
     },
     [
+      engvoCefrLevel,
       guardEngvoAssistantContent,
       markEngvoAssistantAheadOfPendingUserTranscript,
       pushCallReviewBufferItem,
@@ -2003,8 +2108,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherMicroReasonAudioOnlyRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherErrorRepeatGateRef.current = resetTeacherErrorRepeatGate()
     engvoTeacherCurrentTenseRef.current = null
     engvoTeacherNextTenseRef.current = null
     engvoTeacherUsedAnyTensesRef.current = []
@@ -2296,6 +2403,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         rawText
       )
       if (progress.action === 'commit') {
+        engvoTeacherErrorRepeatGateRef.current = noteErrorRepeatCompleteDrill(
+          engvoTeacherErrorRepeatGateRef.current
+        )
         if (
           engvoTeacherTense === 'all' &&
           engvoTeacherDrillKind === 'tense_drill' &&
@@ -2409,6 +2519,89 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [engvoCefrLevel, engvoTeacherDrillKind, engvoTeacherSentenceType, engvoTeacherTense, engvoCefrLevel, engvoRealtimeVoice, engvoSpeechSpeedPreset, engvoXaiVoice, buildEngvoLiveInstructions, ensureTeacherAnyLiveAxes, resolveTeacherLiveTense, sendEngvoRealtimeEvent, settings.audience]
   )
   maybeReclaimTeacherDrillRef.current = maybeReclaimTeacherDrill
+
+  const maybeReclaimTeacherAntiLoop = useCallback((): boolean => {
+    if (engvoSessionKindRef.current !== 'teacher') return false
+    if (engvoTeacherReclaimInFlightRef.current || engvoTeacherReclaimUsedThisUserTurnRef.current) {
+      console.info('[engvo] teacher-reclaim', {
+        skip: 'reclaim_budget',
+        reason: 'error_anti_loop',
+      })
+      return false
+    }
+    engvoTeacherReclaimUsedThisUserTurnRef.current = true
+    engvoTeacherReclaimInFlightRef.current = true
+    setEngvoCallPhase('assistantPending')
+    const sent = sendEngvoRealtimeEvent({
+      type: 'response.create',
+      response: {
+        instructions: buildEngvoTeacherAntiLoopReclaimResponseInstructions({
+          level: engvoCefrLevel,
+          tense: resolveTeacherLiveTense() as import('@/lib/types').TenseId,
+          sentenceType: engvoTeacherSentenceType,
+          lessonAxis: engvoTeacherLessonAxisRef.current,
+        }),
+      },
+    })
+    console.info('[engvo] teacher-reclaim', {
+      reason: 'error_anti_loop',
+      sent,
+    })
+    if (!sent) {
+      engvoTeacherReclaimInFlightRef.current = false
+      setEngvoCallPhase('listening')
+      return false
+    }
+    return true
+  }, [
+    engvoCefrLevel,
+    engvoTeacherSentenceType,
+    resolveTeacherLiveTense,
+    sendEngvoRealtimeEvent,
+  ])
+  maybeReclaimTeacherAntiLoopRef.current = maybeReclaimTeacherAntiLoop
+
+  const maybeReclaimTeacherMicroReason = useCallback(
+    (contrastLine: string): boolean => {
+      if (engvoSessionKindRef.current !== 'teacher') return false
+      const line = contrastLine.trim()
+      if (!line) return false
+      if (engvoTeacherReclaimInFlightRef.current || engvoTeacherReclaimUsedThisUserTurnRef.current) {
+        console.info('[engvo] teacher-reclaim', {
+          skip: 'reclaim_budget',
+          reason: 'micro_reason',
+        })
+        return false
+      }
+      engvoTeacherReclaimUsedThisUserTurnRef.current = true
+      engvoTeacherReclaimInFlightRef.current = true
+      engvoTeacherMicroReasonAudioOnlyRef.current = true
+      stopEngvoPlayback(false)
+      setEngvoCallPhase('assistantPending')
+      const sent = sendEngvoRealtimeEvent({
+        type: 'response.create',
+        response: {
+          instructions: buildEngvoTeacherMicroReasonReclaimResponseInstructions({
+            contrastLine: line,
+          }),
+        },
+      })
+      console.info('[engvo] teacher-reclaim', {
+        reason: 'micro_reason',
+        sent,
+        preview: line.slice(0, 80),
+      })
+      if (!sent) {
+        engvoTeacherReclaimInFlightRef.current = false
+        engvoTeacherMicroReasonAudioOnlyRef.current = false
+        setEngvoCallPhase('listening')
+        return false
+      }
+      return true
+    },
+    [sendEngvoRealtimeEvent, stopEngvoPlayback]
+  )
+  maybeReclaimTeacherMicroReasonRef.current = maybeReclaimTeacherMicroReason
 
   const scheduleEngvoForceCommit = useCallback(
     (delayMs: number) => {
@@ -2941,7 +3134,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               if (engvoSessionKindRef.current === 'teacher') {
                 engvoTeacherUserFinalCountRef.current += 1
                 engvoTeacherReclaimUsedThisUserTurnRef.current = false
+                engvoTeacherMicroReasonAudioOnlyRef.current = false
                 noteTeacherDrillUserAttempt(engvoTeacherDrillProgressRef.current, transcript)
+                if (engvoTeacherPhaseRef.current === 'drill') {
+                  engvoTeacherErrorRepeatGateRef.current = noteErrorRepeatUserTry(
+                    engvoTeacherErrorRepeatGateRef.current,
+                    transcript
+                  )
+                }
                 if (
                   engvoTeacherTense === 'all' &&
                   engvoTeacherDrillKind === 'tense_drill' &&
@@ -3201,8 +3401,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherMicroReasonAudioOnlyRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherErrorRepeatGateRef.current = resetTeacherErrorRepeatGate()
     engvoTeacherCurrentTenseRef.current = null
     engvoTeacherNextTenseRef.current = null
     engvoTeacherUsedAnyTensesRef.current = []
@@ -3789,8 +3991,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherMicroReasonAudioOnlyRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherErrorRepeatGateRef.current = resetTeacherErrorRepeatGate()
     engvoTeacherCurrentTenseRef.current = null
     engvoTeacherNextTenseRef.current = null
     engvoTeacherUsedAnyTensesRef.current = []
@@ -4479,8 +4683,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     engvoTeacherUserFinalCountRef.current = 0
     engvoTeacherAwaitingFirstDrillRef.current = engvoTeacherPhaseRef.current === 'drill'
     engvoTeacherReclaimUsedThisUserTurnRef.current = false
+    engvoTeacherMicroReasonAudioOnlyRef.current = false
     engvoTeacherReclaimInFlightRef.current = false
     resetTeacherDrillProgress(engvoTeacherDrillProgressRef.current)
+    engvoTeacherErrorRepeatGateRef.current = resetTeacherErrorRepeatGate()
     engvoTeacherCurrentTenseRef.current = null
     engvoTeacherNextTenseRef.current = null
     engvoTeacherUsedAnyTensesRef.current = []
@@ -10188,6 +10394,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     callStartedAt: engvoCallStartedAt,
                     showAssistantPending: showEngvoBootstrapServiceIndicator,
                     assistantIndicatorText: engvoBootstrapServiceIndicatorText ?? 'Engvo говорит…',
+                    sessionKind: engvoSessionKind,
                     onStartCall: () => {
                       void startEngvoCall()
                     },

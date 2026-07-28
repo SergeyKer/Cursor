@@ -629,6 +629,42 @@ describe('engvo call repeat UI', () => {
     expect(repeat?.text).toBe('We have been to the hotel.')
   })
 
+  it('teacher marker-only: one main cue bubble, no emerald repeat', () => {
+    const cue = {
+      correction: '',
+      marker: 'Скажи' as const,
+      repeatText: 'I will go to the sea.',
+    }
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: cue.repeatText,
+      isEngvoCall: true,
+      isEngvoTeacherCall: true,
+      showOnlyRepeat: false,
+      engvoRepeatCue: cue,
+    })
+    expect(sections.some((s) => s.key === 'repeat')).toBe(false)
+    expect(sections.some((s) => s.key === 'repeat-inline')).toBe(false)
+    expect(sections.find((s) => s.key === 'main')?.engvoRepeatCue).toEqual(cue)
+  })
+
+  it('teacher correction+Скажи: one main bubble, no emerald', () => {
+    const cue = {
+      correction: 'Это по-русски — нужен английский.',
+      marker: 'Скажи' as const,
+      repeatText: 'I go to the sea.',
+    }
+    const sections = buildAssistantSectionsForEngvoCallRepeatTest({
+      repeatTextForCard: cue.repeatText,
+      isEngvoCall: true,
+      isEngvoTeacherCall: true,
+      showOnlyRepeat: false,
+      mainBefore: cue.correction,
+      engvoRepeatCue: cue,
+    })
+    expect(sections.find((s) => s.key === 'main')?.engvoRepeatCue?.marker).toBe('Скажи')
+    expect(sections.some((s) => s.key === 'repeat')).toBe(false)
+  })
+
   it('вне звонка communication оставляет label «Скажи»', () => {
     const sections = buildAssistantSectionsForEngvoCallRepeatTest({
       repeatTextForCard: 'We have been to the hotel.',

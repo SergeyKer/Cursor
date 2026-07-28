@@ -454,6 +454,57 @@ export function buildEngvoTeacherRussianEchoReclaimInstructions(params: {
   ].join(' ')
 }
 
+/** Stable marker for anti-loop reclaim tests. */
+export const TEACHER_ANTI_LOOP_RECLAIM_MARKER = 'Anti-loop reclaim'
+
+/** Stable marker for bare-ERROR micro-reason audio reclaim. */
+export const TEACHER_MICRO_REASON_RECLAIM_MARKER = 'Micro-reason reclaim'
+
+/**
+ * Audio-only follow-up after a locally patched bare ERROR: speak the contrast line once.
+ * Must not emit Say/Скажи (would re-arm the error-repeat gate).
+ */
+export function buildEngvoTeacherMicroReasonReclaimInstructions(params: {
+  contrastLine: string
+}): string {
+  const line = params.contrastLine.trim()
+  return [
+    `${TEACHER_MICRO_REASON_RECLAIM_MARKER} — continue immediately.`,
+    'The ERROR bubble already shows the full correction and repeat target.',
+    'Speak/output exactly one short line with this contrast (you may add a tiny soft glue word, nothing else):',
+    `"${line}"`,
+    'Do NOT output Say: / Скажи: / You meant / Repeat: / Повтори:.',
+    'Do NOT give a next Russian drill. Do not praise. Do not ask interview questions.',
+    'Do not wait silently for the learner.',
+  ].join(' ')
+}
+
+/** After one honest try: no second Say/Скажи — warm close + NEW Russian drill. */
+export function buildEngvoTeacherAntiLoopReclaimInstructions(params: {
+  level: EngvoCefrLevel
+  tense: TenseId
+  sentenceType: SentenceType
+  lessonAxis?: EngvoTeacherDrillParams['lessonAxis']
+}): string {
+  const translateHint = isLowLevel(params.level)
+    ? 'Then a short varied translate prompt (e.g. «Переведи на английский.» / «Переведи.»).'
+    : 'Then a short varied translate prompt (e.g. Translate into English. / Your turn — in English.).'
+  const seedCue = buildTeacherLessonRuSeedCue(params.lessonAxis)
+  return [
+    `${TEACHER_ANTI_LOOP_RECLAIM_MARKER} — continue immediately.`,
+    'The learner already had one repeat request for this English target and gave an honest try.',
+    'Do NOT output Say: / Скажи: / You meant / a second repeat-ask for that same English.',
+    'One short warm close (no cliche plate), then one NEW Russian drill sentence (about 3-12 words) on the locked topic.',
+    'Do not greet. Do not re-ask the topic. Do not ask interview questions.',
+    seedCue,
+    buildTeacherAxisMatchLine(params),
+    translateHint,
+    'Do not wait silently for the learner.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
 export function buildEngvoTeacherFirstTurnResponseInstructions(params: {
   audience: Audience
   level: EngvoCefrLevel
