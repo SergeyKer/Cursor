@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
 import { callProviderVision } from '@/lib/callProviderVision'
+import {
+  buildTutorSchoolPhotoPrompt,
+  normalizeTutorSchoolPhoto,
+} from '@/lib/tutor/normalizeSchoolPhoto'
 import type { AiProvider, ImageAnalysisResult, LevelId, Audience, OpenAiChatPreset } from '@/lib/types'
 
 type AnalyzeImageBody = {
@@ -9,9 +14,14 @@ type AnalyzeImageBody = {
   level?: LevelId
   audience?: Audience
   customFocus?: string
+  /** Tutor chat school-photo path. Absent/other = legacy analysis (unchanged). */
+  mode?: 'default' | 'tutorSchoolPhoto'
 }
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024
+const RATE_WINDOW_MS = 60_000
+const RATE_MAX = 20
+const schoolPhotoRateBuckets = new Map<string, { count: number; resetAt: number }>()
 
 function estimateDataUrlBytes(dataUrl: string): number {
   const commaIdx = dataUrl.indexOf(',')
@@ -131,6 +141,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Неверный JSON в запросе.' }, { status: 400 })
   }
 
+  const isSchoolPhoto = body.mode === 'tutorSchoolPhoto'
+  if (isSchoolPhoto) {
+    const ip = clientIpFromRequest(req.headers)
+    if (
+      !checkIpRateLimit({
+        buckets: schoolPhotoRateBuckets,
+        ip,
+        windowMs: RATE_WINDOW_MS,
+        max: RATE_MAX,
+      })
+    ) {
+      return NextResponse.json(
+        { error: 'rate_limit', userMessage: 'Слишком много запросов. Подождите.' },
+        { status: 429 }
+      )
+    }
+  }
+
   const provider: AiProvider = body.provider === 'openrouter' ? 'openrouter' : 'openai'
   const openAiChatPreset: OpenAiChatPreset =
     body.openAiChatPreset === 'gpt-5.4-mini-none'
@@ -150,11 +178,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Изображение слишком большое. Максимум 6 MB.' }, { status: 413 })
   }
 
+  const prompt = isSchoolPhoto
+    ? buildTutorSchoolPhotoPrompt(level, audience)
+    : buildPrompt(level, audience, customFocus)
+
   const modelResult = await callProviderVision({
     provider,
     req,
     imageDataUrl,
-    prompt: buildPrompt(level, audience, customFocus),
+    prompt,
     openAiChatPreset,
   })
   if (!modelResult.ok) {
@@ -172,6 +204,10 @@ export async function POST(req: NextRequest) {
     parsed = JSON.parse(jsonText)
   } catch {
     return NextResponse.json({ error: 'Не удалось разобрать JSON анализа.' }, { status: 502 })
+  }
+
+  if (isSchoolPhoto) {
+    return NextResponse.json({ schoolPhoto: normalizeTutorSchoolPhoto(parsed) })
   }
 
   const analysis = normalizeResult(parsed)

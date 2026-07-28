@@ -9,7 +9,6 @@ import MenuSectionPanels, {
   type MenuView,
 } from '@/components/MenuSectionPanels'
 import { SLIDE_OUT_NEW_CHAT_BUTTON_CLASS } from '@/lib/homeCtaStyles'
-import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode, ActivePracticeMenuSnapshot } from '@/types/practice'
 import type {
   EngvoCefrLevel,
@@ -90,6 +89,8 @@ interface SlideOutMenuProps {
   onOpenProgressSpace?: () => void
   /** Full-screen My Plan space. */
   onOpenMyPlanSpace?: () => void
+  onOpenTutorChat?: (opts?: { prefill?: string }) => void
+  tutorChatPrefill?: string
   /** Сгенерировать новый вариант урока через LLM. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
@@ -134,14 +135,6 @@ interface SlideOutMenuProps {
   onMarkOpenedFromMyPlan?: () => void
   /** Футер приложения при «Мой путь» в меню уроков. */
   onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
-  /** Открыть урок из ветки «Репетитор». */
-  onOpenTutorLesson?: (request: {
-    requestedTopic: string
-    originalQuery?: string
-    selectedIntent?: TutorLearningIntent
-    analysisSummary?: string
-    catalogLessonId?: string
-  }) => Promise<void> | void
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
@@ -209,6 +202,8 @@ export default function SlideOutMenu({
   onOpenReferenceTopic,
   onOpenProgressSpace,
   onOpenMyPlanSpace,
+  onOpenTutorChat,
+  tutorChatPrefill = '',
   onGenerateLearningLesson,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
@@ -226,7 +221,6 @@ export default function SlideOutMenu({
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
   onAdaptiveFooterViewChange,
-  onOpenTutorLesson,
   onPracticeTheoryTagFilterPersist,
   lessonMenuContext,
   restoreLessonMenuOnNextOpenRef,
@@ -411,6 +405,8 @@ export default function SlideOutMenu({
         onOpenReferenceTopic={onOpenReferenceTopic}
         onOpenProgressSpace={onOpenProgressSpace}
         onOpenMyPlanSpace={onOpenMyPlanSpace}
+        onOpenTutorChat={onOpenTutorChat}
+        tutorChatPrefill={tutorChatPrefill}
         onGenerateLearningLesson={onGenerateLearningLesson}
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}
@@ -428,7 +424,6 @@ export default function SlideOutMenu({
         onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
         onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
-        onOpenTutorLesson={onOpenTutorLesson}
         onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
         practiceProgressRevision={practiceProgressRevision}
         initialLessonsPanel={

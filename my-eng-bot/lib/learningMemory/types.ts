@@ -6,6 +6,7 @@ export type LearningSource =
   | 'guided_dialogue'
   | 'practice'
   | 'language_note'
+  | 'tutor'
 
 export type LearningDetector =
   | 'practice'
@@ -14,6 +15,7 @@ export type LearningDetector =
   | 'language_note'
   | 'silent_assess'
   | 'teacher_correction'
+  | 'tutor_micro'
 
 export type LearningSignal = {
   id: string

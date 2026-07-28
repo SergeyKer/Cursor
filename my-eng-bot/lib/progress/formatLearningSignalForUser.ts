@@ -10,6 +10,7 @@ const SOURCE_LABEL: Record<LearningSource, string> = {
   guided_dialogue: 'В диалоге',
   practice: 'В практике',
   language_note: 'В разборе',
+  tutor: 'У репетитора',
 }
 
 export type LearningSignalFeedItem = {

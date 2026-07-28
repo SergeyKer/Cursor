@@ -26,6 +26,7 @@ import {
   myPlanWhy,
   type MyPlanAudience,
 } from '@/lib/uiCopy/myPlan'
+import { selectTutorTask } from '@/lib/tutor/selectTutorTask'
 
 function audienceOf(input: MyPlanInput): MyPlanAudience {
   return input.audience === 'child' ? 'child' : 'adult'
@@ -514,6 +515,7 @@ export function selectNowGoal(input: MyPlanInput): NowGoalResult {
     programTask,
     programStatus: picked.status,
     unstartedCount: picked.unstartedCount,
+    tutorTask: selectTutorTask({ attentionZones: input.attentionZones }),
     status: {
       dailyStreak: input.rewards.dailyStreak,
       level: input.rewards.level ?? 1,

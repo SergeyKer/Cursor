@@ -1,7 +1,6 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import Image from 'next/image'
 import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
 import { TOPICS, LEVELS, TENSES, SENTENCE_TYPES, CHILD_TENSES } from '@/lib/constants'
@@ -35,6 +34,7 @@ import {
   MENU_PRIMARY_CTA_CLASS,
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
+import TutorChatPanel from '@/components/tutor/TutorChatPanel'
 import {
   DEFAULT_LESSON_LIST_DENSITY,
   normalizeMenuLabelKey,
@@ -74,7 +74,6 @@ import { getTheoryLessonsForTagIdsUnion, groupTheoryLessonsByLevel } from '@/lib
 import { findTheoryTagCandidatesGlobally } from '@/lib/theoryTagSearch'
 import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
-import type { ImageAnalysisResult } from '@/lib/types'
 import { useTheme } from '@/contexts/ThemeContext'
 import { isGlassTheme, type Theme } from '@/lib/theme'
 import {
@@ -93,7 +92,6 @@ import {
   type ChatPatternTuningMap,
   type TunableChatPatternId,
 } from '@/lib/chatPatternTuning'
-import type { TutorLearningIntent } from '@/lib/tutorLearningIntent'
 import type {
   ActivePracticeMenuSnapshot,
   PracticeEntrySource,
@@ -562,6 +560,9 @@ export interface MenuSectionPanelsProps {
   onOpenProgressSpace?: () => void
   /** Full-screen пространство Мой план (myPlanSpaceV1). */
   onOpenMyPlanSpace?: () => void
+  /** Open tutor chat v1 with optional prefill (MyPlan open_tutor). */
+  onOpenTutorChat?: (opts?: { prefill?: string }) => void
+  tutorChatPrefill?: string
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
   onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
   /** DEBUG: сразу к финалу практики. Удалить после редактирования. */
@@ -607,13 +608,6 @@ export interface MenuSectionPanelsProps {
   onOpenAdaptivePracticeTopic?: (topic: string) => void
   /** Пометить, что сессия открыта из «Мой план» (return loop). */
   onMarkOpenedFromMyPlan?: () => void
-  onOpenTutorLesson?: (request: {
-    requestedTopic: string
-    originalQuery?: string
-    selectedIntent?: TutorLearningIntent
-    analysisSummary?: string
-    catalogLessonId?: string
-  }) => Promise<void> | void
   /** Сохранить фильтр практики по тегу теории в контексте приложения (страница). */
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Футер приложения при открытии «Мой путь» (AdaptiveDailyHub). */
@@ -691,6 +685,8 @@ export default function MenuSectionPanels({
   onOpenReferenceTopic,
   onOpenProgressSpace,
   onOpenMyPlanSpace,
+  onOpenTutorChat,
+  tutorChatPrefill = '',
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
@@ -707,7 +703,6 @@ export default function MenuSectionPanels({
   onOpenVocabularyByLevel,
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
-  onOpenTutorLesson,
   onAdaptiveFooterViewChange,
   onPracticeTheoryTagFilterPersist,
   initialLessonsPanel,
@@ -788,21 +783,6 @@ export default function MenuSectionPanels({
   const [customPracticeSearchMessage, setCustomPracticeSearchMessage] = React.useState<string | null>(null)
   const [practiceBusy, setPracticeBusy] = React.useState(false)
   const [practiceError, setPracticeError] = React.useState<string | null>(null)
-  const [tutorImageDataUrl, setTutorImageDataUrl] = React.useState<string | null>(null)
-  const [tutorCustomFocus, setTutorCustomFocus] = React.useState('')
-  const [tutorImageError, setTutorImageError] = React.useState<string | null>(null)
-  const [tutorLoading, setTutorLoading] = React.useState(false)
-  const [tutorResult, setTutorResult] = React.useState<ImageAnalysisResult | null>(null)
-  const [tutorSuggestedTopics, setTutorSuggestedTopics] = React.useState<string[]>([])
-  /** Параллельно tutorSuggestedTopics: id урока из каталога теории (если ответ API с catalogLessonIds). */
-  const [tutorCatalogLessonIds, setTutorCatalogLessonIds] = React.useState<string[]>([])
-  const [tutorTopicHintsByTopic, setTutorTopicHintsByTopic] = React.useState<Record<string, string>>({})
-  const [tutorIntentOptions, setTutorIntentOptions] = React.useState<TutorLearningIntent[]>([])
-  const [selectedTutorTopic, setSelectedTutorTopic] = React.useState<string | null>(null)
-  const [selectedTutorIntent, setSelectedTutorIntent] = React.useState<TutorLearningIntent | null>(null)
-  const [tutorClarifyPrompt, setTutorClarifyPrompt] = React.useState<string | null>(null)
-  const [tutorStep, setTutorStep] = React.useState<'input' | 'select'>('input')
-  const [tutorStartingLesson, setTutorStartingLesson] = React.useState(false)
   const [generatingLessonId, setGeneratingLessonId] = React.useState<string | null>(null)
   const [generateLessonError, setGenerateLessonError] = React.useState<string | null>(null)
   const [activeGrammarCategoryId, setActiveGrammarCategoryId] = React.useState<string | null>(null)
@@ -824,8 +804,6 @@ export default function MenuSectionPanels({
     notifications: true,
     theme: 'default',
   })
-  const uploadInputRef = React.useRef<HTMLInputElement | null>(null)
-  const cameraInputRef = React.useRef<HTMLInputElement | null>(null)
   const a2PracticeTopicCopy = PRACTICE_TOPICS_BY_AUDIENCE[settings.audience]
   const [catalogBrowseIntent, setCatalogBrowseIntent] = React.useState<CatalogBrowseIntent>('lesson')
   const [referenceHubSearchQuery, setReferenceHubSearchQuery] = React.useState('')
@@ -1246,6 +1224,7 @@ export default function MenuSectionPanels({
         programTask: null as ReturnType<typeof selectNowGoal>['programTask'],
         programStatus: 'no_catalog' as const,
         unstartedCount: 0,
+        tutorTask: null as ReturnType<typeof selectNowGoal>['tutorTask'],
         flat: [] as ReturnType<typeof getMyPlanRecommendations>,
       }
     }
@@ -1268,6 +1247,7 @@ export default function MenuSectionPanels({
         programTask: now.programTask,
         programStatus: now.programStatus,
         unstartedCount: now.unstartedCount,
+        tutorTask: now.tutorTask,
         flat,
       }
     }
@@ -1636,10 +1616,6 @@ export default function MenuSectionPanels({
         return
       }
       if (lessonsPanel === 'tutor') {
-        if (tutorStep === 'select') {
-          setTutorStep('input')
-          return
-        }
         setLessonsPanel('summary')
         return
       }
@@ -1778,9 +1754,7 @@ export default function MenuSectionPanels({
             ? 'К разделам'
             : menuView === 'practice'
               ? 'К разделам'
-              : menuView === 'lessons' && lessonsPanel === 'tutor' && tutorStep === 'select'
-                ? 'К форме репетитора'
-                : 'К разделам'
+              : 'К разделам'
 
   const menuNavIconButtonClass =
     'btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none'
@@ -1869,7 +1843,8 @@ export default function MenuSectionPanels({
       lessonsPanel === 'a2' ||
       lessonsPanel === 'theoryGrammarCategories' ||
       lessonsPanel === 'theoryTagLevels' ||
-      lessonsPanel === 'theoryTagLessons')
+      lessonsPanel === 'theoryTagLessons' ||
+      (lessonsPanel === 'tutor' && featureFlags.tutorChatV1))
 
   const showLessonListDensitySwitcher =
     menuView === 'lessons' &&
@@ -1947,243 +1922,6 @@ export default function MenuSectionPanels({
     selectedPracticeLessonId,
     selectedPracticeMode,
     selectedReferenceExerciseType,
-  ])
-
-  const resetTutorState = React.useCallback(() => {
-    setTutorImageError(null)
-    setTutorLoading(false)
-    setTutorResult(null)
-    setTutorImageDataUrl(null)
-    setTutorCustomFocus('')
-    setTutorSuggestedTopics([])
-    setTutorCatalogLessonIds([])
-    setTutorTopicHintsByTopic({})
-    setTutorIntentOptions([])
-    setSelectedTutorTopic(null)
-    setSelectedTutorIntent(null)
-    setTutorClarifyPrompt(null)
-    setTutorStep('input')
-    setTutorStartingLesson(false)
-  }, [])
-
-  const handleTutorFile = React.useCallback((file: File | null) => {
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      setTutorImageError('Нужен файл изображения (jpg, png, webp и т.д.).')
-      return
-    }
-    if (file.size > 6 * 1024 * 1024) {
-      setTutorImageError('Изображение слишком большое. Максимум 6 MB.')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => {
-      const result = typeof reader.result === 'string' ? reader.result : null
-      if (!result || !result.startsWith('data:image/')) {
-        setTutorImageError('Не удалось прочитать изображение.')
-        return
-      }
-      setTutorImageDataUrl(result)
-      setTutorImageError(null)
-      setTutorResult(null)
-      setTutorSuggestedTopics([])
-      setTutorCatalogLessonIds([])
-      setTutorTopicHintsByTopic({})
-      setTutorIntentOptions([])
-      setSelectedTutorTopic(null)
-      setSelectedTutorIntent(null)
-      setTutorClarifyPrompt(null)
-      setTutorStep('input')
-    }
-    reader.onerror = () => {
-      setTutorImageError('Не удалось прочитать изображение.')
-    }
-    reader.readAsDataURL(file)
-  }, [])
-
-  const handleTutorAnalyze = React.useCallback(async () => {
-    async function resolveWithModel(query: string, analysisSummary?: string) {
-      const response = await fetch('/api/tutor-resolve-topic', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: settings.provider,
-          openAiChatPreset: settings.openAiChatPreset ?? 'gpt-4o-mini',
-          query,
-          level: settings.level,
-          audience: settings.audience,
-          analysisSummary,
-        }),
-      })
-      const data = (await response.json()) as {
-        resolved?: boolean
-        suggestions?: string[]
-        catalogLessonIds?: string[]
-        suggestionMeta?: Array<{ topic?: string; whyRu?: string }>
-        intentOptions?: TutorLearningIntent[]
-        primaryTopic?: string
-        clarifyPrompt?: string
-        error?: string
-      }
-      if (!response.ok) {
-        throw new Error(data.error ?? 'Не удалось определить тему для урока.')
-      }
-      return {
-        resolved: Boolean(data.resolved),
-        suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
-        catalogLessonIds: Array.isArray(data.catalogLessonIds) ? data.catalogLessonIds : [],
-        suggestionMeta: Array.isArray(data.suggestionMeta) ? data.suggestionMeta : [],
-        intentOptions: Array.isArray(data.intentOptions) ? data.intentOptions : [],
-        primaryTopic: typeof data.primaryTopic === 'string' ? data.primaryTopic : undefined,
-        clarifyPrompt: typeof data.clarifyPrompt === 'string' ? data.clarifyPrompt : undefined,
-      }
-    }
-
-    const directInput = tutorCustomFocus.trim()
-    if (!tutorImageDataUrl && !directInput) {
-      setTutorImageError('Введите тему или добавьте фото для анализа.')
-      setTutorStep('input')
-      return
-    }
-    // Поддержка сценария "только текст": сначала готовые уроки, затем ИИ-распознавание темы.
-    if (!tutorImageDataUrl && directInput) {
-      setTutorLoading(true)
-      try {
-        const resolution = await resolveWithModel(directInput)
-        if (!resolution.resolved || !resolution.primaryTopic) {
-          setTutorSuggestedTopics([])
-          setTutorCatalogLessonIds([])
-          setTutorTopicHintsByTopic({})
-          setTutorIntentOptions([])
-          setSelectedTutorTopic(null)
-          setSelectedTutorIntent(null)
-          setTutorStep('input')
-          setTutorClarifyPrompt(
-            resolution.clarifyPrompt ??
-              'ИИ: не удалось точно определить тему. Уточните, что хотите учить (например: Present Simple, Have/Has, Articles a/an/the).'
-          )
-          return
-        }
-        setTutorImageError(null)
-        setTutorResult(null)
-        setTutorClarifyPrompt(null)
-        setTutorSuggestedTopics(resolution.suggestions)
-        setTutorCatalogLessonIds(resolution.catalogLessonIds)
-        setTutorIntentOptions(resolution.intentOptions)
-        const hints: Record<string, string> = {}
-        for (const item of resolution.suggestionMeta) {
-          if (!item || typeof item.topic !== 'string' || typeof item.whyRu !== 'string') continue
-          const topic = item.topic.trim()
-          const whyRu = item.whyRu.trim()
-          if (!topic || !whyRu) continue
-          hints[topic] = whyRu
-        }
-        setTutorTopicHintsByTopic(hints)
-        setSelectedTutorTopic(resolution.primaryTopic)
-        const primaryIdx = resolution.suggestions.findIndex((s) => s === resolution.primaryTopic)
-        setSelectedTutorIntent(
-          primaryIdx >= 0
-            ? (resolution.intentOptions[primaryIdx] ?? resolution.intentOptions[0] ?? null)
-            : (resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ??
-                resolution.intentOptions[0] ??
-                null)
-        )
-        setTutorStep('select')
-      } catch (error) {
-        const message =
-          error instanceof Error ? error.message : 'Нет связи с сервером. Проверьте интернет и попробуйте снова.'
-        setTutorImageError(message)
-        setTutorSuggestedTopics([])
-        setTutorCatalogLessonIds([])
-        setTutorTopicHintsByTopic({})
-        setTutorIntentOptions([])
-        setSelectedTutorTopic(null)
-        setSelectedTutorIntent(null)
-        setTutorStep('input')
-      } finally {
-        setTutorLoading(false)
-      }
-      return
-    }
-    setTutorLoading(true)
-    setTutorImageError(null)
-    try {
-      const response = await fetch('/api/analyze-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          provider: settings.provider,
-          openAiChatPreset: settings.openAiChatPreset ?? 'gpt-4o-mini',
-          imageDataUrl: tutorImageDataUrl,
-          level: settings.level,
-          audience: settings.audience,
-          customFocus: tutorCustomFocus.trim() || undefined,
-        }),
-      })
-      const data = (await response.json()) as { analysis?: ImageAnalysisResult; error?: string }
-      if (!response.ok || !data.analysis) {
-        setTutorImageError(data.error ?? 'Не удалось проанализировать изображение.')
-        setTutorResult(null)
-        return
-      }
-      setTutorResult(data.analysis)
-      const topicInput = tutorCustomFocus.trim() || data.analysis.whatToLearn.focus[0]?.topic || ''
-      const resolution = await resolveWithModel(topicInput, data.analysis.whatISee.summaryRu)
-      if (!resolution.resolved || !resolution.primaryTopic) {
-        setTutorSuggestedTopics([])
-        setTutorCatalogLessonIds([])
-        setTutorTopicHintsByTopic({})
-        setTutorIntentOptions([])
-        setSelectedTutorTopic(null)
-        setSelectedTutorIntent(null)
-        setTutorStep('input')
-        setTutorClarifyPrompt(
-          resolution.clarifyPrompt ??
-            'ИИ: не удалось точно определить тему. Уточните, что хотите учить (например: Present Simple, Have/Has, Articles a/an/the).'
-        )
-        return
-      }
-      setTutorClarifyPrompt(null)
-      setTutorSuggestedTopics(resolution.suggestions)
-      setTutorCatalogLessonIds(resolution.catalogLessonIds)
-      setTutorIntentOptions(resolution.intentOptions)
-      const hints: Record<string, string> = {}
-      for (const item of resolution.suggestionMeta) {
-        if (!item || typeof item.topic !== 'string' || typeof item.whyRu !== 'string') continue
-        const topic = item.topic.trim()
-        const whyRu = item.whyRu.trim()
-        if (!topic || !whyRu) continue
-        hints[topic] = whyRu
-      }
-      setTutorTopicHintsByTopic(hints)
-      setSelectedTutorTopic(resolution.primaryTopic)
-      const primaryIdx = resolution.suggestions.findIndex((s) => s === resolution.primaryTopic)
-      setSelectedTutorIntent(
-        primaryIdx >= 0
-          ? (resolution.intentOptions[primaryIdx] ?? resolution.intentOptions[0] ?? null)
-          : (resolution.intentOptions.find((intent) => intent.title === resolution.primaryTopic) ??
-              resolution.intentOptions[0] ??
-              null)
-      )
-      setTutorStep('select')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Нет связи с сервером. Проверьте интернет и попробуйте снова.'
-      setTutorImageError(message)
-      setTutorResult(null)
-      setTutorSuggestedTopics([])
-      setTutorCatalogLessonIds([])
-      setTutorIntentOptions([])
-      setSelectedTutorIntent(null)
-    } finally {
-      setTutorLoading(false)
-    }
-  }, [
-    tutorImageDataUrl,
-    tutorCustomFocus,
-    settings.provider,
-    settings.openAiChatPreset,
-    settings.level,
-    settings.audience,
   ])
 
   return (
@@ -2769,10 +2507,7 @@ export default function MenuSectionPanels({
                   )}
                   <MenuNavRow
                     label="Репетитор"
-                    onClick={() => {
-                      resetTutorState()
-                      setLessonsPanel('tutor')
-                    }}
+                    onClick={() => setLessonsPanel('tutor')}
                   />
                   <MenuNavRow label="Слова" onClick={() => setLessonsPanel('words')} />
                 </div>
@@ -3843,232 +3578,24 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 </div>
               </>
             )}
-            {lessonsPanel === 'tutor' && (
-              <>
-                {tutorStep === 'input' && (
-                <div className={MENU_GROUP_OUTER}>
-                  <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                    <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
-                      Загрузите фото, и MyEng подскажет, что на изображении и что учить дальше.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => uploadInputRef.current?.click()}
-                        className="btn-3d-menu flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] font-medium text-[var(--text)]"
-                      >
-                        Загрузить фото
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="btn-3d-menu flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[13px] font-medium text-[var(--text)]"
-                      >
-                        Сделать фото
-                      </button>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[13px] font-medium text-[var(--text-muted)]">Что хотите учить</label>
-                      <input
-                        type="text"
-                        value={tutorCustomFocus}
-                        onChange={(event) => {
-                          setTutorCustomFocus(event.target.value)
-                          setTutorSuggestedTopics([])
-                          setTutorCatalogLessonIds([])
-                          setTutorIntentOptions([])
-                          setSelectedTutorTopic(null)
-                          setSelectedTutorIntent(null)
-                          setTutorClarifyPrompt(null)
-                          setTutorStep('input')
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return
-                          event.preventDefault()
-                          if ((!tutorImageDataUrl && !tutorCustomFocus.trim()) || tutorLoading) return
-                          void handleTutorAnalyze()
-                        }}
-                        placeholder="Например: has, to be, Present Simple"
-                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
-                      />
-                    </div>
-                    <input
-                      ref={uploadInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(event) => handleTutorFile(event.target.files?.[0] ?? null)}
-                    />
-                    <input
-                      ref={cameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      onChange={(event) => handleTutorFile(event.target.files?.[0] ?? null)}
-                    />
-                    {tutorImageDataUrl && (
-                      <div className="overflow-hidden rounded-lg border border-[var(--border)]">
-                        <Image
-                          src={tutorImageDataUrl}
-                          alt="Фото для анализа"
-                          width={1200}
-                          height={800}
-                          unoptimized
-                          className="h-auto w-full object-cover"
-                        />
-                      </div>
-                    )}
-                    {tutorImageError && (
-                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                        {tutorImageError}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      disabled={(!tutorImageDataUrl && !tutorCustomFocus.trim()) || tutorLoading}
-                      onClick={() => void handleTutorAnalyze()}
-                      className={MENU_PRIMARY_CTA_CLASS}
-                    >
-                      {tutorLoading ? 'Анализируем...' : 'Анализировать'}
-                    </button>
-                    {tutorClarifyPrompt && (
-                      <p className="rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
-                        {tutorClarifyPrompt}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                )}
-
-                {tutorStep === 'select' && tutorSuggestedTopics.length > 0 && (
-                  <div className={MENU_GROUP_OUTER}>
-                    <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                      <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
-                        Выберите тему и нажмите «Начать».
-                      </p>
-                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] p-2">
-                        {tutorSuggestedTopics.map((topic, topicIndex) => {
-                          const intent =
-                            tutorIntentOptions[topicIndex] ?? tutorIntentOptions.find((item) => item.title === topic)
-                          return (
-                          <button
-                            key={topic}
-                            type="button"
-                            onClick={() => {
-                              setSelectedTutorTopic(topic)
-                              setSelectedTutorIntent(intent ?? null)
-                            }}
-                            className="flex w-full items-center justify-between rounded-lg border border-[var(--border)] px-3 py-2 text-left text-[14px] text-[var(--text)] hover:bg-[var(--border)]/20"
-                          >
-                            <span className="pr-2">
-                              <span className="block">{topic}</span>
-                              <span className="block text-[12px] leading-snug text-[var(--text-muted)]">
-                                {intent?.goalRu ?? tutorTopicHintsByTopic[topic] ?? 'Выберите самый близкий вариант к вашему запросу.'}
-                              </span>
-                            </span>
-                            {selectedTutorTopic === topic ? (
-                              <CheckIcon className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
-                            ) : (
-                              <span className="h-4 w-4 shrink-0" aria-hidden />
-                            )}
-                          </button>
-                          )
-                        })}
-                      </div>
-                      <button
-                        type="button"
-                        disabled={!selectedTutorTopic || !onOpenTutorLesson || tutorStartingLesson}
-                        onClick={async () => {
-                          if (!selectedTutorTopic || !onOpenTutorLesson) return
-                          setTutorStartingLesson(true)
-                          try {
-                            const topicIndex = tutorSuggestedTopics.indexOf(selectedTutorTopic)
-                            const catalogLessonId =
-                              tutorCatalogLessonIds.length === tutorSuggestedTopics.length && topicIndex >= 0
-                                ? tutorCatalogLessonIds[topicIndex]
-                                : undefined
-                            await onOpenTutorLesson({
-                              requestedTopic: selectedTutorTopic,
-                              originalQuery: tutorCustomFocus.trim() || undefined,
-                              selectedIntent: selectedTutorIntent ?? undefined,
-                              analysisSummary: tutorResult?.whatISee.summaryRu,
-                              catalogLessonId,
-                            })
-                          } finally {
-                            setTutorStartingLesson(false)
-                          }
-                        }}
-                        className={
-                          tutorStartingLesson
-                            ? 'w-full rounded-xl border border-[var(--border-subtle)] bg-[var(--status-info-bg)] px-4 py-3 text-center text-base font-semibold text-[var(--status-info-text)] opacity-95'
-                            : MENU_PRIMARY_CTA_CLASS
-                        }
-                      >
-                        {tutorStartingLesson ? (
-                          <span className="text-sm italic">Engvo составляет урок...</span>
-                        ) : (
-                          'Начать'
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTutorCustomFocus('')
-                          setTutorStep('input')
-                        }}
-                        className={APP_BTN_SECONDARY_SMALL}
-                      >
-                        Изменить запрос
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {tutorResult && (
-                  <>
-                    <div className={MENU_GROUP_OUTER}>
-                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                        <h3 className="text-[15px] font-semibold text-[var(--text)]">Что вижу</h3>
-                        <p className="text-[14px] leading-relaxed text-[var(--text)]">{tutorResult.whatISee.summaryRu}</p>
-                        {tutorResult.whatISee.objects.length > 0 && (
-                          <ul className="space-y-1 text-[13px] text-[var(--text-muted)]">
-                            {tutorResult.whatISee.objects.map((obj, idx) => (
-                              <li key={`obj-${idx}`}>- {obj.nameRu}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                    <div className={MENU_GROUP_OUTER}>
-                      <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                        <h3 className="text-[15px] font-semibold text-[var(--text)]">Что учить</h3>
-                        {tutorResult.whatToLearn.focus.map((focus, idx) => (
-                          <p key={`focus-${idx}`} className="text-[13px] leading-relaxed text-[var(--text)]">
-                            <strong>{focus.topic}:</strong> {focus.why}
-                          </p>
-                        ))}
-                        {tutorResult.whatToLearn.vocabulary.length > 0 && (
-                          <ul className="space-y-1 text-[13px] text-[var(--text-muted)]">
-                            {tutorResult.whatToLearn.vocabulary.map((item, idx) => (
-                              <li key={`vocab-${idx}`}>
-                                - {item.word} - {item.translation}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        <p className="text-[13px] leading-relaxed text-[var(--text)]">
-                          <strong>Подсказка:</strong> {tutorResult.whatToLearn.practiceHint}
-                        </p>
-                        <p className="text-[13px] leading-relaxed text-[var(--text)]">
-                          <strong>Дальше:</strong> {tutorResult.nextStepHint}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </>
+            {lessonsPanel === 'tutor' && featureFlags.tutorChatV1 && (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <TutorChatPanel
+                  initialPrefill={tutorChatPrefill}
+                  onDone={() => setLessonsPanel('summary')}
+                />
+              </div>
             )}
+            {lessonsPanel === 'tutor' && !featureFlags.tutorChatV1 && (
+              <div className={MENU_GROUP_OUTER}>
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3">
+                  <p className="text-[14px] leading-relaxed text-[var(--text-muted)]">
+                    Репетитор временно отключён (rollback). Уберите NEXT_PUBLIC_FEATURE_TUTOR_CHAT_V1=false.
+                  </p>
+                </div>
+              </div>
+            )}
+
           </>
         )}
 
@@ -4520,6 +4047,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             programTask={myPlanNow.programTask}
             programStatus={myPlanNow.programStatus}
             unstartedCount={myPlanNow.unstartedCount}
+            tutorTask={myPlanNow.tutorTask}
             anchorLevel={settings.level}
             attentionZones={myPlanAttentionZones}
             modeGap={myPlanModeGap}
@@ -4527,6 +4055,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             nowGoalLayout={featureFlags.myPlanNowGoalV1}
             showAdultPaywallHint={!canUseAiReinforce()}
             onOpenLearningLesson={onOpenLearningLesson}
+            onOpenTutorChat={onOpenTutorChat}
             onOpenReferenceTopic={
               onOpenReferenceTopic
                 ? (lessonId) => {

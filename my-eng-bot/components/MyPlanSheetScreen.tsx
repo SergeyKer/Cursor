@@ -53,6 +53,7 @@ export type MyPlanSheetScreenProps = {
   }) => Promise<void> | void
   onOpenVocabularyWorlds?: () => void | Promise<void>
   onMarkOpenedFromMyPlan?: () => void
+  onOpenTutorChat?: (opts?: { prefill?: string }) => void
 }
 
 const COMPOSER_PROGRESS = [
@@ -74,6 +75,7 @@ export default function MyPlanSheetScreen({
   onGeneratePracticeSession,
   onOpenVocabularyWorlds,
   onMarkOpenedFromMyPlan,
+  onOpenTutorChat,
 }: MyPlanSheetScreenProps) {
   const audience: MyPlanAudience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
@@ -105,6 +107,7 @@ export default function MyPlanSheetScreen({
         programTask: now.programTask,
         programStatus: now.programStatus,
         unstartedCount: now.unstartedCount,
+        tutorTask: now.tutorTask,
         flat,
       }
     }
@@ -154,6 +157,7 @@ export default function MyPlanSheetScreen({
           programTask={planNow.programTask}
           programStatus={planNow.programStatus}
           unstartedCount={planNow.unstartedCount}
+          tutorTask={planNow.tutorTask}
           anchorLevel={settings.level}
           attentionZones={attentionZones}
           modeGap={modeGap}
@@ -162,6 +166,7 @@ export default function MyPlanSheetScreen({
           showAdultPaywallHint={!canUseAiReinforce()}
           onOpenLearningLesson={onOpenLearningLesson}
           onOpenReferenceTopic={onOpenReferenceTopic}
+          onOpenTutorChat={onOpenTutorChat}
           onOpenPracticeSession={onOpenPracticeSession}
           onGeneratePracticeSession={onGeneratePracticeSession}
           onOpenVocabularyWorlds={onOpenVocabularyWorlds}

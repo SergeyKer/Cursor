@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
+import { TutorSessionProvider } from '@/components/tutor/TutorSessionProvider'
 import {
   clearOpenLessonIntent,
   consumeOpenLessonIntent,
@@ -854,8 +855,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [menuOpen, setMenuOpen] = useState(false)
   const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(null)
   const footerSheetRef = React.useRef<FooterDetailSheetHandle>(null)
-  /** Chip → reference: restore chat on back (not menu lesson list). */
-  const [referenceLaunchFrom, setReferenceLaunchFrom] = useState<'chat' | 'menu' | null>(null)
+  /** Chip → reference: restore chat / tutor / menu on back. */
+  const [referenceLaunchFrom, setReferenceLaunchFrom] = useState<'chat' | 'menu' | 'tutor' | null>(null)
   const [chatMessagesSnapshotForReference, setChatMessagesSnapshotForReference] = useState<ChatMessage[] | null>(
     null
   )
@@ -5014,14 +5015,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       lessonId: string,
       lessonsPanel: LessonsPanel = 'theory',
       meta?: LearningLessonMenuMeta,
-      options?: { from?: 'chat' | 'menu'; clearMessages?: boolean }
+      options?: { from?: 'chat' | 'menu' | 'tutor'; clearMessages?: boolean }
     ) => {
       if (!featureFlags.referenceV1) return
       const sheet = buildReferenceSheetByLessonId(lessonId)
       if (!sheet) return
       if (!getLearningLessonById(lessonId) && !getStructuredLessonById(lessonId)) return
       const from = options?.from ?? 'menu'
-      const clearMessages = options?.clearMessages ?? from !== 'chat'
+      const clearMessages = options?.clearMessages ?? (from !== 'chat' && from !== 'tutor')
       setReferenceLaunchFrom(from)
       setRuntimeReferenceSheet(null)
       lessonMenuLaunchSurfaceRef.current = 'slide'
@@ -5130,6 +5131,34 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (snapshot) setMessages(snapshot)
     bumpFooterSessionContext()
   }, [bumpFooterSessionContext, chatMessagesSnapshotForReference, resetStructuredLessonSession])
+
+  const backFromReferenceToTutor = useCallback(() => {
+    reviewChipNavEpochRef.current += 1
+    setReviewChipNavPending(false)
+    setRuntimeReferenceSheet(null)
+    setReferenceLaunchFrom(null)
+    setChatMessagesSnapshotForReference(null)
+    firstMessageRequestIdRef.current += 1
+    firstMessageInFlightRef.current = false
+    setDialogStarted(false)
+    setMessages([])
+    setSettingsAtLastSend(null)
+    setLoading(false)
+    setRetryMessage(null)
+    setForceNextMicLang(null)
+    setLoadingTranslationIndex(null)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
+    setFooterTransitionText(null)
+    bumpFooterSessionContext()
+    resetStructuredLessonSession()
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
+    restoreLessonMenuOnNextOpenRef.current = true
+    setHomeMenuView('lessons')
+    setMenuOpen(true)
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
 
   const showReviewChipError = useCallback(() => {
     setRewardPopupText(LANGUAGE_NOTE_COPY.reviewChipError)
@@ -5411,149 +5440,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       })()
     },
     [abandonPracticeSession, bumpLessonIntroRevealSession, menuOpen, settings.provider, settings.openAiChatPreset, settings.audience]
-  )
-
-  const openTutorLesson = useCallback(
-    async (request: {
-      requestedTopic: string
-      originalQuery?: string
-      selectedIntent?: TutorLearningIntent
-      analysisSummary?: string
-      /** Готовый structured-урок из каталога теории (ответ tutor-resolve-topic). */
-      catalogLessonId?: string
-    }) => {
-      const catalogId = request.catalogLessonId?.trim()
-      if (catalogId && getStructuredLessonById(catalogId)) {
-        const catalogTopic = getLessonTopicById(catalogId)
-        const tagIds = catalogTopic?.tagIds?.filter(Boolean) ?? []
-        await openLearningLesson(catalogId, 'tutor', {
-          activeGrammarCategoryId: null,
-          activeTheoryTagId: tagIds[0] ?? null,
-          theorySearchQuery: request.originalQuery?.trim() || null,
-          activeTheoryTagIds: tagIds.length > 0 ? [...tagIds] : null,
-          theoryLessonSource: 'tag_browse',
-          theoryTagBrowseLevel: catalogTopic?.level ?? null,
-        })
-        return
-      }
-
-      const topic = request.requestedTopic.trim()
-      if (!topic) return
-
-      const staticLesson = findStaticLessonByTopic(topic)
-      if (staticLesson) {
-        openLearningLesson(staticLesson.id, 'tutor')
-        return
-      }
-
-      const requestId = ++lessonOpenRequestIdRef.current
-      menuLessonGenerateCleanupRef.current?.()
-      menuLessonBgFetchEpochRef.current += 1
-      setStructuredLessonVariantRegenerating(false)
-      resetVariantPrepareRef.current()
-      abandonPracticeSession()
-      firstMessageRequestIdRef.current += 1
-      firstMessageInFlightRef.current = false
-      suppressSettingsChangeBannerRef.current = true
-      setDialogStarted(true)
-      setMenuOpen(false)
-      setHomeMenuView('lessons')
-      setLoading(true)
-      setRetryMessage(null)
-      setSearchingInternet(false)
-      setLoadingTranslationIndex(null)
-      setForceNextMicLang(null)
-      setSettingsAtLastSend(null)
-      setActiveLearningLessonId(null)
-      setActiveStructuredLessonRuntime(null)
-      setStructuredLessonLoadingId('tutor')
-      setMenuLessonBgError(null)
-      setPendingTutorLessonTitle(request.selectedIntent?.title ?? topic)
-      setActiveLessonVariantNumber(1)
-      setSelectedPostLessonAction(null)
-      setPostLessonBusy(false)
-      setLessonOverlay(null)
-      setLessonViewStage('intro')
-      setLessonTipsReturnStage('intro')
-      setLessonExtraTipsStatus('idle')
-      setLessonExtraTipsState(null)
-      setMessages([])
-      let lesson: LessonBlueprint | null = null
-      try {
-        try {
-          const response = await fetchWithLessonProviderDeadline(
-            (signal) =>
-              fetch('/api/lesson-generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  provider: settings.provider,
-                  openAiChatPreset: settings.openAiChatPreset,
-                  topic,
-                  originalQuery: request.originalQuery,
-                  intent: request.selectedIntent,
-                  level: settings.level,
-                  audience: settings.audience,
-                  analysisSummary: request.analysisSummary,
-                }),
-                signal,
-              }),
-            { deadlineMs: TUTOR_LESSON_GENERATE_TIMEOUT_MS }
-          )
-          const data = (await response.json()) as {
-            lesson?: LessonBlueprint
-            error?: string
-          }
-          if (response.ok && data.lesson) {
-            lesson = data.lesson
-          } else if (data.error) {
-            console.warn('lesson-generate error:', data.error)
-          }
-        } catch (error) {
-          console.warn('lesson-generate failed, fallback blueprint will be used:', error)
-        }
-
-        if (!lesson) {
-          lesson = buildTutorFallbackBlueprint(topic)
-        }
-        const tutorIntent = lesson.tutorIntent ?? request.selectedIntent
-        if (!shouldFinalizeTutorLessonOpen(requestId, lessonOpenRequestIdRef.current)) return
-
-        const lessonId = registerRuntimeLearningLesson({
-          title: lesson.title,
-          intro: lesson.intro,
-          theoryIntro: lesson.theoryIntro,
-          actions: lesson.actions,
-          followups: lesson.followups,
-          adaptiveTemplate: lesson.adaptiveTemplate,
-          tutorIntent,
-        })
-        const runtimeLesson = buildTutorStructuredLesson({
-          id: lessonId,
-          topic: lesson.title || topic,
-          level: settings.level,
-          blueprint: { ...lesson, tutorIntent },
-        })
-        setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
-        setActiveLearningLessonId(lessonId)
-        setActiveStructuredLessonRuntime(runtimeLesson)
-        setPendingTutorLessonTitle(null)
-      } finally {
-        if (!shouldFinalizeTutorLessonOpen(requestId, lessonOpenRequestIdRef.current)) return
-        suppressSettingsChangeBannerRef.current = false
-        setStructuredLessonLoadingId(null)
-        setPendingTutorLessonTitle(null)
-        setLoading(false)
-      }
-    },
-    [
-      abandonPracticeSession,
-      openLearningLesson,
-      settings.provider,
-      settings.openAiChatPreset,
-      settings.level,
-      settings.audience,
-    ]
   )
 
   const handleSelectLearningAction = useCallback(
@@ -5940,6 +5826,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setDialogStarted(false)
     openMenuAt('lessons')
   }, [openMenuAt])
+
+  const [tutorChatPrefill, setTutorChatPrefill] = useState('')
+  const openTutorChat = useCallback((opts?: { prefill?: string }) => {
+    setTutorChatPrefill(opts?.prefill?.trim() || '')
+    setMyPlanSpaceActive(false)
+    setProgressSpaceActive(false)
+    setDialogStarted(false)
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
+    restoreLessonMenuOnNextOpenRef.current = true
+    setHomeMenuView('lessons')
+    setMenuOpen(true)
+  }, [])
 
   const openMyPlanFromProgress = useCallback(() => {
     openMyPlanSpace()
@@ -9677,6 +9575,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   return (
     <AppShellProvider value={{ activeBranch: activeBranchResolved, isBranchMounted }}>
+    <TutorSessionProvider
+      settings={{
+        audience: settings.audience,
+        level: settings.level,
+        provider: settings.provider,
+        openAiChatPreset: settings.openAiChatPreset,
+      }}
+      onOpenLocalReference={(lessonId) => {
+        void openReferenceTopic(
+          lessonId,
+          'tutor',
+          { catalogBrowseIntent: 'reference' },
+          { from: 'tutor', clearMessages: false }
+        )
+      }}
+    >
     <div
       data-audience={settings.audience}
       className={`${rootShellClass} ${!dialogStarted ? homeShellGradientClass : ''}`}
@@ -10018,6 +9932,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       await openVocabularyWorlds()
                     }}
                     onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
+                    onOpenTutorChat={openTutorChat}
                   />
                 ) : isProgressSpaceActive ? (
                   <ProgressSheetScreen
@@ -10162,7 +10077,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   sheet={activeReferenceSheet}
                   actionsMode={referenceActionsMode}
                   onBack={
-                    referenceLaunchFrom === 'chat' ? backFromReferenceToChat : backToLessonList
+                    referenceLaunchFrom === 'chat'
+                      ? backFromReferenceToChat
+                      : referenceLaunchFrom === 'tutor'
+                        ? backFromReferenceToTutor
+                        : backToLessonList
                   }
                   onStartLesson={
                     referenceActionsMode === 'back-only'
@@ -10515,6 +10434,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenReferenceTopic={openReferenceTopic}
         onOpenProgressSpace={openProgressSpace}
         onOpenMyPlanSpace={openMyPlanSpace}
+        onOpenTutorChat={openTutorChat}
+        tutorChatPrefill={tutorChatPrefill}
         onOpenQuickTest={openQuickTest}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
@@ -10528,7 +10449,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenVocabularyByLevel={openVocabularyByLevel}
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
-        onOpenTutorLesson={openTutorLesson}
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
         onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
         lessonMenuContext={lessonMenuContext}
@@ -10577,6 +10497,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         languageNoteReviewTopicsDisabled={reviewChipNavPending || !featureFlags.referenceV1}
       />
     </div>
+    </TutorSessionProvider>
     </AppShellProvider>
   )
 }

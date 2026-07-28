@@ -39,5 +39,7 @@ export const featureFlags = {
   /** Unlock «Режим» / «Формат звонка». Default off — ветка только через hub. */
   engMenuBranchSwitchersUnlocked:
     process.env.NEXT_PUBLIC_FEATURE_ENG_MENU_BRANCH_SWITCHERS_UNLOCKED === 'true',
+  /** Учебный чат Репетитора (Explain → микро → шпаргалка). Default on after Phase 6; =false аварийный rollback. */
+  tutorChatV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_CHAT_V1 !== 'false',
 } as const
 

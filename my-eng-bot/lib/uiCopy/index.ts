@@ -13,6 +13,7 @@ export {
 } from '@/lib/uiCopy/callReview'
 export { MY_PLAN_COPY, myPlanCopy, myPlanWhy, myPlanButton } from '@/lib/uiCopy/myPlan'
 export { REFERENCE_COPY } from '@/lib/uiCopy/reference'
+export { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 export {
   progressCopy,
   progressOpportunityReason,

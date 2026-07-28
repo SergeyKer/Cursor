@@ -29,6 +29,9 @@ import {
   myPlanLevelLine,
   myPlanStreakLine,
 } from '@/lib/uiCopy/myPlan'
+import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
+import { markTutorCardConsumed } from '@/lib/tutor/tutorQuestionCache'
+import { useTutorQuestionPrefetch } from '@/lib/tutor/useTutorQuestionPrefetch'
 import MyPlanCard from '@/components/myPlan/MyPlanCard'
 import MyPlanCardFooterButton from '@/components/myPlan/MyPlanCardFooterButton'
 import {
@@ -92,6 +95,8 @@ function referenceLessonIdFromAction(action: MyPlanAction): string | null {
 export interface MyPlanPanelProps {
   mainTask?: MyPlanRecommendation | null
   secondary?: MyPlanRecommendation[]
+  /** Separate «Репетитор» card (same zones, open_tutor). */
+  tutorTask?: MyPlanRecommendation | null
   /** Legacy flat list when flag off. */
   recommendations?: MyPlanRecommendation[]
   status?: MyPlanStatusSlice
@@ -106,6 +111,7 @@ export interface MyPlanPanelProps {
   showAdultPaywallHint?: boolean
   onOpenLearningLesson?: (lessonId: string) => void
   onOpenReferenceTopic?: (lessonId: string) => void
+  onOpenTutorChat?: (opts?: { prefill?: string }) => void
   onOpenPracticeSession?: (request: {
     lessonId?: string
     mode: PracticeMode
@@ -129,6 +135,7 @@ export interface MyPlanPanelProps {
 export default function MyPlanPanel({
   mainTask = null,
   secondary = [],
+  tutorTask = null,
   recommendations,
   status,
   programTask = null,
@@ -142,6 +149,7 @@ export default function MyPlanPanel({
   showAdultPaywallHint = false,
   onOpenLearningLesson,
   onOpenReferenceTopic,
+  onOpenTutorChat,
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenVocabularyWorlds,
@@ -155,6 +163,17 @@ export default function MyPlanPanel({
   const showDebug = isLearningMemoryDebugEnabled()
   const audience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
+  const [, setTutorCardTick] = useState(0)
+
+  useTutorQuestionPrefetch({
+    attentionZones,
+    audience,
+    level: settings.level,
+    provider: settings.provider,
+    openAiChatPreset: settings.openAiChatPreset,
+    enabled: featureFlags.tutorChatV1,
+    onCached: () => setTutorCardTick((n) => n + 1),
+  })
 
   const legacyList = !nowGoalLayout && recommendations ? recommendations : null
   const resolvedMain = legacyList ? legacyList[0] ?? null : mainTask
@@ -321,6 +340,11 @@ export default function MyPlanPanel({
             await runPractice({ lessonId: topic.id, mode: 'balanced', entrySource: 'my_plan' })
           }
           return
+        case 'open_tutor':
+          onMarkOpenedFromMyPlan?.()
+          if (action.skillTagId) markTutorCardConsumed(action.skillTagId)
+          onOpenTutorChat?.({ prefill: action.prefill })
+          return
         default:
           return
       }
@@ -330,6 +354,7 @@ export default function MyPlanPanel({
       onMarkOpenedFromMyPlan,
       onOpenLearningLesson,
       onOpenReferenceTopic,
+      onOpenTutorChat,
       onOpenVocabularyWorlds,
       resolvedMain?.goalType,
       runPractice,
@@ -622,10 +647,29 @@ export default function MyPlanPanel({
     </MyPlanCard>
   )
 
+  const tutorCardBlock =
+    featureFlags.tutorChatV1 && tutorTask ? (
+      <MyPlanCard
+        title={TUTOR_CHAT_COPY.cardSectionTitle}
+        footer={
+          <MyPlanCardFooterButton
+            variant="launch"
+            label={tutorTask.buttonLabel}
+            ariaLabel={tutorTask.ariaLabel}
+            onClick={() => void handleAction(tutorTask.action, 'secondary')}
+          />
+        }
+      >
+        <p className={MY_PLAN_CARD_BODY_TITLE}>{tutorTask.title}</p>
+        <p className={MY_PLAN_CARD_BODY_REASON}>{tutorTask.reasonLine}</p>
+      </MyPlanCard>
+    ) : null
+
   return (
     <div className="w-full min-w-0 space-y-3">
       {programCardBlock}
       {nowBlock}
+      {tutorCardBlock}
       {secondaryBlock}
       {statusBlock}
       {zonesBlock}

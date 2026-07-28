@@ -22,6 +22,13 @@ export type MyPlanAction =
       entrySource: PracticeEntrySource
     }
   | { kind: 'open_reference'; lessonId: string }
+  /** Prefill в учебный чат Репетитора (не openTutorLesson). Wiring — Phase 4. */
+  | {
+      kind: 'open_tutor'
+      prefill: string
+      source: 'error_prompt' | 'curiosity'
+      skillTagId?: string
+    }
 
 export type NowGoalType =
   | 'incomplete'
@@ -128,6 +135,8 @@ export interface NowGoalResult {
   programTask: MyPlanRecommendation | null
   programStatus: ProgramStatus
   unstartedCount: number
+  /** Separate «Репетитор» card; same zones math, different CTA. */
+  tutorTask: MyPlanRecommendation | null
 }
 
 /** Пороги v1 selectNowGoal. */

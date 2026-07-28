@@ -49,6 +49,7 @@ export {
   recordSilentAssessSignal,
   recordTeacherCorrectionSignal,
   recordTranslationErrorSignal,
+  recordTutorMicroWrongSignal,
 } from '@/lib/learningMemory/record'
 export { extractTranslationErrorBlocks } from '@/lib/learningMemory/translationErrors'
 export { extractTeacherCorrection } from '@/lib/learningMemory/teacherCorrection'

@@ -267,3 +267,34 @@ export function recordAssistantTurnLearningSignal(params: {
     }
   }
 }
+
+/** Real micro-quiz wrongs from Tutor chat → same AttentionZones pipeline as practice. */
+export function recordTutorMicroWrongSignal(params: {
+  skillTagId?: string
+  topicTitle: string
+  userAnswer: string
+  correctAnswer?: string
+  canonicalKey?: string
+  lessonIdHint?: string | null
+}): void {
+  scheduleIdle(() => {
+    const skillTagIds = params.skillTagId
+      ? [params.skillTagId]
+      : params.canonicalKey
+        ? [params.canonicalKey]
+        : [`tutor-${params.topicTitle.toLowerCase().replace(/\s+/g, '-').slice(0, 40)}`]
+    saveLearningSignal({
+      source: 'tutor',
+      detector: 'tutor_micro',
+      utteranceHash: hashUtterance(`tutor-micro:${skillTagIds[0]}:${params.userAnswer}`),
+      rawTopicIds: skillTagIds,
+      rawTopicTitles: [params.topicTitle],
+      lessonIdHint: params.lessonIdHint ?? null,
+      skillTagIds,
+      snippet: {
+        original: params.userAnswer.slice(0, 120),
+        corrected: params.correctAnswer?.slice(0, 120),
+      },
+    })
+  })
+}

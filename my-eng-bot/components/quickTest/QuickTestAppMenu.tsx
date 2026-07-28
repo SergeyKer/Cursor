@@ -333,7 +333,6 @@ export function QuickTestAppMenu({
       onOpenVocabularyWorlds={() => tryLeaveTestAndNavigate('/')}
       onOpenVocabularyByLevel={() => tryLeaveTestAndNavigate('/')}
       onOpenAdaptivePracticeTopic={() => tryLeaveTestAndNavigate('/')}
-      onOpenTutorLesson={() => tryLeaveTestAndNavigate('/')}
       topOffset="var(--app-top-offset)"
       bottomOffset="var(--app-menu-panel-bottom)"
       columnBounds={columnBounds}
