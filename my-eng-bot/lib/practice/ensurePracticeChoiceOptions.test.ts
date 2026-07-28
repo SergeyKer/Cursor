@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import {
   ensurePracticeChoiceOptions,
   PRACTICE_CHOICE_MIN_OPTIONS,
@@ -28,5 +29,24 @@ describe('ensurePracticeChoiceOptions', () => {
   it('adds time-to distractors for state answers', () => {
     const options = ensurePracticeChoiceOptions(["It's cold."], "It's cold.")
     expect(options.some((item) => /^It's time to /i.test(item))).toBe(true)
+  })
+
+  it('drops word distractors when target is a sentence (screenshot mix regression)', () => {
+    const options = ensurePracticeChoiceOptions(
+      ['I am from Russia.', 'from', 'Russias'],
+      'I am from Russia.'
+    )
+    expect(options).toContain('I am from Russia.')
+    expect(options.length).toBeGreaterThanOrEqual(PRACTICE_CHOICE_MIN_OPTIONS)
+    expect(options.every((item) => isCompleteSentence(item))).toBe(true)
+    expect(options).not.toContain('from')
+    expect(options).not.toContain('Russias')
+  })
+
+  it('keeps single-word chips for word targets', () => {
+    const options = ensurePracticeChoiceOptions(['am', 'from'], 'am')
+    expect(options[0]).toBe('am')
+    expect(options.length).toBeGreaterThanOrEqual(PRACTICE_CHOICE_MIN_OPTIONS)
+    expect(options.every((item) => !isCompleteSentence(item))).toBe(true)
   })
 })

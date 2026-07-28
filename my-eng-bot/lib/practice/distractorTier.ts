@@ -1,5 +1,6 @@
 import {
   filterByChoiceGranularity,
+  inferChoiceGranularity,
   type ChoiceGranularity,
   isCompleteSentence,
 } from '@/lib/practice/choiceOptionGranularity'
@@ -93,11 +94,12 @@ function pickLessonDistractorsForTier(
   const targetPattern = sentencePattern(targetAnswer)
 
   if (tier === 'obvious') {
-    return wrong.filter((item) => {
+    const obvious = wrong.filter((item) => {
       const pattern = sentencePattern(item)
       if (targetPattern && pattern && pattern !== targetPattern) return true
       return !tokensOverlap(item, targetAnswer)
     })
+    return obvious.length > 0 ? obvious : wrong
   }
 
   if (tier === 'semantic-near') {
@@ -244,14 +246,11 @@ export function buildTieredChoiceOptions(
   lessonOptions?: string[],
   params?: BuildTieredChoiceOptionsParams
 ): string[] {
-  const granularity = params?.granularity
+  const granularity =
+    params?.granularity ?? inferChoiceGranularity({ targetAnswer, prompt: params?.prompt })
   const canonicalOptions = params?.canonicalOptions ?? []
-  const filteredCanonical = granularity
-    ? filterByChoiceGranularity(canonicalOptions, granularity)
-    : canonicalOptions
-  const filteredLesson = granularity
-    ? filterByChoiceGranularity(lessonOptions ?? [], granularity)
-    : lessonOptions ?? []
+  const filteredCanonical = filterByChoiceGranularity(canonicalOptions, granularity)
+  const filteredLesson = filterByChoiceGranularity(lessonOptions ?? [], granularity)
 
   const sourceStepOptionCount = params?.sourceStepOptionCount ?? filteredCanonical.length
   const isDropdown = params?.practiceType === 'dropdown-fill'
@@ -267,7 +266,7 @@ export function buildTieredChoiceOptions(
   if (isDropdown && granularity === 'word') {
     const slotOptions = buildDropdownWordOptions(targetAnswer, tier, params ?? {})
     if (slotOptions.length >= PRACTICE_CHOICE_MIN_OPTIONS) {
-      return ensurePracticeChoiceOptions(slotOptions, targetAnswer, { tier, targetCount })
+      return ensurePracticeChoiceOptions(slotOptions, targetAnswer, { tier, targetCount, granularity })
     }
   }
 
@@ -285,7 +284,7 @@ export function buildTieredChoiceOptions(
         !isDropdown ||
         fromCanonical.every((item) => isOptionCompatibleWithSlot(item, slot, targetAnswer))
       if (compatible) {
-        return ensurePracticeChoiceOptions(fromCanonical, targetAnswer, { tier, targetCount })
+        return ensurePracticeChoiceOptions(fromCanonical, targetAnswer, { tier, targetCount, granularity })
       }
     }
   }
@@ -307,7 +306,7 @@ export function buildTieredChoiceOptions(
     }
   }
 
-  return ensurePracticeChoiceOptions(candidates, targetAnswer, { tier, targetCount })
+  return ensurePracticeChoiceOptions(candidates, targetAnswer, { tier, targetCount, granularity })
 }
 
 const PUZZLE_TRAP_SKIP_TOKENS = new Set([

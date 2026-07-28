@@ -1,8 +1,8 @@
-import { filterByChoiceGranularity, inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
+import { filterByChoiceGranularity, hasMixedChoiceGranularity, inferChoiceGranularity } from '@/lib/practice/choiceOptionGranularity'
 import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
 import { buildTieredChoiceOptions, sanitizeWordBuilderProExtraWords } from '@/lib/practice/distractorTier'
 import { getPracticeStepSpec, resolveTierForStep } from '@/lib/practice/engine/stepSpec'
-import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import { isChoiceLikePracticeType, PRACTICE_CHOICE_MIN_OPTIONS } from '@/lib/practice/ensurePracticeChoiceOptions'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import { inferGapWordSlot } from '@/lib/practice/gapWordSlot'
 import { sanitizeCanonicalOptions } from '@/lib/practice/sanitizeCanonicalOptions'
@@ -91,17 +91,42 @@ export function enforceStepSpecs(
         gapSlot,
         lesson,
       })
-      normalized = {
-        ...normalized,
-        options: buildTieredChoiceOptions(normalized.targetAnswer, tier, lessonPool, {
-          granularity,
-          canonicalOptions: sanitizedCanonical ?? resolved?.canonicalOptions,
-          sourceStepOptionCount: sanitizedCanonical?.length ?? filteredCanonical.length,
-          practiceType: normalized.type,
-          prompt: normalized.prompt,
-          lesson,
-          mode,
-        }),
+      let rebuiltOptions = buildTieredChoiceOptions(normalized.targetAnswer, tier, lessonPool, {
+        granularity,
+        canonicalOptions: sanitizedCanonical ?? resolved?.canonicalOptions,
+        sourceStepOptionCount: sanitizedCanonical?.length ?? filteredCanonical.length,
+        practiceType: normalized.type,
+        prompt: normalized.prompt,
+        lesson,
+        mode,
+      })
+      if (
+        hasMixedChoiceGranularity(rebuiltOptions) ||
+        rebuiltOptions.length < PRACTICE_CHOICE_MIN_OPTIONS
+      ) {
+        rebuiltOptions = buildTieredChoiceOptions(
+          normalized.targetAnswer,
+          tier,
+          lessonPool,
+          {
+            granularity: inferChoiceGranularity({ targetAnswer: normalized.targetAnswer }),
+            canonicalOptions: sanitizedCanonical ?? resolved?.canonicalOptions,
+            sourceStepOptionCount: sanitizedCanonical?.length ?? filteredCanonical.length,
+            practiceType: normalized.type,
+            prompt: normalized.prompt,
+            lesson,
+            mode,
+          }
+        )
+      }
+      if (
+        !hasMixedChoiceGranularity(rebuiltOptions) &&
+        rebuiltOptions.length >= PRACTICE_CHOICE_MIN_OPTIONS
+      ) {
+        normalized = {
+          ...normalized,
+          options: rebuiltOptions,
+        }
       }
     }
 

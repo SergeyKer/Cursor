@@ -137,6 +137,7 @@ function optionsForType(
       : undefined
 
   return ensurePracticeChoiceOptions(lessonPool.length > 0 ? lessonPool : exercise.options, targetAnswer, {
+    granularity,
     targetCount,
   })
 }

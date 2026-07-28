@@ -40,6 +40,7 @@ import {
 } from '@/lib/practice/prompt/buildErrorFixPrompt'
 import {
   filterByChoiceGranularity,
+  hasMixedChoiceGranularity,
   inferChoiceGranularity,
   isCompleteSentence,
 } from '@/lib/practice/choiceOptionGranularity'
@@ -47,7 +48,7 @@ import { resolveDropdownOptionCount } from '@/lib/practice/dropdownOptionCount'
 import { buildWordBuilderProExtraWords } from '@/lib/practice/buildWordBuilderProTraps'
 import { buildTieredChoiceOptions, sanitizeWordBuilderProExtraWords } from '@/lib/practice/distractorTier'
 import { inferGapWordSlot, validateDropdownFillOptions } from '@/lib/practice/gapWordSlot'
-import { ensurePracticeChoiceOptions, isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
+import { ensurePracticeChoiceOptions, isChoiceLikePracticeType, PRACTICE_CHOICE_MIN_OPTIONS } from '@/lib/practice/ensurePracticeChoiceOptions'
 import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
 import { collectLessonChoicePool } from '@/lib/practice/lessonChoicePool'
 import {
@@ -203,8 +204,11 @@ export function normalizeAiPracticeQuestion(
       prompt: prompt || canonicalExercise.question,
       exerciseType: canonicalExercise.type,
     })
-    if (granularity === 'sentence' && !choicePromptHasContext(prompt)) {
-      prompt = buildChoicePrompt(resolved!.step, canonicalExercise, lesson)
+    const needsSentencePromptRebuild =
+      granularity === 'sentence' &&
+      (!choicePromptHasContext(prompt) || /___/.test(prompt) || isGapFillStylePrompt(prompt))
+    if (needsSentencePromptRebuild && resolved) {
+      prompt = buildChoicePrompt(resolved.step, canonicalExercise, lesson)
     }
   }
 
@@ -569,6 +573,7 @@ export function normalizeAiPracticeQuestion(
           buildParams
         )
       : ensurePracticeChoiceOptions(lessonChoiceOptions ?? rawOptions ?? [], normalizedTargetAnswer, {
+          granularity,
           targetCount: isDropdown
             ? dropdownTargetCount
             : filteredCanonical.length >= 3
@@ -596,6 +601,27 @@ export function normalizeAiPracticeQuestion(
       lessonChoiceOptions ?? [],
       buildParams
     )
+  }
+
+  if (
+    isChoiceLikePracticeType(type) &&
+    choiceOptions &&
+    hasMixedChoiceGranularity(choiceOptions)
+  ) {
+    choiceOptions = buildTieredChoiceOptions(
+      normalizedTargetAnswer,
+      normalizeOptions?.distractorTier ?? 'semantic-near',
+      lessonChoiceOptions ?? [],
+      buildParams
+    )
+  }
+
+  if (
+    isChoiceLikePracticeType(type) &&
+    choiceOptions &&
+    (hasMixedChoiceGranularity(choiceOptions) || choiceOptions.length < PRACTICE_CHOICE_MIN_OPTIONS)
+  ) {
+    return null
   }
 
   if (isChoiceLikePracticeType(type) && !choiceOptions) return null

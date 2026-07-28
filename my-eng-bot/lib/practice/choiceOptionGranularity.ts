@@ -24,12 +24,17 @@ export function inferChoiceGranularity(params: {
   const target = params.targetAnswer.trim()
   const prompt = params.prompt ?? ''
 
-  if (params.answerFormat === 'single_word' || /___/.test(prompt)) {
+  if (params.answerFormat === 'single_word') {
     return 'word'
   }
 
-  if (params.answerFormat === 'full_sentence') {
+  // Sentence target / full_sentence win over a gap marker left in a mismatched AI prompt.
+  if (params.answerFormat === 'full_sentence' || isCompleteSentence(target)) {
     return 'sentence'
+  }
+
+  if (/___/.test(prompt)) {
+    return 'word'
   }
 
   if (params.answerFormat === 'short_phrase') {
@@ -38,17 +43,26 @@ export function inferChoiceGranularity(params: {
   }
 
   if (params.answerFormat === 'choice' || params.exerciseType === 'fill_choice') {
-    if (isCompleteSentence(target)) return 'sentence'
     const tokens = target.replace(/[.!?]$/g, '').split(/\s+/).filter(Boolean)
     if (tokens.length === 1) return 'word'
   }
-
-  if (isCompleteSentence(target)) return 'sentence'
 
   const tokens = target.replace(/[.!?]$/g, '').split(/\s+/).filter(Boolean)
   if (tokens.length === 1) return 'word'
 
   return tokens.length >= 2 ? 'sentence' : 'word'
+}
+
+export function hasMixedChoiceGranularity(options: string[]): boolean {
+  let hasSentence = false
+  let hasWord = false
+  for (const option of options) {
+    if (!option.trim()) continue
+    if (isCompleteSentence(option)) hasSentence = true
+    else hasWord = true
+    if (hasSentence && hasWord) return true
+  }
+  return false
 }
 
 export function matchesChoiceGranularity(option: string, granularity: ChoiceGranularity): boolean {

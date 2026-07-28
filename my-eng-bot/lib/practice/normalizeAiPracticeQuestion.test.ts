@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
+import { isCompleteSentence } from '@/lib/practice/choiceOptionGranularity'
 import { normalizeAiPracticeQuestion } from '@/lib/practice/normalizeAiPracticeQuestion'
 import { isChoiceLikePracticeType } from '@/lib/practice/ensurePracticeChoiceOptions'
 import {
@@ -349,6 +350,30 @@ describe('normalizeAiPracticeQuestion', () => {
     expect(q!.targetAnswer.toLowerCase()).toBe('drink')
     expect(q!.options?.some((item) => item.toLowerCase() === 'drink')).toBe(true)
     expect(q!.options?.length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('rebuilds mixed context-clue chips from gap+sentence AI payload (screenshot regression)', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+
+    const q = normalizeAiPracticeQuestion(
+      {
+        type: 'context-clue',
+        prompt: "Ситуация: 'Я из России'. Как переведите: 'I ___ from Russia.'",
+        targetAnswer: 'I am from Russia.',
+        options: ['I am from Russia.', 'from', 'Russias'],
+      },
+      lesson!,
+      3,
+      { mode: 'relaxed', distractorTier: 'semantic-near' }
+    )
+    expect(q).not.toBeNull()
+    expect(q!.type).toBe('context-clue')
+    expect(q!.targetAnswer).toBe('I am from Russia.')
+    expect(q!.options?.length).toBeGreaterThanOrEqual(3)
+    expect(q!.options?.every((item) => isCompleteSentence(item))).toBe(true)
+    expect(q!.options).toContain('I am from Russia.')
+    expect(q!.prompt).not.toMatch(/___/)
   })
 
   it('sets requireExactTarget for challenge roleplay step 10', () => {

@@ -1,4 +1,9 @@
 import { normalizeEnglishLearnerContractions } from '@/lib/englishLearnerContractions'
+import {
+  inferChoiceGranularity,
+  matchesChoiceGranularity,
+  type ChoiceGranularity,
+} from '@/lib/practice/choiceOptionGranularity'
 import type { PracticeDistractorTier } from '@/lib/practice/engine/stepSpec'
 import type { PracticeExerciseType } from '@/types/practice'
 
@@ -16,6 +21,8 @@ const SOFT_SKIP_OPTION = "I don't know yet"
 
 const TIME_TO_VERBS = ['go', 'sleep', 'eat', 'study', 'rest', 'leave', 'wait', 'open the window']
 const STATE_ADJECTIVES = ['cold', 'hot', 'dark', 'late', 'early', 'hungry', 'tired']
+const SENTENCE_OBVIOUS_PADS = [`It's Tuesday.`, `I'm at home.`, `She is reading.`]
+const SENTENCE_FALLBACK_PADS = [`It's time to go.`, `It's late.`, `It's dark.`, `It's hot.`]
 
 export function isChoiceLikePracticeType(type: PracticeExerciseType): boolean {
   return CHOICE_LIKE.includes(type)
@@ -73,9 +80,48 @@ function buildPatternDistractors(targetAnswer: string): string[] {
   return [`It's time to go.`, `It's late.`, `It's dark.`, `It's hot.`, `It's time to sleep.`]
 }
 
+function buildWordPadDistractors(targetAnswer: string): string[] {
+  const word = targetAnswer.replace(/[.!?]/g, '').trim().split(/\s+/).pop() ?? targetAnswer
+  const lower = word.toLowerCase()
+  const variants = new Set<string>()
+  if (lower.endsWith('y')) variants.add(`${word.slice(0, -1)}ie`)
+  variants.add(`${word}s`)
+  variants.add(`${word}ing`)
+  variants.add(`${word}e`)
+  if (lower.includes('ie')) variants.add(word.replace(/ie/i, 'ei'))
+  if (word.length > 2) variants.add(`${word.slice(0, -1)}${word.slice(-1)}${word.slice(-1)}`)
+  if (lower === 'am') {
+    variants.add('is')
+    variants.add('are')
+  } else if (lower === 'a') {
+    variants.add('an')
+    variants.add('the')
+  } else if (lower === 'an') {
+    variants.add('a')
+    variants.add('the')
+  } else if (lower === 'who') {
+    variants.add('What')
+    variants.add('Where')
+  }
+  return Array.from(variants)
+    .filter((item) => item.toLowerCase() !== lower)
+    .slice(0, 4)
+}
+
 function withoutSoftSkipOption(options: string[]): string[] {
   const skipKey = optionKey(SOFT_SKIP_OPTION)
   return options.filter((item) => optionKey(item) !== skipKey)
+}
+
+function resolveEffectiveGranularity(
+  targetAnswer: string,
+  requested?: ChoiceGranularity
+): ChoiceGranularity {
+  const fromTarget = inferChoiceGranularity({ targetAnswer })
+  if (requested && matchesChoiceGranularity(targetAnswer, requested)) {
+    return requested
+  }
+  return fromTarget
 }
 
 export function resolvePracticeChoiceTargetCount(params: {
@@ -92,9 +138,10 @@ export function resolvePracticeChoiceTargetCount(params: {
 export type EnsurePracticeChoiceOptionsParams = {
   tier?: PracticeDistractorTier
   targetCount?: number
+  granularity?: ChoiceGranularity
 }
 
-/** Минимум три уникальных варианта; эталон всегда в списке. */
+/** Минимум три уникальных варианта; эталон всегда в списке; granularity выровнена по target. */
 export function ensurePracticeChoiceOptions(
   options: string[] | undefined,
   targetAnswer: string,
@@ -111,25 +158,46 @@ export function ensurePracticeChoiceOptions(
   )
 
   const trimmedTarget = targetAnswer.trim()
+  const granularity = resolveEffectiveGranularity(trimmedTarget, params.granularity)
+  const filteredCandidates = withoutSoftSkipOption(
+    (options ?? [])
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item) => matchesChoiceGranularity(item, granularity))
+  )
   const result = withoutSoftSkipOption(
-    Array.from(new Set([trimmedTarget, ...(options ?? [])].map((item) => item.trim()).filter(Boolean)))
+    Array.from(new Set([trimmedTarget, ...filteredCandidates].filter(Boolean)))
   ).filter((item, index, list) => list.findIndex((other) => optionKey(other) === optionKey(item)) === index)
 
+  const sentencePads =
+    tier === 'obvious' ? SENTENCE_OBVIOUS_PADS : buildPatternDistractors(trimmedTarget)
+  const wordPads = buildWordPadDistractors(trimmedTarget)
+
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
-    if (tier === 'obvious') {
-      appendUniqueOptions(result, [`It's Tuesday.`, `I'm at home.`, `She is reading.`], targetCount)
-    } else {
-      appendUniqueOptions(result, buildPatternDistractors(trimmedTarget), targetCount)
-    }
+    appendUniqueOptions(
+      result,
+      granularity === 'word' ? wordPads : sentencePads,
+      targetCount
+    )
   }
 
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
-    appendUniqueOptions(result, buildPatternDistractors(trimmedTarget), targetCount)
+    appendUniqueOptions(
+      result,
+      granularity === 'word' ? wordPads : buildPatternDistractors(trimmedTarget),
+      targetCount
+    )
   }
 
   if (result.length < PRACTICE_CHOICE_MIN_OPTIONS) {
-    appendUniqueOptions(result, [`It's time to go.`, `It's late.`, `It's dark.`, `It's hot.`], targetCount)
+    appendUniqueOptions(
+      result,
+      granularity === 'word' ? ['is', 'are', 'the', 'from'] : SENTENCE_FALLBACK_PADS,
+      targetCount
+    )
   }
 
-  return result.slice(0, Math.max(PRACTICE_CHOICE_MIN_OPTIONS, targetCount))
+  return result
+    .filter((item) => matchesChoiceGranularity(item, granularity))
+    .slice(0, Math.max(PRACTICE_CHOICE_MIN_OPTIONS, targetCount))
 }

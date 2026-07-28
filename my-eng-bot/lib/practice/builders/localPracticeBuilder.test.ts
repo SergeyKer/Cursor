@@ -305,6 +305,50 @@ describe('buildLocalPracticeSession', () => {
     expect(dropdown?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
   })
 
+  it('lesson 4 relaxed aligns dropdown words and context-clue sentences', () => {
+    const lesson = getStructuredLessonById('4')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '4' },
+      mode: 'relaxed',
+      entrySource: 'menu',
+    })
+
+    const dropdown = session.questions[2]
+    expect(dropdown?.type).toBe('dropdown-fill')
+    expect(dropdown?.targetAnswer).toBe('a')
+    expect(dropdown?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
+
+    const contextClue = session.questions[3]
+    expect(contextClue?.type).toBe('context-clue')
+    expect(contextClue?.options?.length).toBeGreaterThanOrEqual(3)
+    expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
+    expect(contextClue?.prompt).not.toMatch(/___/)
+  })
+
+  it('lesson 2 relaxed aligns dropdown words and context-clue sentences', () => {
+    const lesson = getStructuredLessonById('2')
+    expect(lesson).not.toBeNull()
+
+    const session = buildLocalPracticeSession({
+      lesson: lesson!,
+      source: { kind: 'static_lesson', lessonId: '2' },
+      mode: 'relaxed',
+      entrySource: 'menu',
+    })
+
+    const dropdown = session.questions[2]
+    expect(dropdown?.type).toBe('dropdown-fill')
+    expect(dropdown?.targetAnswer).toBe('Who')
+    expect(dropdown?.options?.every((item) => !isCompleteSentence(item))).toBe(true)
+
+    const contextClue = session.questions[3]
+    expect(contextClue?.type).toBe('context-clue')
+    expect(contextClue?.options?.every((item) => isCompleteSentence(item))).toBe(true)
+  })
+
   it('reference word-builder-pro builds phrase puzzle with grammar traps', () => {
     const lesson = getStructuredLessonById('1')
     expect(lesson).not.toBeNull()

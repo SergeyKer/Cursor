@@ -151,8 +151,8 @@ export const WHO_LIKES_SESSION_STEP_MAPS = {
   relaxed: [
     'l2-who-likes-pizza',
     'l2-who-likes-coffee',
-    'l2-who-is-that',
     'l2-who-gap',
+    'l2-who-is-that',
     'l2-brother-likes-tea',
     'l2-who-likes-music',
   ],
