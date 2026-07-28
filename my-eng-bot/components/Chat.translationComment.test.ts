@@ -20,6 +20,8 @@ import {
   condenseTranslationCommentToErrors,
   filterTranslationErrorsDisplayText,
   parseTranslationCoachBlocks,
+  resolveAssistantTranslationDrillRussianLine,
+  resolveTranslationInvitationDrillRussian,
   shouldIgnoreTranslationRepeatForStatusInTranslationUi,
   stripTranslationMainMetaPrefixes,
   translationResponseHasSuccessShape,
@@ -470,6 +472,46 @@ describe('translation soft_fail_advance UI', () => {
       rawContent: content,
     })
     expect(status).toBe('soft_fail_advance')
+  })
+
+  it('сырой Комментарий_выход не создаёт вторую «Переведи далее» из хвоста bridge', () => {
+    const content = [
+      'Комментарий_выход: Здесь застряли бы. Не попали в этот раз — двигаемся дальше.',
+      'Переведи далее: Мы обычно разговариваем дома по-английски.',
+      '__TRAN_REPEAT_REF__: We usually speak English at home.',
+    ].join('\n')
+    const meta = computeAssistantTranslationMainCardMeta({ role: 'assistant', content })
+    expect(meta.effectiveMainBefore).toBe('')
+    expect(meta.hideTranslationPromptBlocks).toBe(false)
+
+    const blocks = parseTranslationCoachBlocks(content)
+    expect(blocks.translationSoftFailComment).toMatch(/застряли/i)
+    expect(blocks.invitation).toMatch(/обычно разговариваем/i)
+
+    const sections = buildAssistantSectionsForTranslationSoftFailAdvanceTest({
+      softFailComment: blocks.translationSoftFailComment ?? '',
+      mainBefore: meta.effectiveMainBefore,
+      invitationText: blocks.invitation,
+    })
+    const keys = sections.map((s) => s.key)
+    expect(keys).toEqual(['translation-soft-fail', 'translation-invitation'])
+    expect(sections.find((s) => s.key === 'translation-invitation')?.text).toMatch(/обычно разговариваем/i)
+    expect(sections.some((s) => s.key === 'main')).toBe(false)
+    expect(sections.some((s) => s.key === 'translation-invitation' && /Не попали/i.test(s.text))).toBe(
+      false
+    )
+    expect(sections.some((s) => s.label === '✅')).toBe(false)
+
+    const priorRu = resolveAssistantTranslationDrillRussianLine({ role: 'assistant', content })
+    expect(priorRu).toBe('Мы обычно разговариваем дома по-английски.')
+  })
+
+  it('resolveTranslationInvitationDrillRussian отсекает мета и похвалу', () => {
+    expect(resolveTranslationInvitationDrillRussian('Переведи на английский.')).toBeNull()
+    expect(
+      resolveTranslationInvitationDrillRussian('Переведи далее: Ты правильно использовал Present Simple.')
+    ).toBeNull()
+    expect(resolveTranslationInvitationDrillRussian('Переведи далее: Я читаю книгу.')).toBe('Я читаю книгу.')
   })
 })
 

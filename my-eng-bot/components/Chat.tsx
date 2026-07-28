@@ -714,6 +714,7 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
 export function buildAssistantSectionsForTranslationSoftFailAdvanceTest(options: {
   softFailComment: string
   mainBefore: string
+  invitationText?: string | null
 }): AssistantSection[] {
   return buildAssistantSections({
     comment: null,
@@ -726,7 +727,7 @@ export function buildAssistantSectionsForTranslationSoftFailAdvanceTest(options:
     repeatTextForCard: null,
     mainBefore: options.mainBefore,
     hideRussianNonQuestionMainBefore: false,
-    invitationText: null,
+    invitationText: options.invitationText ?? null,
     mainAfter: '',
     mode: 'translation',
     translationHeadingWelcome: false,
@@ -1175,6 +1176,9 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
       .replace(/\s+/g, ' ')
       .trim()
     effectiveMainBefore = cleanedNextSentence || fallbackFromInline || blocks.nextSentence
+  } else if (isSoftFailAdvanceMeta) {
+    // Soft-fail: drill lives in invitation; do not split Комментарий_выход into a fake main.
+    effectiveMainBefore = ''
   } else {
     const extracted = extractTranslationCommentAndPrompt(mainBefore)
     if (!effectiveComment && extracted.comment) {
@@ -1210,17 +1214,40 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
     translationErrorCoachUi
 
   return {
-    effectiveMainBefore: isJunkRepeatMeta ? '' : effectiveMainBefore,
+    effectiveMainBefore: isJunkRepeatMeta || isSoftFailAdvanceMeta ? '' : effectiveMainBefore,
     hideTranslationPromptBlocks,
   }
+}
+
+/** Тело invitation как RU-задание (soft-fail / success invitation-only); мусор и мета отсекаются. */
+export function resolveTranslationInvitationDrillRussian(
+  invitation: string | null | undefined
+): string | null {
+  const inv = invitation?.trim()
+  if (!inv) return null
+  if (isGenericTranslationMetaInvitation(inv)) return null
+  if (!isLikelyRussianTranslationDrill(inv)) return null
+  const body = stripTranslationInvitationPrefix(inv)
+  return body || null
+}
+
+/** Видимое RU-задание ассистента: main-карточка, иначе invitation. */
+export function resolveAssistantTranslationDrillRussianLine(
+  message: ChatMessageType
+): string | null {
+  const { effectiveMainBefore } = computeAssistantTranslationMainCardMeta(message)
+  const fromMain = effectiveMainBefore.trim()
+  if (fromMain) return fromMain
+  const { rest } = parseCorrection(stripTranslationCanonicalRepeatRefLine(message.content))
+  const blocks = parseTranslationCoachBlocks(rest)
+  return resolveTranslationInvitationDrillRussian(blocks.invitation)
 }
 
 /** Русская строка задания из последнего сообщения ассистента с карточкой «Переведи» (для ответа-ошибки без повтора задания). */
 function findPriorTranslationDrillRussianLine(messages: ChatMessageType[], beforeIndex: number): string | null {
   for (let j = beforeIndex - 1; j >= 0; j--) {
     if (messages[j]?.role !== 'assistant') continue
-    const { effectiveMainBefore } = computeAssistantTranslationMainCardMeta(messages[j])
-    const t = effectiveMainBefore.trim()
+    const t = resolveAssistantTranslationDrillRussianLine(messages[j])?.trim()
     if (t) return t
   }
   return null
@@ -3037,6 +3064,9 @@ function MessageBubble({
         .replace(/\s+/g, ' ')
         .trim()
       effectiveMainBefore = cleanedNextSentence || fallbackFromInline || blocks.nextSentence
+    } else if (translationProtocolStatusFromBlocks === 'soft_fail_advance') {
+      // Soft-fail: drill lives in invitation; do not split Комментарий_выход into a fake main.
+      effectiveMainBefore = ''
     } else {
       const extracted = extractTranslationCommentAndPrompt(mainBefore)
       if (!effectiveComment && extracted.comment) {
@@ -3090,6 +3120,9 @@ function MessageBubble({
     if (isJunkRepeatBlocks) {
       effectiveMainBefore = ''
       effectiveInvitationText = null
+    }
+    if (translationProtocolStatusFromBlocks === 'soft_fail_advance') {
+      effectiveMainBefore = ''
     }
   }
   if (isGenericTranslationRepeatUiText(repeatTextForCard)) {
