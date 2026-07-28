@@ -2014,7 +2014,7 @@ describe('POST /api/chat repeat cycle stability', () => {
     const data = (await res.json()) as { content: string }
 
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Комментарий:')
+    expect(data.content).toContain('Комментарий_выход:')
     expect(data.content).toContain('Переведи далее:')
     expect(data.content).not.toContain('Скажи:')
     expect(data.content).not.toContain('Ошибки:')
