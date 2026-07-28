@@ -233,6 +233,10 @@ import { ensureTranslationProtocolBlocks } from '@/lib/ensureTranslationProtocol
 import { normalizeSupportiveCommentForErrorsBlock } from '@/lib/normalizeSupportiveCommentForErrorsBlock'
 import { sanitizeRepeatMetaInstructionInContent } from '@/lib/repeatMetaInstruction'
 import { buildTranslationTaskId, shouldEnterTranslationJunkFlow } from '@/lib/translationCycleInvariant'
+import {
+  buildTranslationSoftFailAdvancePayload,
+  isValidTranslationSoftFailAdvancePayload,
+} from '@/lib/translationSoftFailAdvance'
 
 // Важно для Vercel: роут-хэндлер должен выполняться в Node.js,
 // чтобы undici + proxy dispatcher работали предсказуемо (а не в Edge).
@@ -6549,13 +6553,45 @@ function buildDialogueRepeatExitComment(seed: string): string {
   return pool[pickDeterministicIndex(seed, pool.length)] ?? pool[0]!
 }
 
-function buildTranslationRepeatExitComment(seed: string): string {
-  const pool = [
-    'Комментарий: Хорошая попытка. Давай двигаться дальше.',
-    'Комментарий: Ты хорошо стараешься. Перейдем к следующему предложению.',
-    'Комментарий: Это непростой шаг. Давай продолжим на следующем примере.',
-  ]
-  return pool[pickDeterministicIndex(seed, pool.length)] ?? pool[0]!
+async function finalizeTranslationSoftFailAdvancePayload(params: {
+  content: string
+  nextRu: string
+  level: LevelId
+  audience: Audience
+  resolveGoldTranslation: ResolveGoldTranslation
+}): Promise<string> {
+  let out = params.content.trim()
+  if (!isValidTranslationSoftFailAdvancePayload(out)) return out
+  const nextRu = params.nextRu.replace(/\s+/g, ' ').trim()
+  if (!nextRu) return out
+  // Strip any accidental Say lines and old refs before attaching next-task gold.
+  out = out
+    .split(/\r?\n/)
+    .filter((line) => {
+      const t = line.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim()
+      if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Скажи|Say)\s*:/i.test(t)) return false
+      if (new RegExp(`^${TRAN_CANONICAL_REPEAT_REF_MARKER}\\s*:`, 'i').test(t)) return false
+      return true
+    })
+    .join('\n')
+    .trim()
+  const goldRaw = await params.resolveGoldTranslation({
+    ruSentence: nextRu,
+    level: params.level,
+    audience: params.audience,
+  })
+  const gold = goldRaw?.trim()
+    ? normalizeEnglishSentenceForCard(
+        normalizeTranslationCanonicalGold({
+          goldEnglish: goldRaw.trim(),
+          ruPrompt: nextRu,
+        }) || goldRaw.trim()
+      )
+    : ''
+  if (gold) {
+    out = `${out}\n${TRAN_CANONICAL_REPEAT_REF_MARKER}: ${gold}`
+  }
+  return out.trim()
 }
 
 const CHAT_RATE_BUCKETS = new Map<string, { count: number; resetAt: number }>()
@@ -8029,6 +8065,8 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       }
     }
     let translationSuccessFlow = false
+    let translationSoftFailAdvanceFlow = false
+    let translationSoftFailNextRu: string | null = null
     let priorAssistantRepeatEnglish: string | null = null
     const translationAnswerContainsCyrillic = !isFirstTurn && /[А-Яа-яЁё]/.test(lastUserContentForResponse)
     let translationWordMismatch = false
@@ -8878,48 +8916,56 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
     if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow) {
       const shouldExitRepeatLoopAfterTwoAttempts = translationRepeatAttemptsInCurrentCycle >= 2
       if (shouldExitRepeatLoopAfterTwoAttempts) {
+        const softFailNextAxis = translationAnyNextAxis
+        const nextPromptTense = softFailNextAxis?.tense ?? tutorGradingTense
+        const nextPromptLevel = softFailNextAxis?.effectiveLevel ?? translationDrillLevel
+        const nextPromptSentenceType =
+          softFailNextAxis?.effectiveSentenceType ?? translationDrillSentenceType
         const nextPrompt = resolveTranslationDrillFallbackRu({
           lessonId: activeTranslationLessonId,
-          tense: tutorGradingTense,
+          tense: nextPromptTense,
           topic,
-          level: translationDrillLevel,
+          level: nextPromptLevel,
           audience,
           seedText: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
-          sentenceType: translationDrillSentenceType,
+          sentenceType: nextPromptSentenceType,
         })
         const nextPromptResolved =
           nextPrompt?.trim() ||
           resolveTranslationDrillFallbackRu({
             lessonId: activeTranslationLessonId,
-            tense: tutorGradingTense,
+            tense: nextPromptTense,
             topic,
-            level: translationDrillLevel,
+            level: nextPromptLevel,
             audience,
             seedText: `${ruForTranslationRepeatClamp ?? lastTranslationPrompt}|repeat-exit`,
             sentenceType: 'mixed',
           }).trim() ||
           'Я читаю каждый день.'
-        const translationRepeatExitComment = buildTranslationRepeatExitComment(
-          `${translationRepeatAttemptsInCurrentCycle}|${lastUserContentForResponse}|${nextPromptResolved}`
-        )
-        sanitized = [
-          translationRepeatExitComment,
-          `Переведи далее: ${nextPromptResolved}`,
-        ].join('\n')
-        canTreatTranslationAsSuccess = true
+        sanitized = buildTranslationSoftFailAdvancePayload({
+          seed: `${translationRepeatAttemptsInCurrentCycle}|${lastUserContentForResponse}|${nextPromptResolved}`,
+          nextRu: nextPromptResolved,
+          audience,
+        })
+        translationSoftFailNextRu = nextPromptResolved
+        translationSoftFailAdvanceFlow = true
+        translationSuccessFlow = false
+        canTreatTranslationAsSuccess = false
         translationGoldVerdictFailed = false
         translationGoldVerdictReasons = []
-        if (!translationGoldForVerdict?.trim()) {
-          translationGoldForVerdict = translationCanonicalGoldForTask?.trim() || null
-        }
-        translationSuccessFlow = true
         translationJunkFlow = false
       }
     }
-    if (mode === 'translation' && !isFirstTurn && translationJunkFlow) {
+    if (mode === 'translation' && !isFirstTurn && translationJunkFlow && !translationSoftFailAdvanceFlow) {
       sanitized = normalizeTranslationJunkPayload(sanitized)
     }
-    if (mode === 'translation' && !isFirstTurn && !translationSuccessFlow && !translationJunkFlow) {
+    if (
+      mode === 'translation' &&
+      !isFirstTurn &&
+      !translationSuccessFlow &&
+      !translationJunkFlow &&
+      !translationSoftFailAdvanceFlow
+    ) {
       // Жёсткий guard: в non-success translation обязателен repeat.
       // Если payload не попал в success/error и repeat отсутствует, принудительно уходим в junk-вариант.
       if (!getTranslationRepeatSentence(sanitized)) {
@@ -9696,7 +9742,9 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       const translationGuard = applyCefrOutputGuard({
         mode: 'translation',
         content: sanitized,
-        level: translationDrillLevel as LevelId,
+        level: (translationSoftFailAdvanceFlow
+          ? (translationAnyNextAxis?.effectiveLevel ?? translationDrillLevel)
+          : translationDrillLevel) as LevelId,
         audience: audience as Audience,
       })
       const translationSuccessPayloadWithoutGold =
@@ -9705,20 +9753,22 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         canTreatTranslationAsSuccess &&
         !translationStrictReferenceFirst &&
         !translationGoldVerdictFailed
-      let guardedContent = translationSuccessEligible
-        ? normalizeTranslationSuccessPayload(translationGuard.content, {
-            tense: tutorGradingTense,
-            topic,
-            level: translationDrillLevel,
-            audience,
-            fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
-            userText: lastUserContentForResponse,
-            sentenceType: translationDrillSentenceType,
-            lessonId: activeTranslationLessonId,
-          })
-        : translationSuccessPayloadWithoutGold
-          ? translationGuard.content
-          : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
+      let guardedContent = translationSoftFailAdvanceFlow
+        ? translationGuard.content
+        : translationSuccessEligible
+          ? normalizeTranslationSuccessPayload(translationGuard.content, {
+              tense: tutorGradingTense,
+              topic,
+              level: translationDrillLevel,
+              audience,
+              fallbackPrompt: ruForTranslationRepeatClamp ?? lastTranslationPrompt,
+              userText: lastUserContentForResponse,
+              sentenceType: translationDrillSentenceType,
+              lessonId: activeTranslationLessonId,
+            })
+          : translationSuccessPayloadWithoutGold
+            ? translationGuard.content
+            : ensureTranslationRepeatFallbackForMixedInput(translationGuard.content, lastUserContentForResponse)
       if (isFirstTurn) {
         guardedContent = await ensureFirstTranslationDrillMatchesRequiredTense({
           content: guardedContent,
@@ -9735,7 +9785,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           lessonId: activeTranslationLessonId,
         })
       }
-      if (translationStrictReferenceFirst && !translationJunkFlow) {
+      if (translationStrictReferenceFirst && !translationJunkFlow && !translationSoftFailAdvanceFlow) {
         guardedContent = enforceStrictTranslationOutputContract({
           content: guardedContent,
           isFirstTurn,
@@ -9752,21 +9802,31 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           lessonId: activeTranslationLessonId,
         })
       }
-      guardedContent = await finalizeTranslationResponsePayload({
-        content: guardedContent,
-        nonSystemMessages,
-        lastTranslationPrompt,
-        priorCardRuPrompt: translationRuExtractedFromPriorAssistant ?? null,
-        canonicalGoldForTask: translationCanonicalGoldForTask,
-        activeTaskId: translationActiveTaskId,
-        level: translationDrillLevel as LevelId,
-        audience: audience as Audience,
-        requiredTense: tutorGradingTense,
-        provider,
-        req,
-        resolveGoldTranslation,
-      })
-      if (translationStrictReferenceFirst && !translationJunkFlow) {
+      if (translationSoftFailAdvanceFlow) {
+        guardedContent = await finalizeTranslationSoftFailAdvancePayload({
+          content: guardedContent,
+          nextRu: translationSoftFailNextRu ?? '',
+          level: (translationAnyNextAxis?.effectiveLevel ?? translationDrillLevel) as LevelId,
+          audience: audience as Audience,
+          resolveGoldTranslation,
+        })
+      } else {
+        guardedContent = await finalizeTranslationResponsePayload({
+          content: guardedContent,
+          nonSystemMessages,
+          lastTranslationPrompt,
+          priorCardRuPrompt: translationRuExtractedFromPriorAssistant ?? null,
+          canonicalGoldForTask: translationCanonicalGoldForTask,
+          activeTaskId: translationActiveTaskId,
+          level: translationDrillLevel as LevelId,
+          audience: audience as Audience,
+          requiredTense: tutorGradingTense,
+          provider,
+          req,
+          resolveGoldTranslation,
+        })
+      }
+      if (translationStrictReferenceFirst && !translationJunkFlow && !translationSoftFailAdvanceFlow) {
         guardedContent = enforceStrictTranslationOutputContract({
           content: guardedContent,
           isFirstTurn,

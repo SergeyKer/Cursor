@@ -395,9 +395,20 @@ describe('POST /api/chat translation state retention', () => {
     const res = await POST(req as never)
     const data = (await res.json()) as { content: string }
     expect(res.status).toBe(200)
-    expect(data.content).toContain('Давай двигаться дальше')
+    expect(data.content).toMatch(/Комментарий_выход\s*:/i)
+    expect(data.content).toMatch(/(?:не попали|мимо|не вышло|ошибк)/i)
     expect(data.content).toContain('Переведи далее:')
-    expect(data.content).not.toContain('Скажи: I cook in the kitchen.')
+    expect(data.content).not.toMatch(/Скажи\s*:/i)
+    expect(data.content).not.toMatch(/Комментарий_мусор\s*:/i)
+    expect(data.content).not.toContain('Ты хорошо стараешься')
+    expect(data.content).not.toContain('Хорошая попытка')
+    // Ref for the NEW drill is allowed; old kitchen gold must not remain as Say.
+    const nextRu =
+      /Переведи далее:\s*([^\n]+)/i.exec(data.content)?.[1]?.trim() ?? ''
+    expect(nextRu.length).toBeGreaterThan(0)
+    if (/__TRAN_REPEAT_REF__\s*:/i.test(data.content)) {
+      expect(data.content).not.toMatch(/__TRAN_REPEAT_REF__\s*:\s*I cook in the kitchen\./i)
+    }
   })
 
   it('keeps canonical tense/time frame when model drifts answer to tomorrow', async () => {

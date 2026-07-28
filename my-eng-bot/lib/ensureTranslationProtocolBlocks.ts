@@ -13,6 +13,7 @@ import {
 import { resolveTranslationProtocolStatusFromFields } from '@/lib/translationProtocolStatus'
 import { normalizeSupportiveCommentForErrorsBlock } from '@/lib/normalizeSupportiveCommentForErrorsBlock'
 import { resolveTranslationErrorSupport } from '@/lib/translationErrorSupportPolicy'
+import { isValidTranslationSoftFailAdvancePayload } from '@/lib/translationSoftFailAdvance'
 
 export function ensureTranslationProtocolBlocks(
   content: string,
@@ -28,6 +29,9 @@ export function ensureTranslationProtocolBlocks(
     repeatEnglishFallback?: string | null
   }
 ): string {
+  if (isValidTranslationSoftFailAdvancePayload(content)) {
+    return content.trim()
+  }
   const lines = content
     .split(/\r?\n/)
     .map((l) => l.replace(/^\s*(?:ai|assistant)\s*:\s*/i, '').trim())

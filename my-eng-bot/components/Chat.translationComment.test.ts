@@ -11,6 +11,7 @@ import {
   buildAssistantSectionsForTranslationDrillWithInvitationTest,
   buildAssistantSectionsForTranslationErrorRepeatTest,
   buildAssistantSectionsForTranslationJunkRepeatTest,
+  buildAssistantSectionsForTranslationSoftFailAdvanceTest,
   buildAssistantSectionsForTranslationSuccessTest,
   commentIconForContent,
   commentLabelForTranslationFirstBlock,
@@ -438,6 +439,37 @@ describe('translationSuccessPraiseCard UI', () => {
     expect(praiseSection?.text).toBe(praise)
     const main = sections.find((s) => s.key === 'main')
     expect(main?.text).toBe('Ты смотришь новый фильм?')
+  })
+})
+
+describe('translation soft_fail_advance UI', () => {
+  it('показывает slate bridge без ✅ и next drill', () => {
+    const bridge = 'Пока не попали — бывает. Засчитаем как ошибку и идём дальше.'
+    const sections = buildAssistantSectionsForTranslationSoftFailAdvanceTest({
+      softFailComment: bridge,
+      mainBefore: 'Переведи далее: Я читаю каждый день.',
+    })
+    const soft = sections.find((s) => s.key === 'translation-soft-fail')
+    expect(soft?.tone).toBe('slate')
+    expect(soft?.label).toBe('💡')
+    expect(soft?.text).toBe(bridge)
+    expect(sections.some((s) => s.label === '✅')).toBe(false)
+    const main = sections.find((s) => s.key === 'main')
+    expect(main?.text).toBe('Я читаю каждый день.')
+  })
+
+  it('parse + status: Комментарий_выход → soft_fail_advance', () => {
+    const content = [
+      'Комментарий_выход: Сейчас мимо, но ты стараешься — это важно. Берём следующее предложение.',
+      'Переведи далее: Я люблю чай.',
+    ].join('\n')
+    const blocks = parseTranslationCoachBlocks(content)
+    expect(blocks.translationSoftFailComment).toMatch(/мимо/i)
+    const status = resolveTranslationProtocolStatusFromFields({
+      translationSoftFailComment: blocks.translationSoftFailComment,
+      rawContent: content,
+    })
+    expect(status).toBe('soft_fail_advance')
   })
 })
 

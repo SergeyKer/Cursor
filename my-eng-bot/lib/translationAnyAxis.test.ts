@@ -21,6 +21,17 @@ describe('detectTranslationAdvancedToNextDrill', () => {
       )
     ).toBe(false)
   })
+
+  it('true for soft-fail advance with Комментарий_выход + Переведи далее', () => {
+    expect(
+      detectTranslationAdvancedToNextDrill(
+        [
+          'Комментарий_выход: Пока не попали — бывает. Засчитаем как ошибку и идём дальше.',
+          'Переведи далее: Я люблю чай.',
+        ].join('\n')
+      )
+    ).toBe(true)
+  })
 })
 
 describe('resolveTranslationAnyAxes', () => {

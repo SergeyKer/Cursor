@@ -58,6 +58,17 @@ describe('resolveTranslationProtocolStatus', () => {
       })
     ).toBe('junk_repeat')
   })
+
+  it('returns soft_fail_advance above error_repeat when soft-fail flag is set', () => {
+    expect(
+      resolveTranslationProtocolStatus({
+        mode: 'translation',
+        translationSuccessShape: true,
+        translationErrorCoachUi: true,
+        translationSoftFailAdvance: true,
+      })
+    ).toBe('soft_fail_advance')
+  })
 })
 
 describe('resolveTranslationProtocolStatusFromFields', () => {
@@ -166,6 +177,32 @@ describe('resolveTranslationProtocolStatusFromFields', () => {
         repeatRu: null,
       })
     ).toBe('prompt_only')
+  })
+
+  it('returns soft_fail_advance for Комментарий_выход even when body says ошибку', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        comment: null,
+        translationSoftFailComment: 'Пока не попали. Засчитаем как ошибку и идём дальше.',
+        errorsBlock: null,
+        repeat: null,
+        repeatRu: null,
+        rawContent: [
+          'Комментарий_выход: Пока не попали. Засчитаем как ошибку и идём дальше.',
+          'Переведи далее: Я читаю каждый день.',
+        ].join('\n'),
+      })
+    ).toBe('soft_fail_advance')
+  })
+
+  it('does not treat malformed Комментарий_выход + Скажи as soft_fail_advance', () => {
+    expect(
+      resolveTranslationProtocolStatusFromFields({
+        translationSoftFailComment: 'Мимо.',
+        repeat: 'I read.',
+        rawContent: ['Комментарий_выход: Мимо.', 'Скажи: I read.', 'Переведи далее: Я читаю.'].join('\n'),
+      })
+    ).toBe('error_repeat')
   })
 })
 

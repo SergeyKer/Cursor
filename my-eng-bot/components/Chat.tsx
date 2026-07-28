@@ -395,6 +395,8 @@ function buildAssistantSections(params: {
   translationSupportComment?: string | null
   /** Режим перевод, мусорный ввод: отдельный комментарий с тем же визуальным стилем, что и support. */
   translationJunkComment?: string | null
+  /** Режим перевод, soft-fail advance: мост «не попали, идём дальше». */
+  translationSoftFailComment?: string | null
   translationErrorCoachUi?: boolean
   /** Успешный drill перевода: первая карточка - ✅ (тон praise), а не янтарная 💡. */
   translationSuccessPraiseCard?: boolean
@@ -424,6 +426,7 @@ function buildAssistantSections(params: {
     comment,
     translationSupportComment = null,
     translationJunkComment = null,
+    translationSoftFailComment = null,
     translationErrorCoachUi = false,
     translationSuccessPraiseCard = false,
     translationErrorsText,
@@ -484,9 +487,22 @@ function buildAssistantSections(params: {
   const sections: AssistantSection[] = []
   const isTranslationErrorRepeat = mode === 'translation' && translationProtocolStatus === 'error_repeat'
   const isTranslationSuccess = mode === 'translation' && translationProtocolStatus === 'success'
+  const isTranslationSoftFailAdvance =
+    mode === 'translation' && translationProtocolStatus === 'soft_fail_advance'
   const supportTrim = translationSupportComment?.trim() ?? ''
   const junkTrim = translationJunkComment?.trim() ?? ''
-  if (isTranslationErrorRepeat) {
+  const softFailTrim = translationSoftFailComment?.trim() ?? ''
+  if (isTranslationSoftFailAdvance) {
+    if (softFailTrim) {
+      sections.push({
+        key: 'translation-soft-fail',
+        tone: 'slate',
+        label: '💡',
+        text: softFailTrim,
+        singleLine: !softFailTrim.includes('\n'),
+      })
+    }
+  } else if (isTranslationErrorRepeat) {
     if (supportTrim) {
       sections.push({
         key: 'translation-support',
@@ -694,6 +710,29 @@ export function buildAssistantSectionsForTranslationErrorRepeatTest(options: {
   })
 }
 
+/** Узкий экспорт для тестов: soft-fail advance — bridge без ✅ + следующее задание. */
+export function buildAssistantSectionsForTranslationSoftFailAdvanceTest(options: {
+  softFailComment: string
+  mainBefore: string
+}): AssistantSection[] {
+  return buildAssistantSections({
+    comment: null,
+    translationSoftFailComment: options.softFailComment,
+    translationErrorCoachUi: false,
+    translationProtocolStatus: 'soft_fail_advance',
+    translationSuccessPraiseCard: false,
+    showOnlyRepeat: false,
+    hidePromptBlocks: false,
+    repeatTextForCard: null,
+    mainBefore: options.mainBefore,
+    hideRussianNonQuestionMainBefore: false,
+    invitationText: null,
+    mainAfter: '',
+    mode: 'translation',
+    translationHeadingWelcome: false,
+  })
+}
+
 /** Узкий экспорт для тестов: junk drill - только «Комментарий_мусор» + «Скажи». */
 export function buildAssistantSectionsForTranslationJunkRepeatTest(options: {
   translationJunkComment: string | null
@@ -786,6 +825,7 @@ export function shouldIgnoreTranslationRepeatForStatusInTranslationUi(params: {
 export function parseTranslationCoachBlocks(text: string): {
   translationSupportComment: string | null
   translationJunkComment: string | null
+  translationSoftFailComment: string | null
   comment: string | null
   errorsBlock: string | null
   repeat: string | null
@@ -805,6 +845,7 @@ export function parseTranslationCoachBlocks(text: string): {
 
   let translationSupportComment: string | null = null
   let translationJunkComment: string | null = null
+  let translationSoftFailComment: string | null = null
   let comment: string | null = null
   let errorsBlock: string | null = null
   let repeat: string | null = null
@@ -946,6 +987,11 @@ export function parseTranslationCoachBlocks(text: string): {
       translationJunkComment = rest || null
       continue
     }
+    if (/^\s*(?:\d+\)\s*)?Комментарий_выход\s*:/i.test(line)) {
+      const rest = line.replace(/^\s*(?:\d+\)\s*)?Комментарий_выход\s*:\s*/i, '').trim()
+      translationSoftFailComment = rest || null
+      continue
+    }
     if (/^Комментарий(?:_ошибка)?\s*:/i.test(line)) {
       const rawComment = line.replace(/^Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
       const inlineProtocolMatch = /(?:Ошибки|Скажи|Say)\s*:/i.exec(rawComment)
@@ -998,6 +1044,9 @@ export function parseTranslationCoachBlocks(text: string): {
   return {
     translationSupportComment: trimmedSupport ? trimmedSupport : null,
     translationJunkComment: translationJunkComment?.trim() ? translationJunkComment.trim() : null,
+    translationSoftFailComment: translationSoftFailComment?.trim()
+      ? translationSoftFailComment.trim()
+      : null,
     comment,
     errorsBlock: trimmedErrors ? trimmedErrors : null,
     repeat,
@@ -1017,14 +1066,16 @@ function extractTranslationCommentAndPrompt(text: string): { comment: string | n
   if (!first || !tail) return { comment: null, promptText: trimmed }
 
   const looksLikeFeedback =
-    /^(Комментарий(?:_ошибка)?\s*:|Комментарий_мусор\s*:|Отлично|Молодец|Верно|Хорошо|Супер|Правильно|Почти|Нужно|Попробуй|Исправ)/i.test(
+    /^(Комментарий(?:_ошибка|_выход)?\s*:|Комментарий_мусор\s*:|Отлично|Молодец|Верно|Хорошо|Супер|Правильно|Почти|Нужно|Попробуй|Исправ)/i.test(
       first
     )
   const looksLikeRuSentence = /[А-Яа-яЁё]/.test(tail)
   const looksLikeEnFeedback = /[A-Za-z]/.test(first) && /^[A-Za-z0-9 ,.'!?-]+$/.test(first)
   const tailStartsWithRu = /^[\s"'«(]*[А-Яа-яЁё]/.test(tail)
   if (looksLikeFeedback && looksLikeRuSentence) {
-    const normalized = first.replace(/^(?:Комментарий(?:_ошибка)?|Комментарий_мусор)\s*:\s*/i, '').trim()
+    const normalized = first
+      .replace(/^(?:Комментарий(?:_ошибка|_выход)?|Комментарий_мусор)\s*:\s*/i, '')
+      .trim()
     return { comment: normalized || first, promptText: tail }
   }
   // Частый кейс translation: "Try again. Кошка ест."
@@ -1089,12 +1140,15 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
       commentForStatus != null ? commentToneForContent(commentForStatus ?? '') === 'praise' : undefined,
     translationSupportComment: blocks.translationSupportComment,
     translationJunkComment: blocks.translationJunkComment,
+    translationSoftFailComment: blocks.translationSoftFailComment,
     errorsBlock: blocks.errorsBlock,
     repeat: ignoreRepeatForStatus ? null : blocks.repeat,
     repeatRu: ignoreRepeatForStatus ? null : blocks.repeatRu,
+    rawContent: displayText,
   })
   const translationSuccessShape = translationProtocolStatus === 'success'
   const isJunkRepeatMeta = translationProtocolStatus === 'junk_repeat'
+  const isSoftFailAdvanceMeta = translationProtocolStatus === 'soft_fail_advance'
   if (blocks.comment) effectiveComment = condenseTranslationCommentToErrors(blocks.comment)
   if (blocks.repeat) repeatTextForCard = blocks.repeat
   if (blocks.nextSentence) {
@@ -1113,7 +1167,7 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
       .trim()
     const fallbackFromInline = blocks.nextSentence
       .replace(
-        /(?:Комментарий_перевод|Комментарий_мусор|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
+        /(?:Комментарий_перевод|Комментарий_мусор|Комментарий_выход|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
         ' '
       )
       .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -1149,9 +1203,10 @@ export function computeAssistantTranslationMainCardMeta(message: ChatMessageType
   const translationErrorCoachUi = translationProtocolStatus === 'error_repeat'
   const hideTranslationPromptBlocks =
     translationProtocolStatus === 'junk_repeat' ||
-    ((Boolean(repeatTextForCard) || Boolean(blocks.repeatRu)) &&
-      !String(effectiveMainBefore ?? '').trim()) ||
-    hideTranslationMainCardForErrorRepeat ||
+    (!isSoftFailAdvanceMeta &&
+      ((Boolean(repeatTextForCard) || Boolean(blocks.repeatRu)) &&
+        !String(effectiveMainBefore ?? '').trim())) ||
+    (!isSoftFailAdvanceMeta && hideTranslationMainCardForErrorRepeat) ||
     translationErrorCoachUi
 
   return {
@@ -2881,6 +2936,7 @@ function MessageBubble({
   let translationErrorsText: string | null = null
   let translationSupportComment: string | null = null
   let translationJunkComment: string | null = null
+  let translationSoftFailComment: string | null = null
   let translationErrorCoachUi = false
   let translationProtocolStatus: TranslationProtocolStatus = 'prompt_only'
   let repeatRuForCard: string | null = null
@@ -2907,9 +2963,11 @@ function MessageBubble({
           : undefined,
       translationSupportComment: blocks.translationSupportComment,
       translationJunkComment: blocks.translationJunkComment,
+      translationSoftFailComment: blocks.translationSoftFailComment,
       errorsBlock: blocks.errorsBlock,
       repeat: ignoreRepeatForStatus ? null : blocks.repeat,
       repeatRu: ignoreRepeatForStatus ? null : blocks.repeatRu,
+      rawContent: displayText,
     })
     const isJunkRepeatBlocks = translationProtocolStatusFromBlocks === 'junk_repeat'
     translationSuccessShape = translationProtocolStatusFromBlocks === 'success'
@@ -2927,6 +2985,7 @@ function MessageBubble({
       return `${base}\n\n${extra}`
     })()
     translationJunkComment = blocks.translationJunkComment?.trim() ?? null
+    translationSoftFailComment = blocks.translationSoftFailComment?.trim() ?? null
     translationErrorCoachUi = translationProtocolStatusFromBlocks === 'error_repeat'
     if (blocks.comment) {
       const praiseFromParseCorrection = Boolean(comment && commentToneForContent(comment) === 'praise')
@@ -2970,7 +3029,7 @@ function MessageBubble({
         .trim()
       const fallbackFromInline = blocks.nextSentence
         .replace(
-          /(?:Комментарий_перевод|Комментарий_мусор|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
+          /(?:Комментарий_перевод|Комментарий_мусор|Комментарий_выход|Комментарий|Ошибки|Скажи|Say)\s*:[^.\n!?]*[.!?]?/gi,
           ' '
         )
         .replace(/[+\?-]\s*:[^.\n!?]*[.!?]?/g, ' ')
@@ -3027,12 +3086,7 @@ function MessageBubble({
       effectiveMainBefore = stripTranslationMainMetaPrefixes(ruFbTrim)
       hideTranslationMainCardForErrorRepeat = false
     }
-    translationProtocolStatus = resolveTranslationProtocolStatus({
-      mode,
-      translationSuccessShape,
-      translationErrorCoachUi,
-      translationJunkRepeat: isJunkRepeatBlocks,
-    })
+    translationProtocolStatus = translationProtocolStatusFromBlocks
     if (isJunkRepeatBlocks) {
       effectiveMainBefore = ''
       effectiveInvitationText = null
@@ -3061,8 +3115,9 @@ function MessageBubble({
   // Источник истины: в error-repeat показываем только коррекционные карточки.
   const hideTranslationPromptBlocks =
     (isTranslationMode &&
+      translationProtocolStatus !== 'soft_fail_advance' &&
       (translationProtocolStatus === 'error_repeat' || translationProtocolStatus === 'junk_repeat')) ||
-    hideTranslationMainCardForErrorRepeat
+    (translationProtocolStatus !== 'soft_fail_advance' && hideTranslationMainCardForErrorRepeat)
 
   /** После разбора перевода: для «Перевод» в панели нужен актуальный repeat/тело задания. */
   const engvoSpeakText =
@@ -3130,6 +3185,7 @@ function MessageBubble({
     : Boolean(
         effectiveComment ||
           translationPraiseDisplayText ||
+          (translationProtocolStatus === 'soft_fail_advance' && translationSoftFailComment) ||
           (translationErrorCoachUi && translationSupportComment) ||
           (translationErrorCoachUi && translationJunkComment) ||
           translationErrorsText ||
@@ -3153,6 +3209,7 @@ function MessageBubble({
         comment: translationSuccessPraiseCard ? translationPraiseDisplayText : effectiveComment,
         translationSupportComment,
         translationJunkComment,
+        translationSoftFailComment,
         translationErrorCoachUi,
         translationProtocolStatus,
         translationSuccessPraiseCard,
