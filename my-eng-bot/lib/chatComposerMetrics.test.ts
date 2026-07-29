@@ -3,6 +3,7 @@ import {
   CHAT_COMPOSER_COLUMN_SHELL_CLASS,
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_INPUT_ROW_CLASS,
+  CHAT_COMPOSER_MENU_DOCK_FORM_CLASS,
   CHAT_COMPOSER_PADDING_BOTTOM,
   CHAT_COMPOSER_PADDING_BOTTOM_COMPACT,
   CHAT_COMPOSER_STACK_COMPACT_CLASS,
@@ -38,10 +39,19 @@ describe('chatComposerMetrics', () => {
   it('exposes shared layout constants aligned with Chat composer', () => {
     expect(CHAT_COMPOSER_FORM_CLASS).toContain('items-center')
     expect(CHAT_COMPOSER_FORM_CLASS).toContain('py-1.5')
+    expect(CHAT_COMPOSER_FORM_CLASS).toContain('glass-surface')
     expect(CHAT_COMPOSER_STACK_TOP_CLASS).toBe('pt-2.5')
     expect(CHAT_COMPOSER_PADDING_BOTTOM).toContain('0.625rem')
     expect(CHAT_COMPOSER_INPUT_ROW_CLASS).toContain('items-center')
     expect(CHAT_COMPOSER_COLUMN_SHELL_CLASS).toContain('flex-col')
+  })
+
+  it('exposes flat menu-dock form without glass blur fringe', () => {
+    expect(CHAT_COMPOSER_MENU_DOCK_FORM_CLASS).toContain('overflow-hidden')
+    expect(CHAT_COMPOSER_MENU_DOCK_FORM_CLASS).toContain('bg-[var(--menu-card-bg)]')
+    expect(CHAT_COMPOSER_MENU_DOCK_FORM_CLASS).toContain('shadow-[0_1px_4px_rgba(0,0,0,0.07)]')
+    expect(CHAT_COMPOSER_MENU_DOCK_FORM_CLASS).toContain('border-[var(--border)]')
+    expect(CHAT_COMPOSER_MENU_DOCK_FORM_CLASS).not.toContain('glass-surface')
   })
 
   it('uses symmetric compact padding for chip panels', () => {

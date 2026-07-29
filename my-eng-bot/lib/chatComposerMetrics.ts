@@ -1,9 +1,19 @@
 /** Общая типографика композера (font-size / line-height не меняем). */
 export const CHAT_COMPOSER_TYPO_CLASS = 'min-h-[44px] text-base leading-[1.45rem]'
 
+/** Базовая раскладка формы композера (фон/бордер задаёт вызывающий класс). */
+export const CHAT_COMPOSER_FORM_LAYOUT_CLASS =
+  'flex w-full items-center gap-2 rounded-[1.1rem] px-2.5 py-1.5 sm:px-3'
+
 /** Стеклянная форма композера: одна строка mic | textarea | send (как в Chat). */
-export const CHAT_COMPOSER_FORM_CLASS =
-  'glass-surface flex w-full items-center gap-2 rounded-[1.1rem] border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1.5 sm:px-3'
+export const CHAT_COMPOSER_FORM_CLASS = `glass-surface ${CHAT_COMPOSER_FORM_LAYOUT_CLASS} border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)]`
+
+/**
+ * Idle tutor в меню: как menu-card — border + мягкая тень, без glass.
+ * overflow clips mic к скруглению.
+ */
+export const CHAT_COMPOSER_MENU_DOCK_FORM_CLASS =
+  `${CHAT_COMPOSER_FORM_LAYOUT_CLASS} overflow-hidden border border-[var(--border)] bg-[var(--menu-card-bg)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]`
 
 /** Обёртка нижней панели над fixed-футером (верхний padding - отдельно: `pt-2.5` или `pt-1`). */
 export const CHAT_COMPOSER_STACK_CLASS =

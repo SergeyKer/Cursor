@@ -70,6 +70,7 @@ export type TutorChatPanelProps = {
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
+  'Распознаю речь...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 
@@ -862,7 +863,7 @@ export default function TutorChatPanel({
 
   return (
     <div
-      className={`flex min-h-0 flex-1 flex-col ${
+      className={`font-sans flex min-h-0 flex-1 flex-col ${
         isIdle
           ? 'bg-transparent'
           : 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
@@ -873,9 +874,9 @@ export default function TutorChatPanel({
         <div className={`mx-auto flex min-h-0 w-full flex-1 flex-col ${isIdle ? 'max-w-none' : 'max-w-[29rem]'}`}>
           {isIdle ? (
             <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-              {/* Menu already provides px-3; drop extra px-0.5 so examples align with composer. */}
+              {/* Menu root bleeds (-mx-3); keep examples aligned with chat dock px-2.5. */}
               <div
-                className={`flex min-h-0 flex-1 flex-col pt-1 ${embeddedInMenu ? 'px-0' : 'px-0.5'}`}
+                className={`flex min-h-0 flex-1 flex-col pt-1 ${embeddedInMenu ? 'px-2.5' : 'px-0.5'}`}
               >
                 <TutorIdleMenu examples={idleExamples} onExampleSelect={handleExampleSelect} />
               </div>
@@ -890,12 +891,13 @@ export default function TutorChatPanel({
                   handlePhotoFile(file)
                 }}
               />
-              {/* Menu already provides px-3 pb-3 — strip dock double-inset when embedded. */}
+              {/* Same dock inset as Chat: px-2.5 + paddingBottom 0.625rem (menu bleed via -mx-3 -mb-3).
+                  No border-t in menu: shell divider has nothing to separate and reads as a light seam. */}
               <DialogComposerStack
-                className={`${CHAT_COMPOSER_STACK_TOP_CLASS}${embeddedInMenu ? ' !px-0' : ''}`}
+                className={`${CHAT_COMPOSER_STACK_TOP_CLASS}${embeddedInMenu ? ' border-t-0' : ''}`}
                 contentMaxWidthClass={embeddedInMenu ? 'max-w-none' : undefined}
                 style={{
-                  paddingBottom: embeddedInMenu ? 0 : DIALOG_COMPOSER_PADDING_BOTTOM,
+                  paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
                 }}
               >
                 <TutorComposer
@@ -925,6 +927,7 @@ export default function TutorChatPanel({
                   iosChromeVoiceStatusMessage={iosChromeVoiceStatusMessage}
                   voiceStatusMessage={showVoiceStatusBelow ? filteredVoiceStatus : null}
                   voiceStatusIsDanger={voiceStatusIsDanger}
+                  menuDock={embeddedInMenu}
                 />
               </DialogComposerStack>
             </div>

@@ -1768,9 +1768,13 @@ export default function MenuSectionPanels({
   const menuNavIconButtonClass =
     'btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none'
 
+  const lessonsUsesTutorChatLayout = !homeLayout && menuView === 'lessons' && lessonsPanel === 'tutor'
+
   const rootClass = [
     className ?? (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col'),
     edgeToEdge ? 'pl-0 pr-3' : '',
+    // Bleed to aside edges: cancel SlideOutMenu px-3 pb-3 so composer can match chat dock inset.
+    lessonsUsesTutorChatLayout ? '-mx-3 -mb-3' : '',
   ]
     .filter(Boolean)
     .join(' ')
@@ -1855,8 +1859,6 @@ export default function MenuSectionPanels({
       lessonsPanel === 'theoryTagLessons' ||
       lessonsPanel === 'tutor')
 
-  const lessonsUsesTutorChatLayout = !homeLayout && menuView === 'lessons' && lessonsPanel === 'tutor'
-
   const showLessonListDensitySwitcher =
     menuView === 'lessons' &&
     (lessonsPanel === 'a1' ||
@@ -1940,8 +1942,11 @@ export default function MenuSectionPanels({
   return (
     <div className={`${rootClass} ${manropeHome.className}`.trim()}>
       {(menuView !== 'root' || !homeLayout) && (
-        <div className="mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5">
-          <div className="flex shrink-0 items-center gap-2">
+        <div
+          className={`mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5 ${
+            lessonsUsesTutorChatLayout ? 'px-3' : ''
+          }`}
+        >          <div className="flex shrink-0 items-center gap-2">
             {canMenuNavigateUp ? (
               <button
                 type="button"

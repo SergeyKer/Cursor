@@ -3,6 +3,7 @@
 import { useRef, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
 import {
   CHAT_COMPOSER_FORM_CLASS,
+  CHAT_COMPOSER_MENU_DOCK_FORM_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
@@ -72,6 +73,8 @@ export type TutorComposerProps = {
   livePreviewText?: string
   voiceWebMetricsClient?: boolean
   iosChromeVoiceStatusMessage?: string | null
+  /** Menu tutor: menu-card elevation (border + soft shadow), no chat glass. */
+  menuDock?: boolean
 }
 
 export default function TutorComposer({
@@ -101,6 +104,7 @@ export default function TutorComposer({
   livePreviewText = '',
   voiceWebMetricsClient = false,
   iosChromeVoiceStatusMessage = null,
+  menuDock = false,
 }: TutorComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
@@ -156,8 +160,8 @@ export default function TutorComposer({
       <form
         ref={formRef}
         onSubmit={handleSubmit}
-        className={CHAT_COMPOSER_FORM_CLASS}
-        style={{ boxShadow: 'var(--chat-composer-shadow)' }}
+        className={menuDock ? CHAT_COMPOSER_MENU_DOCK_FORM_CLASS : CHAT_COMPOSER_FORM_CLASS}
+        style={menuDock ? undefined : { boxShadow: 'var(--chat-composer-shadow)' }}
         aria-label={followUpMode ? 'Уточнение к теме' : 'Вопрос репетитору'}
       >
         <VoiceMicButton
