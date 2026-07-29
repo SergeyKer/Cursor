@@ -89,6 +89,7 @@ import { shouldShowLanguageNoteMark } from '@/lib/languageNote/eligibility'
 import TypingIndicator from '@/components/TypingIndicator'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import VoiceMicButton from '@/components/voice/VoiceMicButton'
 import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
 import {
@@ -1335,7 +1336,6 @@ export default function Chat({
   const composerText = isVoiceActive ? voiceDisplayText : input
   const showVoiceOverlay = isVoiceActive && composerText.length > 0
   const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
-  const micActionActive = listening || voicePhase === 'finalizing'
   const showVoicePlaybackButton =
     !isVoiceActive &&
     !isLessonLoadingState &&
@@ -2624,9 +2624,11 @@ export default function Chat({
                   </>
                 ) : (
                   <>
-                    <button
-                      type="button"
+                    <VoiceMicButton
+                      listening={listening}
+                      finalizing={voicePhase === 'finalizing'}
                       disabled={voicePhase === 'finalizing' || isLessonLoadingState}
+                      micVisualState={micVisualState}
                       onClick={() => {
                         resetMicAnimation()
                         if (listening) {
@@ -2635,43 +2637,17 @@ export default function Chat({
                         }
                         void startListening()
                       }}
-                      className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
-                        micActionActive
-                          ? 'text-[var(--chat-control-active-text)]'
-                          : 'text-[var(--chat-control-text)]'
-                      } ${micVisualState === 'invite' ? 'animate-invite' : ''}`}
-                      style={{
-                        background: micActionActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-                      }}
-                      title={listening ? 'Остановить' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
-                      aria-label={listening ? 'Остановить запись' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'}
-                      onMouseEnter={(e) => {
-                        if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-hover)'
-                      }}
-                      onMouseLeave={(e) => {
-                        if (!micActionActive && micVisualState !== 'wait') e.currentTarget.style.background = 'var(--chat-control-bg)'
-                      }}
-                    >
-                      {micVisualState === 'wait' && (
-                        <span
-                          aria-hidden="true"
-                          className="animate-wait pointer-events-none absolute inset-0 rounded-full"
-                          style={{
-                            opacity: 0.82,
-                            backgroundImage:
-                              'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
-                            animationDuration: '9s',
-                          }}
-                        />
-                      )}
-                      {micActionActive ? (
-                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
-                      ) : (
-                        <span className="relative z-10">
-                          <MicIcon />
-                        </span>
-                      )}
-                    </button>
+                      title={
+                        listening ? 'Остановить' : voicePhase === 'finalizing' ? 'Распознаю речь' : 'Голосовой ввод'
+                      }
+                      ariaLabel={
+                        listening
+                          ? 'Остановить запись'
+                          : voicePhase === 'finalizing'
+                            ? 'Распознаю речь'
+                            : 'Голосовой ввод'
+                      }
+                    />
                     <div className="relative min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
@@ -3812,19 +3788,6 @@ function SectionCard({
         </>
       )}
     </section>
-  )
-}
-
-function MicIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-      />
-    </svg>
   )
 }
 

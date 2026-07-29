@@ -826,23 +826,28 @@ export default function PracticeQuestionRenderer({
     <>
       {isVoiceFirstComposer ? (
         <VoiceMicButton
-          listening={choiceVoiceActive}
-          disabled={micButtonDisabled}
+          listening={voiceListening}
+          finalizing={choiceVoicePhase === 'finalizing'}
+          disabled={micButtonDisabled || choiceVoicePhase === 'finalizing'}
           micVisualState={micVisualState}
           onClick={handleChoiceCorrectionMicClick}
           title={
             !recognitionSupported
               ? 'Голосовой ввод недоступен'
-              : choiceVoiceActive
+              : voiceListening
                 ? 'Остановить'
-                : 'Голосовой ввод'
+                : choiceVoicePhase === 'finalizing'
+                  ? 'Распознаю речь'
+                  : 'Голосовой ввод'
           }
           ariaLabel={
             !recognitionSupported
               ? 'Голосовой ввод недоступен'
-              : choiceVoiceActive
+              : voiceListening
                 ? 'Остановить запись'
-                : 'Голосовой ввод'
+                : choiceVoicePhase === 'finalizing'
+                  ? 'Распознаю речь'
+                  : 'Голосовой ввод'
           }
         />
       ) : null}

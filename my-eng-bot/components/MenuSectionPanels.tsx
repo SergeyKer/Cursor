@@ -34,7 +34,6 @@ import {
   MENU_PRIMARY_CTA_CLASS,
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
-import TutorChatPanel from '@/components/tutor/TutorChatPanel'
 import {
   DEFAULT_LESSON_LIST_DENSITY,
   normalizeMenuLabelKey,
@@ -67,6 +66,7 @@ import {
   resolveLessonVariantDualCtaLayout,
 } from '@/lib/lessonVariantCtaCopy'
 import LessonMenuVariantDualCta from '@/components/LessonMenuVariantDualCta'
+import TutorChatPanel from '@/components/tutor/TutorChatPanel'
 import { getGrammarCategoryById } from '@/lib/grammarTaxonomy'
 import { getAllTheoryTagsForMenu, getTheoryTagById } from '@/lib/lessonTheoryTags'
 import { findPracticeTopicCandidatesByMenuKeys, type PracticeTopicCandidate } from '@/lib/lessonTopicSearch'
@@ -247,6 +247,8 @@ export type LessonMenuContext = {
   referenceExerciseType?: PracticeExerciseType | null
   /** Режим обзора каталога: урок или справочник. */
   catalogBrowseIntent?: CatalogBrowseIntent | null
+  /** Урок открыт из practice/tutor-origin — footer, не destination TutorChat. */
+  origin?: 'tutor' | null
 }
 
 export type LearningLessonMenuMeta = Pick<
@@ -562,7 +564,12 @@ export interface MenuSectionPanelsProps {
   onOpenMyPlanSpace?: () => void
   /** Open tutor chat v1 with optional prefill (MyPlan open_tutor). */
   onOpenTutorChat?: (opts?: { prefill?: string }) => void
+  /** Prefill for in-menu TutorChatPanel (MyPlan open_tutor). */
   tutorChatPrefill?: string
+  /** Remount key when opening tutor with a new prefill. */
+  tutorChatMountKey?: number
+  /** Promote menu idle tutor into dialog-space after first question. */
+  onPromoteTutorFromMenu?: () => void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
   onDebugSkipToLessonFinale?: (lessonId: string, panel: LessonsPanel) => void
   /** DEBUG: сразу к финалу практики. Удалить после редактирования. */
@@ -687,6 +694,8 @@ export default function MenuSectionPanels({
   onOpenMyPlanSpace,
   onOpenTutorChat,
   tutorChatPrefill = '',
+  tutorChatMountKey = 0,
+  onPromoteTutorFromMenu,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
   practiceSessionActiveForDebug = false,
@@ -1844,7 +1853,9 @@ export default function MenuSectionPanels({
       lessonsPanel === 'theoryGrammarCategories' ||
       lessonsPanel === 'theoryTagLevels' ||
       lessonsPanel === 'theoryTagLessons' ||
-      (lessonsPanel === 'tutor' && featureFlags.tutorChatV1))
+      lessonsPanel === 'tutor')
+
+  const lessonsUsesTutorChatLayout = !homeLayout && menuView === 'lessons' && lessonsPanel === 'tutor'
 
   const showLessonListDensitySwitcher =
     menuView === 'lessons' &&
@@ -1866,7 +1877,7 @@ export default function MenuSectionPanels({
     : 'shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2'
   const panelScrollAreaClass = homeLayout
     ? `${panelScrollAreaEnter} space-y-2.5`
-    : lessonsPanel === 'tutor' && featureFlags.tutorChatV1
+    : lessonsUsesTutorChatLayout
       ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col overflow-hidden pb-0`
       : lessonsUsesInnerScrollLayout
         ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden pb-1`
@@ -2507,10 +2518,9 @@ export default function MenuSectionPanels({
                   ) : (
                     <LessonTopicRow label="Произношение" />
                   )}
-                  <MenuNavRow
-                    label="Репетитор"
-                    onClick={() => setLessonsPanel('tutor')}
-                  />
+                  {featureFlags.tutorChatV1 ? (
+                    <MenuNavRow label="Репетитор" onClick={() => setLessonsPanel('tutor')} />
+                  ) : null}
                   <MenuNavRow label="Слова" onClick={() => setLessonsPanel('words')} />
                 </div>
               </div>
@@ -2583,6 +2593,18 @@ export default function MenuSectionPanels({
                 onFooterViewChange={onAdaptiveFooterViewChange}
               />
             )}
+
+            {lessonsPanel === 'tutor' && featureFlags.tutorChatV1 ? (
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <TutorChatPanel
+                  key={tutorChatMountKey}
+                  initialPrefill={tutorChatPrefill}
+                  embeddedInMenu
+                  onPromoteToSpace={onPromoteTutorFromMenu}
+                  onDone={() => setLessonsPanel('summary')}
+                />
+              </div>
+            ) : null}
 
             {lessonsPanel === 'pronunciation' && (
               <>
@@ -3579,23 +3601,6 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                   </div>
                 </div>
               </>
-            )}
-            {lessonsPanel === 'tutor' && featureFlags.tutorChatV1 && (
-              <div className="-mx-3 flex min-h-0 flex-1 flex-col overflow-hidden">
-                <TutorChatPanel
-                  initialPrefill={tutorChatPrefill}
-                  onDone={() => setLessonsPanel('summary')}
-                />
-              </div>
-            )}
-            {lessonsPanel === 'tutor' && !featureFlags.tutorChatV1 && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3">
-                  <p className="text-[14px] leading-relaxed text-[var(--text-muted)]">
-                    Репетитор временно отключён (rollback). Уберите NEXT_PUBLIC_FEATURE_TUTOR_CHAT_V1=false.
-                  </p>
-                </div>
-              </div>
             )}
 
           </>

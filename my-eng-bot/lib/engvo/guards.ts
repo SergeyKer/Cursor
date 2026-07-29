@@ -8,6 +8,10 @@ export function shouldAutoRequestFirstChatMessage(params: {
   vocabularyWorldsActive: boolean
   vocabularyByLevelActive: boolean
   engvoVoiceMode: boolean
+  /** Hub/tutor dialog-spaces must not seed communication chat. */
+  tutorChatSpaceActive?: boolean
+  myPlanSpaceActive?: boolean
+  progressSpaceActive?: boolean
 }): boolean {
   if (!params.storageLoaded) return false
   if (!params.initialized) return false
@@ -18,5 +22,8 @@ export function shouldAutoRequestFirstChatMessage(params: {
   if (params.vocabularyWorldsActive) return false
   if (params.vocabularyByLevelActive) return false
   if (params.engvoVoiceMode) return false
+  if (params.tutorChatSpaceActive) return false
+  if (params.myPlanSpaceActive) return false
+  if (params.progressSpaceActive) return false
   return true
 }

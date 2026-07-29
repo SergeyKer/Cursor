@@ -32,6 +32,7 @@ import {
   type BubbleRole,
 } from '@/components/chat/ChatBubble'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
+import VoiceMicButton from '@/components/voice/VoiceMicButton'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import {
@@ -2078,13 +2079,15 @@ export default function LessonStepRenderer({
                     }`}
                     style={{ boxShadow: 'var(--chat-composer-shadow)' }}
                   >
-                    <button
-                      type="button"
+                    <VoiceMicButton
+                      listening={lessonVoiceInput.listening}
+                      finalizing={lessonVoiceInput.voicePhase === 'finalizing'}
                       disabled={
                         !isTextInputAvailable ||
                         isAnswerPanelLocked ||
                         lessonVoiceInput.voicePhase === 'finalizing'
                       }
+                      micVisualState={lessonVoiceInput.micVisualState}
                       onClick={() => {
                         if (!isTextInputAvailable) return
                         lessonVoiceInput.resetMicAnimation()
@@ -2094,7 +2097,7 @@ export default function LessonStepRenderer({
                         }
                         void lessonVoiceInput.startListening()
                       }}
-                      aria-label={
+                      ariaLabel={
                         lessonVoiceInput.listening
                           ? 'Остановить запись'
                           : lessonVoiceInput.voicePhase === 'finalizing'
@@ -2108,49 +2111,7 @@ export default function LessonStepRenderer({
                             ? 'Распознаю речь'
                             : 'Голосовой ввод'
                       }
-                      className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
-                        lessonVoiceInput.micActionActive
-                          ? 'text-[var(--chat-control-active-text)]'
-                          : 'text-[var(--chat-control-text)]'
-                      }`}
-                      style={{
-                        background: lessonVoiceInput.micActionActive
-                          ? 'var(--chat-control-active-bg)'
-                          : 'var(--chat-control-bg)',
-                      }}
-                      onMouseEnter={(event) => {
-                        if (!lessonVoiceInput.micActionActive) {
-                          event.currentTarget.style.background = 'var(--chat-control-hover)'
-                        }
-                      }}
-                      onMouseLeave={(event) => {
-                        if (!lessonVoiceInput.micActionActive) {
-                          event.currentTarget.style.background = 'var(--chat-control-bg)'
-                        }
-                      }}
-                    >
-                      {lessonVoiceInput.micActionActive ? (
-                        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)]" />
-                      ) : (
-                        <span className="relative z-10">
-                          <svg
-                            aria-hidden="true"
-                            viewBox="0 0 24 24"
-                            className="h-5 w-5"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3Z" />
-                            <path d="M19 11a7 7 0 0 1-14 0" />
-                            <path d="M12 18v3" />
-                            <path d="M8 21h8" />
-                          </svg>
-                        </span>
-                      )}
-                    </button>
+                    />
                     <div className="relative isolate min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay

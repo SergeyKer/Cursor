@@ -10,6 +10,7 @@ import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
 } from '@/components/chat/ChatBubble'
 import TutorComposer from '@/components/tutor/TutorComposer'
+import TutorIdleMenu from '@/components/tutor/TutorIdleMenu'
 import { useTutorSessionOptional } from '@/components/tutor/TutorSessionProvider'
 import {
   CHAT_COMPOSER_STACK_TOP_CLASS,
@@ -30,10 +31,12 @@ import type {
   TutorTriageResult,
 } from '@/lib/tutor/types'
 import {
+  clearTutorReturnContext,
   consumeTutorReturnContext,
+  stashTutorReturnContext,
   type TutorReturnContextSnapshot,
 } from '@/lib/tutor/tutorReturnContext'
-import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
+import { TUTOR_CHAT_COPY, pickTutorIdleExamples, tutorComposerPlaceholder } from '@/lib/uiCopy/tutorChat'
 import {
   isIosChromeBrowser,
   isIosLikeDevice,
@@ -57,12 +60,16 @@ export type TutorChatPanelProps = {
   initialPrefill?: string
   /** Готово → меню Уроки summary. */
   onDone?: () => void
+  /** Idle lives in slide-out menu; first question promotes to dialog-space. */
+  embeddedInMenu?: boolean
+  /** Called after stash when leaving menu idle for space. */
+  onPromoteToSpace?: () => void
+  /** MyPlan: submit initialPrefill once on mount (space only). */
+  autoSubmitInitial?: boolean
 }
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
-  'Распознаю речь...',
-  'Слушаю...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 
@@ -113,7 +120,13 @@ function resolveTutorInviteKey(thread: ThreadMessage[]): string {
   return 'tutor:empty'
 }
 
-export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorChatPanelProps) {
+export default function TutorChatPanel({
+  initialPrefill = '',
+  onDone,
+  embeddedInMenu = false,
+  onPromoteToSpace,
+  autoSubmitInitial = false,
+}: TutorChatPanelProps) {
   const session = useTutorSessionOptional()
   const [draft, setDraft] = useState(initialPrefill)
   const [thread, setThread] = useState<ThreadMessage[]>([])
@@ -126,6 +139,7 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
   const [microPhase, setMicroPhase] = useState<MicroPhase>('idle')
   const [microPack, setMicroPack] = useState<TutorMicroPack | null>(null)
   const [microIndex, setMicroIndex] = useState(0)
+  const [pendingTriageQuery, setPendingTriageQuery] = useState<string | null>(null)
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
@@ -134,9 +148,17 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
   const idBase = useId()
   const seqRef = useRef(0)
   const restoredRef = useRef(false)
+  const pendingTriageDoneRef = useRef(false)
+  const autoSubmitDoneRef = useRef(false)
 
   const inviteKey = useMemo(() => resolveTutorInviteKey(thread), [thread])
   const voice = useLessonVoiceInput({ inviteKey, speechMode: 'mix' })
+  const idleExamples = useMemo(() => pickTutorIdleExamples(3), [])
+  const composerPlaceholder = useMemo(
+    () => tutorComposerPlaceholder(session?.settings.audience === 'child' ? 'child' : 'adult'),
+    [session?.settings.audience]
+  )
+  const isIdle = thread.length === 0 && !busy
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -184,6 +206,9 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
     setFollowUpMode(snap.followUpMode)
     setPostExplainChips(snap.postExplainChips)
     setThread(snap.thread.map((m) => ({ id: m.id, role: m.role, text: m.text })))
+    if (snap.pendingTriageQuery?.trim()) {
+      setPendingTriageQuery(snap.pendingTriageQuery.trim())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
   }, [])
 
@@ -219,6 +244,26 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
       lastExplainCanonicalKey: lastExplain?.topicAnchor.canonicalKey ?? null,
     }
   }, [anchorQuery, draft, followUpMode, lastExplain, postExplainChips, thread])
+
+  const promoteWithUserQuery = useCallback(
+    (text: string, baseThread?: ThreadMessage[]) => {
+      const trimmed = text.trim()
+      if (!trimmed || !onPromoteToSpace) return false
+      const prior = baseThread ?? thread
+      const userMsg = { id: nextId(), role: 'user' as const, text: trimmed }
+      stashTutorReturnContext({
+        draft: '',
+        anchorQuery: null,
+        followUpMode: false,
+        postExplainChips: false,
+        thread: [...prior.map(({ id, role, text: t }) => ({ id, role, text: t })), userMsg],
+        pendingTriageQuery: trimmed,
+      })
+      onPromoteToSpace()
+      return true
+    },
+    [nextId, onPromoteToSpace, thread]
+  )
 
   const abortMicro = useCallback(() => {
     setMicroPhase('idle')
@@ -288,8 +333,15 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
     async (imageDataUrl: string) => {
       if (busy || microPhase === 'active') return
       setBusy(true)
-      append('user', TUTOR_CHAT_COPY.photoUserLabel)
+      const photoUserId = nextId()
+      const photoUserMsg: ThreadMessage = {
+        id: photoUserId,
+        role: 'user',
+        text: TUTOR_CHAT_COPY.photoUserLabel,
+      }
+      setThread((prev) => [...prev, photoUserMsg])
       let pendingExplain: string | null = null
+      let multiAssistantText: string | null = null
       try {
         const response = await fetch('/api/analyze-image', {
           method: 'POST',
@@ -309,31 +361,123 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
           error?: string
         }
         if (!response.ok || !data.schoolPhoto) {
-          append('assistant', data.userMessage || data.error || TUTOR_CHAT_COPY.photoReject)
+          const errText = data.userMessage || data.error || TUTOR_CHAT_COPY.photoReject
+          if (embeddedInMenu && onPromoteToSpace) {
+            const errMsg = { id: nextId(), role: 'assistant' as const, text: errText }
+            stashTutorReturnContext({
+              draft: '',
+              anchorQuery: null,
+              followUpMode: false,
+              postExplainChips: false,
+              thread: [
+                ...thread.map(({ id, role, text }) => ({ id, role, text })),
+                { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
+                errMsg,
+              ],
+            })
+            onPromoteToSpace()
+            return
+          }
+          append('assistant', errText)
           return
         }
         const result = data.schoolPhoto
         if (result.kind === 'rejected') {
+          if (embeddedInMenu && onPromoteToSpace) {
+            const errMsg = { id: nextId(), role: 'assistant' as const, text: result.messageRu }
+            stashTutorReturnContext({
+              draft: '',
+              anchorQuery: null,
+              followUpMode: false,
+              postExplainChips: false,
+              thread: [
+                ...thread.map(({ id, role, text }) => ({ id, role, text })),
+                { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
+                errMsg,
+              ],
+            })
+            onPromoteToSpace()
+            return
+          }
           append('assistant', result.messageRu)
           return
         }
         if (result.topics.length === 1) {
           pendingExplain = result.topics[0]!
+          if (embeddedInMenu && onPromoteToSpace) {
+            stashTutorReturnContext({
+              draft: '',
+              anchorQuery: null,
+              followUpMode: false,
+              postExplainChips: false,
+              thread: [
+                ...thread.map(({ id, role, text }) => ({ id, role, text })),
+                { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
+              ],
+              pendingTriageQuery: pendingExplain,
+            })
+            onPromoteToSpace()
+            return
+          }
           setAnchorQuery(pendingExplain)
+          return
+        }
+        multiAssistantText = TUTOR_CHAT_COPY.photoMultiPick
+        if (embeddedInMenu && onPromoteToSpace) {
+          const assistMsg = { id: nextId(), role: 'assistant' as const, text: multiAssistantText }
+          stashTutorReturnContext({
+            draft: '',
+            anchorQuery: null,
+            followUpMode: false,
+            postExplainChips: false,
+            thread: [
+              ...thread.map(({ id, role, text }) => ({ id, role, text })),
+              { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
+              assistMsg,
+            ],
+          })
+          onPromoteToSpace()
           return
         }
         setAnchorQuery(null)
         setPostExplainChips(false)
         setTriageChips(chipsFromLabels(result.topics))
-        append('assistant', TUTOR_CHAT_COPY.photoMultiPick)
+        append('assistant', multiAssistantText)
       } catch {
-        append('assistant', TUTOR_CHAT_COPY.photoReject)
+        const errText = TUTOR_CHAT_COPY.photoReject
+        if (embeddedInMenu && onPromoteToSpace) {
+          const errMsg = { id: nextId(), role: 'assistant' as const, text: errText }
+          stashTutorReturnContext({
+            draft: '',
+            anchorQuery: null,
+            followUpMode: false,
+            postExplainChips: false,
+            thread: [
+              ...thread.map(({ id, role, text }) => ({ id, role, text })),
+              { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
+              errMsg,
+            ],
+          })
+          onPromoteToSpace()
+          return
+        }
+        append('assistant', errText)
       } finally {
         setBusy(false)
       }
       if (pendingExplain) void runExplain(pendingExplain)
     },
-    [append, busy, microPhase, runExplain, session]
+    [
+      append,
+      busy,
+      embeddedInMenu,
+      microPhase,
+      nextId,
+      onPromoteToSpace,
+      runExplain,
+      session,
+      thread,
+    ]
   )
 
   const handlePaperclipClick = useCallback(() => {
@@ -407,9 +551,41 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
     [append, runExplain]
   )
 
+  useEffect(() => {
+    if (!pendingTriageQuery || pendingTriageDoneRef.current) return
+    pendingTriageDoneRef.current = true
+    const q = pendingTriageQuery
+    setPendingTriageQuery(null)
+    applyTriage(localTutorTriage(q))
+  }, [applyTriage, pendingTriageQuery])
+
+  useEffect(() => {
+    if (!autoSubmitInitial || embeddedInMenu) return
+    if (autoSubmitDoneRef.current) return
+    const text = initialPrefill.trim()
+    if (!text) return
+    if (pendingTriageDoneRef.current) return
+    autoSubmitDoneRef.current = true
+    append('user', text)
+    setDraftSynced('')
+    applyTriage(localTutorTriage(text))
+  }, [
+    append,
+    applyTriage,
+    autoSubmitInitial,
+    embeddedInMenu,
+    initialPrefill,
+    setDraftSynced,
+  ])
+
   const handleSubmit = useCallback(() => {
     const text = draft.trim()
     if (!text || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) return
+
+    if (embeddedInMenu && onPromoteToSpace && !followUpMode) {
+      setDraftSynced('')
+      if (promoteWithUserQuery(text)) return
+    }
 
     if (followUpMode && anchorQuery) {
       append('user', text)
@@ -428,13 +604,41 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
     applyTriage,
     busy,
     draft,
+    embeddedInMenu,
     followUpMode,
     microPhase,
+    onPromoteToSpace,
+    promoteWithUserQuery,
     runExplain,
     setDraftSynced,
     voice.isVoiceActive,
     voice.listening,
   ])
+
+  const handleExampleSelect = useCallback(
+    (text: string) => {
+      const trimmed = text.trim()
+      if (!trimmed || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) return
+      if (embeddedInMenu && onPromoteToSpace) {
+        if (promoteWithUserQuery(trimmed)) return
+      }
+      append('user', trimmed)
+      setDraftSynced('')
+      applyTriage(localTutorTriage(trimmed))
+    },
+    [
+      append,
+      applyTriage,
+      busy,
+      embeddedInMenu,
+      microPhase,
+      onPromoteToSpace,
+      promoteWithUserQuery,
+      setDraftSynced,
+      voice.isVoiceActive,
+      voice.listening,
+    ]
+  )
 
   const handleChipSelect = useCallback(
     (chipId: string) => {
@@ -568,6 +772,7 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
         }
         if (chipId === 'done') {
           abortMicro()
+          clearTutorReturnContext()
           onDone?.()
           return
         }
@@ -645,120 +850,172 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
     Boolean(filteredVoiceStatus) && (!isIosDeviceClient || isHardVoiceErrorMessage(filteredVoiceStatus))
   const iosChromeVoiceStatusMessage = !isIosChromeClient
     ? null
-    : voice.voicePhase === 'error'
-      ? rawVoiceStatusMessage || null
-      : null
+    : voice.voicePhase === 'recording'
+      ? 'Голосовой ввод...'
+      : voice.voicePhase === 'finalizing'
+        ? 'Распознаю речь...'
+        : voice.voicePhase === 'error'
+          ? rawVoiceStatusMessage || null
+          : null
   const voiceStatusIsDanger =
     voice.voicePhase === 'error' || isHardVoiceErrorMessage(filteredVoiceStatus || rawVoiceStatusMessage)
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]"
+      className={`flex min-h-0 flex-1 flex-col ${
+        isIdle
+          ? 'bg-transparent'
+          : 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
+      }`}
       data-testid="tutor-chat-panel"
     >
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col">
-          <div
-            className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
-            <DialogGlassScrollHost>
+      <div className={`flex min-h-0 flex-1 flex-col ${isIdle ? 'px-0 py-0' : 'chat-shell-x py-2 sm:py-3'}`}>
+        <div className={`mx-auto flex min-h-0 w-full flex-1 flex-col ${isIdle ? 'max-w-none' : 'max-w-[29rem]'}`}>
+          {isIdle ? (
+            <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+              {/* Menu already provides px-3; drop extra px-0.5 so examples align with composer. */}
               <div
-                ref={scrollRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3`}
+                className={`flex min-h-0 flex-1 flex-col pt-1 ${embeddedInMenu ? 'px-0' : 'px-0.5'}`}
               >
-                {thread.length === 0 && !busy ? (
-                  <ChatBubbleFrame
-                    role="assistant"
-                    position="solo"
-                    data-message-index={0}
-                    data-role="assistant"
-                    rowClassName="mb-2.5"
-                    className="lesson-enter w-fit"
-                  >
-                    <p className="min-w-0 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
-                      {TUTOR_CHAT_COPY.emptyThreadHint}
-                    </p>
-                  </ChatBubbleFrame>
-                ) : (
-                  <>
-                    {thread.map((msg, index) => {
-                      const position = getBubblePosition(
-                        thread[index - 1]?.role,
-                        msg.role,
-                        thread[index + 1]?.role
-                      )
-                      const isBubbleEnd =
-                        index === thread.length - 1 || thread[index + 1]?.role !== msg.role
-                      return (
-                        <ChatBubbleFrame
-                          key={msg.id}
-                          role={msg.role}
-                          position={position}
-                          data-message-index={index}
-                          data-role={msg.role}
-                          rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
-                          className="lesson-enter"
-                        >
-                          <p className="min-w-0 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
-                            {msg.text}
-                          </p>
-                        </ChatBubbleFrame>
-                      )
-                    })}
-                    {busy ? (
-                      <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
-                        <EngvoFeedServiceTypingText text={TUTOR_CHAT_COPY.loadingExplain} />
-                      </div>
-                    ) : null}
-                  </>
-                )}
+                <TutorIdleMenu examples={idleExamples} onExampleSelect={handleExampleSelect} />
               </div>
-            </DialogGlassScrollHost>
-
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0] ?? null
-                event.target.value = ''
-                handlePhotoFile(file)
-              }}
-            />
-            <DialogComposerStack
-              className={CHAT_COMPOSER_STACK_TOP_CLASS}
-              style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
-            >
-              <TutorComposer
-                value={composerValue}
-                onChange={setDraftSynced}
-                onSubmit={handleSubmit}
-                chips={primaryChips}
-                onChipSelect={handlePrimaryChip}
-                chipsMode={chipsMode}
-                followUpMode={followUpMode}
-                composerLocked={composerLocked}
-                chipsDisabled={chipsDisabled}
-                readOnly={voice.isInputLocked}
-                micDisabled={false}
-                listening={voice.micActionActive}
-                isVoiceActive={voice.isVoiceActive}
-                micVisualState={voice.micVisualState}
-                onMicClick={handleMicClick}
-                paperclipDisabled={false}
-                onPaperclipClick={handlePaperclipClick}
-                showVoiceOverlay={showVoiceOverlay}
-                draftBeforeVoiceText={voice.draftBeforeVoiceText}
-                livePreviewText={voice.livePreviewText}
-                voiceWebMetricsClient={voiceWebMetricsClient}
-                iosChromeVoiceStatusMessage={iosChromeVoiceStatusMessage}
-                voiceStatusMessage={showVoiceStatusBelow ? filteredVoiceStatus : null}
-                voiceStatusIsDanger={voiceStatusIsDanger}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null
+                  event.target.value = ''
+                  handlePhotoFile(file)
+                }}
               />
-            </DialogComposerStack>
-          </div>
+              {/* Menu already provides px-3 pb-3 — strip dock double-inset when embedded. */}
+              <DialogComposerStack
+                className={`${CHAT_COMPOSER_STACK_TOP_CLASS}${embeddedInMenu ? ' !px-0' : ''}`}
+                contentMaxWidthClass={embeddedInMenu ? 'max-w-none' : undefined}
+                style={{
+                  paddingBottom: embeddedInMenu ? 0 : DIALOG_COMPOSER_PADDING_BOTTOM,
+                }}
+              >
+                <TutorComposer
+                  value={composerValue}
+                  onChange={setDraftSynced}
+                  onSubmit={handleSubmit}
+                  placeholder={composerPlaceholder}
+                  chips={[]}
+                  onChipSelect={handlePrimaryChip}
+                  chipsMode="nav"
+                  followUpMode={false}
+                  composerLocked={composerLocked}
+                  chipsDisabled={chipsDisabled}
+                  readOnly={voice.isInputLocked}
+                  micDisabled={false}
+                  listening={voice.listening}
+                  finalizing={voice.voicePhase === 'finalizing'}
+                  isVoiceActive={voice.isVoiceActive}
+                  micVisualState={voice.micVisualState}
+                  onMicClick={handleMicClick}
+                  paperclipDisabled={false}
+                  onPaperclipClick={handlePaperclipClick}
+                  showVoiceOverlay={showVoiceOverlay}
+                  draftBeforeVoiceText={voice.draftBeforeVoiceText}
+                  livePreviewText={voice.livePreviewText}
+                  voiceWebMetricsClient={voiceWebMetricsClient}
+                  iosChromeVoiceStatusMessage={iosChromeVoiceStatusMessage}
+                  voiceStatusMessage={showVoiceStatusBelow ? filteredVoiceStatus : null}
+                  voiceStatusIsDanger={voiceStatusIsDanger}
+                />
+              </DialogComposerStack>
+            </div>
+          ) : (
+            <div
+              className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
+              style={{ boxShadow: 'var(--chat-shell-shadow)' }}
+            >
+              <DialogGlassScrollHost>
+                <div
+                  ref={scrollRef}
+                  className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3`}
+                >
+                  {thread.map((msg, index) => {
+                    const position = getBubblePosition(
+                      thread[index - 1]?.role,
+                      msg.role,
+                      thread[index + 1]?.role
+                    )
+                    const isBubbleEnd =
+                      index === thread.length - 1 || thread[index + 1]?.role !== msg.role
+                    return (
+                      <ChatBubbleFrame
+                        key={msg.id}
+                        role={msg.role}
+                        position={position}
+                        data-message-index={index}
+                        data-role={msg.role}
+                        rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
+                        className="lesson-enter"
+                      >
+                        <p className="min-w-0 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
+                          {msg.text}
+                        </p>
+                      </ChatBubbleFrame>
+                    )
+                  })}
+                  {busy ? (
+                    <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                      <EngvoFeedServiceTypingText text={TUTOR_CHAT_COPY.loadingExplain} />
+                    </div>
+                  ) : null}
+                </div>
+              </DialogGlassScrollHost>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null
+                  event.target.value = ''
+                  handlePhotoFile(file)
+                }}
+              />
+              <DialogComposerStack
+                className={CHAT_COMPOSER_STACK_TOP_CLASS}
+                style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
+              >
+                <TutorComposer
+                  value={composerValue}
+                  onChange={setDraftSynced}
+                  onSubmit={handleSubmit}
+                  placeholder={composerPlaceholder}
+                  chips={primaryChips}
+                  onChipSelect={handlePrimaryChip}
+                  chipsMode={chipsMode}
+                  followUpMode={followUpMode}
+                  composerLocked={composerLocked}
+                  chipsDisabled={chipsDisabled}
+                  readOnly={voice.isInputLocked}
+                  micDisabled={false}
+                  listening={voice.listening}
+                  finalizing={voice.voicePhase === 'finalizing'}
+                  isVoiceActive={voice.isVoiceActive}
+                  micVisualState={voice.micVisualState}
+                  onMicClick={handleMicClick}
+                  paperclipDisabled={false}
+                  onPaperclipClick={handlePaperclipClick}
+                  showVoiceOverlay={showVoiceOverlay}
+                  draftBeforeVoiceText={voice.draftBeforeVoiceText}
+                  livePreviewText={voice.livePreviewText}
+                  voiceWebMetricsClient={voiceWebMetricsClient}
+                  iosChromeVoiceStatusMessage={iosChromeVoiceStatusMessage}
+                  voiceStatusMessage={showVoiceStatusBelow ? filteredVoiceStatus : null}
+                  voiceStatusIsDanger={voiceStatusIsDanger}
+                />
+              </DialogComposerStack>
+            </div>
+          )}
         </div>
       </div>
     </div>

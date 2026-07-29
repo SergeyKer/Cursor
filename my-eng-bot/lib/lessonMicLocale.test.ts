@@ -15,7 +15,12 @@ describe('resolveLessonMicStrategy', () => {
     })
   })
 
-  it('uses Whisper auto for tutor mix dictation', () => {
-    expect(resolveLessonMicStrategy('mix')).toEqual({ kind: 'whisper-auto' })
+  it('uses browser mix ru→en for tutor mix dictation', () => {
+    expect(resolveLessonMicStrategy('mix')).toEqual({
+      kind: 'browser-mix',
+      primary: 'ru-RU',
+      secondary: 'en-US',
+      apiLang: 'ru',
+    })
   })
 })

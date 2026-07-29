@@ -1514,6 +1514,17 @@ select.select-chevron {
   will-change: background-position;
 }
 
+@keyframes mic-finalize-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-mic-finalize {
+  animation: mic-finalize-spin 0.9s linear infinite;
+  transform-origin: 50% 50%;
+}
+
 .chat-action-button {
   transition:
     transform var(--transition-fast),
@@ -1804,6 +1815,13 @@ html[data-ios-webkit-dialog] .dialog-composer-dock-inner,
 html[data-ios-safari-dialog] .dialog-composer-dock-inner {
   padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
   padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
+}
+
+/* Menu Tutor dock: menu panel already insets; do not stack shell padding on inner. */
+html[data-menu-open][data-ios-webkit-dialog] aside[aria-label='Меню'] .dialog-composer-dock-inner,
+html[data-menu-open][data-ios-safari-dialog] aside[aria-label='Меню'] .dialog-composer-dock-inner {
+  padding-left: 0;
+  padding-right: 0;
 }
 
 /*
@@ -2550,7 +2568,8 @@ html[data-theme='glass3'] {
   }
 
   .animate-invite,
-  .animate-wait {
+  .animate-wait,
+  .animate-mic-finalize {
     animation: none;
   }
 

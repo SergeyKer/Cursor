@@ -370,15 +370,15 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
       }
     }
 
-    if (micStrategy.kind === 'whisper-auto') {
-      await startMediaRecorderFallback('auto')
-      return
-    }
-
-    const preferredLocale = micStrategy.locale
+    const isBrowserMix = micStrategy.kind === 'browser-mix'
+    const preferredLocale = isBrowserMix ? micStrategy.primary : micStrategy.locale
     const sttLangForApi = micStrategy.apiLang
+    const mixSecondaryLocale = isBrowserMix ? micStrategy.secondary : null
 
-    const startBrowserSpeechRecognition = (lang: 'ru-RU' | 'en-US') => {
+    const startBrowserSpeechRecognition = (
+      lang: 'ru-RU' | 'en-US',
+      secondaryLocale: 'ru-RU' | 'en-US' | null = null
+    ) => {
       if (!SpeechRecognitionAPI) {
         void startMediaRecorderFallback(sttLangForApi)
         return
@@ -398,8 +398,19 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
       let didFallbackToRecorder = false
       let timedOut = false
       let fellBackToRecorder = false
+      let retriedWithMixSecondaryLocale = false
       let safetyTimeoutId: number | null = null
       let silenceTimeoutId: number | null = null
+
+      const retryMixWithSecondaryLocale = () => {
+        if (!isBrowserMix) return false
+        if (!secondaryLocale || secondaryLocale === lang) return false
+        if (retriedWithMixSecondaryLocale) return false
+        retriedWithMixSecondaryLocale = true
+        updateVoiceTranscript('', '')
+        startBrowserSpeechRecognition(secondaryLocale, null)
+        return true
+      }
 
       const clearSafetyTimeout = () => {
         if (safetyTimeoutId != null) {
@@ -463,6 +474,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
           !didFallbackToRecorder &&
           !chooseFinalSpeechText(latestFinalText, latestInterimText)
         ) {
+          if (retryMixWithSecondaryLocale()) return
           didFallbackToRecorder = true
           fellBackToRecorder = true
           updateVoiceTranscript('', '')
@@ -470,6 +482,9 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
           return
         }
         const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
+        if (!resolvedFinalText && retryMixWithSecondaryLocale()) {
+          return
+        }
         void (async () => {
           if (!resolvedFinalText) {
             if (timedOut) {
@@ -535,6 +550,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
         }
 
         if (/no-speech/i.test(code)) {
+          if (retryMixWithSecondaryLocale()) return
           if (isIosChrome && !didFallbackToRecorder) {
             didFallbackToRecorder = true
             fellBackToRecorder = true
@@ -558,6 +574,17 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
       } catch {
         void startMediaRecorderFallback(sttLangForApi)
       }
+    }
+
+    // Tutor mix: mirror Chat communication mix — prefer browser+interim; do not
+    // force iOS Chrome into MediaRecorder via shouldUseMediaRecorderFallback.
+    if (isBrowserMix) {
+      if (SpeechRecognitionAPI) {
+        startBrowserSpeechRecognition(preferredLocale, mixSecondaryLocale)
+      } else {
+        await startMediaRecorderFallback(sttLangForApi)
+      }
+      return
     }
 
     const useFallback = shouldUseMediaRecorderFallback({

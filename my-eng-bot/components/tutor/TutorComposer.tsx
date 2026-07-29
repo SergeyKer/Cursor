@@ -9,7 +9,7 @@ import {
 } from '@/lib/chatComposerMetrics'
 import { TUTOR_PAPERCLIP_BUTTON_CLASS } from '@/lib/tutor/composerContracts'
 import type { TutorComposerChip } from '@/lib/tutor/types'
-import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
+import { TUTOR_CHAT_COPY, tutorComposerPlaceholder } from '@/lib/uiCopy/tutorChat'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton from '@/components/voice/VoiceMicButton'
@@ -54,6 +54,7 @@ export type TutorComposerProps = {
   readOnly?: boolean
   micDisabled?: boolean
   listening?: boolean
+  finalizing?: boolean
   isVoiceActive?: boolean
   micVisualState?: MicVisualState
   onMicClick?: () => void
@@ -77,12 +78,13 @@ export default function TutorComposer({
   value,
   onChange,
   onSubmit,
-  placeholder = TUTOR_CHAT_COPY.composerPlaceholder,
+  placeholder = tutorComposerPlaceholder('adult'),
   composerLocked = false,
   chipsDisabled = false,
   readOnly = false,
   micDisabled = true,
   listening = false,
+  finalizing = false,
   isVoiceActive = false,
   micVisualState = 'idle',
   onMicClick,
@@ -104,7 +106,7 @@ export default function TutorComposer({
   const formRef = useRef<HTMLFormElement>(null)
   const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
   const canSend =
-    value.trim().length > 0 && !composerLocked && !listening && !isVoiceActive
+    value.trim().length > 0 && !composerLocked && !listening && !finalizing && !isVoiceActive
 
   useAutoGrowTextarea({
     textareaRef,
@@ -160,14 +162,17 @@ export default function TutorComposer({
       >
         <VoiceMicButton
           listening={listening}
-          disabled={micDisabled || composerLocked}
+          finalizing={finalizing}
+          disabled={micDisabled || composerLocked || finalizing}
           micVisualState={micVisualState}
           onClick={() => {
-            if (micDisabled || composerLocked) return
+            if (micDisabled || composerLocked || finalizing) return
             onMicClick?.()
           }}
-          title={listening ? 'Остановить' : 'Голосовой ввод'}
-          ariaLabel={listening ? 'Остановить запись' : 'Голосовой ввод'}
+          title={listening ? 'Остановить' : finalizing ? 'Распознаю речь' : 'Голосовой ввод'}
+          ariaLabel={
+            listening ? 'Остановить запись' : finalizing ? 'Распознаю речь' : 'Голосовой ввод'
+          }
         />
 
         <div className="relative isolate min-w-0 flex-1">

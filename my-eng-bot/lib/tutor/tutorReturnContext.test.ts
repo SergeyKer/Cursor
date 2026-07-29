@@ -27,4 +27,18 @@ describe('tutorReturnContext', () => {
     expect(consumed?.anchorQuery).toBe('Present Perfect')
     expect(consumeTutorReturnContext()).toBeNull()
   })
+
+  it('preserves pendingTriageQuery through stash/consume', () => {
+    stashTutorReturnContext({
+      draft: '',
+      anchorQuery: null,
+      followUpMode: false,
+      postExplainChips: false,
+      thread: [{ id: 'u1', role: 'user', text: 'Чем a и an отличаются?' }],
+      pendingTriageQuery: 'Чем a и an отличаются?',
+    })
+    const snap = consumeTutorReturnContext()
+    expect(snap?.pendingTriageQuery).toBe('Чем a и an отличаются?')
+    expect(snap?.thread).toHaveLength(1)
+  })
 })

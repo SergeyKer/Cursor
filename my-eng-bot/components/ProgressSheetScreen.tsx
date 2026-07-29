@@ -56,8 +56,8 @@ const STATUS_TILE_CLASS =
 
 const STATUS_WIDE_TILE_CLASS = `${STATUS_TILE_CLASS} !py-3.5`
 
-/** Streak status card: slightly tight equal inset for CTA sides and bottom. */
-const STATUS_STREAK_TILE_CLASS = `${STATUS_TILE_CLASS} !px-3.5 !py-3.5`
+/** Streak CTA inset matches composer dock: px-2.5 sm:px-3, bottom 0.625rem. */
+const STATUS_STREAK_TILE_CLASS = `${STATUS_TILE_CLASS} !px-2.5 !pt-3.5 !pb-2.5 sm:!px-3`
 
 /** Level bar card: bottom inset slightly below gap above XP line (`mt-1.5`). */
 const STATUS_LEVEL_TILE_CLASS = `${STATUS_TILE_CLASS} !pt-3.5 !pb-2`
@@ -269,7 +269,7 @@ export default function ProgressSheetScreen({
           </p>
         </div>
         <div className={STATUS_STREAK_TILE_CLASS}>
-          <div className="min-w-0 px-2.5">
+          <div className="min-w-0">
             <p className="flex items-center gap-2.5 text-[17px] font-semibold leading-snug text-[var(--text)]">
               <span className="emoji-line shrink-0 text-[20px] leading-none">{DAILY_STREAK_GLYPH}</span>
               <span className="min-w-0">{status.streakStatusHeadline}</span>

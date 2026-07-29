@@ -1,17 +1,18 @@
 /**
  * Lesson / tutor mic strategy.
  * - `en`: Web Speech en-US (lessons) — unchanged default.
- * - `mix`: Whisper auto via MediaRecorder (tutor mixed RU+EN dictation),
- *   same engine idea as dialogue — not communication browser ru→en retry.
+ * - `mix`: browser ru-RU → en-US retry with interim (same idea as communication mix).
  */
 
 export type LessonSpeechMode = 'en' | 'mix'
 
 export type LessonMicStrategy =
   | { kind: 'browser'; locale: 'en-US'; apiLang: 'en' }
-  | { kind: 'whisper-auto' }
+  | { kind: 'browser-mix'; primary: 'ru-RU'; secondary: 'en-US'; apiLang: 'ru' }
 
 export function resolveLessonMicStrategy(speechMode: LessonSpeechMode = 'en'): LessonMicStrategy {
-  if (speechMode === 'mix') return { kind: 'whisper-auto' }
+  if (speechMode === 'mix') {
+    return { kind: 'browser-mix', primary: 'ru-RU', secondary: 'en-US', apiLang: 'ru' }
+  }
   return { kind: 'browser', locale: 'en-US', apiLang: 'en' }
 }

@@ -91,6 +91,8 @@ interface SlideOutMenuProps {
   onOpenMyPlanSpace?: () => void
   onOpenTutorChat?: (opts?: { prefill?: string }) => void
   tutorChatPrefill?: string
+  tutorChatMountKey?: number
+  onPromoteTutorFromMenu?: () => void
   /** Сгенерировать новый вариант урока через LLM. */
   onGenerateLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => Promise<void> | void
   /** DEBUG: сразу к финалу выбранного structured-урока. Удалить после редактирования. */
@@ -204,6 +206,8 @@ export default function SlideOutMenu({
   onOpenMyPlanSpace,
   onOpenTutorChat,
   tutorChatPrefill = '',
+  tutorChatMountKey = 0,
+  onPromoteTutorFromMenu,
   onGenerateLearningLesson,
   onDebugSkipToLessonFinale,
   onDebugSkipToPracticeFinale,
@@ -407,6 +411,8 @@ export default function SlideOutMenu({
         onOpenMyPlanSpace={onOpenMyPlanSpace}
         onOpenTutorChat={onOpenTutorChat}
         tutorChatPrefill={tutorChatPrefill}
+        tutorChatMountKey={tutorChatMountKey}
+        onPromoteTutorFromMenu={onPromoteTutorFromMenu}
         onGenerateLearningLesson={onGenerateLearningLesson}
         onDebugSkipToLessonFinale={onDebugSkipToLessonFinale}
         onDebugSkipToPracticeFinale={onDebugSkipToPracticeFinale}

@@ -13,6 +13,8 @@ export type TutorReturnContextSnapshot = {
   thread: Array<{ id: string; role: 'user' | 'assistant'; text: string }>
   /** Last explain topic for cheatsheet restore. */
   lastExplainCanonicalKey?: string | null
+  /** After menu→space promote: run triage once on mount. */
+  pendingTriageQuery?: string | null
 }
 
 function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
@@ -22,13 +24,22 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
     if (!data || typeof data !== 'object') return null
     if (typeof data.savedAt !== 'number' || !Array.isArray(data.thread)) return null
     if (Date.now() - data.savedAt > TTL_MS) return null
-    return data
+    const pending =
+      typeof data.pendingTriageQuery === 'string' && data.pendingTriageQuery.trim()
+        ? data.pendingTriageQuery.trim()
+        : data.pendingTriageQuery === null
+          ? null
+          : undefined
+    return {
+      ...data,
+      ...(pending !== undefined ? { pendingTriageQuery: pending } : {}),
+    }
   } catch {
     return null
   }
 }
 
-/** Persist tutor session before leaving to reference/lesson/practice. */
+/** Persist tutor session before leaving to reference/lesson/practice/space promote. */
 export function stashTutorReturnContext(snapshot: Omit<TutorReturnContextSnapshot, 'savedAt'>): void {
   const payload: TutorReturnContextSnapshot = { ...snapshot, savedAt: Date.now() }
   storageSet('session', STORAGE_KEY, JSON.stringify(payload))

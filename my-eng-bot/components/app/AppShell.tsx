@@ -248,6 +248,9 @@ import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
 import { TRANSLATION_MENU_COPY } from '@/lib/uiCopy/translationMenu'
 import { progressCopy } from '@/lib/uiCopy/progress'
 import { myPlanCopy } from '@/lib/uiCopy/myPlan'
+import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
+import TutorChatPanel from '@/components/tutor/TutorChatPanel'
+import { clearTutorReturnContext } from '@/lib/tutor/tutorReturnContext'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -1094,6 +1097,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [progressSpaceActive, setProgressSpaceActive] = useState(false)
   const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)
+  const [tutorChatSpaceActive, setTutorChatSpaceActive] = useState(false)
+  const [tutorChatAutoSubmitInitial, setTutorChatAutoSubmitInitial] = useState(false)
   const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
@@ -4601,6 +4606,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setVocabularyFooterView(null)
     setProgressSpaceActive(false)
     setMyPlanSpaceActive(false)
+    setTutorChatSpaceActive(false)
+    clearTutorReturnContext()
     setAdaptiveFooterView(null)
     if (!options?.keepLessonMenuContext) {
       setLessonMenuContext(null)
@@ -5140,9 +5147,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setChatMessagesSnapshotForReference(null)
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
-    setDialogStarted(false)
-    setMessages([])
-    setSettingsAtLastSend(null)
+    setActiveLearningLessonId(null)
+    setActiveStructuredLessonRuntime(null)
+    setStructuredLessonLoadingId(null)
+    setLessonOverlay(null)
+    setLessonViewStage('intro')
+    setLessonTipsReturnStage('intro')
+    setLessonExtraTipsStatus('idle')
+    setLessonExtraTipsState(null)
     setLoading(false)
     setRetryMessage(null)
     setForceNextMicLang(null)
@@ -5153,12 +5165,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoErrorText(null)
     setFooterTransitionText(null)
     bumpFooterSessionContext()
-    resetStructuredLessonSession()
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
-    restoreLessonMenuOnNextOpenRef.current = true
-    setHomeMenuView('lessons')
-    setMenuOpen(true)
-  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
+    setMyPlanSpaceActive(false)
+    setProgressSpaceActive(false)
+    setTutorChatMountKey((k) => k + 1)
+    setTutorChatSpaceActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('root')
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime])
 
   const showReviewChipError = useCallback(() => {
     setRewardPopupText(LANGUAGE_NOTE_COPY.reviewChipError)
@@ -5828,16 +5842,77 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [openMenuAt])
 
   const [tutorChatPrefill, setTutorChatPrefill] = useState('')
-  const openTutorChat = useCallback((opts?: { prefill?: string }) => {
-    setTutorChatPrefill(opts?.prefill?.trim() || '')
-    setMyPlanSpaceActive(false)
+  const [tutorChatMountKey, setTutorChatMountKey] = useState(0)
+  const openTutorMenuIdle = useCallback(() => {
+    if (!featureFlags.tutorChatV1) return
+    setTutorChatPrefill('')
+    setTutorChatAutoSubmitInitial(false)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
     setProgressSpaceActive(false)
+    setMyPlanSpaceActive(false)
+    setTutorChatSpaceActive(false)
+    setTutorChatMountKey((k) => k + 1)
     setDialogStarted(false)
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
     restoreLessonMenuOnNextOpenRef.current = true
     setHomeMenuView('lessons')
     setMenuOpen(true)
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
+
+  const openTutorChatSpace = useCallback((opts?: { prefill?: string; autoSubmitInitial?: boolean }) => {
+    if (!featureFlags.tutorChatV1) return
+    setTutorChatPrefill(opts?.prefill?.trim() || '')
+    setTutorChatAutoSubmitInitial(Boolean(opts?.autoSubmitInitial && opts?.prefill?.trim()))
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setProgressSpaceActive(false)
+    setMyPlanSpaceActive(false)
+    setTutorChatMountKey((k) => k + 1)
+    setTutorChatSpaceActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('root')
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession])
+
+  const promoteTutorFromMenu = useCallback(() => {
+    if (!featureFlags.tutorChatV1) return
+    setTutorChatAutoSubmitInitial(false)
+    setTutorChatPrefill('')
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
+    setTutorChatMountKey((k) => k + 1)
+    setTutorChatSpaceActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('root')
   }, [])
+
+  const backFromTutorChat = useCallback(() => {
+    setTutorChatSpaceActive(false)
+    setTutorChatPrefill('')
+    setTutorChatAutoSubmitInitial(false)
+    clearTutorReturnContext()
+    setDialogStarted(false)
+    openMenuAt('lessons')
+  }, [openMenuAt])
+
+  const openTutorChat = useCallback((opts?: { prefill?: string }) => {
+    const prefill = opts?.prefill?.trim() || ''
+    if (prefill) openTutorChatSpace({ prefill, autoSubmitInitial: true })
+    else openTutorMenuIdle()
+  }, [openTutorChatSpace, openTutorMenuIdle])
 
   const openMyPlanFromProgress = useCallback(() => {
     openMyPlanSpace()
@@ -6361,7 +6436,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLessonTipsReturnStage('intro')
       setLessonExtraTipsStatus('idle')
       setLessonExtraTipsState(null)
-      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary', origin: 'tutor' })
       setMessages([])
     },
     [abandonPracticeSession, openLearningLesson]
@@ -6628,6 +6703,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     menuOpenSnapshotRef.current = null
     if (!dialogStarted) return
     if (engvoVoiceMode) return
+    if (tutorChatSpaceActive || myPlanSpaceActive || progressSpaceActive) return
     if (snap === null) return
     if (snap.mode !== settings.mode) {
       restartChatForNewModeFromMenu()
@@ -6636,7 +6712,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (menuSettingsRestartNeeded(snap, settings)) {
       restartChatForNewModeFromMenu()
     }
-  }, [menuOpen, dialogStarted, engvoVoiceMode, settings, restartChatForNewModeFromMenu])
+  }, [
+    menuOpen,
+    dialogStarted,
+    engvoVoiceMode,
+    tutorChatSpaceActive,
+    myPlanSpaceActive,
+    progressSpaceActive,
+    settings,
+    restartChatForNewModeFromMenu,
+  ])
 
   const openQuickTest = useCallback(() => {
     writeEntryContext({
@@ -6945,6 +7030,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         vocabularyWorldsActive,
         vocabularyByLevelActive,
         engvoVoiceMode,
+        tutorChatSpaceActive,
+        myPlanSpaceActive,
+        progressSpaceActive,
       })
     ) {
       ensureFirstMessage()
@@ -6960,6 +7048,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     vocabularyWorldsActive,
     vocabularyByLevelActive,
     engvoVoiceMode,
+    tutorChatSpaceActive,
+    myPlanSpaceActive,
+    progressSpaceActive,
   ])
 
   useEffect(() => {
@@ -7824,6 +7915,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
   const isProgressSpaceActive = progressSpaceActive
   const isMyPlanSpaceActive = myPlanSpaceActive
+  const isTutorChatSpaceActive = tutorChatSpaceActive
   const activeLessonIntro =
     activeStructuredLesson?.intro ??
     activeLearningLesson?.intro ??
@@ -8170,7 +8262,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     activeStructuredLessonFooterStaticText ??
     (activeLearningLesson
       ? activeLearningLesson?.footer?.staticText ??
-        (lessonMenuContext?.lessonsPanel === 'tutor' ? 'Репетитор' : 'Теория')
+        (lessonMenuContext?.origin === 'tutor' ? 'Репетитор' : 'Теория')
       : null)
   const practiceForgivenessContext = practiceSession.session
     ? (() => {
@@ -8494,10 +8586,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       { maxLength: FOOTER_DYNAMIC_MAX_LENGTH }
     )
   }, [dialogStarted, greetingNonce, homeVoiceLine])
-  const introFooterDynamicText = lessonMenuContext?.lessonsPanel === 'tutor'
+  const introFooterDynamicText = lessonMenuContext?.origin === 'tutor'
     ? 'MyEng собрал тему. Разберём смысл.'
     : 'Сначала коротко разберём смысл темы.'
-  const introFooterStaticText = lessonMenuContext?.lessonsPanel === 'tutor'
+  const introFooterStaticText = lessonMenuContext?.origin === 'tutor'
     ? 'Репетитор | Введение'
     : 'Введение | 0/7 шагов'
   const tipsQuizAnsweredCount = lessonExtraTipsState ? Object.keys(lessonExtraTipsState.quizAnswers).length : 0
@@ -9437,6 +9529,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     settings.mode === 'communication' &&
     !isProgressSpaceActive &&
     !isMyPlanSpaceActive &&
+    !isTutorChatSpaceActive &&
     !isLessonActive &&
     !isPracticeActive &&
     !engvoVoiceMode
@@ -9472,6 +9565,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ? 'Call to Engvo'
       : activeLessonTitle
       ? `Урок: ${activeLessonTitle}`
+      : isTutorChatSpaceActive
+      ? TUTOR_CHAT_COPY.panelTitle
       : isMyPlanSpaceActive
       ? myPlanCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle
       : isProgressSpaceActive
@@ -9585,7 +9680,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       onOpenLocalReference={(lessonId) => {
         void openReferenceTopic(
           lessonId,
-          'tutor',
+          'summary',
           { catalogBrowseIntent: 'reference' },
           { from: 'tutor', clearMessages: false }
         )
@@ -9637,7 +9732,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 ) : (
                   <span className="min-w-0 truncate">{lessonPageTitleView.topicSegment}</span>
                 )
-              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isMyPlanSpaceActive || isVocabularyHubActive ? (
+              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isMyPlanSpaceActive || isTutorChatSpaceActive || isVocabularyHubActive ? (
                 <span className="truncate">{pageTitle}</span>
               ) : (
                 <>
@@ -9902,7 +9997,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 </div>
               )}
               <div className="flex min-h-0 flex-1 flex-col">
-                {isMyPlanSpaceActive ? (
+                {isTutorChatSpaceActive ? (
+                  <TutorChatPanel
+                    key={tutorChatMountKey}
+                    initialPrefill={tutorChatPrefill}
+                    autoSubmitInitial={tutorChatAutoSubmitInitial}
+                    onDone={backFromTutorChat}
+                  />
+                ) : isMyPlanSpaceActive ? (
                   <MyPlanSheetScreen
                     rewardsState={rewardsState}
                     settings={settings}
@@ -10435,7 +10537,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenProgressSpace={openProgressSpace}
         onOpenMyPlanSpace={openMyPlanSpace}
         onOpenTutorChat={openTutorChat}
+        onPromoteTutorFromMenu={promoteTutorFromMenu}
         tutorChatPrefill={tutorChatPrefill}
+        tutorChatMountKey={tutorChatMountKey}
         onOpenQuickTest={openQuickTest}
         onGenerateLearningLesson={openGeneratedLearningLesson}
         onDebugSkipToLessonFinale={handleDebugSkipToLessonFinale}
