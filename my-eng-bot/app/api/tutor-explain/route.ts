@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
 import { callProviderChat } from '@/lib/callProviderChat'
-import { normalizeTutorExplain } from '@/lib/tutor/normalizeExplain'
-import type { TutorExplainAnswer } from '@/lib/tutor/types'
+import { normalizeTutorExplainResult } from '@/lib/tutor/normalizeExplain'
+import { compactText } from '@/lib/tutor/text'
+import type { TutorTopicContext } from '@/lib/tutor/types'
 import type { AiProvider, Audience, LevelId } from '@/lib/types'
 
 export const runtime = 'nodejs'
@@ -17,7 +18,7 @@ type Body = {
   query?: string
   level?: LevelId
   audience?: Audience
-  anchorTitle?: string
+  topicContext?: TutorTopicContext | null
 }
 
 function extractJsonObject(raw: string): string {
@@ -28,25 +29,86 @@ function extractJsonObject(raw: string): string {
   return ''
 }
 
-function buildSystemPrompt(audience: Audience, level: LevelId): string {
+function formatTopicContext(ctx: TutorTopicContext | null | undefined): string {
+  if (!ctx?.anchor?.title) return ''
+  const lines = [
+    `Активная тема: ${ctx.anchor.title} (${ctx.anchor.canonicalKey || 'topic'})`,
+    ctx.anchor.rememberRu ? `Уже запомнили: ${ctx.anchor.rememberRu}` : '',
+  ]
+  if (Array.isArray(ctx.recentTurns) && ctx.recentTurns.length > 0) {
+    lines.push('Недавний контекст:')
+    for (const turn of ctx.recentTurns.slice(-2)) {
+      const role = turn.role === 'user' ? 'Ученик' : 'Репетитор'
+      const text = compactText(turn.text, 280)
+      if (text) lines.push(`- ${role}: ${text}`)
+    }
+  }
+  return lines.filter(Boolean).join('\n')
+}
+
+function buildSystemPrompt(
+  audience: Audience,
+  level: LevelId,
+  hasTopicContext: boolean
+): string {
   const childRules =
     audience === 'child'
       ? [
           'Аудитория: ребёнок/подросток. Пиши просто, по-русски, на «ты».',
           'Безопасность: только школьный английский; без взрослых/опасных тем.',
-          'paragraphs: ровно 2..5 коротких абзацев. examplesEn: 1..2 английских примера.',
+          'Если in_scope: paragraphs ровно 2..5 коротких абзацев; examplesEn 1..2.',
         ]
       : [
           'Аудитория: взрослый. Можно чуть компактнее.',
-          'paragraphs: 1..5 абзацев. examplesEn: 0..3 английских примера.',
+          'Если in_scope: paragraphs 1..5; examplesEn 0..3.',
         ]
 
+  const answerRecipe = [
+    'Как отвечать (in_scope):',
+    '- Сначала прямой ответ на вопрос ученика (первая фраза/абзац).',
+    '- Дальше только нужное: смысл / когда так / чем не путать — по CEFR, без лекции.',
+    '- examplesEn — короткие живые фразы, которые показывают это правило; для grammar|contrast|form|orthography|how_to_say — хотя бы 1 пример.',
+    '- rememberRu — одна фраза-запоминалка, когда есть что закрепить (grammar/contrast/form/orthography — желательно).',
+    '- Без воды: без «давай разберём», планов занятия, повторов, общих мотивирующих абзацев.',
+    '- Не выдумывай редкие факты; опирайся на стандартное правило и обычное использование; не уверен — скажи проще и безопасный вариант.',
+    '- Длина: лучше 2–3 коротких абзаца, чем 5 размытых; не растягивай до max зря.',
+    '- Не пиши эссе/письмо/список на 50 слов/ролеплей целиком — предложи узкий EN-шаг.',
+    '- EN-фразу разбирай как язык; не отвечай от лица чат-бота («Yes, I do»).',
+  ]
+
+  const contextRules = hasTopicContext
+    ? [
+        'Есть активная тема (topicContext):',
+        '- Уточнения вроде «а в отрицании?», «а пример», «почему?» — углуби якорь, не переводи как новую how_to_say фразу.',
+        '- «проверь: …» / is this correct — разбор формы/ошибки, не квиз.',
+        '- Не повторяй весь прошлый ответ с нуля.',
+        '- Если явно новая EN-тема — смени topicAnchor.',
+      ]
+    : [
+        'Нет активной темы (первый ответ / смена темы):',
+        '- RU-фраза без маркера → по умолчанию how_to_say / translate на EN.',
+        '- «составь предложение со словами…» → EN-предложение + кратко почему так.',
+        '- «научи английскому» → один конкретный следующий шаг, не курс.',
+        '- Явный квиз/«закрепи» → короткий якорь темы + скажи, что проверка — кнопкой «Закрепить 2 мин» (не генерируй полный квиз).',
+      ]
+
   return [
-    'Ты — репетитор английского. Дай ясный ответ на вопрос ученика.',
+    'Ты — репетитор английского.',
     'Это НЕ урок и НЕ эссе: без Hook/Rule/Formula карточек, без длинного плана занятия.',
     'Верни ТОЛЬКО JSON без markdown.',
-    'Формат:',
+    '',
+    'Сначала scope:',
+    '- in_scope — запрос помогает понять / сказать / написать / перевести / проверить английский',
+    '  (правило, contrast, форма, перевод, how_to_say, орфография, разбор ошибки/домашки EN, значение слова).',
+    '- out_of_scope — не про английский, другой предмет целиком, болтовня, огромный заказ работы, опасное.',
+    'Серое: «переведи условие физики» → in_scope как translate (только язык, предмет не решай).',
+    '',
+    'Если out_of_scope:',
+    '{ "scope": "out_of_scope", "messageRu": "короткий вежливый отказ + что можно спросить" }',
+    '',
+    'Если in_scope:',
     '{',
+    '  "scope": "in_scope",',
     '  "answerKind": "grammar|contrast|form|translate|how_to_say|orthography|other",',
     '  "title": "короткий заголовок",',
     '  "paragraphs": ["абзац на русском", "..."],',
@@ -55,12 +117,8 @@ function buildSystemPrompt(audience: Audience, level: LevelId): string {
     '  "contrastPair": ["A","B"],',
     '  "topicAnchor": { "title":"...", "canonicalKey":"snake_case", "lessonIdHint": null, "skillTagIds": [] }',
     '}',
-    'answerKind:',
-    '- grammar / contrast / form — правило или сравнение форм;',
-    '- translate — чистый перевод;',
-    '- how_to_say — как сказать фразу;',
-    '- orthography — регистр/написание;',
-    '- other — остальное.',
+    ...answerRecipe,
+    ...contextRules,
     `Уровень CEFR-якорь: ${level}.`,
     ...childRules,
   ].join('\n')
@@ -99,16 +157,13 @@ export async function POST(req: NextRequest) {
       : body.openAiChatPreset === 'gpt-5.4-mini-low'
         ? 'gpt-5.4-mini-low'
         : 'gpt-4o-mini'
-  const anchorTitle =
-    typeof body.anchorTitle === 'string' ? body.anchorTitle.replace(/\s+/g, ' ').trim() : ''
 
-  const system = buildSystemPrompt(audience, level)
-  const user = [
-    `Вопрос ученика: ${query}`,
-    anchorTitle ? `Якорь темы: ${anchorTitle}` : '',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const topicContext =
+    body.topicContext && typeof body.topicContext === 'object' ? body.topicContext : null
+  const hasTopicContext = Boolean(topicContext?.anchor?.title)
+
+  const system = buildSystemPrompt(audience, level, hasTopicContext)
+  const user = [`Вопрос ученика: ${query}`, formatTopicContext(topicContext)].filter(Boolean).join('\n\n')
 
   try {
     const model = await callProviderChat({
@@ -137,15 +192,22 @@ export async function POST(req: NextRequest) {
       parsed = null
     }
 
-    const answer: TutorExplainAnswer | null = normalizeTutorExplain(parsed, { audience })
-    if (!answer) {
+    const result = normalizeTutorExplainResult(parsed, { audience })
+    if (!result) {
       return NextResponse.json(
         { error: 'normalize_failed', userMessage: 'Не удалось разобрать ответ. Попробуй ещё раз.' },
         { status: 502 }
       )
     }
 
-    return NextResponse.json({ answer })
+    if (result.scope === 'out_of_scope') {
+      return NextResponse.json({
+        scope: 'out_of_scope',
+        messageRu: result.messageRu,
+      })
+    }
+
+    return NextResponse.json({ scope: 'in_scope', answer: result.answer })
   } catch {
     return NextResponse.json(
       { error: 'provider_failed', userMessage: 'Не удалось объяснить. Попробуй ещё раз.' },

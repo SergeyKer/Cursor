@@ -19,15 +19,19 @@ import {
 import { recordTutorMicroWrongSignal } from '@/lib/learningMemory/record'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { buildTutorMicroPackFromExplain } from '@/lib/tutor/buildMicroPack'
+import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
+import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
 import { recordTutorCuriosity } from '@/lib/tutor/curiosityStore'
 import { localTutorTriage } from '@/lib/tutor/localTriage'
 import type { TutorSchoolPhotoResult } from '@/lib/tutor/normalizeSchoolPhoto'
+import { isPendingAngleReply, routeTutorTurn } from '@/lib/tutor/tutorTurnRouter'
 import type {
   TutorComposerChip,
   TutorExplainAnswer,
   TutorMicroItem,
   TutorMicroPack,
+  TutorTopicContext,
   TutorTriageResult,
 } from '@/lib/tutor/types'
 import {
@@ -133,7 +137,6 @@ export default function TutorChatPanel({
   const [draft, setDraft] = useState(initialPrefill)
   const [thread, setThread] = useState<ThreadMessage[]>([])
   const [triageChips, setTriageChips] = useState<TutorComposerChip[]>([])
-  const [followUpMode, setFollowUpMode] = useState(false)
   const [anchorQuery, setAnchorQuery] = useState<string | null>(null)
   const [postExplainChips, setPostExplainChips] = useState(false)
   const [lastExplain, setLastExplain] = useState<TutorExplainAnswer | null>(null)
@@ -141,6 +144,7 @@ export default function TutorChatPanel({
   const [microPhase, setMicroPhase] = useState<MicroPhase>('idle')
   const [microPack, setMicroPack] = useState<TutorMicroPack | null>(null)
   const [microIndex, setMicroIndex] = useState(0)
+  const [microCorrectCount, setMicroCorrectCount] = useState(0)
   const [pendingTriageQuery, setPendingTriageQuery] = useState<string | null>(null)
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
@@ -209,9 +213,11 @@ export default function TutorChatPanel({
     setDraft(snap.draft)
     voice.setDraftText(snap.draft)
     setAnchorQuery(snap.anchorQuery)
-    setFollowUpMode(snap.followUpMode)
     setPostExplainChips(snap.postExplainChips)
     setThread(snap.thread.map((m) => ({ id: m.id, role: m.role, text: m.text })))
+    if (snap.lastExplain) {
+      setLastExplain(snap.lastExplain)
+    }
     if (snap.pendingTriageQuery?.trim()) {
       setPendingTriageQuery(snap.pendingTriageQuery.trim())
     }
@@ -244,12 +250,11 @@ export default function TutorChatPanel({
     return {
       draft,
       anchorQuery,
-      followUpMode,
       postExplainChips,
       thread: thread.map(({ id, role, text }) => ({ id, role, text })),
-      lastExplainCanonicalKey: lastExplain?.topicAnchor.canonicalKey ?? null,
+      ...(lastExplain ? { lastExplain } : {}),
     }
-  }, [anchorQuery, draft, followUpMode, lastExplain, postExplainChips, thread])
+  }, [anchorQuery, draft, lastExplain, postExplainChips, thread])
 
   const promoteWithUserQuery = useCallback(
     (text: string, baseThread?: ThreadMessage[]) => {
@@ -260,44 +265,37 @@ export default function TutorChatPanel({
       stashTutorReturnContext({
         draft: '',
         anchorQuery: null,
-        followUpMode: false,
         postExplainChips: false,
         thread: [...prior.map(({ id, role, text: t }) => ({ id, role, text: t })), userMsg],
         pendingTriageQuery: trimmed,
+        ...(lastExplain ? { lastExplain } : {}),
       })
       onPromoteToSpace()
       return true
     },
-    [nextId, onPromoteToSpace, thread]
+    [lastExplain, nextId, onPromoteToSpace, thread]
   )
 
   const abortMicro = useCallback(() => {
     setMicroPhase('idle')
     setMicroPack(null)
     setMicroIndex(0)
+    setMicroCorrectCount(0)
   }, [])
 
-  const resetToNewQuestion = useCallback(() => {
-    abortMicro()
-    setTriageChips([])
-    setFollowUpMode(false)
-    setAnchorQuery(null)
-    setPostExplainChips(false)
-    setLastExplain(null)
-    setDraftSynced('')
-  }, [abortMicro, setDraftSynced])
-
   const runExplain = useCallback(
-    async (query: string, anchorTitle?: string | null) => {
+    async (query: string, topicContext?: TutorTopicContext | null) => {
       abortMicro()
       setBusy(true)
+      const hadLastExplain = lastExplain != null
+      const prevCanonicalKey = lastExplain?.topicAnchor.canonicalKey
       try {
         const response = await fetch('/api/tutor-explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query,
-            anchorTitle: anchorTitle || undefined,
+            ...(topicContext ? { topicContext } : {}),
             audience: session?.settings.audience ?? 'adult',
             level: session?.settings.level ?? 'a2',
             provider: session?.settings.provider ?? 'openai',
@@ -305,12 +303,24 @@ export default function TutorChatPanel({
           }),
         })
         const data = (await response.json()) as {
+          scope?: 'in_scope' | 'out_of_scope'
           answer?: TutorExplainAnswer
+          messageRu?: string
           userMessage?: string
         }
-        if (!response.ok || !data.answer) {
+        if (!response.ok) {
           append('assistant', data.userMessage || TUTOR_CHAT_COPY.explainFailed)
-          setPostExplainChips(false)
+          setPostExplainChips(hadLastExplain)
+          return
+        }
+        if (data.scope === 'out_of_scope') {
+          append('assistant', data.messageRu || TUTOR_CHAT_COPY.outOfScopeFallback)
+          setPostExplainChips(hadLastExplain)
+          return
+        }
+        if (!data.answer) {
+          append('assistant', data.userMessage || TUTOR_CHAT_COPY.explainFailed)
+          setPostExplainChips(hadLastExplain)
           return
         }
         const answer = data.answer
@@ -318,21 +328,23 @@ export default function TutorChatPanel({
         setAnchorQuery(answer.topicAnchor.title || query)
         setPostExplainChips(true)
         setTriageChips([])
-        setFollowUpMode(false)
         append('assistant', formatExplainBubble(answer), answer)
-        recordTutorCuriosity({
-          topicTitle: answer.topicAnchor.title || answer.title,
-          questionRu: query,
-          canonicalKey: answer.topicAnchor.canonicalKey,
-        })
+        const newKey = answer.topicAnchor.canonicalKey
+        if (!prevCanonicalKey || prevCanonicalKey !== newKey) {
+          recordTutorCuriosity({
+            topicTitle: answer.topicAnchor.title || answer.title,
+            questionRu: query,
+            canonicalKey: newKey,
+          })
+        }
       } catch {
         append('assistant', TUTOR_CHAT_COPY.explainFailed)
-        setPostExplainChips(false)
+        setPostExplainChips(hadLastExplain)
       } finally {
         setBusy(false)
       }
     },
-    [abortMicro, append, session]
+    [abortMicro, append, lastExplain, session]
   )
 
   const analyzeSchoolPhoto = useCallback(
@@ -373,13 +385,13 @@ export default function TutorChatPanel({
             stashTutorReturnContext({
               draft: '',
               anchorQuery: null,
-              followUpMode: false,
               postExplainChips: false,
               thread: [
                 ...thread.map(({ id, role, text }) => ({ id, role, text })),
                 { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
                 errMsg,
               ],
+              ...(lastExplain ? { lastExplain } : {}),
             })
             onPromoteToSpace()
             return
@@ -394,13 +406,13 @@ export default function TutorChatPanel({
             stashTutorReturnContext({
               draft: '',
               anchorQuery: null,
-              followUpMode: false,
               postExplainChips: false,
               thread: [
                 ...thread.map(({ id, role, text }) => ({ id, role, text })),
                 { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
                 errMsg,
               ],
+              ...(lastExplain ? { lastExplain } : {}),
             })
             onPromoteToSpace()
             return
@@ -414,13 +426,13 @@ export default function TutorChatPanel({
             stashTutorReturnContext({
               draft: '',
               anchorQuery: null,
-              followUpMode: false,
               postExplainChips: false,
               thread: [
                 ...thread.map(({ id, role, text }) => ({ id, role, text })),
                 { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
               ],
               pendingTriageQuery: pendingExplain,
+              ...(lastExplain ? { lastExplain } : {}),
             })
             onPromoteToSpace()
             return
@@ -434,13 +446,13 @@ export default function TutorChatPanel({
           stashTutorReturnContext({
             draft: '',
             anchorQuery: null,
-            followUpMode: false,
             postExplainChips: false,
             thread: [
               ...thread.map(({ id, role, text }) => ({ id, role, text })),
               { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
               assistMsg,
             ],
+            ...(lastExplain ? { lastExplain } : {}),
           })
           onPromoteToSpace()
           return
@@ -456,13 +468,13 @@ export default function TutorChatPanel({
           stashTutorReturnContext({
             draft: '',
             anchorQuery: null,
-            followUpMode: false,
             postExplainChips: false,
             thread: [
               ...thread.map(({ id, role, text }) => ({ id, role, text })),
               { id: photoUserId, role: 'user', text: TUTOR_CHAT_COPY.photoUserLabel },
               errMsg,
             ],
+            ...(lastExplain ? { lastExplain } : {}),
           })
           onPromoteToSpace()
           return
@@ -477,6 +489,7 @@ export default function TutorChatPanel({
       append,
       busy,
       embeddedInMenu,
+      lastExplain,
       microPhase,
       nextId,
       onPromoteToSpace,
@@ -569,21 +582,77 @@ export default function TutorChatPanel({
         setAnchorQuery(result.topicHint)
         setTriageChips(result.chips)
         setPostExplainChips(false)
-        append('assistant', `${TUTOR_CHAT_COPY.triagePickGoal} «${result.topicHint}»`)
+        append('assistant', TUTOR_CHAT_COPY.triagePickGoal(result.topicHint))
         return
       }
       if (result.kind === 'C') {
         setAnchorQuery(result.broadTerm)
         setTriageChips(result.chips)
         setPostExplainChips(false)
-        append('assistant', `${TUTOR_CHAT_COPY.triagePickAngle} «${result.broadTerm}»`)
+        append('assistant', TUTOR_CHAT_COPY.triagePickAngle(result.broadTerm))
         return
       }
       setTriageChips([])
-      setPostExplainChips(false)
+      setPostExplainChips(Boolean(lastExplain))
       append('assistant', result.clarifyPromptRu)
     },
-    [append, runExplain]
+    [append, lastExplain, runExplain]
+  )
+
+  const handleUserTurn = useCallback(
+    (rawText: string, options?: { userAlreadyInThread?: boolean }) => {
+      const text = rawText.trim()
+      if (!text) return
+
+      const userAlreadyInThread = options?.userAlreadyInThread === true
+      let threadForTurn = thread
+      if (!userAlreadyInThread) {
+        const userMsg = { id: nextId(), role: 'user' as const, text }
+        threadForTurn = [...thread, userMsg]
+        setThread(threadForTurn)
+      }
+
+      // Pending B/C free-text angle (anchor set, triage chips visible)
+      if (triageChips.length > 0 && anchorQuery) {
+        if (isPendingAngleReply(text)) {
+          const combined = `${anchorQuery}: ${text}`
+          setTriageChips([])
+          setAnchorQuery(combined)
+          void runExplain(combined)
+          return
+        }
+        setTriageChips([])
+        // Fall through as new turn (may restore post chips via route/apply)
+      }
+
+      const route = routeTutorTurn({ query: text, lastExplain })
+      if (route.kind === 'stop') {
+        setTriageChips([])
+        if (lastExplain) setPostExplainChips(true)
+        append('assistant', route.gate.messageRu)
+        return
+      }
+      if (route.kind === 'continue' && lastExplain) {
+        setTriageChips([])
+        void runExplain(
+          route.query,
+          buildTutorTopicContext({ answer: lastExplain, thread: threadForTurn })
+        )
+        return
+      }
+      // first | switch → same triage path; A explains without old topicContext
+      applyTriage(localTutorTriage(route.query))
+    },
+    [
+      anchorQuery,
+      append,
+      applyTriage,
+      lastExplain,
+      nextId,
+      runExplain,
+      thread,
+      triageChips.length,
+    ]
   )
 
   useEffect(() => {
@@ -591,8 +660,8 @@ export default function TutorChatPanel({
     pendingTriageDoneRef.current = true
     const q = pendingTriageQuery
     setPendingTriageQuery(null)
-    applyTriage(localTutorTriage(q))
-  }, [applyTriage, pendingTriageQuery])
+    handleUserTurn(q, { userAlreadyInThread: true })
+  }, [handleUserTurn, pendingTriageQuery])
 
   useEffect(() => {
     if (!autoSubmitInitial || embeddedInMenu) return
@@ -601,14 +670,12 @@ export default function TutorChatPanel({
     if (!text) return
     if (pendingTriageDoneRef.current) return
     autoSubmitDoneRef.current = true
-    append('user', text)
     setDraftSynced('')
-    applyTriage(localTutorTriage(text))
+    handleUserTurn(text, { userAlreadyInThread: false })
   }, [
-    append,
-    applyTriage,
     autoSubmitInitial,
     embeddedInMenu,
+    handleUserTurn,
     initialPrefill,
     setDraftSynced,
   ])
@@ -617,34 +684,22 @@ export default function TutorChatPanel({
     const text = draft.trim()
     if (!text || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) return
 
-    if (embeddedInMenu && onPromoteToSpace && !followUpMode) {
+    if (embeddedInMenu && onPromoteToSpace && !lastExplain) {
       setDraftSynced('')
       if (promoteWithUserQuery(text)) return
     }
 
-    if (followUpMode && anchorQuery) {
-      append('user', text)
-      setDraftSynced('')
-      setFollowUpMode(false)
-      void runExplain(text, anchorQuery)
-      return
-    }
-
-    append('user', text)
     setDraftSynced('')
-    applyTriage(localTutorTriage(text))
+    handleUserTurn(text, { userAlreadyInThread: false })
   }, [
-    anchorQuery,
-    append,
-    applyTriage,
     busy,
     draft,
     embeddedInMenu,
-    followUpMode,
+    handleUserTurn,
+    lastExplain,
     microPhase,
     onPromoteToSpace,
     promoteWithUserQuery,
-    runExplain,
     setDraftSynced,
     voice.isVoiceActive,
     voice.listening,
@@ -657,15 +712,13 @@ export default function TutorChatPanel({
       if (embeddedInMenu && onPromoteToSpace) {
         if (promoteWithUserQuery(trimmed)) return
       }
-      append('user', trimmed)
       setDraftSynced('')
-      applyTriage(localTutorTriage(trimmed))
+      handleUserTurn(trimmed, { userAlreadyInThread: false })
     },
     [
-      append,
-      applyTriage,
       busy,
       embeddedInMenu,
+      handleUserTurn,
       microPhase,
       onPromoteToSpace,
       promoteWithUserQuery,
@@ -683,7 +736,7 @@ export default function TutorChatPanel({
       append('user', chip.labelRu)
       setTriageChips([])
       setAnchorQuery(combined)
-      void runExplain(combined, anchorQuery)
+      void runExplain(combined)
     },
     [anchorQuery, append, busy, runExplain, triageChips]
   )
@@ -696,10 +749,12 @@ export default function TutorChatPanel({
     const pack = buildTutorMicroPackFromExplain(lastExplain)
     if (!pack) {
       append('assistant', TUTOR_CHAT_COPY.microFailed)
+      setPostExplainChips(true)
       return
     }
     setMicroPack(pack)
     setMicroIndex(0)
+    setMicroCorrectCount(0)
     setMicroPhase('active')
     setPostExplainChips(false)
     setTriageChips([])
@@ -707,13 +762,24 @@ export default function TutorChatPanel({
   }, [append, lastExplain])
 
   const finishMicro = useCallback(
-    (pack: TutorMicroPack) => {
+    (pack: TutorMicroPack, correctCount: number) => {
       setMicroPhase('finale')
       setMicroPack(pack)
-      append('assistant', pack.summaryRu)
+      const total = pack.items.length
+      const band = bandFromMicroScore(correctCount, total)
+      let finaleText =
+        band === 'strong'
+          ? TUTOR_CHAT_COPY.microFinaleStrong(correctCount, total)
+          : band === 'mid'
+            ? TUTOR_CHAT_COPY.microFinaleMid(correctCount, total)
+            : TUTOR_CHAT_COPY.microFinaleWeak(correctCount, total)
+      if (lastExplain?.rememberRu) {
+        finaleText = `${finaleText}\n\n${lastExplain.rememberRu}`
+      }
+      append('assistant', finaleText)
       setPostExplainChips(false)
     },
-    [append]
+    [append, lastExplain]
   )
 
   const answerMicro = useCallback(
@@ -724,7 +790,9 @@ export default function TutorChatPanel({
       const chosen = item.options[optionIndex] ?? ''
       append('user', chosen)
       const correct = optionIndex === item.correctIndex
+      const newCorrectCount = correct ? microCorrectCount + 1 : microCorrectCount
       if (correct) {
+        setMicroCorrectCount(newCorrectCount)
         append('assistant', TUTOR_CHAT_COPY.microCorrect)
       } else {
         const right = item.options[item.correctIndex] ?? ''
@@ -740,13 +808,21 @@ export default function TutorChatPanel({
       }
       const next = microIndex + 1
       if (next >= microPack.items.length) {
-        finishMicro(microPack)
+        finishMicro(microPack, newCorrectCount)
         return
       }
       setMicroIndex(next)
       append('assistant', microPack.items[next]!.promptRu)
     },
-    [append, finishMicro, lastExplain, microIndex, microPack, microPhase]
+    [
+      append,
+      finishMicro,
+      lastExplain,
+      microCorrectCount,
+      microIndex,
+      microPack,
+      microPhase,
+    ]
   )
 
   const cheatsheetChipVisible =
@@ -756,11 +832,10 @@ export default function TutorChatPanel({
 
   const finaleChips: TutorComposerChip[] = [
     { id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain },
-    { id: 'other', labelRu: TUTOR_CHAT_COPY.chipOtherQuestion },
-    { id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone },
     ...(cheatsheetChipVisible
       ? [{ id: 'cheatsheet', labelRu: TUTOR_CHAT_COPY.chipCheatsheet } satisfies TutorComposerChip]
       : []),
+    ...(onDone ? [{ id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone } satisfies TutorComposerChip] : []),
   ]
 
   const activeMicroItem = microPhase === 'active' ? microPack?.items[microIndex] : null
@@ -777,12 +852,10 @@ export default function TutorChatPanel({
         ? microOptionChips
         : postExplainChips
           ? [
-              { id: 'clarify', labelRu: TUTOR_CHAT_COPY.chipClarify },
               { id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro },
               ...(cheatsheetChipVisible
                 ? [{ id: 'cheatsheet', labelRu: TUTOR_CHAT_COPY.chipCheatsheet } satisfies TutorComposerChip]
                 : []),
-              { id: 'other', labelRu: TUTOR_CHAT_COPY.chipOtherQuestion },
             ]
           : triageChips
 
@@ -799,10 +872,6 @@ export default function TutorChatPanel({
       if (microPhase === 'finale') {
         if (chipId === 'again') {
           startMicro()
-          return
-        }
-        if (chipId === 'other') {
-          resetToNewQuestion()
           return
         }
         if (chipId === 'done') {
@@ -830,12 +899,6 @@ export default function TutorChatPanel({
         handleChipSelect(chipId)
         return
       }
-      if (chipId === 'clarify') {
-        setFollowUpMode(true)
-        setPostExplainChips(false)
-        setTriageChips([])
-        return
-      }
       if (chipId === 'micro') {
         startMicro()
         return
@@ -850,10 +913,6 @@ export default function TutorChatPanel({
           snapshot: buildSnapshot(),
         })
         if (result.kind !== 'opened') append('assistant', result.message)
-        return
-      }
-      if (chipId === 'other') {
-        resetToNewQuestion()
       }
     },
     [
@@ -866,7 +925,6 @@ export default function TutorChatPanel({
       microPhase,
       onDone,
       postExplainChips,
-      resetToNewQuestion,
       session,
       startMicro,
     ]
@@ -1019,7 +1077,6 @@ export default function TutorChatPanel({
                   chips={[]}
                   onChipSelect={handlePrimaryChip}
                   chipsMode="nav"
-                  followUpMode={false}
                   composerLocked={composerLocked}
                   chipsDisabled={chipsDisabled}
                   readOnly={voice.isInputLocked}
@@ -1096,7 +1153,6 @@ export default function TutorChatPanel({
                   chips={primaryChips}
                   onChipSelect={handlePrimaryChip}
                   chipsMode={chipsMode}
-                  followUpMode={followUpMode}
                   composerLocked={composerLocked}
                   chipsDisabled={chipsDisabled}
                   readOnly={voice.isInputLocked}

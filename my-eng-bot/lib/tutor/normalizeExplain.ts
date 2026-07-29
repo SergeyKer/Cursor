@@ -10,6 +10,7 @@ import {
   type TutorAnswerKind,
   type TutorAudience,
   type TutorExplainAnswer,
+  type TutorExplainResult,
   type TutorTopicAnchor,
 } from '@/lib/tutor/types'
 import { asRecord, compactList, compactParagraph, compactText } from '@/lib/tutor/text'
@@ -86,18 +87,10 @@ export type NormalizeTutorExplainOptions = {
   audience?: TutorAudience | null
 }
 
-/**
- * Normalize ExplainAnswer from model/API.
- * Child: 2–5 paragraphs + 1–2 EN examples (plan Phase 0).
- * Adult: 1–5 paragraphs; examples optional (0–3).
- */
-export function normalizeTutorExplain(
-  input: unknown,
-  options: NormalizeTutorExplainOptions = {}
+function normalizeInScopeAnswer(
+  row: Record<string, unknown>,
+  options: NormalizeTutorExplainOptions
 ): TutorExplainAnswer | null {
-  const row = asRecord(input)
-  if (!row) return null
-
   const audience: TutorAudience = options.audience === 'child' ? 'child' : 'adult'
   const maxParagraphs =
     audience === 'child' ? TUTOR_EXPLAIN_CHILD_MAX_PARAGRAPHS : TUTOR_EXPLAIN_ADULT_MAX_PARAGRAPHS
@@ -129,4 +122,39 @@ export function normalizeTutorExplain(
     topicAnchor,
     cheatsheetVisibility: cheatsheetVisibilityForAnswerKind(answerKind),
   }
+}
+
+/**
+ * Normalize Explain API/model JSON into scoped result.
+ * Missing scope + valid answer → in_scope (backcompat).
+ */
+export function normalizeTutorExplainResult(
+  input: unknown,
+  options: NormalizeTutorExplainOptions = {}
+): TutorExplainResult | null {
+  const row = asRecord(input)
+  if (!row) return null
+
+  const scopeRaw = compactText(row.scope, 32).toLowerCase()
+  if (scopeRaw === 'out_of_scope' || scopeRaw === 'out-of-scope' || scopeRaw === 'outofscope') {
+    const messageRu =
+      compactText(row.messageRu ?? row.message ?? row.rejectReasonRu, 280) ||
+      'Это не про английский. Спроси правило, перевод или как сказать фразу.'
+    return { scope: 'out_of_scope', messageRu }
+  }
+
+  const answer = normalizeInScopeAnswer(row, options)
+  if (!answer) return null
+  return { scope: 'in_scope', answer }
+}
+
+/**
+ * @deprecated Prefer normalizeTutorExplainResult. Returns answer only for in_scope.
+ */
+export function normalizeTutorExplain(
+  input: unknown,
+  options: NormalizeTutorExplainOptions = {}
+): TutorExplainAnswer | null {
+  const result = normalizeTutorExplainResult(input, options)
+  return result?.scope === 'in_scope' ? result.answer : null
 }

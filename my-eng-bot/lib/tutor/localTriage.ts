@@ -1,70 +1,84 @@
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
+import {
+  hasExplicitTutorIntent,
+  isShortAsciiToken,
+  isTutorMetaTeach,
+  isTutorNoise,
+  normalizeTutorQuery,
+  TUTOR_BROAD_TERM_RE,
+  TUTOR_NARROW_TOPIC_RE,
+  TUTOR_QUESTION_RE,
+} from '@/lib/tutor/tutorIntent'
+import { matchTutorGate } from '@/lib/tutor/tutorGate'
 import type { TutorTriageResult } from '@/lib/tutor/types'
-import { compactText } from '@/lib/tutor/text'
-import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
-
-const QUESTION_RE =
-  /[?？]|^(почему|зачем|как|что|когда|где|чем|в\s+ч[её]м|можно\s+ли|а\s+можно|is|are|does|do|what|why|how|when|where)\b/i
-
-const NARROW_TOPIC_RE =
-  /\b(present\s+perfect|past\s+simple|present\s+simple|past\s+perfect|future\s+simple|present\s+continuous|past\s+continuous|articles?|артикл|to\s+be|have\s+got|there\s+is|there\s+are|passive|услови|conditional|gerund|infinitive|модальные|modal)\b/i
-
-const BROAD_TERM_RE =
-  /^(существительн\w*|глагол\w*|прилагательн\w*|времен\w*|tense|noun|verb|adjective|grammar|грамматик\w*|слово|words?)$/i
-
-const NOISE_RE = /^(.)\1{3,}$|^\W+$|^[a-zа-яё]{1,2}$/i
+import { TUTOR_CHAT_COPY, TUTOR_TRIAGE_CHIP_LABELS } from '@/lib/uiCopy/tutorChat'
 
 /**
- * Client-side triage until Phase 2 wires a dedicated model call.
- * Deterministic, cheap, no network.
+ * Client-side triage for first-hop / topic-switch.
+ * Deterministic, cheap, no network. Gate runs first.
  */
 export function localTutorTriage(rawQuery: string): TutorTriageResult {
-  const query = compactText(rawQuery, 400)
-  if (!query || NOISE_RE.test(query)) {
+  const query = normalizeTutorQuery(rawQuery)
+  if (!query) {
     return { kind: 'D', clarifyPromptRu: TUTOR_CHAT_COPY.clarifyDefault }
   }
 
-  if (BROAD_TERM_RE.test(query)) {
+  const gate = matchTutorGate(query)
+  if (gate) {
+    return { kind: 'D', clarifyPromptRu: gate.messageRu }
+  }
+
+  if (isTutorNoise(query)) {
+    return { kind: 'D', clarifyPromptRu: TUTOR_CHAT_COPY.clarifyDefault }
+  }
+
+  // Bare short EN token (do/go/a) before QUESTION_RE (which matches ^do)
+  if (isShortAsciiToken(query)) {
     return {
       kind: 'C',
       broadTerm: query,
-      chips: chipsFromLabels([
-        'Как образуется',
-        'Когда использовать',
-        'Частые ошибки',
-        'Пример в предложении',
-      ]),
+      chips: chipsFromLabels([...TUTOR_TRIAGE_CHIP_LABELS.shortC]),
     }
   }
 
-  if (NARROW_TOPIC_RE.test(query) && !QUESTION_RE.test(query)) {
+  if (isTutorMetaTeach(query)) {
     return {
-      kind: 'B',
-      topicHint: query,
-      chips: chipsFromLabels([
-        'Зачем это нужно',
-        'Как образуется',
-        'Чем отличается от похожего',
-        'Частые ошибки',
-      ]),
+      kind: 'C',
+      broadTerm: query,
+      chips: chipsFromLabels([...TUTOR_TRIAGE_CHIP_LABELS.metaC]),
     }
   }
 
-  if (QUESTION_RE.test(query) || query.split(/\s+/).length >= 4) {
+  if (hasExplicitTutorIntent(query)) {
     return { kind: 'A', query }
   }
 
-  // Bare short token like "cars" → ask intent first
-  if (query.split(/\s+/).length <= 2 && !QUESTION_RE.test(query)) {
+  if (TUTOR_BROAD_TERM_RE.test(query)) {
     return {
       kind: 'C',
       broadTerm: query,
-      chips: chipsFromLabels([
-        'Что значит',
-        'Как сказать',
-        'Какая форма правильная',
-        'Пример в предложении',
-      ]),
+      chips: chipsFromLabels([...TUTOR_TRIAGE_CHIP_LABELS.broadC]),
+    }
+  }
+
+  if (TUTOR_NARROW_TOPIC_RE.test(query) && !TUTOR_QUESTION_RE.test(query)) {
+    return {
+      kind: 'B',
+      topicHint: query,
+      chips: chipsFromLabels([...TUTOR_TRIAGE_CHIP_LABELS.narrowB]),
+    }
+  }
+
+  if (TUTOR_QUESTION_RE.test(query) || query.split(/\s+/).length >= 4) {
+    return { kind: 'A', query }
+  }
+
+  // Bare short word like "cars" → angle chips
+  if (query.split(/\s+/).length <= 2 && !TUTOR_QUESTION_RE.test(query)) {
+    return {
+      kind: 'C',
+      broadTerm: query,
+      chips: chipsFromLabels([...TUTOR_TRIAGE_CHIP_LABELS.shortC]),
     }
   }
 

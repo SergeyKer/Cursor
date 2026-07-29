@@ -55,6 +55,33 @@ export type TutorExplainAnswer = {
   cheatsheetVisibility: TutorCheatsheetChipVisibility
 }
 
+export type TutorExplainScope = 'in_scope' | 'out_of_scope'
+
+export type TutorExplainResult =
+  | { scope: 'in_scope'; answer: TutorExplainAnswer }
+  | { scope: 'out_of_scope'; messageRu: string }
+
+export type TutorTopicContextTurn = {
+  role: 'user' | 'assistant'
+  text: string
+}
+
+export type TutorTopicContext = {
+  anchor: {
+    title: string
+    canonicalKey: string
+    rememberRu?: string
+  }
+  recentTurns: TutorTopicContextTurn[]
+}
+
+export type TutorMicroScoreBand = 'strong' | 'mid' | 'weak'
+
+/** Fraction correct: strong ≥ 0.8, mid ≥ 0.4, else weak. */
+export const TUTOR_MICRO_STRONG_MIN = 0.8
+export const TUTOR_MICRO_MID_MIN = 0.4
+export const TUTOR_TOPIC_CONTEXT_MAX_TURNS = 2
+
 export type TutorMicroItemKind =
   | 'pick_side'
   | 'best_fit'

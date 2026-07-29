@@ -4,6 +4,7 @@ import {
   chipsFromLabels,
   normalizeTutorCuriosityEntry,
   normalizeTutorExplain,
+  normalizeTutorExplainResult,
   normalizeTutorMicroPack,
   normalizeTutorTriage,
   buildOpenTutorAction,
@@ -111,6 +112,26 @@ describe('normalizeTutorExplain', () => {
     expect(cheatsheetVisibilityForAnswerKind('how_to_say')).toBe('secondary')
     expect(cheatsheetVisibilityForAnswerKind('orthography')).toBe('secondary')
     expect(cheatsheetVisibilityForAnswerKind('grammar')).toBe('primary')
+  })
+
+  it('normalizes out_of_scope without paragraphs', () => {
+    const result = normalizeTutorExplainResult({
+      scope: 'out_of_scope',
+      messageRu: 'Это не про английский.',
+    })
+    expect(result).toEqual({
+      scope: 'out_of_scope',
+      messageRu: 'Это не про английский.',
+    })
+    expect(normalizeTutorExplain({ scope: 'out_of_scope', messageRu: 'x' })).toBeNull()
+  })
+
+  it('treats missing scope + valid answer as in_scope', () => {
+    const result = normalizeTutorExplainResult(childFixture, { audience: 'child' })
+    expect(result?.scope).toBe('in_scope')
+    if (result?.scope === 'in_scope') {
+      expect(result.answer.title).toContain('Present Perfect')
+    }
   })
 })
 

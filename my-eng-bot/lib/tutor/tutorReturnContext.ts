@@ -1,26 +1,34 @@
+import type { TutorExplainAnswer } from '@/lib/tutor/types'
 import { storageGet, storageRemove, storageSet } from '@/lib/tutor/storageAdapter'
 
-const STORAGE_KEY = 'engvo.tutorReturnContext:v1'
+const STORAGE_KEY = 'engvo.tutorReturnContext:v2'
 const TTL_MS = 60 * 60 * 1000
 
 export type TutorReturnContextSnapshot = {
   savedAt: number
   draft: string
   anchorQuery: string | null
-  followUpMode: boolean
   postExplainChips: boolean
   /** Serialized thread messages. */
   thread: Array<{ id: string; role: 'user' | 'assistant'; text: string }>
-  /** Last explain topic for cheatsheet restore. */
+  /** Full last explain for restore after cheatsheet/reference. */
+  lastExplain?: TutorExplainAnswer | null
+  /** Legacy field; ignored if present. */
   lastExplainCanonicalKey?: string | null
   /** After menu→space promote: run triage once on mount. */
   pendingTriageQuery?: string | null
 }
 
+function isExplainLike(value: unknown): value is TutorExplainAnswer {
+  if (!value || typeof value !== 'object') return false
+  const row = value as Record<string, unknown>
+  return typeof row.title === 'string' && typeof row.answerKind === 'string' && Array.isArray(row.paragraphs)
+}
+
 function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
   if (!raw) return null
   try {
-    const data = JSON.parse(raw) as TutorReturnContextSnapshot
+    const data = JSON.parse(raw) as TutorReturnContextSnapshot & { followUpMode?: boolean }
     if (!data || typeof data !== 'object') return null
     if (typeof data.savedAt !== 'number' || !Array.isArray(data.thread)) return null
     if (Date.now() - data.savedAt > TTL_MS) return null
@@ -30,8 +38,14 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
         : data.pendingTriageQuery === null
           ? null
           : undefined
+    const lastExplain = isExplainLike(data.lastExplain) ? data.lastExplain : null
     return {
-      ...data,
+      savedAt: data.savedAt,
+      draft: typeof data.draft === 'string' ? data.draft : '',
+      anchorQuery: typeof data.anchorQuery === 'string' || data.anchorQuery === null ? data.anchorQuery : null,
+      postExplainChips: Boolean(data.postExplainChips),
+      thread: data.thread,
+      lastExplain,
       ...(pending !== undefined ? { pendingTriageQuery: pending } : {}),
     }
   } catch {

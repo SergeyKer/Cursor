@@ -65,7 +65,6 @@ export type TutorComposerProps = {
   onChipSelect?: (chipId: string) => void
   /** Micro option chips use lesson-choice-chip look; triage/nav stay pills. */
   chipsMode?: 'micro' | 'nav'
-  followUpMode?: boolean
   voiceStatusMessage?: string | null
   voiceStatusIsDanger?: boolean
   showVoiceOverlay?: boolean
@@ -96,7 +95,6 @@ export default function TutorComposer({
   chips = [],
   onChipSelect,
   chipsMode = 'nav',
-  followUpMode = false,
   voiceStatusMessage = null,
   voiceStatusIsDanger = false,
   showVoiceOverlay = false,
@@ -162,7 +160,7 @@ export default function TutorComposer({
         onSubmit={handleSubmit}
         className={menuDock ? CHAT_COMPOSER_MENU_DOCK_FORM_CLASS : CHAT_COMPOSER_FORM_CLASS}
         style={menuDock ? undefined : { boxShadow: 'var(--chat-composer-shadow)' }}
-        aria-label={followUpMode ? 'Уточнение к теме' : 'Вопрос репетитору'}
+        aria-label="Вопрос репетитору"
       >
         <VoiceMicButton
           listening={listening}

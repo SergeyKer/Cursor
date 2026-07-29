@@ -21,23 +21,30 @@ export const TUTOR_CHAT_COPY = {
   retry: 'Повторить',
   loadingExplain: 'Готовлю ответ…',
   explainFailed: 'Не удалось объяснить. Попробуй ещё раз.',
-  clarifyDefault: 'Уточни, что именно непонятно — слово, правило или пример.',
+  clarifyDefault: 'Напиши слово, правило или фразу — разберём.',
+  outOfScopeFallback:
+    'Похоже, это не про английский. Спроси, как сказать фразу или в чём разница правил — помогу.',
+  gateSoftNext: 'Напиши следующий вопрос — слово, правило или фразу.',
 
-  chipClarify: 'Уточнить',
   chipMicro: 'Закрепить 2 мин',
   chipCheatsheet: 'Шпаргалка',
-  chipOtherQuestion: 'Другой вопрос',
   chipDone: 'Готово',
   chipAgain: 'Ещё раз',
 
-  cheatsheetMissing: 'Готовой шпаргалки пока нет — можно закрепить 2 мин или уточнить.',
-  cheatsheetUnavailable: 'Шпаргалку сейчас не собрать. Закрепи 2 мин или уточни вопрос.',
+  cheatsheetMissing: 'Готовой шпаргалки пока нет — можно закрепить 2 мин или спросить в поле.',
+  cheatsheetUnavailable: 'Шпаргалку сейчас не собрать. Закрепи 2 мин или напиши вопрос в поле.',
 
-  microLoading: 'Собираю проверку…',
   microFailed: 'Не удалось собрать проверку. Попробуй ещё раз.',
-  finaleDoneHint: 'Можно вернуться в Уроки.',
 
-  photoReject: 'Это не похоже на школьную тему по английскому.',
+  microFinaleStrong: (correct: number, total: number) =>
+    `${correct} из ${total} — отлично. Можно спросить ещё в поле ниже.`,
+  microFinaleMid: (correct: number, total: number) =>
+    `${correct} из ${total} — есть пробелы. Открой шпаргалку или пройди ещё раз.`,
+  microFinaleWeak: (correct: number, total: number) =>
+    `${correct} из ${total} — тема пока сложная. Посмотри шпаргалку или закрепи ещё раз.`,
+
+  photoReject:
+    'На фото не вижу задания по английскому. Сфоткай упражнение или напиши вопрос.',
   photoBlur: 'Слишком размыто — сделай фото чётче.',
   photoMultiPick: 'Выбери, что разобрать:',
   photoTooLarge: 'Изображение слишком большое. Максимум 6 MB.',
@@ -47,11 +54,8 @@ export const TUTOR_CHAT_COPY = {
   photoAttachCancel: 'Отмена',
   photoAttachMenuAria: 'Прикрепить фото',
 
-  /** Phase 1 shell until tutor-explain API (Phase 2). */
-  explainShellHold:
-    'Принял вопрос. Полный разбор подключим следующим шагом — пока можно уточнить или задать другой вопрос.',
-  triagePickGoal: 'Что именно разобрать?',
-  triagePickAngle: 'Какой угол выбрать?',
+  triagePickGoal: (topic: string) => `${topic} — что хочешь разобрать?`,
+  triagePickAngle: (term: string) => `${term} — с чего начнём?`,
   microStart: 'Короткая проверка — выбери ответ:',
   microCorrect: 'Верно.',
   microWrong: 'Не то. Правильный ответ:',
@@ -61,12 +65,12 @@ export const TUTOR_CHAT_COPY = {
   cardButtonAsk: 'Спросить',
   cardCuriosityFallback: 'Ты спрашивал про эту тему — можно разобрать ещё раз.',
 
-  idleExamplesHeading: 'Пользователи также спрашивают',
+  idleExamplesHeading: 'Часто спрашивают',
   idleBullets: [
     'Напиши любой вопрос по английскому — разберём',
     'Правило, слово, пример из учебника — ок',
     'Спроси: чем отличаются a / an / the',
-    'Не знаешь с чего начать — ткни пример ниже',
+    'Не знаешь с чего начать — выбери пример ниже',
     'Можно надиктовать или сфоткать задание',
   ],
   idleExampleBank: [
@@ -76,6 +80,14 @@ export const TUTOR_CHAT_COPY = {
     'Зачем нужен Present Continuous?',
     'Чем in / on / at отличаются?',
   ],
+} as const
+
+/** Chip labels for local triage (B / C / meta). */
+export const TUTOR_TRIAGE_CHIP_LABELS = {
+  narrowB: ['Зачем это', 'Как строится', 'Чем отличается', 'Частые ошибки'],
+  broadC: ['Когда какой', 'Когда ставить', 'Частые ошибки', 'Пример'],
+  shortC: ['Что значит', 'Как сказать', 'Какая форма', 'Пример'],
+  metaC: ['Слово', 'Правило', 'Как сказать', 'Пример'],
 } as const
 
 export type TutorChatCopyKey = keyof typeof TUTOR_CHAT_COPY

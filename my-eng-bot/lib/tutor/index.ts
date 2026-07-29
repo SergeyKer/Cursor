@@ -1,4 +1,24 @@
-export type { TutorAnswerKind, TutorAudience, TutorCheatsheetChipVisibility, TutorComposerChip, TutorCuriosityEntry, TutorCardSource, TutorCardViewModel, TutorExplainAnswer, TutorMicroItem, TutorMicroItemKind, TutorMicroPack, TutorTopicAnchor, TutorTriageKind, TutorTriageResult } from '@/lib/tutor/types'
+export type {
+  TutorAnswerKind,
+  TutorAudience,
+  TutorCheatsheetChipVisibility,
+  TutorComposerChip,
+  TutorCuriosityEntry,
+  TutorCardSource,
+  TutorCardViewModel,
+  TutorExplainAnswer,
+  TutorExplainResult,
+  TutorExplainScope,
+  TutorMicroItem,
+  TutorMicroItemKind,
+  TutorMicroPack,
+  TutorMicroScoreBand,
+  TutorTopicAnchor,
+  TutorTopicContext,
+  TutorTopicContextTurn,
+  TutorTriageKind,
+  TutorTriageResult,
+} from '@/lib/tutor/types'
 export {
   TUTOR_EXPLAIN_ADULT_MAX_EXAMPLES,
   TUTOR_EXPLAIN_ADULT_MAX_PARAGRAPHS,
@@ -9,8 +29,11 @@ export {
   TUTOR_EXPLAIN_CHILD_MIN_PARAGRAPHS,
   TUTOR_MICRO_MAX_ITEMS,
   TUTOR_MICRO_MAX_OPTIONS,
+  TUTOR_MICRO_MID_MIN,
   TUTOR_MICRO_MIN_ITEMS,
   TUTOR_MICRO_MIN_OPTIONS,
+  TUTOR_MICRO_STRONG_MIN,
+  TUTOR_TOPIC_CONTEXT_MAX_TURNS,
   TUTOR_TRIAGE_MAX_CHIPS,
 } from '@/lib/tutor/types'
 export {
@@ -18,14 +41,28 @@ export {
   isPrimaryCheatsheetAnswerKind,
 } from '@/lib/tutor/cheatsheetEligibility'
 export { normalizeTutorTriage, chipsFromLabels } from '@/lib/tutor/normalizeTriage'
-export { normalizeTutorExplain } from '@/lib/tutor/normalizeExplain'
+export { normalizeTutorExplain, normalizeTutorExplainResult } from '@/lib/tutor/normalizeExplain'
 export type { NormalizeTutorExplainOptions } from '@/lib/tutor/normalizeExplain'
 export { normalizeTutorMicroPack } from '@/lib/tutor/normalizeMicro'
 export { normalizeTutorCuriosityEntry } from '@/lib/tutor/normalizeCuriosity'
 export { buildOpenTutorAction, normalizeTutorCardViewModel } from '@/lib/tutor/tutorCardStub'
 export { localTutorTriage } from '@/lib/tutor/localTriage'
+export { matchTutorGate } from '@/lib/tutor/tutorGate'
+export type { TutorGateMatch, TutorGateReason } from '@/lib/tutor/tutorGate'
+export { routeTutorTurn, isPendingAngleReply } from '@/lib/tutor/tutorTurnRouter'
+export type { TutorTurnRoute } from '@/lib/tutor/tutorTurnRouter'
+export {
+  hasExplicitTutorIntent,
+  hasExplicitTopicSwitch,
+  hasTutorTopicMarker,
+  isTutorNoise,
+  isShortAsciiToken,
+  normalizeTutorQuery,
+} from '@/lib/tutor/tutorIntent'
 export { normalizeTutorSchoolPhoto, buildTutorSchoolPhotoPrompt } from '@/lib/tutor/normalizeSchoolPhoto'
 export type { TutorSchoolPhotoResult, TutorSchoolPhotoRejectReason } from '@/lib/tutor/normalizeSchoolPhoto'
+export { bandFromMicroScore, tutorMicroScoreRatio } from '@/lib/tutor/microScore'
+export { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 
 export {
   CHAT_INLINE_SPEAKER_BUTTON_CLASS,
