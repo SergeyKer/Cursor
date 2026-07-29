@@ -42,6 +42,10 @@ export const TUTOR_CHAT_COPY = {
   photoMultiPick: 'Выбери, что разобрать:',
   photoTooLarge: 'Изображение слишком большое. Максимум 6 MB.',
   photoUserLabel: 'Фото',
+  photoTake: 'Сделать фото',
+  photoPick: 'Выбрать из галереи',
+  photoAttachCancel: 'Отмена',
+  photoAttachMenuAria: 'Прикрепить фото',
 
   /** Phase 1 shell until tutor-explain API (Phase 2). */
   explainShellHold:
@@ -57,7 +61,7 @@ export const TUTOR_CHAT_COPY = {
   cardButtonAsk: 'Спросить',
   cardCuriosityFallback: 'Ты спрашивал про эту тему — можно разобрать ещё раз.',
 
-  idleExamplesHeading: 'Пользователи также спрашивают:',
+  idleExamplesHeading: 'Пользователи также спрашивают',
   idleBullets: [
     'Напиши любой вопрос по английскому — разберём',
     'Правило, слово, пример из учебника — ок',

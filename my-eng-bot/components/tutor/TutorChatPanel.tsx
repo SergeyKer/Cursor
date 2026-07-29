@@ -37,6 +37,7 @@ import {
   type TutorReturnContextSnapshot,
 } from '@/lib/tutor/tutorReturnContext'
 import { TUTOR_CHAT_COPY, pickTutorIdleExamples, tutorComposerPlaceholder } from '@/lib/uiCopy/tutorChat'
+import { isAndroidMobileUserAgent } from '@/lib/mobileViewport'
 import {
   isIosChromeBrowser,
   isIosLikeDevice,
@@ -144,8 +145,11 @@ export default function TutorChatPanel({
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
+  const [isMobileAttach, setIsMobileAttach] = useState(false)
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
   const idBase = useId()
   const seqRef = useRef(0)
   const restoredRef = useRef(false)
@@ -167,6 +171,7 @@ export default function TutorChatPanel({
     setIsIosDeviceClient(isIosLikeDevice(ua))
     setIsIosChromeClient(isIosChromeBrowser(ua))
     setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(ua))
+    setIsMobileAttach(isIosLikeDevice(ua) || isAndroidMobileUserAgent(ua))
   }, [])
 
   useEffect(() => {
@@ -482,9 +487,9 @@ export default function TutorChatPanel({
   )
 
   const handlePaperclipClick = useCallback(() => {
-    if (busy || microPhase === 'active') return
-    fileInputRef.current?.click()
-  }, [busy, microPhase])
+    if (busy || microPhase === 'active' || voice.isVoiceActive) return
+    setAttachMenuOpen((open) => !open)
+  }, [busy, microPhase, voice.isVoiceActive])
 
   const handlePhotoFile = useCallback(
     (file: File | null) => {
@@ -511,6 +516,35 @@ export default function TutorChatPanel({
     },
     [analyzeSchoolPhoto, append]
   )
+
+  const openCameraInput = useCallback(() => {
+    cameraInputRef.current?.click()
+    setAttachMenuOpen(false)
+  }, [])
+
+  const openGalleryInput = useCallback(() => {
+    galleryInputRef.current?.click()
+    setAttachMenuOpen(false)
+  }, [])
+
+  const closeAttachMenu = useCallback(() => {
+    setAttachMenuOpen(false)
+  }, [])
+
+  useEffect(() => {
+    if (busy || microPhase === 'active' || voice.isVoiceActive) {
+      setAttachMenuOpen(false)
+    }
+  }, [busy, microPhase, voice.isVoiceActive])
+
+  useEffect(() => {
+    if (!attachMenuOpen) return
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setAttachMenuOpen(false)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [attachMenuOpen])
 
   const handleMicClick = useCallback(() => {
     if (busy || microPhase === 'active') return
@@ -863,13 +897,101 @@ export default function TutorChatPanel({
 
   return (
     <div
-      className={`font-sans flex min-h-0 flex-1 flex-col ${
+      className={`relative font-sans flex min-h-0 flex-1 flex-col ${
         isIdle
           ? 'bg-transparent'
           : 'bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]'
       }`}
       data-testid="tutor-chat-panel"
     >
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0] ?? null
+          event.target.value = ''
+          handlePhotoFile(file)
+        }}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0] ?? null
+          event.target.value = ''
+          handlePhotoFile(file)
+        }}
+      />
+      {attachMenuOpen ? (
+        <>
+          <button
+            type="button"
+            className="absolute inset-0 z-20 bg-black/25"
+            aria-label={TUTOR_CHAT_COPY.photoAttachCancel}
+            onClick={closeAttachMenu}
+          />
+          {isMobileAttach ? (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={TUTOR_CHAT_COPY.photoAttachMenuAria}
+              className="absolute inset-x-0 bottom-0 z-20 overflow-hidden rounded-t-2xl border border-[var(--border)] bg-[var(--menu-card-bg,var(--chat-composer-bg))] shadow-lg"
+              style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="flex min-h-[44px] w-full items-center justify-center border-b border-[var(--border)] px-4 py-3 text-[15px] font-medium text-[var(--text)] touch-manipulation"
+                onClick={openCameraInput}
+              >
+                {TUTOR_CHAT_COPY.photoTake}
+              </button>
+              <button
+                type="button"
+                className="flex min-h-[44px] w-full items-center justify-center border-b border-[var(--border)] px-4 py-3 text-[15px] font-medium text-[var(--text)] touch-manipulation"
+                onClick={openGalleryInput}
+              >
+                {TUTOR_CHAT_COPY.photoPick}
+              </button>
+              <button
+                type="button"
+                className="flex min-h-[44px] w-full items-center justify-center px-4 py-3 text-[15px] font-medium text-[var(--text-muted)] touch-manipulation"
+                onClick={closeAttachMenu}
+              >
+                {TUTOR_CHAT_COPY.photoAttachCancel}
+              </button>
+            </div>
+          ) : (
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-label={TUTOR_CHAT_COPY.photoAttachMenuAria}
+              className="absolute bottom-[4.5rem] right-3 z-20 min-w-[12rem] overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--menu-card-bg,var(--chat-composer-bg))] shadow-lg"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <button
+                type="button"
+                className="flex min-h-[44px] w-full items-center px-3 py-2 text-left text-[14px] font-medium text-[var(--text)] touch-manipulation hover:bg-[var(--surface-hover,transparent)]"
+                onClick={openCameraInput}
+              >
+                {TUTOR_CHAT_COPY.photoTake}
+              </button>
+              <button
+                type="button"
+                className="flex min-h-[44px] w-full items-center px-3 py-2 text-left text-[14px] font-medium text-[var(--text)] touch-manipulation hover:bg-[var(--surface-hover,transparent)]"
+                onClick={openGalleryInput}
+              >
+                {TUTOR_CHAT_COPY.photoPick}
+              </button>
+            </div>
+          )}
+        </>
+      ) : null}
       <div className={`flex min-h-0 flex-1 flex-col ${isIdle ? 'px-0 py-0' : 'chat-shell-x py-2 sm:py-3'}`}>
         <div className={`mx-auto flex min-h-0 w-full flex-1 flex-col ${isIdle ? 'max-w-none' : 'max-w-[29rem]'}`}>
           {isIdle ? (
@@ -880,17 +1002,6 @@ export default function TutorChatPanel({
               >
                 <TutorIdleMenu examples={idleExamples} onExampleSelect={handleExampleSelect} />
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null
-                  event.target.value = ''
-                  handlePhotoFile(file)
-                }}
-              />
               {/* Same dock inset as Chat: px-2.5 + paddingBottom 0.625rem (menu bleed via -mx-3 -mb-3).
                   No border-t in menu: shell divider has nothing to separate and reads as a light seam. */}
               <DialogComposerStack
@@ -973,17 +1084,6 @@ export default function TutorChatPanel({
                 </div>
               </DialogGlassScrollHost>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(event) => {
-                  const file = event.target.files?.[0] ?? null
-                  event.target.value = ''
-                  handlePhotoFile(file)
-                }}
-              />
               <DialogComposerStack
                 className={CHAT_COMPOSER_STACK_TOP_CLASS}
                 style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}

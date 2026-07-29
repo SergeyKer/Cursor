@@ -19,6 +19,13 @@ describe('TUTOR_CHAT_COPY', () => {
     expect(TUTOR_CHAT_COPY.idleExamplesHeading.length).toBeGreaterThan(5)
   })
 
+  it('has photo attach chooser copy', () => {
+    expect(TUTOR_CHAT_COPY.photoTake).toBe('Сделать фото')
+    expect(TUTOR_CHAT_COPY.photoPick).toBe('Выбрать из галереи')
+    expect(TUTOR_CHAT_COPY.photoAttachCancel).toBe('Отмена')
+    expect(TUTOR_CHAT_COPY.photoAttachMenuAria).toBe('Прикрепить фото')
+  })
+
   it('composer placeholder matches audience', () => {
     expect(tutorComposerPlaceholder('child')).toBe('Спроси…')
     expect(tutorComposerPlaceholder('adult')).toBe('Спросите…')
