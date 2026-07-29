@@ -1772,10 +1772,28 @@ html[data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock
   background: linear-gradient(180deg, var(--chat-wallpaper) 0%, var(--chat-wallpaper-soft) 100%);
 }
 
-html[data-menu-open][data-ios-webkit-dialog] .dialog-composer-dock,
-html[data-menu-open][data-ios-safari-dialog] .dialog-composer-dock {
+/* M1: under open menu hide only the main chat dock (inside .dialog-flex-shell). */
+html[data-menu-open][data-ios-webkit-dialog] .dialog-flex-shell .dialog-composer-dock,
+html[data-menu-open][data-ios-safari-dialog] .dialog-flex-shell .dialog-composer-dock {
   visibility: hidden;
   pointer-events: none;
+}
+
+/*
+ * M2: docks inside the slide-out menu (Tutor) must stay in-flow.
+ * Otherwise iOS fixed-dock rules pull the composer out of the menu panel.
+ */
+html[data-menu-open][data-ios-webkit-dialog] aside[aria-label='Меню'] .dialog-composer-dock,
+html[data-menu-open][data-ios-safari-dialog] aside[aria-label='Меню'] .dialog-composer-dock {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: auto;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  background: transparent;
 }
 
 html[data-ios-vv-root][data-ios-webkit-dialog]:not([data-ios-safari-dialog]) .dialog-composer-dock {
@@ -2597,11 +2615,15 @@ html[data-theme='glass3'] {
   }
 
   /* Круг «Прослушать» в поле ввода: не растягивать по высоте многострочного textarea. */
-  button.chat-input-inline-speaker-button {
+  button.chat-input-inline-speaker-button,
+  button.tutor-composer-paperclip-button {
     min-height: 2rem;
     min-width: 2rem;
     max-height: 2rem;
     max-width: 2rem;
+  }
+  button.tutor-composer-nav-chip {
+    min-height: auto;
   }
   input[type="text"],
   input[type="password"] {

@@ -1,20 +1,35 @@
 'use client'
 
-import { useRef, type FormEvent, type KeyboardEvent } from 'react'
+import { useRef, type CSSProperties, type FormEvent, type KeyboardEvent } from 'react'
 import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_TYPO_CLASS,
+  getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
 import { TUTOR_PAPERCLIP_BUTTON_CLASS } from '@/lib/tutor/composerContracts'
 import type { TutorComposerChip } from '@/lib/tutor/types'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
+import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
+import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton from '@/components/voice/VoiceMicButton'
 import type { MicVisualState } from '@/lib/voice/useMicInviteAnimation'
 
-const INPUT_MAX_HEIGHT_PX = 120
+const INPUT_MAX_HEIGHT_PX = 260
 
-function PaperclipIcon({ className = 'h-5 w-5' }: { className?: string }) {
+const SR_ONLY_STYLE: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+}
+
+function PaperclipIcon({ className = 'h-4 w-4' }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
       <path
@@ -32,18 +47,30 @@ export type TutorComposerProps = {
   onChange: (value: string) => void
   onSubmit: () => void
   placeholder?: string
-  disabled?: boolean
+  /** Locks textarea / mic / paperclip / send (busy or micro active). */
+  composerLocked?: boolean
+  /** Only busy — micro/nav chips stay clickable when composer is locked for input. */
+  chipsDisabled?: boolean
   readOnly?: boolean
   micDisabled?: boolean
   listening?: boolean
+  isVoiceActive?: boolean
   micVisualState?: MicVisualState
   onMicClick?: () => void
   paperclipDisabled?: boolean
   onPaperclipClick?: () => void
   chips?: TutorComposerChip[]
   onChipSelect?: (chipId: string) => void
+  /** Micro option chips use lesson-choice-chip look; triage/nav stay pills. */
+  chipsMode?: 'micro' | 'nav'
   followUpMode?: boolean
   voiceStatusMessage?: string | null
+  voiceStatusIsDanger?: boolean
+  showVoiceOverlay?: boolean
+  draftBeforeVoiceText?: string
+  livePreviewText?: string
+  voiceWebMetricsClient?: boolean
+  iosChromeVoiceStatusMessage?: string | null
 }
 
 export default function TutorComposer({
@@ -51,29 +78,43 @@ export default function TutorComposer({
   onChange,
   onSubmit,
   placeholder = TUTOR_CHAT_COPY.composerPlaceholder,
-  disabled = false,
+  composerLocked = false,
+  chipsDisabled = false,
   readOnly = false,
   micDisabled = true,
   listening = false,
+  isVoiceActive = false,
   micVisualState = 'idle',
   onMicClick,
   paperclipDisabled = true,
   onPaperclipClick,
   chips = [],
   onChipSelect,
+  chipsMode = 'nav',
   followUpMode = false,
   voiceStatusMessage = null,
+  voiceStatusIsDanger = false,
+  showVoiceOverlay = false,
+  draftBeforeVoiceText = '',
+  livePreviewText = '',
+  voiceWebMetricsClient = false,
+  iosChromeVoiceStatusMessage = null,
 }: TutorComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  const canSend = value.trim().length > 0 && !disabled && !listening
+  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
+  const canSend =
+    value.trim().length > 0 && !composerLocked && !listening && !isVoiceActive
 
-  const resize = () => {
-    const el = textareaRef.current
-    if (!el) return
-    el.style.height = 'auto'
-    el.style.height = `${Math.min(el.scrollHeight, INPUT_MAX_HEIGHT_PX)}px`
-  }
+  useAutoGrowTextarea({
+    textareaRef,
+    value,
+    maxHeightPx: INPUT_MAX_HEIGHT_PX,
+    minHeightPx: 44,
+    isVoiceActive,
+    showVoiceOverlay,
+    voiceWebMetricsActive,
+  })
 
   const handleSubmit = (event?: FormEvent) => {
     event?.preventDefault()
@@ -96,9 +137,13 @@ export default function TutorComposer({
             <button
               key={chip.id}
               type="button"
-              disabled={disabled}
+              disabled={chipsDisabled}
               onClick={() => onChipSelect?.(chip.id)}
-              className="rounded-full border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1 text-[12px] font-medium text-[var(--text)] disabled:opacity-50"
+              className={
+                chipsMode === 'micro'
+                  ? `lesson-choice-chip lesson-choice-chip-enter touch-manipulation rounded-xl border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-3 py-2 text-[15px] font-medium text-[var(--text)] disabled:opacity-50`
+                  : `tutor-composer-nav-chip touch-manipulation rounded-full border border-[var(--chat-composer-border)] bg-[var(--chat-composer-bg)] px-2.5 py-1 text-[12px] font-medium text-[var(--text)] lesson-enter disabled:opacity-50`
+              }
             >
               {chip.labelRu}
             </button>
@@ -110,58 +155,89 @@ export default function TutorComposer({
         ref={formRef}
         onSubmit={handleSubmit}
         className={CHAT_COMPOSER_FORM_CLASS}
+        style={{ boxShadow: 'var(--chat-composer-shadow)' }}
         aria-label={followUpMode ? 'Уточнение к теме' : 'Вопрос репетитору'}
       >
         <VoiceMicButton
           listening={listening}
-          disabled={micDisabled || disabled}
+          disabled={micDisabled || composerLocked}
           micVisualState={micVisualState}
           onClick={() => {
-            if (micDisabled || disabled) return
+            if (micDisabled || composerLocked) return
             onMicClick?.()
           }}
           title={listening ? 'Остановить' : 'Голосовой ввод'}
           ariaLabel={listening ? 'Остановить запись' : 'Голосовой ввод'}
         />
 
-        <div className="relative min-w-0 flex-1">
+        <div className="relative isolate min-w-0 flex-1">
+          {showVoiceOverlay ? (
+            <VoiceComposerOverlay
+              draftBeforeVoiceText={draftBeforeVoiceText}
+              livePreviewText={livePreviewText}
+              webTextMetricsFix={voiceWebMetricsClient}
+            />
+          ) : null}
+          {iosChromeVoiceStatusMessage ? (
+            <>
+              <span role="status" aria-live="polite" style={SR_ONLY_STYLE}>
+                {iosChromeVoiceStatusMessage}
+              </span>
+              <div
+                aria-hidden="true"
+                className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 font-sans text-[14px] italic leading-snug ${
+                  voiceWebMetricsActive
+                    ? getChatComposerOverlayVerticalClass(true)
+                    : getChatComposerOverlayVerticalClass(false)
+                }`}
+                style={{
+                  color: voiceStatusIsDanger
+                    ? 'var(--status-danger-text, #dc2626)'
+                    : 'var(--text-muted)',
+                }}
+              >
+                {iosChromeVoiceStatusMessage}
+              </div>
+            </>
+          ) : null}
           <textarea
             ref={textareaRef}
             rows={1}
             value={value}
-            disabled={disabled}
-            readOnly={readOnly || listening}
-            onChange={(event) => {
-              onChange(event.target.value)
-              resize()
-            }}
+            disabled={composerLocked}
+            readOnly={readOnly || listening || isVoiceActive}
+            onChange={(event) => onChange(event.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            aria-label={placeholder}
-            className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 text-[var(--text)] placeholder:text-[var(--text-muted)] ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(false)}`}
+            aria-label="Поле ввода вопроса репетитору"
+            className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 pr-12 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} ${
+              showVoiceOverlay
+                ? 'text-transparent caret-transparent placeholder:text-transparent'
+                : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'
+            }`}
             style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
           />
+          <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
+            <button
+              type="button"
+              disabled={paperclipDisabled || composerLocked}
+              onClick={() => {
+                if (paperclipDisabled || composerLocked) return
+                onPaperclipClick?.()
+              }}
+              className={`${TUTOR_PAPERCLIP_BUTTON_CLASS} chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 touch-manipulation items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]`}
+              title="Прикрепить фото"
+              aria-label="Прикрепить фото"
+            >
+              <PaperclipIcon />
+            </button>
+          </div>
         </div>
-
-        <button
-          type="button"
-          disabled={paperclipDisabled || disabled}
-          onClick={() => {
-            if (paperclipDisabled || disabled) return
-            onPaperclipClick?.()
-          }}
-          className={`${TUTOR_PAPERCLIP_BUTTON_CLASS} chat-action-button chat-control-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 touch-manipulation items-center justify-center rounded-full p-2.5 text-[var(--chat-control-text)] disabled:opacity-45`}
-          style={{ background: 'var(--chat-control-bg)' }}
-          title="Прикрепить фото"
-          aria-label="Прикрепить фото"
-        >
-          <PaperclipIcon />
-        </button>
 
         <button
           type="submit"
           disabled={!canSend}
-          className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)] disabled:opacity-45"
+          className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
           style={{ background: 'var(--chat-send-bg)' }}
           aria-label={TUTOR_CHAT_COPY.send}
         >
@@ -177,7 +253,12 @@ export default function TutorComposer({
         </button>
       </form>
       {voiceStatusMessage ? (
-        <p className="px-1 text-[12px] text-[var(--text-muted)]" role="status">
+        <p
+          className={`px-1 pt-1.5 text-xs ${
+            voiceStatusIsDanger ? 'text-[var(--status-danger-text,#dc2626)]' : 'text-[var(--text-muted)]'
+          }`}
+          role="status"
+        >
           {voiceStatusMessage}
         </p>
       ) : null}

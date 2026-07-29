@@ -1866,9 +1866,11 @@ export default function MenuSectionPanels({
     : 'shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2'
   const panelScrollAreaClass = homeLayout
     ? `${panelScrollAreaEnter} space-y-2.5`
-    : lessonsUsesInnerScrollLayout
-      ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden pb-1`
-      : `${panelScrollAreaEnter} min-h-0 flex-1 space-y-2.5 overflow-y-auto pb-1`
+    : lessonsPanel === 'tutor' && featureFlags.tutorChatV1
+      ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col overflow-hidden pb-0`
+      : lessonsUsesInnerScrollLayout
+        ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col gap-2.5 overflow-hidden pb-1`
+        : `${panelScrollAreaEnter} min-h-0 flex-1 space-y-2.5 overflow-y-auto pb-1`
 
   const handleGoHome = () => {
     clearMenuReturn()
@@ -3579,7 +3581,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
               </>
             )}
             {lessonsPanel === 'tutor' && featureFlags.tutorChatV1 && (
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="-mx-3 flex min-h-0 flex-1 flex-col overflow-hidden">
                 <TutorChatPanel
                   initialPrefill={tutorChatPrefill}
                   onDone={() => setLessonsPanel('summary')}
