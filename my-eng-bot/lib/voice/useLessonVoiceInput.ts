@@ -14,15 +14,16 @@ import {
   isIosChromeBrowser,
   isIosLikeDevice,
   pickRecordingMimeType,
-  resolvePreferredSpeechLocale,
   shouldUseMediaRecorderFallback,
-  sttLangFromLocale,
 } from '@/lib/sttClient'
+import { resolveLessonMicStrategy, type LessonSpeechMode } from '@/lib/lessonMicLocale'
 
 type MicVisualState = 'idle' | 'invite' | 'wait'
 
 type UseLessonVoiceInputParams = {
   inviteKey: string | null
+  /** Default `en` keeps lesson mic on Web Speech en-US. Tutor passes `mix`. */
+  speechMode?: LessonSpeechMode
 }
 
 export function shouldLockLessonTextInput(params: {
@@ -44,7 +45,7 @@ export function getLessonVoiceStatusMessage(params: {
   return params.statusMessage
 }
 
-export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
+export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonVoiceInputParams) {
   const [listening, setListening] = React.useState(false)
   const [micVisualState, setMicVisualState] = React.useState<MicVisualState>('idle')
   const lastInviteKeyRef = React.useRef<string | null>(null)
@@ -158,12 +159,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
       (window as unknown as { SpeechRecognition?: typeof SpeechRecognition }).SpeechRecognition ||
       (window as unknown as { webkitSpeechRecognition?: typeof SpeechRecognition }).webkitSpeechRecognition
 
-    const preferredLocale = resolvePreferredSpeechLocale({
-      mode: 'translation',
-      communicationInputExpectedLang: 'en',
-      forceNextMicLang: null,
-    })
-    const sttLangForApi = sttLangFromLocale(preferredLocale)
+    const micStrategy = resolveLessonMicStrategy(speechMode)
     const failVoiceSoft = (message: string) => {
       if (isIosDevice) {
         finishVoiceSession(message)
@@ -175,7 +171,9 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
     startVoiceSession()
     setVoiceStatusMessage(null)
 
-    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en') => {
+    const startMediaRecorderFallback = async (sttLang: 'ru' | 'en' | 'auto') => {
+      const skipAllowedBySilence = sttLang !== 'auto'
+      const shouldPreStopFinalizing = sttLang !== 'auto'
       if (!window.isSecureContext) {
         failVoiceSession('[Голосовой ввод работает только в защищённом контексте (HTTPS).]')
         return
@@ -197,6 +195,9 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
         mediaRecorderSpeechDetectedRef.current = false
         mediaRecorderSkipSttAfterSilenceRef.current = false
         setListening(true)
+        if (sttLang === 'auto') {
+          setVoiceStatusMessage('Слушаю...')
+        }
 
         recorder.ondataavailable = (event: BlobEvent) => {
           if (event.data && event.data.size > 0) {
@@ -220,7 +221,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
           mediaRecorderSkipSttAfterSilenceRef.current = false
           releaseMediaRecorderResources()
           setListening(false)
-          if (skipSttAfterSilence) {
+          if (skipSttAfterSilence && skipAllowedBySilence) {
             finishVoiceSession()
             return
           }
@@ -248,7 +249,12 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
             })
             const data = (await response.json()) as { text?: string; error?: string }
             if (!response.ok || !data.text) {
-              failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              const err = (data.error ?? '').toLowerCase()
+              if (/not configured|missing_key|stt is not configured/i.test(err)) {
+                failVoiceSoft('[Распознавание речи на сервере не настроено. Введите текст.]')
+              } else {
+                failVoiceSoft('[Не удалось распознать речь. Попробуйте ещё раз или введите текст.]')
+              }
               return
             }
             const correctedText = await finalizeVoiceTranscript(data.text.trim())
@@ -311,7 +317,9 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
 
               if (hasHeardSpeech && now - lastSpeechAt >= BROWSER_SILENCE_MS) {
                 if (mediaRecorderRef.current === recorder && recorderRuntimeState() !== 'inactive') {
-                  beginVoiceFinalizing('Распознаю речь...')
+                  if (shouldPreStopFinalizing) {
+                    beginVoiceFinalizing('Распознаю речь...')
+                  }
                   recorder.stop()
                 }
                 mediaSilenceRafRef.current = null
@@ -330,8 +338,10 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
         mediaStopTimerRef.current = window.setTimeout(() => {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             if (mediaRecorderSpeechDetectedRef.current) {
-              beginVoiceFinalizing('Распознаю речь...')
-            } else {
+              if (shouldPreStopFinalizing) {
+                beginVoiceFinalizing('Распознаю речь...')
+              }
+            } else if (skipAllowedBySilence) {
               mediaRecorderSkipSttAfterSilenceRef.current = true
             }
             mediaRecorderRef.current.stop()
@@ -359,6 +369,14 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
         failVoiceSoft('[Не удалось записать аудио. Попробуйте ещё раз.]')
       }
     }
+
+    if (micStrategy.kind === 'whisper-auto') {
+      await startMediaRecorderFallback('auto')
+      return
+    }
+
+    const preferredLocale = micStrategy.locale
+    const sttLangForApi = micStrategy.apiLang
 
     const startBrowserSpeechRecognition = (lang: 'ru-RU' | 'en-US') => {
       if (!SpeechRecognitionAPI) {
@@ -558,6 +576,7 @@ export function useLessonVoiceInput({ inviteKey }: UseLessonVoiceInputParams) {
     finishVoiceSession,
     releaseMediaRecorderResources,
     setVoiceStatusMessage,
+    speechMode,
     startVoiceSession,
     updateVoiceTranscript,
   ])

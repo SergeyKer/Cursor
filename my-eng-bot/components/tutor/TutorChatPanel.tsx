@@ -61,6 +61,8 @@ export type TutorChatPanelProps = {
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
+  'Распознаю речь...',
+  'Слушаю...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 
@@ -134,7 +136,7 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
   const restoredRef = useRef(false)
 
   const inviteKey = useMemo(() => resolveTutorInviteKey(thread), [thread])
-  const voice = useLessonVoiceInput({ inviteKey })
+  const voice = useLessonVoiceInput({ inviteKey, speechMode: 'mix' })
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -643,13 +645,9 @@ export default function TutorChatPanel({ initialPrefill = '', onDone }: TutorCha
     Boolean(filteredVoiceStatus) && (!isIosDeviceClient || isHardVoiceErrorMessage(filteredVoiceStatus))
   const iosChromeVoiceStatusMessage = !isIosChromeClient
     ? null
-    : voice.voicePhase === 'recording'
-      ? 'Голосовой ввод...'
-      : voice.voicePhase === 'finalizing'
-        ? 'Распознаю речь...'
-        : voice.voicePhase === 'error'
-          ? rawVoiceStatusMessage || null
-          : null
+    : voice.voicePhase === 'error'
+      ? rawVoiceStatusMessage || null
+      : null
   const voiceStatusIsDanger =
     voice.voicePhase === 'error' || isHardVoiceErrorMessage(filteredVoiceStatus || rawVoiceStatusMessage)
 
