@@ -6,7 +6,11 @@
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 
-const QUIET_PROGRESS_REASONS = new Set(['communication_goal_progress', 'engvo_goal_progress'])
+const QUIET_PROGRESS_REASONS = new Set([
+  'communication_goal_progress',
+  'engvo_goal_progress',
+  'translation_step_resolved',
+])
 
 export function rewardReasonAllowsDynamicTickerOverride(reason: string): boolean {
   return !QUIET_PROGRESS_REASONS.has(reason)
@@ -24,6 +28,7 @@ export function rewardReasonShowsToast(
     case 'accent_session_completed':
     case 'communication_goal_completed':
     case 'engvo_goal_completed':
+    case 'translation_session_completed':
       return true
     default:
       return false
@@ -110,6 +115,11 @@ export function buildRewardPopupText(params: {
       audience === 'child'
         ? alternatives(`Произношение готово! +${xp} XP!`, `Сессия произношения закрыта! +${xp} XP!`)
         : alternatives(`Произношение: сессия готова. +${xp} XP`, `Сессия произношения завершена. +${xp} XP`)
+  } else if (reason === 'translation_session_completed') {
+    variants =
+      audience === 'child'
+        ? alternatives(`Цель перевода 8/8! +${xp} XP!`, `Перевод 8/8! +${xp} XP!`)
+        : alternatives(`Цель перевода 8/8. +${xp} XP`, `Перевод: цель 8/8. +${xp} XP`)
   } else {
     variants = audience === 'child' ? alternatives(`Отлично! +${xp} XP!`) : alternatives(`+${xp} XP`)
   }

@@ -28,6 +28,14 @@ const REWARD_TOP_LINE_TEMPLATES: RewardTemplateMap = {
     adult: ['Цель звонка 7/7 закрыта. +{xp}.'],
     child: ['Цель звонка 7/7! +{xp}!'],
   },
+  translation_session_completed: {
+    adult: ['Цель перевода 8/8. +{xp}.'],
+    child: ['Цель перевода 8/8! +{xp}!'],
+  },
+  translation_step_resolved: {
+    adult: ['Перевод: шаг засчитан. +{xp}.'],
+    child: ['Шаг перевода! +{xp}!'],
+  },
 }
 
 const FALLBACK_REWARD_TOP_LINE: Record<FooterCopyAudience, string> = {

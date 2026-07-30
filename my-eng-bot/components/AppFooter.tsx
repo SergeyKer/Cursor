@@ -22,6 +22,14 @@ import type { Audience } from '@/lib/types'
 
 type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note' | 'call-review'>
 
+export type AppFooterSessionMeter = {
+  current: number
+  target: number
+  sessionXp: number
+  statusLabel: string
+  fillPercent?: number
+}
+
 type AppFooterProps = {
   dynamicText?: string | null
   staticText?: string | null
@@ -35,6 +43,8 @@ type AppFooterProps = {
     total: number
     current: number
   } | null
+  /** Continuous session bar (translation). XOR with lessonFooterSegments; default null. */
+  sessionMeter?: AppFooterSessionMeter | null
   audience?: Audience
   lessonFooterAccount?: string | null
   lessonFooterAccountSegments?: LessonFooterAccountSegment[] | null
@@ -150,6 +160,7 @@ export default function AppFooter({
   dynamicTone = 'neutral',
   dynamicEmphasis = 'none',
   variantProgress = null,
+  sessionMeter = null,
   audience = 'adult',
   lessonFooterAccount = null,
   lessonFooterAccountSegments = null,
@@ -163,17 +174,36 @@ export default function AppFooter({
   const topLine = formatFooterDynamicLine(normalizeFooterText(dynamicText))
   const bottomLine = normalizeFooterText(staticText)
   const hasLessonSegments = (lessonFooterSegments?.length ?? 0) > 0
-  const lessonFooterMode = hasLessonSegments
+  const hasSessionMeter = Boolean(sessionMeter && sessionMeter.target > 0)
+  const lessonFooterMode = hasLessonSegments && !hasSessionMeter
   const hasAccountSegments = (lessonFooterAccountSegments?.length ?? 0) > 0
-  const bottomSegments = lessonFooterMode ? [] : splitFooterStaticSegments(bottomLine)
-  const bottomLineTitle = bottomSegments.length > 0 ? bottomSegments.join(' · ') : bottomLine
+  const bottomSegments =
+    lessonFooterMode || hasSessionMeter ? [] : splitFooterStaticSegments(bottomLine)
+  const meterCurrent = hasSessionMeter ? Math.max(0, Math.floor(sessionMeter!.current)) : 0
+  const meterTarget = hasSessionMeter ? Math.max(1, Math.floor(sessionMeter!.target)) : 1
+  const meterXp = hasSessionMeter ? Math.max(0, Math.floor(sessionMeter!.sessionXp)) : 0
+  const meterFill =
+    hasSessionMeter && typeof sessionMeter!.fillPercent === 'number'
+      ? Math.max(0, Math.min(100, Math.floor(sessionMeter!.fillPercent)))
+      : Math.round((Math.min(meterCurrent, meterTarget) / meterTarget) * 100)
+  const meterLabel = hasSessionMeter
+    ? `${meterCurrent}/${meterTarget} · ⭐+${meterXp} · ${normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}`
+    : ''
+  const bottomLineTitle = hasSessionMeter
+    ? meterLabel
+    : bottomSegments.length > 0
+      ? bottomSegments.join(' · ')
+      : bottomLine
   const showFooterContent =
     (isLessonActive || isDialogStarted || showWhenIdle) &&
     (topLine.length > 0 ||
       bottomLine.length > 0 ||
       hasLessonSegments ||
+      hasSessionMeter ||
       Boolean(lessonFooterAccount))
-  const showVariantProgress = Boolean(variantProgress && variantProgress.total > 1 && showFooterContent)
+  const showVariantProgress = Boolean(
+    !hasSessionMeter && variantProgress && variantProgress.total > 1 && showFooterContent
+  )
   const presentation = resolveFooterPresentation({
     audience,
     tone: dynamicTone,
@@ -274,7 +304,38 @@ export default function AppFooter({
               className={`app-footer-body__row-inner gap-2 ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName}`}
               suppressHydrationWarning
             >
-              {lessonFooterMode ? (
+              {hasSessionMeter ? (
+                <div
+                  className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap tabular-nums"
+                  title={bottomLineTitle}
+                >
+                  <div
+                    className="h-1.5 min-w-[2.75rem] max-w-[4.5rem] flex-1 overflow-hidden rounded-full bg-slate-200"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={meterTarget}
+                    aria-valuenow={Math.min(meterCurrent, meterTarget)}
+                    aria-label={`Прогресс сессии ${meterCurrent} из ${meterTarget}`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                      style={{ width: `${meterFill}%` }}
+                    />
+                  </div>
+                  <span className={`min-w-0 shrink truncate text-left ${FOOTER_STAT_VALUE_CLASS}`}>
+                    <span className="tabular-nums">
+                      {meterCurrent}/{meterTarget}
+                    </span>
+                    <span aria-hidden> · </span>
+                    <span className={FOOTER_STAT_GLYPH_CLASS} aria-hidden>
+                      ⭐
+                    </span>
+                    <span className="tabular-nums">+{meterXp}</span>
+                    <span aria-hidden> · </span>
+                    <span className="truncate">{normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}</span>
+                  </span>
+                </div>
+              ) : lessonFooterMode ? (
                 <>
                   <div
                     className="live-footer-stats-row flex min-w-0 flex-1 items-center justify-between gap-0.5 overflow-visible tabular-nums sm:gap-1.5"

@@ -56,6 +56,17 @@ import {
   isLessonGoldCoinClaimed,
 } from '@/lib/rewardsState'
 import { applyRewardsEvent } from '@/lib/rewardsEvents'
+import {
+  buildTranslationFooterView,
+  resolveTranslationFooterMoment,
+} from '@/lib/translation/translationFooter'
+import {
+  hashTranslationAssistantKey,
+} from '@/lib/translation/translationSessionEconomy'
+import {
+  resolveTranslationProtocolFromAssistantContent,
+  resolveTranslationStepAward,
+} from '@/lib/translation/translationStepOutcome'
 import { resolveLessonCoinAward, type LessonCoinAward } from '@/lib/coinAwards'
 import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
@@ -1413,6 +1424,23 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [])
   const bumpEngvoGoal = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))
+  }, [])
+  const bumpTranslationStep = useCallback((assistantContent: string) => {
+    const award = resolveTranslationStepAward(assistantContent)
+    if (!award) return
+    setRewardsState((prev) =>
+      applyRewardsEvent(prev, {
+        type: 'translation_step_resolved',
+        outcome: award.outcome,
+        assistantKey: award.assistantKey,
+      })
+    )
+  }, [])
+  const startTranslationSession = useCallback(() => {
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'translation_session_started' }))
+  }, [])
+  const abandonTranslationSession = useCallback(() => {
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'translation_session_abandoned' }))
   }, [])
   const handleAccentSessionCompleted = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'accent_session_completed' }))
@@ -4489,6 +4517,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           dialogueCorrect: response.dialogueCorrect,
         })
       }
+      if (settings.mode === 'translation') {
+        bumpTranslationStep(main)
+      }
       void fetchUsage()
     } catch (e) {
       console.error(e)
@@ -4513,7 +4544,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLoading(false)
       setRetryMessage(null)
     }
-  }, [messages, sendToApi, fetchUsage, settings.mode, settings.tenses, settings.topic, engvoVoiceMode])
+  }, [
+    messages,
+    sendToApi,
+    fetchUsage,
+    settings.mode,
+    settings.tenses,
+    settings.topic,
+    engvoVoiceMode,
+    bumpTranslationStep,
+  ])
 
   React.useEffect(() => {
     if ((settings.translationDrillKind ?? 'tense_drill') !== 'lesson_topic') {
@@ -4650,10 +4690,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     newDialogRef.current = true
     setMessages([])
     setSettingsAtLastSend(null)
+    if (settings.mode === 'translation') {
+      startTranslationSession()
+    }
     setTimeout(() => {
       ensureFirstMessage()
     }, 50)
-  }, [cleanupEngvoRuntime, ensureFirstMessage, resetStructuredLessonSession])
+  }, [cleanupEngvoRuntime, ensureFirstMessage, resetStructuredLessonSession, settings.mode, startTranslationSession])
 
   const handleStartChatFromMenu = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
@@ -4663,6 +4706,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoErrorText(null)
     if (!dialogStarted) {
       resetStructuredLessonSession()
+      if (settings.mode === 'translation') {
+        startTranslationSession()
+      }
       setDialogStarted(true)
       setMenuOpen(false)
       return
@@ -4670,7 +4716,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     restartChatForNewModeFromMenu()
     setMenuOpen(false)
-  }, [cleanupEngvoRuntime, dialogStarted, restartChatForNewModeFromMenu, resetStructuredLessonSession])
+  }, [
+    cleanupEngvoRuntime,
+    dialogStarted,
+    restartChatForNewModeFromMenu,
+    resetStructuredLessonSession,
+    settings.mode,
+    startTranslationSession,
+  ])
 
   const handleOpenEngvoVoiceChat = useCallback(() => {
     engvoRedialWithoutWelcomeRef.current = false
@@ -7451,6 +7504,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         })
         if (settings.mode === 'communication') {
           bumpCommunicationGoal()
+        } else if (settings.mode === 'translation') {
+          bumpTranslationStep(main)
         }
         setSettingsAtLastSend(settings)
         void fetchUsage()
@@ -7478,7 +7533,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setSearchingInternet(false)
       }
     },
-    [messages, atLimit, sendToApi, fetchUsage, settings, ensureFirstMessage, engvoVoiceMode, communicationVoiceInputMode, bumpCommunicationGoal]
+    [
+      messages,
+      atLimit,
+      sendToApi,
+      fetchUsage,
+      settings,
+      ensureFirstMessage,
+      engvoVoiceMode,
+      communicationVoiceInputMode,
+      bumpCommunicationGoal,
+      bumpTranslationStep,
+    ]
   )
 
   function isRetryableTranslationError(message: string): boolean {
@@ -8767,6 +8833,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     if (isStructuredLessonActive) return 'lesson'
     if (isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isReferenceSheetActive) return 'lesson-intro'
     if (dialogStarted && settings.mode === 'communication') return 'communication'
+    if (dialogStarted && settings.mode === 'translation') return 'translation'
     if (dialogStarted && engvoVoiceMode) return 'engvo'
     if (isLessonActive) return 'lesson-learning'
     return null
@@ -8777,6 +8844,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isLessonIntroActive,
     isLessonTipsActive,
     isLessonBriefingActive,
+    isReferenceSheetActive,
     dialogStarted,
     settings.mode,
     engvoVoiceMode,
@@ -8787,6 +8855,58 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStreakHintConsumedForMode(null)
     }
   }, [activeStreakSessionMode])
+  const translationChatActive =
+    dialogStarted && settings.mode === 'translation' && !engvoVoiceMode
+  React.useEffect(() => {
+    if (!storageLoaded) return
+    if (translationChatActive) {
+      setRewardsState((prev) => {
+        const status = prev.translationSession?.status
+        if (status === 'in_progress' || status === 'completed') return prev
+        return applyRewardsEvent(prev, { type: 'translation_session_started' })
+      })
+      return
+    }
+    abandonTranslationSession()
+  }, [storageLoaded, translationChatActive, abandonTranslationSession])
+  const translationFooterView = React.useMemo(() => {
+    if (!translationChatActive) return null
+    const session = rewardsState.translationSession
+    const lastAssistant = [...messages].reverse().find((message) => message.role === 'assistant')
+    const protocolStatus = lastAssistant?.content
+      ? resolveTranslationProtocolFromAssistantContent(lastAssistant.content)
+      : null
+    const lastKey = lastAssistant?.content
+      ? hashTranslationAssistantKey(lastAssistant.content)
+      : null
+    const justCompleted =
+      session.status === 'completed' &&
+      lastKey != null &&
+      lastKey === session.lastAwardedAssistantKey
+    const moment = resolveTranslationFooterMoment({
+      loading,
+      protocolStatus,
+      session,
+      justCompleted,
+    })
+    const lastAwardedXp =
+      rewardsState.ui.lastReward?.reason === 'translation_session_completed'
+        ? rewardsState.ui.lastReward.amount
+        : session.sessionXpAwarded
+    return buildTranslationFooterView({
+      session,
+      moment,
+      audience: settings.audience === 'child' ? 'child' : 'adult',
+      lastAwardedXp,
+    })
+  }, [
+    translationChatActive,
+    rewardsState.translationSession,
+    rewardsState.ui.lastReward,
+    messages,
+    loading,
+    settings.audience,
+  ])
   const streakSessionHintLine = React.useMemo(() => {
     if (!activeStreakSessionMode) return null
     if (streakHintConsumedForMode === activeStreakSessionMode) return null
@@ -8868,7 +8988,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : isLessonActive
       ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)
       : dialogStarted
-        ? resolveFooterWithStreakLayer(chatFooterVoice?.text ?? null)
+        ? translationChatActive
+          ? resolveFooterWithStreakLayer(translationFooterView?.dynamicText ?? null)
+          : resolveFooterWithStreakLayer(chatFooterVoice?.text ?? null)
         : resolveFooterWithStreakLayer(
             footerTransitionText ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
           )
@@ -8889,7 +9011,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : isLessonActive
       ? learningLessonFooterStaticText
       : dialogStarted
-        ? settings.mode === 'communication'
+        ? translationChatActive
+          ? null
+          : settings.mode === 'communication'
           ? formatModeGoalFooter('communication', rewardsState)
           : engvoVoiceMode
             ? formatModeGoalFooter('engvo', rewardsState)
@@ -8962,7 +9086,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
-    (isPracticeActive && practiceFooterLive)
+    (isPracticeActive && practiceFooterLive) ||
+    translationChatActive
       ? null
       : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
@@ -8980,7 +9105,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : isStructuredLessonActive
       ? activeStructuredLessonFooterTypingKey
       : dialogStarted
-      ? chatFooterVoice?.typingKey ?? 'chat-footer'
+      ? translationChatActive
+        ? translationFooterView?.typingKey ?? 'translation-footer'
+        : chatFooterVoice?.typingKey ?? 'chat-footer'
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
   const footerTypingKey = structuredLessonCompletionFooterText
     ? `lesson-complete-${activeLearningLessonId ?? 'lesson'}:ctx-${footerSessionContextNonce}`
@@ -9067,6 +9194,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         : null
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
+  const footerDisplaySessionMeter =
+    footerHydrated && translationChatActive ? translationFooterView?.sessionMeter ?? null : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
   const abortLanguageNoteRequest = useCallback(() => {
     languageNoteAbortRef.current?.abort()
@@ -10465,6 +10594,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             dynamicText={footerDisplayDynamicText}
             staticText={footerDisplayStaticText}
             variantProgress={footerDisplayVariantProgress}
+            sessionMeter={footerDisplaySessionMeter}
             typingKey={footerDisplayTypingKey}
             audience={settings.audience}
             dynamicTone={footerHydrated ? footerVoiceTone : 'neutral'}

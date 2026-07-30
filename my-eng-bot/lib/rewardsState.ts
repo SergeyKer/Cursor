@@ -5,6 +5,12 @@ import {
   xpBarForLevel,
 } from '@/lib/levelCurve'
 import { resolveStreakDailyBonus } from '@/lib/streakDailyBonus'
+import {
+  TRANSLATION_SESSION_LENGTH,
+  TRANSLATION_SESSION_TTL_MS,
+  createDefaultTranslationSession,
+  type TranslationSessionState,
+} from '@/lib/translation/translationSessionEconomy'
 
 export const REWARDS_STATE_KEY = 'myeng_state_v1'
 export const REWARDS_MIGRATIONS_KEY = 'myeng_rewards_migrations_v1'
@@ -218,8 +224,12 @@ export interface RewardsState {
   currencies: RewardsCurrenciesState
   coinLedger: CoinLedgerState
   modeGoals: Record<ModeGoalId, ModeGoalState>
+  /** Сессия перевода: счётчик 8 + daily XP. Soft-default, без bump version. */
+  translationSession: TranslationSessionState
   ui: RewardUiState
 }
+
+export type { TranslationSessionState }
 
 const MODE_GOAL_SESSION_TTL_MS = 45 * 60 * 1000
 
@@ -283,6 +293,7 @@ export function createDefaultRewardsState(): RewardsState {
       communication: createDefaultGoal(7, 4),
       engvo: createDefaultGoal(7, 5),
     },
+    translationSession: createDefaultTranslationSession(),
     ui: {
       footerTicker: 'Готов к следующему шагу.',
       lastReward: null,
@@ -379,6 +390,112 @@ function normalizeModeGoal(raw: unknown, fallback: ModeGoalState): ModeGoalState
   }
 }
 
+function rollTranslationDailyXp(
+  session: TranslationSessionState,
+  today: string = getTodayDateString()
+): TranslationSessionState {
+  if (session.dailyXpDate === today) return session
+  return {
+    ...session,
+    dailyXpAwarded: 0,
+    dailyXpDate: null,
+  }
+}
+
+function abandonTranslationSessionSlice(session: TranslationSessionState): TranslationSessionState {
+  return {
+    ...session,
+    progress: 0,
+    sessionXpAwarded: 0,
+    status: 'abandoned',
+    sessionStartedAt: null,
+    lastAwardedAssistantKey: null,
+  }
+}
+
+export function normalizeTranslationSession(
+  raw: unknown,
+  options?: { now?: Date; today?: string }
+): TranslationSessionState {
+  const fallback = createDefaultTranslationSession()
+  const today = options?.today ?? getTodayDateString()
+  const nowTs = (options?.now ?? new Date()).getTime()
+  if (!raw || typeof raw !== 'object') return fallback
+  const src = raw as Partial<TranslationSessionState>
+  const target =
+    typeof src.target === 'number' ? Math.max(1, Math.floor(src.target)) : TRANSLATION_SESSION_LENGTH
+  const progress =
+    typeof src.progress === 'number' ? Math.max(0, Math.min(target, Math.floor(src.progress))) : 0
+  const sessionXpAwarded =
+    typeof src.sessionXpAwarded === 'number' ? Math.max(0, Math.floor(src.sessionXpAwarded)) : 0
+  let status: TranslationSessionState['status'] =
+    src.status === 'in_progress' || src.status === 'completed' || src.status === 'not_started' || src.status === 'abandoned'
+      ? src.status
+      : progress >= target
+        ? 'completed'
+        : progress > 0
+          ? 'in_progress'
+          : 'not_started'
+  if (progress >= target) status = 'completed'
+  let session: TranslationSessionState = rollTranslationDailyXp(
+    {
+      target,
+      progress: status === 'completed' ? target : progress,
+      sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
+      status,
+      sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
+      lastAwardedAssistantKey:
+        typeof src.lastAwardedAssistantKey === 'string' ? src.lastAwardedAssistantKey : null,
+      dailyXpAwarded:
+        typeof src.dailyXpAwarded === 'number' ? Math.max(0, Math.floor(src.dailyXpAwarded)) : 0,
+      dailyXpDate: typeof src.dailyXpDate === 'string' ? src.dailyXpDate : null,
+    },
+    today
+  )
+  if (session.status === 'in_progress' && session.sessionStartedAt) {
+    const started = parseDateOrNull(session.sessionStartedAt)
+    if (started && nowTs - started.getTime() > TRANSLATION_SESSION_TTL_MS) {
+      session = abandonTranslationSessionSlice(session)
+    }
+  }
+  return session
+}
+
+export function startTranslationSessionState(
+  state: RewardsState,
+  today: string = getTodayDateString()
+): RewardsState {
+  const rolled = rollTranslationDailyXp(state.translationSession, today)
+  return {
+    ...state,
+    translationSession: {
+      ...rolled,
+      target: TRANSLATION_SESSION_LENGTH,
+      progress: 0,
+      sessionXpAwarded: 0,
+      status: 'in_progress',
+      sessionStartedAt: new Date().toISOString(),
+      lastAwardedAssistantKey: null,
+    },
+  }
+}
+
+export function abandonTranslationSessionState(state: RewardsState): RewardsState {
+  const session = rollTranslationDailyXp(state.translationSession)
+  if (
+    (session.status === 'not_started' || session.status === 'abandoned') &&
+    session.progress === 0 &&
+    session.sessionXpAwarded === 0 &&
+    session.lastAwardedAssistantKey == null
+  ) {
+    return state.translationSession === session ? state : { ...state, translationSession: session }
+  }
+  return {
+    ...state,
+    translationSession: abandonTranslationSessionSlice(session),
+  }
+}
+
 function normalizeRewardsState(raw: unknown): RewardsState {
   const fallback = createDefaultRewardsState()
   if (!raw || typeof raw !== 'object') return fallback
@@ -442,6 +559,9 @@ function normalizeRewardsState(raw: unknown): RewardsState {
       communication: normalizeModeGoal(src.modeGoals?.communication, fallback.modeGoals.communication),
       engvo: normalizeModeGoal(src.modeGoals?.engvo, fallback.modeGoals.engvo),
     },
+    translationSession: normalizeTranslationSession(
+      (src as { translationSession?: unknown }).translationSession
+    ),
     ui: {
       footerTicker: typeof src.ui?.footerTicker === 'string' ? src.ui.footerTicker : fallback.ui.footerTicker,
       lastReward:

@@ -3,7 +3,7 @@ import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import { isStreakDailyBonusClaimed, streakDailyBonusXp } from '@/lib/streakDailyBonus'
 
-export type StreakSessionMode = 'lesson' | 'practice' | 'communication' | 'engvo' | 'accent'
+export type StreakSessionMode = 'lesson' | 'practice' | 'communication' | 'engvo' | 'accent' | 'translation'
 
 export function formatStreakSessionHint(
   state: RewardsState,

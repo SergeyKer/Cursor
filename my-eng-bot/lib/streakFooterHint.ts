@@ -90,6 +90,7 @@ export type StreakFooterSessionMode =
   | 'communication'
   | 'engvo'
   | 'accent'
+  | 'translation'
   | null
 
 /** XP preview belongs in idle/intro - not while a lesson or task is in progress. */

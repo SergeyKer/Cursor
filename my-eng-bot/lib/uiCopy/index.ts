@@ -20,4 +20,9 @@ export {
   PROGRESS_CHILD_BANNED_HERO_TERMS,
 } from '@/lib/uiCopy/progress'
 export { TRANSLATION_MENU_COPY } from '@/lib/uiCopy/translationMenu'
+export {
+  TRANSLATION_FOOTER_TOP,
+  TRANSLATION_FOOTER_STATUS,
+  formatTranslationFooterTop,
+} from '@/lib/uiCopy/translationFooter'
 
