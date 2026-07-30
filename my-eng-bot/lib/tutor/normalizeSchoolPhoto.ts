@@ -1,5 +1,7 @@
+import { buildAiSafetyRulesBlock } from '@/lib/ai/safetyPolicy'
 import { TUTOR_TRIAGE_MAX_CHIPS } from '@/lib/tutor/types'
 import { asRecord, compactList, compactText } from '@/lib/tutor/text'
+import type { Audience } from '@/lib/types'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 
 export type TutorSchoolPhotoRejectReason = 'not_en' | 'blur' | 'other'
@@ -54,6 +56,7 @@ export function normalizeTutorSchoolPhoto(input: unknown): TutorSchoolPhotoResul
 }
 
 export function buildTutorSchoolPhotoPrompt(level: string, audience: string): string {
+  const safetyAudience: Audience = audience === 'child' ? 'child' : 'adult'
   return [
     'Ты помощник репетитора английского. Разбери школьное фото (учебник, тетрадь, доска, упражнение).',
     `Уровень: ${level}. Аудитория: ${audience}.`,
@@ -69,5 +72,7 @@ export function buildTutorSchoolPhotoPrompt(level: string, audience: string): st
     '- rejected + blur: слишком размыто / нечитаемо (НЕ путать с not_en).',
     '- rejected + not_en: не про английский / не школьная тема.',
     '- Не выдумывай темы, если фото не подходит.',
+    'AI safety status-bridge: NSFW/gore/explicit harm in frame → status rejected, reason other, short messageRu. English workbook/exercise (even with a hard word in the task) → ok + topics. Never answer outside the required JSON. Never speak AI_SAFETY marker tokens.',
+    buildAiSafetyRulesBlock({ channel: 'tutor', audience: safetyAudience }),
   ].join('\n')
 }

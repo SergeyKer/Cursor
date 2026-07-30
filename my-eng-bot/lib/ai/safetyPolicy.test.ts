@@ -10,7 +10,13 @@ import {
   type AiSafetyChannel,
 } from '@/lib/ai/safetyPolicy'
 
-const CHANNELS: AiSafetyChannel[] = ['communication', 'dialogue', 'free_call', 'teacher']
+const CHANNELS: AiSafetyChannel[] = [
+  'communication',
+  'dialogue',
+  'free_call',
+  'teacher',
+  'tutor',
+]
 
 const REQUIRED_MARKERS = [
   AI_SAFETY_MARKERS.adult18,
@@ -44,11 +50,14 @@ describe('buildAiSafetyRulesBlock', () => {
     expect(freeCall).not.toContain(AI_SAFETY_MARKERS.lowSignal)
   })
 
-  it('redirects teacher toward drill and free_call toward practice', () => {
+  it('redirects teacher toward drill, free_call toward practice, tutor toward learning question', () => {
     const teacher = buildAiSafetyRulesBlock({ channel: 'teacher', audience: 'adult' })
     const freeCall = buildAiSafetyRulesBlock({ channel: 'free_call', audience: 'adult' })
+    const tutor = buildAiSafetyRulesBlock({ channel: 'tutor', audience: 'adult' })
     expect(teacher).toMatch(/translation drill/i)
     expect(freeCall).toMatch(/English-practice topic/i)
+    expect(tutor).toMatch(/English-learning question/i)
+    expect(tutor).not.toContain(AI_SAFETY_MARKERS.lowSignal)
   })
 
   it('adds child-teen hardening only for child audience', () => {

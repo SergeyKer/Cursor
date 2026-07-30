@@ -10,14 +10,18 @@ function read(rel: string): string {
 }
 
 describe('safetyPolicy code guards', () => {
-  it('injects buildAiSafetyRulesBlock at the four channel call sites', () => {
+  it('injects buildAiSafetyRulesBlock at all six channel call sites', () => {
     const chat = read('app/api/chat/route.ts')
     const instructions = read('lib/engvo/instructions.ts')
     const teacher = read('lib/engvo/teacherPrompts.ts')
+    const tutorExplain = read('app/api/tutor-explain/route.ts')
+    const schoolPhoto = read('lib/tutor/normalizeSchoolPhoto.ts')
     expect(chat).toContain("buildAiSafetyRulesBlock({ channel: 'communication'")
     expect(chat).toContain("buildAiSafetyRulesBlock({ channel: 'dialogue'")
     expect(instructions).toContain("buildAiSafetyRulesBlock({ channel: 'free_call'")
     expect(teacher).toContain("buildAiSafetyRulesBlock({ channel: 'teacher'")
+    expect(tutorExplain).toContain("buildAiSafetyRulesBlock({ channel: 'tutor'")
+    expect(schoolPhoto).toContain("buildAiSafetyRulesBlock({ channel: 'tutor'")
   })
 
   it('does not duplicate sensitive/child policy body into engvo pedagogy files', () => {

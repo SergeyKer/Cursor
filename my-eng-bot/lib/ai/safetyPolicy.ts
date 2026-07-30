@@ -3,14 +3,14 @@ import type { Audience } from '@/lib/types'
 /**
  * Engvo AI safety contract (single source of truth).
  *
- * Covered channels: communication, dialogue, free_call, teacher.
+ * Covered channels: communication, dialogue, free_call, teacher, tutor.
  * Harm/18+/CSAM, sensitive-personal (no interview on disclosure), child/teen
  * hardening for audience=child, anti-exfiltration. Redirect to channel task.
  * Moderation APIs and transport locks live elsewhere; this module is prompt policy only.
  * Never speak AI_SAFETY marker tokens aloud in user-facing replies.
  */
 
-export type AiSafetyChannel = 'communication' | 'dialogue' | 'free_call' | 'teacher'
+export type AiSafetyChannel = 'communication' | 'dialogue' | 'free_call' | 'teacher' | 'tutor'
 
 /** Prompt length budgets — keep realtime instructions speakable. */
 export const AI_SAFETY_SENSITIVE_MAX_CHARS = 900
@@ -37,6 +37,8 @@ function redirectTarget(channel: AiSafetyChannel): string {
       return 'the current English tutor question or topic'
     case 'teacher':
       return 'the current translation drill'
+    case 'tutor':
+      return 'a short English-learning question'
     case 'free_call':
     default:
       return 'a safe English-practice topic'
