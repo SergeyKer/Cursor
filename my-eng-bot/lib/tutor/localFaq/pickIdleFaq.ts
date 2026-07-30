@@ -2,6 +2,15 @@ import { listLocalFaqForLevels, resolveFaqLevelWindow } from '@/lib/tutor/localF
 import type { LocalFaqEntry } from '@/lib/tutor/localFaq/types'
 import type { LevelId } from '@/lib/types'
 
+/** Soft boost added to popularity when topicKey is in boost set (jitter stays *8). */
+export const IDLE_FAQ_SOFT_BOOST = 3
+
+export type PickIdleFaqOpts = {
+  shownIds?: Set<string> | readonly string[]
+  bannedTopicKeys?: Set<string> | readonly string[]
+  boostTopicKeys?: Set<string> | readonly string[]
+}
+
 function mulberry32(seed: number): () => number {
   let s = seed >>> 0
   return () => {
@@ -19,6 +28,12 @@ function shuffleInPlace<T>(arr: T[], rand: () => number): void {
   }
 }
 
+function toSet(value: Set<string> | readonly string[] | undefined): Set<string> {
+  if (!value) return new Set()
+  if (value instanceof Set) return value
+  return new Set(value)
+}
+
 /** Stable day seed: level + UTC day. */
 export function idleFaqSeed(level: LevelId | null | undefined, nowMs = Date.now()): number {
   const day = Math.floor(nowMs / 86_400_000)
@@ -34,15 +49,25 @@ export function idleFaqSeed(level: LevelId | null | undefined, nowMs = Date.now(
 
 /**
  * Pick up to `count` idle FAQ chips: unique topicKey, idleEligible, grammar|contrast.
+ * Optional 4th arg: shown/ban/boost filters (pure — no storage writes).
  */
 export function pickIdleFaq(
   level: LevelId | null | undefined,
   count = 3,
-  seed?: number
+  seed?: number,
+  opts?: PickIdleFaqOpts
 ): LocalFaqEntry[] {
   const levels = resolveFaqLevelWindow(level)
+  const shown = toSet(opts?.shownIds)
+  const banned = toSet(opts?.bannedTopicKeys)
+  const boost = toSet(opts?.boostTopicKeys)
+
   const pool = listLocalFaqForLevels(levels).filter(
-    (e) => e.idleEligible && (e.genre === 'grammar' || e.genre === 'contrast')
+    (e) =>
+      e.idleEligible &&
+      (e.genre === 'grammar' || e.genre === 'contrast') &&
+      !shown.has(e.id) &&
+      !banned.has(e.topicKey)
   )
   if (pool.length === 0) return []
 
@@ -50,10 +75,10 @@ export function pickIdleFaq(
   const rand = mulberry32(seed ?? idleFaqSeed(level))
   shuffleInPlace(ranked, rand)
 
-  // Prefer higher popularity after light shuffle: re-sort soft
   ranked.sort((a, b) => {
-    const jitter = (x: LocalFaqEntry) => x.popularity + rand() * 8
-    return jitter(b) - jitter(a)
+    const score = (x: LocalFaqEntry) =>
+      x.popularity + (boost.has(x.topicKey) ? IDLE_FAQ_SOFT_BOOST : 0) + rand() * 8
+    return score(b) - score(a)
   })
 
   const out: LocalFaqEntry[] = []

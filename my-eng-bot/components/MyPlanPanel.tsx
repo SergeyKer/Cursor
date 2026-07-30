@@ -172,6 +172,7 @@ export default function MyPlanPanel({
     provider: settings.provider,
     openAiChatPreset: settings.openAiChatPreset,
     enabled: featureFlags.tutorChatV1,
+    faqPoolEnabled: featureFlags.tutorFaqPoolV1,
     onCached: () => setTutorCardTick((n) => n + 1),
   })
 

@@ -17,6 +17,8 @@ export function useTutorQuestionPrefetch(params: {
   provider: AiProvider
   openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
   enabled?: boolean
+  /** When true, skip AI jobs for zones that already have a local FAQ canon. */
+  faqPoolEnabled?: boolean
   onCached?: () => void
 }) {
   const onCachedRef = useRef(params.onCached)
@@ -25,7 +27,10 @@ export function useTutorQuestionPrefetch(params: {
 
   useEffect(() => {
     if (params.enabled === false) return
-    const job = listTutorQuestionJobs(params.attentionZones)[0]
+    const job = listTutorQuestionJobs(params.attentionZones, {
+      level: params.level,
+      faqPoolEnabled: params.faqPoolEnabled,
+    })[0]
     if (!job) return
     if (fingerprintRef.current === job.fingerprint) return
     fingerprintRef.current = job.fingerprint
@@ -66,6 +71,7 @@ export function useTutorQuestionPrefetch(params: {
     params.attentionZones,
     params.audience,
     params.enabled,
+    params.faqPoolEnabled,
     params.level,
     params.openAiChatPreset,
     params.provider,

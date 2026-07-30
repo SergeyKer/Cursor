@@ -26,6 +26,7 @@ import {
   myPlanWhy,
   type MyPlanAudience,
 } from '@/lib/uiCopy/myPlan'
+import { catalogLevelToLevelId } from '@/lib/lessonCatalog'
 import { selectTutorTask } from '@/lib/tutor/selectTutorTask'
 
 function audienceOf(input: MyPlanInput): MyPlanAudience {
@@ -515,7 +516,11 @@ export function selectNowGoal(input: MyPlanInput): NowGoalResult {
     programTask,
     programStatus: picked.status,
     unstartedCount: picked.unstartedCount,
-    tutorTask: selectTutorTask({ attentionZones: input.attentionZones }),
+    tutorTask: selectTutorTask({
+      attentionZones: input.attentionZones,
+      level: catalogLevelToLevelId(input.anchorLevel),
+      faqPoolEnabled: featureFlags.tutorFaqPoolV1,
+    }),
     status: {
       dailyStreak: input.rewards.dailyStreak,
       level: input.rewards.level ?? 1,

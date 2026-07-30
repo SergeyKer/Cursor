@@ -5868,6 +5868,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const openTutorChatSpace = useCallback((opts?: { prefill?: string; autoSubmitInitial?: boolean }) => {
     if (!featureFlags.tutorChatV1) return
+    // MyPlan/prefill open: drop stale promote stash so autoSubmit does not race pendingTriage.
+    // Do not clear in promoteTutorFromMenu — that path relies on stash pendingTriageQuery.
+    clearTutorReturnContext()
     setTutorChatPrefill(opts?.prefill?.trim() || '')
     setTutorChatAutoSubmitInitial(Boolean(opts?.autoSubmitInitial && opts?.prefill?.trim()))
     cleanupEngvoRuntime({ markIgnoredCurrent: true })

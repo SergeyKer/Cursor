@@ -24,7 +24,14 @@ import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
 import { recordTutorCuriosity } from '@/lib/tutor/curiosityStore'
 import { featureFlags } from '@/lib/featureFlags'
-import { idleFaqSeed, matchLocalFaq, pickIdleFaq } from '@/lib/tutor/localFaq'
+import {
+  buildIdleFaqFilters,
+  clearHalfOldestShown,
+  idleFaqSeed,
+  matchLocalFaq,
+  pickIdleFaq,
+  recordShownFaqIds,
+} from '@/lib/tutor/localFaq'
 import { localTutorTriage, resolvePendingTriageFollowUp } from '@/lib/tutor/localTriage'
 import type { TutorSchoolPhotoResult } from '@/lib/tutor/normalizeSchoolPhoto'
 import { routeTutorTurn } from '@/lib/tutor/tutorTurnRouter'
@@ -172,7 +179,17 @@ export default function TutorChatPanel({
   const sessionLevel = session?.settings.level ?? 'a2'
   const idleExamples = useMemo((): TutorIdleExampleItem[] => {
     if (featureFlags.tutorFaqPoolV1) {
-      const picked = pickIdleFaq(sessionLevel, 3, idleFaqSeed(sessionLevel))
+      const seed = idleFaqSeed(sessionLevel)
+      const filters = buildIdleFaqFilters()
+      let picked = pickIdleFaq(sessionLevel, 3, seed, filters)
+      // Half-reset only helps shown-exhaustion, not ban-starvation.
+      if (picked.length < 3 && filters.shownIds.length > 0) {
+        clearHalfOldestShown()
+        picked = pickIdleFaq(sessionLevel, 3, seed, {
+          ...filters,
+          shownIds: buildIdleFaqFilters().shownIds,
+        })
+      }
       if (picked.length > 0) {
         return picked.map((e) => ({ id: e.id, questionRu: e.questionRu }))
       }
@@ -182,11 +199,19 @@ export default function TutorChatPanel({
       questionRu,
     }))
   }, [sessionLevel])
+
   const composerPlaceholder = useMemo(
     () => tutorComposerPlaceholder(session?.settings.audience === 'child' ? 'child' : 'adult'),
     [session?.settings.audience]
   )
   const isIdle = thread.length === 0 && !busy
+
+  useEffect(() => {
+    if (!featureFlags.tutorFaqPoolV1 || !isIdle) return
+    const ids = idleExamples.filter((e) => !e.id.startsWith('bank_')).map((e) => e.id)
+    if (ids.length === 0) return
+    recordShownFaqIds(ids)
+  }, [idleExamples, isIdle])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
