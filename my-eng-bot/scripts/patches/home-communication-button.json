@@ -1,0 +1,6 @@
+[
+  [
+    "                        <button\n                          type=\"button\"\n                          onClick={() => openMenuAt('practice')}\n                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}\n                        >\n                          {APP_SHELL_HOME_COPY.practiceLabel}\n                        </button>\n                      </>",
+    "                        <button\n                          type=\"button\"\n                          onClick={() => openMenuAt('practice')}\n                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}\n                        >\n                          {APP_SHELL_HOME_COPY.practiceLabel}\n                        </button>\n                        <button\n                          type=\"button\"\n                          onClick={() => openMenuAt('communication')}\n                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}\n                        >\n                          {APP_SHELL_HOME_COPY.communicationLabel}\n                        </button>\n                      </>"
+  ]
+]

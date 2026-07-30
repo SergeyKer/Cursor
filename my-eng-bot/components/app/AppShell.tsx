@@ -9952,6 +9952,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                         >
                           {APP_SHELL_HOME_COPY.practiceLabel}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => openMenuAt('communication')}
+                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
+                        >
+                          {APP_SHELL_HOME_COPY.communicationLabel}
+                        </button>
                       </>
                     )}
                   </div>
