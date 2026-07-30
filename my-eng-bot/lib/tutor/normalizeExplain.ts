@@ -104,7 +104,9 @@ function normalizeInScopeAnswer(
   const title = compactText(row.title, 120)
   const paragraphs = normalizeParagraphs(row.paragraphs ?? row.body ?? row.text, maxParagraphs)
   const examplesEn = compactList(row.examplesEn ?? row.examples, maxExamples, 160)
-  const rememberRu = compactText(row.rememberRu ?? row.remember, 200) || undefined
+  const rememberRaw = compactText(row.rememberRu ?? row.remember, 200)
+  // rememberRu must be learner-facing Russian; drop EN-only lines like "Remember: …"
+  const rememberRu = rememberRaw && /[а-яё]/i.test(rememberRaw) ? rememberRaw : undefined
   const contrastPair = normalizeContrastPair(row.contrastPair)
   const topicAnchor = normalizeTopicAnchor(row.topicAnchor ?? row.anchor, title)
 

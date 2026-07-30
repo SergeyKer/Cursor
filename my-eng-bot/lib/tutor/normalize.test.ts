@@ -68,6 +68,19 @@ describe('normalizeTutorExplain', () => {
     expect(answer?.examplesEn).toHaveLength(2)
     expect(answer?.cheatsheetVisibility).toBe('primary')
     expect(answer?.contrastPair).toEqual(['Present Perfect', 'Past Simple'])
+    expect(answer?.rememberRu).toBe('Есть результат сейчас → Perfect.')
+  })
+
+  it('drops English-only rememberRu', () => {
+    const answer = normalizeTutorExplain(
+      {
+        ...childFixture,
+        rememberRu: "Remember: 'have' is formal, 'have got' is informal.",
+      },
+      { audience: 'adult' }
+    )
+    expect(answer).not.toBeNull()
+    expect(answer?.rememberRu).toBeUndefined()
   })
 
   it('rejects child with too few paragraphs or examples', () => {
