@@ -25,6 +25,16 @@ describe('buildProviderUserMessage', () => {
     expect(userMessage).toContain('VPN')
   })
 
+  it('maps OpenRouter security-policy 403', () => {
+    const { userMessage, errorCode } = buildProviderUserMessage({
+      provider: 'openrouter',
+      status: 403,
+      errText: '{ "success": false, "error": "Access denied by security policy." }',
+    })
+    expect(errorCode).toBe('forbidden')
+    expect(userMessage).toContain('security policy')
+  })
+
   it('uses translate-specific defaults when provided', () => {
     const { userMessage } = buildProviderUserMessage({
       provider: 'openai',

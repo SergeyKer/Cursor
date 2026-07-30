@@ -44,6 +44,16 @@ export function buildProviderUserMessage(params: BuildProviderUserMessageParams)
     }
   }
 
+  if (status === 403 && provider === 'openrouter') {
+    return {
+      errorCode: 'forbidden',
+      userMessage:
+        /security policy/i.test(errText)
+          ? 'OpenRouter отклонил запрос (403 security policy). Проверьте ключ OPENROUTER_API_KEY, модель и VPN/прокси.'
+          : 'Доступ к OpenRouter запрещён (403). Проверьте ключ и лимиты аккаунта.',
+    }
+  }
+
   if (status === 429) {
     return { errorCode: 'rate_limit', userMessage: rateLimitMessage }
   }

@@ -38,15 +38,15 @@ describe('tutorReturnContext', () => {
     expect(consumeTutorReturnContext()).toBeNull()
   })
 
-  it('preserves pendingFaqId through stash/consume', () => {
+  it('preserves pendingTriageQuery through stash/consume', () => {
     stashTutorReturnContext({
       draft: '',
       anchorQuery: null,
       postExplainChips: false,
       thread: [{ id: 'u1', role: 'user', text: 'Почему «I am busy», а не «I busy»?' }],
-      pendingFaqId: 'a1.to_be.001',
+      pendingTriageQuery: 'Почему «I am busy», а не «I busy»?',
     })
     const snap = consumeTutorReturnContext()
-    expect(snap?.pendingFaqId).toBe('a1.to_be.001')
+    expect(snap?.pendingTriageQuery).toBe('Почему «I am busy», а не «I busy»?')
   })
 })

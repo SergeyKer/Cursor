@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
+import { buildProviderUserMessage } from '@/lib/buildProviderUserMessage'
 import { callProviderChat } from '@/lib/callProviderChat'
 import { normalizeTutorExplainResult } from '@/lib/tutor/normalizeExplain'
 import { compactText } from '@/lib/tutor/text'
@@ -183,10 +184,13 @@ export async function POST(req: NextRequest) {
     })
 
     if (!model.ok) {
-      return NextResponse.json(
-        { error: 'provider_failed', userMessage: 'Не удалось объяснить. Попробуй ещё раз.' },
-        { status: 502 }
-      )
+      const { userMessage } = buildProviderUserMessage({
+        provider,
+        status: model.status,
+        errText: model.errText,
+        defaultMessage: 'Не удалось объяснить. Попробуй ещё раз.',
+      })
+      return NextResponse.json({ error: 'provider_failed', userMessage }, { status: 502 })
     }
 
     let parsed: unknown = null

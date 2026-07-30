@@ -17,8 +17,6 @@ export type TutorReturnContextSnapshot = {
   lastExplainCanonicalKey?: string | null
   /** After menu→space promote: run triage once on mount. */
   pendingTriageQuery?: string | null
-  /** FAQ chip promote: skip triage and explain by id. */
-  pendingFaqId?: string | null
 }
 
 function isExplainLike(value: unknown): value is TutorExplainAnswer {
@@ -40,12 +38,6 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
         : data.pendingTriageQuery === null
           ? null
           : undefined
-    const pendingFaqId =
-      typeof data.pendingFaqId === 'string' && data.pendingFaqId.trim()
-        ? data.pendingFaqId.trim()
-        : data.pendingFaqId === null
-          ? null
-          : undefined
     const lastExplain = isExplainLike(data.lastExplain) ? data.lastExplain : null
     return {
       savedAt: data.savedAt,
@@ -55,7 +47,6 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
       thread: data.thread,
       lastExplain,
       ...(pending !== undefined ? { pendingTriageQuery: pending } : {}),
-      ...(pendingFaqId !== undefined ? { pendingFaqId } : {}),
     }
   } catch {
     return null
