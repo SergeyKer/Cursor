@@ -5,8 +5,9 @@
 
 import { compactText } from '@/lib/tutor/text'
 
+// No trailing \b after Cyrillic: JS \b is ASCII-only and breaks почему/зачем/….
 export const TUTOR_QUESTION_RE =
-  /[?？]|^(почему|зачем|как|что|когда|где|чем|в\s+ч[её]м|можно\s+ли|а\s+можно|is|are|does|do|what|why|how|when|where)\b/i
+  /[?？]|^(почему|зачем|как|что|когда|где|чем|в\s+ч[её]м|можно\s+ли|а\s+можно|is|are|does|do|what|why|how|when|where)(?=\s|$|[?？,.!…])/i
 
 export const TUTOR_NARROW_TOPIC_RE =
   /\b(present\s+perfect|past\s+simple|present\s+simple|past\s+perfect|future\s+simple|present\s+continuous|past\s+continuous|articles?|артикл|to\s+be|have\s+got|there\s+is|there\s+are|passive|услови|conditional|gerund|infinitive|модальные|modal)\b/i

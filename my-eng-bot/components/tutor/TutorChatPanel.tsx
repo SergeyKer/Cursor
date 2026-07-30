@@ -23,9 +23,9 @@ import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
 import { recordTutorCuriosity } from '@/lib/tutor/curiosityStore'
-import { localTutorTriage } from '@/lib/tutor/localTriage'
+import { localTutorTriage, resolvePendingTriageFollowUp } from '@/lib/tutor/localTriage'
 import type { TutorSchoolPhotoResult } from '@/lib/tutor/normalizeSchoolPhoto'
-import { isPendingAngleReply, routeTutorTurn } from '@/lib/tutor/tutorTurnRouter'
+import { routeTutorTurn } from '@/lib/tutor/tutorTurnRouter'
 import type {
   TutorComposerChip,
   TutorExplainAnswer,
@@ -612,17 +612,24 @@ export default function TutorChatPanel({
         setThread(threadForTurn)
       }
 
-      // Pending B/C free-text angle (anchor set, triage chips visible)
+      // Pending B/C free-text: combine with anchor or fresh first-hop (no continue into old topic)
       if (triageChips.length > 0 && anchorQuery) {
-        if (isPendingAngleReply(text)) {
-          const combined = `${anchorQuery}: ${text}`
+        const pending = resolvePendingTriageFollowUp(anchorQuery, text)
+        if (pending.kind === 'explain') {
           setTriageChips([])
-          setAnchorQuery(combined)
-          void runExplain(combined)
+          setAnchorQuery(pending.query)
+          void runExplain(pending.query)
           return
         }
         setTriageChips([])
-        // Fall through as new turn (may restore post chips via route/apply)
+        const pendingRoute = routeTutorTurn({ query: text, lastExplain: null })
+        if (pendingRoute.kind === 'stop') {
+          if (lastExplain) setPostExplainChips(true)
+          append('assistant', pendingRoute.gate.messageRu)
+          return
+        }
+        applyTriage(localTutorTriage(pendingRoute.query))
+        return
       }
 
       const route = routeTutorTurn({ query: text, lastExplain })

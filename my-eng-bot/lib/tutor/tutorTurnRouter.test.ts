@@ -33,6 +33,9 @@ describe('routeTutorTurn', () => {
     expect(routeTutorTurn({ query: 'а в отрицании?', lastExplain: ppExplain }).kind).toBe('continue')
     expect(routeTutorTurn({ query: 'а пример', lastExplain: ppExplain }).kind).toBe('continue')
     expect(routeTutorTurn({ query: 'почему?', lastExplain: ppExplain }).kind).toBe('continue')
+    expect(routeTutorTurn({ query: 'а почему в отрицании?', lastExplain: ppExplain }).kind).toBe(
+      'continue'
+    )
     expect(routeTutorTurn({ query: 'можно пример?', lastExplain: ppExplain }).kind).toBe('continue')
     expect(routeTutorTurn({ query: 'проверь: I have went', lastExplain: ppExplain }).kind).toBe(
       'continue'
@@ -54,9 +57,12 @@ describe('isPendingAngleReply', () => {
   it('accepts short angle replies', () => {
     expect(isPendingAngleReply('когда ставить')).toBe(true)
     expect(isPendingAngleReply('пример')).toBe(true)
+    expect(isPendingAngleReply('Скажи разницу')).toBe(true)
+    expect(isPendingAngleReply('Частые ошибки')).toBe(true)
   })
 
   it('rejects explicit new intents', () => {
     expect(isPendingAngleReply('как сказать goat?')).toBe(false)
+    expect(isPendingAngleReply('Как сказать')).toBe(false)
   })
 })

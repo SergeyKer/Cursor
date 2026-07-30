@@ -18,8 +18,9 @@ export type TutorTurnRoute =
   | { kind: 'switch'; query: string }
   | { kind: 'first'; query: string }
 
+// No \b after Cyrillic question words (JS \b is ASCII-only).
 const CONTINUE_A_RE =
-  /^(а|и)\s+(в\s+|на\s+|при\s+|пример|если|как\b|что\b|чем\b|когда\b|почему\b|зачем\b|отриц|утвержд|вопросе|прошлом|будущем|ещё|еще)/i
+  /^(а|и)\s+(в\s+|на\s+|при\s+|пример|если|как|что|чем|когда|почему|зачем|отриц|утвержд|вопросе|прошлом|будущем|ещё|еще)/i
 
 const CONTINUE_EXACT_RE =
   /^(почему\??|зачем\??|можно\s+пример\??|ещё\s+пример|еще\s+пример|как\s+это\s+запомнить\??|что\s+это\s+значит\??|попроще|ещё\s+раз|еще\s+раз|не\s+понял|подробнее|поясни)\s*$/i
@@ -115,5 +116,7 @@ export function isPendingAngleReply(query: string): boolean {
   if (!q) return false
   if (hasExplicitTutorIntent(q) || isTutorMetaTeach(q)) return false
   if (q.split(/\s+/).length > 8) return false
-  return /^(когда|как|зачем|почему|что|чем|пример|ошибк|форма|значит|строить|ставит)/i.test(q)
+  return /^(когда|как|зачем|почему|что|чем|пример|ошибк|форма|значит|строить|ставит|скажи|разниц|отлич|поясни|объясни|частые)/i.test(
+    q
+  )
 }

@@ -52,7 +52,9 @@ Micro pack/score/finale; return-context v2; cheatsheet soft-miss; AppShell; MyPl
 
 1. `Как сказать «я уже сделал»?` → Explain  
 2. `глаголы` → C чипы; свободный `когда ставить` → Explain с якорем  
-3. После PP: `а в отрицании?` continue; `а зачем Do?` switch  
+3. После PP: `а в отрицании?` / `а почему в отрицании?` continue; `а зачем Do?` switch  
 4. `спасибо` / `кто президент США` → stop без API; chips живы если тема была  
 5. `как сказать президент?` → не gate  
 6. `do` / `go` → C, не D  
+7. `Почему I have a car и I have got a car` (без `?`) → Explain, не B-чипы; голый `have got` → B  
+8. После B: свободный `Скажи разницу` → Explain с якорем (не второй B); pending follow-up не возвращает только чипы  
