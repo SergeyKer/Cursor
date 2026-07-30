@@ -23,7 +23,8 @@ export type LocalFaqEntry = {
   idleEligible: boolean
 }
 
-export type LocalFaqMatchReason = 'id' | 'exact' | 'alias' | 'needle' | 'jaccard'
+/** Exact/alias/id or multi-token EN needle — no fuzzy Jaccard. */
+export type LocalFaqMatchReason = 'id' | 'exact' | 'alias' | 'needle'
 
 export type LocalFaqMatch = {
   entry: LocalFaqEntry

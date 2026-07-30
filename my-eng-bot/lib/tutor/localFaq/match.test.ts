@@ -40,6 +40,18 @@ describe('matchLocalFaq', () => {
     expect(matchLocalFaq('I havee got car', 'a2')).toBeNull()
   })
 
+  it('misses vague free-text (no Jaccard silent topic)', () => {
+    expect(matchLocalFaq('Зачем I am.', 'a1')).toBeNull()
+    expect(matchLocalFaq('Зачем и для чего I am.', 'a1')).toBeNull()
+    expect(matchLocalFaq('почему про времена', 'a2')).toBeNull()
+  })
+
+  it('matches multi-token EN needle inside a question', () => {
+    const m = matchLocalFaq('Почему I am used to wake up early ошибка?', 'b2')
+    expect(m?.reason).toBe('needle')
+    expect(m?.entry.id).toBe('b2.mistakes.099')
+  })
+
   it('getLocalFaqById works', () => {
     expect(getLocalFaqById('a1.to_be.001')?.questionRu).toContain('I am busy')
     expect(localFaqPoolSize()).toBeGreaterThanOrEqual(400)

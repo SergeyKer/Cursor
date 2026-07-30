@@ -8,52 +8,8 @@ import {
   normalizeFaqText,
   stripFaqInterrogative,
 } from '@/lib/tutor/localFaq/normalizeFaq'
-import type { LocalFaqEntry, LocalFaqMatch } from '@/lib/tutor/localFaq/types'
+import type { LocalFaqMatch } from '@/lib/tutor/localFaq/types'
 import type { LevelId } from '@/lib/types'
-
-const STOP = new Set([
-  'почему',
-  'зачем',
-  'а',
-  'не',
-  'и',
-  'или',
-  'мы',
-  'говорим',
-  'в',
-  'речи',
-  'the',
-  'a',
-  'an',
-  'to',
-  'of',
-  'is',
-  'are',
-  'am',
-])
-
-const HIT_MIN = 0.82
-
-function tokenize(s: string): Set<string> {
-  const out = new Set<string>()
-  for (const part of s.split(/[^a-zа-яё0-9']+/i)) {
-    const t = part.trim()
-    if (t.length < 2) continue
-    if (STOP.has(t)) continue
-    out.add(t)
-  }
-  return out
-}
-
-function jaccard(a: Set<string>, b: Set<string>): number {
-  if (a.size === 0 || b.size === 0) return 0
-  let inter = 0
-  for (const t of a) {
-    if (b.has(t)) inter += 1
-  }
-  const union = a.size + b.size - inter
-  return union === 0 ? 0 : inter / union
-}
 
 function extractEnNeedlesFromQuery(normalized: string): string[] {
   const out: string[] = []
@@ -69,12 +25,11 @@ function extractEnNeedlesFromQuery(normalized: string): string[] {
   return out
 }
 
-function entryHaystack(entry: LocalFaqEntry): string {
-  return normalizeFaqText([entry.questionRu, ...entry.aliases, ...entry.enNeedles].join(' '))
-}
-
 /**
- * Match free text to FAQ pool. High threshold; EN error utterances → null.
+ * Match free text to FAQ pool.
+ * Strict only: id / exact / alias / multi-token EN needle (≥2 words).
+ * No Jaccard / silent paraphrase — avoids topic substitution on free text.
+ * EN error utterances → null.
  */
 export function matchLocalFaq(
   query: string,
@@ -101,7 +56,6 @@ export function matchLocalFaq(
   const levels = resolveFaqLevelWindow(level)
   const candidates = listLocalFaqForLevels(levels)
   const qNeedles = extractEnNeedlesFromQuery(norm)
-  const qTokens = tokenize(stripped || norm)
 
   let best: LocalFaqMatch | null = null
 
@@ -122,38 +76,33 @@ export function matchLocalFaq(
     }
 
     let score = 0
-    let reason: LocalFaqMatch['reason'] = 'jaccard'
-
     const needles = entry.enNeedles.map((n) => normalizeFaqText(n)).filter(Boolean)
     for (const n of needles) {
-      if (n.length < 4) continue
+      const needleTokens = n.split(/\s+/).length
+      // Strong multi-token only: ≥3 words, or 2 words with enough chars (blocks "i am" FP)
+      if (needleTokens < 2) continue
+      if (needleTokens === 2 && n.length < 12) continue
+      if (n.length < 8) continue
+
       if (norm.includes(n) || stripped.includes(n)) {
-        // Require multi-token needle or RU interrogative already present
-        const needleTokens = n.split(/\s+/).length
-        if (needleTokens >= 2 || !looksLikeEnErrorUtterance(norm)) {
-          score = Math.max(score, 0.9)
-          reason = 'needle'
-        }
+        score = Math.max(score, 0.9)
       }
       for (const qn of qNeedles) {
-        if (qn === n || qn.includes(n) || n.includes(qn)) {
-          if (qn.split(/\s+/).length >= 2 && n.split(/\s+/).length >= 2) {
-            score = Math.max(score, 0.88)
-            reason = 'needle'
-          }
+        const qTokens = qn.split(/\s+/).length
+        if (qTokens < 2) continue
+        if (qn === n) {
+          score = Math.max(score, 0.88)
+          continue
+        }
+        // Query contains full entry needle — not the reverse (short qn ⊆ long n)
+        if (qn.includes(n) && (needleTokens >= 3 || n.length >= 12)) {
+          score = Math.max(score, 0.88)
         }
       }
     }
 
-    const hay = tokenize(entryHaystack(entry))
-    const jac = jaccard(qTokens, hay)
-    if (jac > score) {
-      score = jac
-      reason = 'jaccard'
-    }
-
-    if (score >= HIT_MIN && (!best || score > best.score)) {
-      best = { entry, score, reason }
+    if (score > 0 && (!best || score > best.score)) {
+      best = { entry, score, reason: 'needle' }
     }
   }
 

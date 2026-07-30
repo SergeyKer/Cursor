@@ -23,13 +23,18 @@
 
 | Ход | Поведение |
 |---|---|
-| Idle / нет lastExplain | `matchTutorGate` → `localTutorTriage` (A/B/C/D) |
-| A | сразу `tutor-explain` без topicContext |
+| Idle / нет lastExplain | `matchTutorGate` → strict FAQ → `localTutorTriage` (A/B/C/D) |
+| Idle-чип FAQ | канон `questionRu` → Explain (exact) |
+| Free-text FAQ | только `id` / `exact` / `alias` / multi-token EN needle (≥2); **без Jaccard** |
+| FAQ hit + rewrite пузыря | только `id`/`exact`/`alias`; needle → Explain каноном, пузырь исходный |
+| A | сразу `tutor-explain` без topicContext (исходный текст) |
 | B/C | живые чипы; свободный короткий angle-текст → `anchor: ответ` Explain |
 | D / gate stop | copy без API |
 | Есть lastExplain + continue | Explain + topicContext (углубление) |
-| Есть lastExplain + switch | снова triage; A без old topicContext |
+| Есть lastExplain + switch | strict FAQ → triage; A без old topicContext |
 | out_of_scope / fail при живом lastExplain | post-explain chips **не гасятся** |
+
+**Контракт темы:** локально не назначаем учебную тему на свободном вводе. Чип = готовый заказ; текст/голос = сырой заказ (gate + strict FAQ или triage); голый термин → B/C явно.
 
 Continue (узко): `а в отрицании?`, `а пример`, `почему?`, `проверь:…`, упоминание текущей темы.  
 Switch: новая грамтема (`а зачем Do?`), `научи…`, `глаголы`, явный новый вопрос.
@@ -41,6 +46,7 @@ Switch: новая грамтема (`а зачем Do?`), `научи…`, `г�
 - `lib/tutor/tutorGate.ts` — smalltalk exact + составные off-topic/large-order
 - `lib/tutor/localTriage.ts` — gate → intent/meta/B/C/A; short EN ≠ noise
 - `lib/tutor/tutorTurnRouter.ts` — stop / continue / switch / first
+- `lib/tutor/localFaq/match.ts` — strict FAQ (id/exact/alias/multi-needle; no Jaccard)
 - `components/tutor/TutorChatPanel.tsx` — единый `handleUserTurn`
 - `app/api/tutor-explain/route.ts` — рецепт ответа + ветки no-ctx / with-ctx
 
@@ -58,3 +64,5 @@ Micro pack/score/finale; return-context v2; cheatsheet soft-miss; AppShell; MyPl
 6. `do` / `go` → C, не D  
 7. `Почему I have a car и I have got a car` (без `?`) → Explain, не B-чипы; голый `have got` → B  
 8. После B: свободный `Скажи разницу` → Explain с якорем (не второй B); pending follow-up не возвращает только чипы  
+9. `Зачем I am.` / размытый paraphrase → **не** FAQ; triage A → Explain исходным текстом (пузырь не канон)  
+10. Idle-чип FAQ → Exact → Explain; пузырь = канон  

@@ -692,14 +692,17 @@ export default function TutorChatPanel({
         )
         return
       }
-      // first | switch → FAQ match (canonical) then triage
+      // first | switch → strict FAQ (id/exact/alias/multi-needle) then triage
       if (featureFlags.tutorFaqPoolV1) {
         const hit = matchLocalFaq(route.query, session?.settings.level ?? 'a2')
         if (hit) {
           const canon = hit.entry.questionRu
           setTriageChips([])
           setAnchorQuery(canon)
-          if (!userAlreadyInThread || text !== canon) {
+          // Rewrite bubble only on exact-ish hits — never silent topic swap on needle
+          const rewriteBubble =
+            hit.reason === 'id' || hit.reason === 'exact' || hit.reason === 'alias'
+          if (rewriteBubble && (!userAlreadyInThread || text !== canon)) {
             setThread((prev) => {
               const next = [...prev]
               for (let i = next.length - 1; i >= 0; i -= 1) {
