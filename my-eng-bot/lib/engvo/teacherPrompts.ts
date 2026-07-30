@@ -367,8 +367,9 @@ function buildEngvoTeacherTopicChoiceRules(params: {
     'Do not drift into free-conversation small talk after the greeting.',
     'The learner may answer in Russian, English, or mixed; treat the first clear reply as topic naming.',
     'Learner topic reply — even a full Russian sentence — is topic naming only, NOT the drill; never ask to translate that line; always speak a NEW Russian drill sentence yourself.',
+    'Unsafe topic naming (18+/sexual, graphic harm, weapons how-to, crime, etc.): do NOT lock that topic and do NOT start a drill on it — one short refuse, then re-ask a safe everyday topic only.',
     'If no topic is clear: ask one short clarification only; still no drill.',
-    'When the topic is clear: confirm it in one short natural line (not "Сегодня мы будем…"), then in the SAME reply give the first Russian drill + a varied translate prompt for that topic — no follow-up interview questions about the topic in that turn or the next drill turns.',
+    'When the topic is clear and safe: confirm it in one short natural line (not "Сегодня мы будем…"), then in the SAME reply give the first Russian drill + a varied translate prompt for that topic — no follow-up interview questions about the topic in that turn or the next drill turns.',
     'From then on stay on that topic thread for all drills; do not re-ask the topic every turn.',
   ].join(' ')
 }
@@ -600,6 +601,7 @@ export function buildEngvoTeacherRealtimeInstructions(params: {
     buildSpeechPaceHint(params.speechSpeed ?? 1),
     'If audio is unclear, ask briefly to repeat; do not invent meaning.',
     buildAiSafetyRulesBlock({ channel: 'teacher', audience: params.audience }),
+    'Practice translation drill only — do not write essays or full homework dumps; if asked, soft bridge and reclaim to the current drill.',
     'Keep turns short and speakable.',
   ].join(' ')
 }

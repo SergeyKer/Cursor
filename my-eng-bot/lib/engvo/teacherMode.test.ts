@@ -426,8 +426,34 @@ describe('instructions branching', () => {
       kind: 'free_call',
     })
     expect(text).toMatch(/English only/i)
+    expect(text).toContain('not a homework/essay writer')
+    expect(text).toContain('Safety override')
     expect(text).not.toContain(TEACHER_EQUIVALENCE_POLICY_MARKER)
     expect(text).not.toContain(TEACHER_RHYTHM_LOCK_MARKER)
+  })
+
+  it('free_call child identity avoids aged-14-plus framing', () => {
+    const text = buildEngvoRealtimeInstructions({
+      audience: 'child',
+      level: 'a1',
+      topic: 'free_talk',
+      kind: 'free_call',
+    })
+    expect(text).toContain('practice partner for children')
+    expect(text).not.toContain('aged 14+')
+  })
+
+  it('teacher topic_choice refuses unsafe topic naming', () => {
+    const text = buildEngvoRealtimeInstructions({
+      audience: 'adult',
+      level: 'a2',
+      topic: 'free_talk',
+      kind: 'teacher',
+      tense: 'present_simple',
+      sentenceType: 'general',
+    })
+    expect(text).toContain('Unsafe topic naming')
+    expect(text).toContain('Practice translation drill only')
   })
 
   it('teacher realtime uses teacher block', () => {

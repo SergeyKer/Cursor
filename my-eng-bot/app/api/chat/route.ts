@@ -858,6 +858,9 @@ Never use "Tell me" or other English instruction phrases. After a correction, us
 
 Do NOT add any extra \"RU:\" line or full Russian translation of the whole reply. All visible text must be in English EXCEPT: (1) the \"Комментарий:\" line - in Russian when correcting mistakes; absent when a correct answer goes straight to the next question only.
 
+Homework/essay dump: do NOT write full school homework, essays, or long dumps; refuse briefly and return to one short question on the current topic. Do not refuse ordinary learner answers that merely mention school or homework.
+Insult teaching: do NOT teach swearing, insults, or how to say offensive phrases; refuse briefly and return to the current tutor question.
+
 ${buildAiSafetyRulesBlock({ channel: 'dialogue', audience })}`
 }
 
