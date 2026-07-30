@@ -34,6 +34,7 @@ import {
 } from '@/lib/tutor/localFaq'
 import { localTutorTriage, resolvePendingTriageFollowUp } from '@/lib/tutor/localTriage'
 import type { TutorSchoolPhotoResult } from '@/lib/tutor/normalizeSchoolPhoto'
+import { matchTutorGate } from '@/lib/tutor/tutorGate'
 import { routeTutorTurn } from '@/lib/tutor/tutorTurnRouter'
 import type {
   TutorComposerChip,
@@ -657,8 +658,15 @@ export default function TutorChatPanel({
         setThread(threadForTurn)
       }
 
-      // Pending B/C free-text: combine with anchor or fresh first-hop (no continue into old topic)
+      // Pending B/C free-text: gate raw text first (combined anchor must not bypass hard-stop)
       if (triageChips.length > 0 && anchorQuery) {
+        const pendingGate = matchTutorGate(text)
+        if (pendingGate) {
+          setTriageChips([])
+          if (lastExplain) setPostExplainChips(true)
+          append('assistant', pendingGate.messageRu)
+          return
+        }
         const pending = resolvePendingTriageFollowUp(anchorQuery, text)
         if (pending.kind === 'explain') {
           setTriageChips([])

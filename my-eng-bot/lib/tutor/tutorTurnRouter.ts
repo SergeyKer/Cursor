@@ -8,9 +8,11 @@ import {
   hasExplicitTopicSwitch,
   hasExplicitTutorIntent,
   isTutorMetaTeach,
+  isTutorNoise,
   normalizeTutorQuery,
 } from '@/lib/tutor/tutorIntent'
 import { matchTutorGate, type TutorGateMatch } from '@/lib/tutor/tutorGate'
+import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 
 export type TutorTurnRoute =
   | { kind: 'stop'; gate: TutorGateMatch }
@@ -21,6 +23,10 @@ export type TutorTurnRoute =
 // No \b after Cyrillic question words (JS \b is ASCII-only).
 const CONTINUE_A_RE =
   /^(а|и)\s+(в\s+|на\s+|при\s+|пример|если|как|что|чем|когда|почему|зачем|отриц|утвержд|вопросе|прошлом|будущем|ещё|еще)/i
+
+/** Grammar deepeners required when CONTINUE_A matches without topic mention. */
+const CONTINUE_A_GRAMMAR_TAIL_RE =
+  /(отриц|утвержд|пример|вопрос|форм|времен|прошлом|будущем|continuous|perfect|simple|артикл|have|got|\bdo\b|does|will|в\s+отрицан|в\s+утвержд)/i
 
 const CONTINUE_EXACT_RE =
   /^(почему\??|зачем\??|можно\s+пример\??|ещё\s+пример|еще\s+пример|как\s+это\s+запомнить\??|что\s+это\s+значит\??|попроще|ещё\s+раз|еще\s+раз|не\s+понял|подробнее|поясни)\s*$/i
@@ -61,9 +67,15 @@ function isContinueFollowUp(query: string, lastExplain: TutorExplainAnswer): boo
   if (CONTINUE_EXACT_RE.test(query)) return true
   if (CONTINUE_CHECK_RE.test(query)) return true
   if (CONTINUE_A_RE.test(query) && !hasExplicitTopicSwitch(query, explainCorpus(lastExplain))) {
-    return true
+    if (mentionsCurrentTopic(query, lastExplain) || CONTINUE_A_GRAMMAR_TAIL_RE.test(query)) {
+      return true
+    }
+    return false
   }
-  if (mentionsCurrentTopic(query, lastExplain) && !hasExplicitTopicSwitch(query, explainCorpus(lastExplain))) {
+  if (
+    mentionsCurrentTopic(query, lastExplain) &&
+    !hasExplicitTopicSwitch(query, explainCorpus(lastExplain))
+  ) {
     return true
   }
   return false
@@ -79,6 +91,13 @@ export function routeTutorTurn(params: {
   const query = normalizeTutorQuery(params.query)
   const gate = matchTutorGate(query)
   if (gate) return { kind: 'stop', gate }
+
+  if (isTutorNoise(query)) {
+    return {
+      kind: 'stop',
+      gate: { reason: 'smalltalk', messageRu: TUTOR_CHAT_COPY.clarifyDefault },
+    }
+  }
 
   if (!params.lastExplain) {
     return { kind: 'first', query }

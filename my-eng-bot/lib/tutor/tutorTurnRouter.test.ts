@@ -51,6 +51,20 @@ describe('routeTutorTurn', () => {
     expect(routeTutorTurn({ query: 'глаголы', lastExplain: ppExplain }).kind).toBe('switch')
     expect(routeTutorTurn({ query: 'научи англицкому', lastExplain: ppExplain }).kind).toBe('switch')
   })
+
+  it('does not continue off-topic а почему without grammar tail', () => {
+    expect(
+      routeTutorTurn({
+        query: 'А почему так дорого? Duolingo бесплатный!',
+        lastExplain: ppExplain,
+      }).kind
+    ).toBe('stop')
+  })
+
+  it('stops noise on hop2', () => {
+    expect(routeTutorTurn({ query: '🌈🔥', lastExplain: ppExplain }).kind).toBe('stop')
+    expect(routeTutorTurn({ query: '???', lastExplain: ppExplain }).kind).toBe('stop')
+  })
 })
 
 describe('isPendingAngleReply', () => {
