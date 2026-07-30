@@ -26,6 +26,8 @@ import {
 import { speak } from '@/lib/speech'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
+import TranslationSessionExitChips from '@/components/translation/TranslationSessionExitChips'
+import type { TranslationSessionExitChip } from '@/lib/translation/resolveTranslationSessionExitChips'
 import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_PADDING_BOTTOM,
@@ -166,6 +168,9 @@ interface ChatProps {
   communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
   learningActions?: LearningLessonAction[]
   onSelectLearningAction?: (actionId: string) => void
+  /** Sticky exit chips над composer (перевод 8/8). */
+  composerNavChips?: TranslationSessionExitChip[]
+  onComposerNavChipSelect?: (id: TranslationSessionExitChip['id']) => void
   /** Счётчик увеличения - сброс поля ввода/голоса (напр. «Начать общение» из меню). */
   composerSessionKey?: number
   /** Якорь левого края колонки приложения (glass-surface) для выдвижного меню. */
@@ -1281,6 +1286,8 @@ export default function Chat({
   communicationVoiceInputMode,
   learningActions = [],
   onSelectLearningAction,
+  composerNavChips,
+  onComposerNavChipSelect,
   composerSessionKey = 0,
   appColumnAnchorRef,
   engvo,
@@ -2552,6 +2559,13 @@ export default function Chat({
                 paddingBottom: CHAT_COMPOSER_PADDING_BOTTOM,
               }}
             >
+              <div className="flex w-full flex-col gap-1.5">
+              {composerNavChips && composerNavChips.length > 0 ? (
+                <TranslationSessionExitChips
+                  chips={composerNavChips}
+                  onSelect={onComposerNavChipSelect}
+                />
+              ) : null}
               <form
                 ref={formRef}
                 onSubmit={handleSubmit}
@@ -2760,6 +2774,7 @@ export default function Chat({
                   {voiceStatusMessage}
                 </p>
               )}
+              </div>
             </DialogComposerStack>
           </div>
         </div>

@@ -12,6 +12,16 @@ export const TRANSLATION_PROTOCOL_BLOCK_LINE = new RegExp(
   'i'
 )
 
+/** Снимает ведущий протокольный лейбл (`Комментарий_перевод:` и т.п.), тело оставляет как есть. */
+export function stripTranslationProtocolLabel(text: string): string {
+  return text
+    .replace(
+      new RegExp(`^[\\s\\-•]*(?:\\d+[\\.\\)]\\s*)*(?:${TRANSLATION_PROTOCOL_BLOCK_NAMES})\\s*:\\s*`, 'i'),
+      ''
+    )
+    .trim()
+}
+
 /** Модель иногда вставляет «Повтори:» сразу после «Скажи:» - убираем лишние ведущие префиксы. */
 export function stripLeadingRepeatRuPrompt(body: string): string {
   let s = body.trim()

@@ -57,6 +57,47 @@ describe('POST /api/chat translation state retention', () => {
     expect(data.content).not.toContain('Комментарий_перевод:')
   })
 
+  it('force-SUCCESS: strips Комментарий_перевод/Ошибки/Скажи and keeps praise + next drill', async () => {
+    callProviderChatMock.mockResolvedValueOnce({
+      ok: true,
+      content: [
+        "Комментарий_перевод: Вы правильно использовали конструкцию 'I am not' для отрицания.",
+        'Ошибки:',
+        '🔤 "am" → "am"',
+        'Скажи: I am not from Russia.',
+        'Переведи далее: Я не Анна.',
+      ].join('\n'),
+    })
+
+    const req = makeRequest({
+      mode: 'translation',
+      audience: 'adult',
+      level: 'a1',
+      tenses: ['present_simple'],
+      sentenceType: 'negative',
+      messages: [
+        {
+          role: 'assistant',
+          content:
+            'Переведи: Я не из России.\nПереведи на английский.\n__TRAN_REPEAT_REF__: I am not from Russia.',
+        },
+        { role: 'user', content: 'I am not from Russia.' },
+      ],
+    })
+
+    const res = await POST(req as never)
+    const data = (await res.json()) as { content: string }
+    expect(res.status).toBe(200)
+    expect(data.content).toMatch(/Комментарий:\s*.+/i)
+    expect(data.content).toMatch(/правильно использовали/i)
+    expect(data.content).not.toContain('Комментарий_перевод:')
+    expect(data.content).not.toContain('Ошибки:')
+    expect(data.content).not.toMatch(/(^|\n)\s*Скажи\s*:/i)
+    expect(data.content).toContain('Переведи далее:')
+    expect(data.content).not.toMatch(/Переведи далее:\s*🔤/i)
+    expect(data.content).not.toMatch(/Переведи далее:[^\n]*"am"/i)
+  })
+
   it('keeps error_repeat shape for meaningful but wrong answer', async () => {
     callProviderChatMock.mockResolvedValueOnce({
       ok: true,

@@ -22,6 +22,15 @@ Wire: [`lib/rewardsEvents.ts`](../lib/rewardsEvents.ts), [`lib/rewardsState.ts`]
 
 N = закрытые задания (новое RU после success/soft_fail), не сообщения пользователя и не ответы ИИ.
 
+## Exit chips (после 8/8)
+
+Sticky nav-chips над composer, пока сессия `completed` и чат перевода открыт:
+
+- **Готово** → Мой план (`myPlanSpaceV1` или меню `myPlan`)
+- **Практика** → меню практики (без автостарта)
+
+Нет chip «Продолжить». Поле ввода не блокируется. Copy: [`lib/uiCopy/translationSessionExit.ts`](../lib/uiCopy/translationSessionExit.ts). Resolve: [`lib/translation/resolveTranslationSessionExitChips.ts`](../lib/translation/resolveTranslationSessionExitChips.ts).
+
 ## Футер
 
 - Верх: комментарий момента (≤ 38 символов).

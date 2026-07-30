@@ -189,7 +189,12 @@ import {
   extractTranslationAnswerKeywordsForPrompt,
   hasTranslationPromptUserKeywordMismatch as hasTranslationPromptKeywordMismatch,
 } from '@/lib/translationPromptUserCoverage'
-import { stripLeadingRepeatRuPrompt } from '@/lib/translationProtocolLines'
+import {
+  stripLeadingRepeatRuPrompt,
+  stripTranslationProtocolLabel,
+  TRANSLATION_PROTOCOL_BLOCK_LINE,
+  TRANSLATION_PROTOCOL_BLOCK_NAMES,
+} from '@/lib/translationProtocolLines'
 import {
   extractTranslationConceptIdsFromEnglish,
   extractTranslationConceptIdsFromPrompt,
@@ -3267,6 +3272,11 @@ function ensureMeaningfulSuccessComment(commentBody: string, _tense: string): st
   const stripped = commentBody
     .replace(/\s+/g, ' ')
     .trim()
+    // Leftover ERROR/protocol labels leaked into SUCCESS praise body (force-SUCCESS scavenger).
+    .replace(
+      new RegExp(`(?:^|\\s)(?:${TRANSLATION_PROTOCOL_BLOCK_NAMES})\\s*:\\s*`, 'gi'),
+      ' '
+    )
     .replace(/\s*[\-\u2013\u2014:]?\s*используйте это время в полном английском предложении\.?/gi, '')
     // Удаляем задублированный фрагмент (артефакт нескольких вызовов).
     .replace(/(Здесь(?:\s+важно\s+сохранить)?\s+это\s+время[^.]*\.)\s*(?:\1\s*)+/gi, '$1 ')
@@ -3874,17 +3884,47 @@ function ensureTranslationSuccessBlocks(
 
   let comment: string | null = null
   let hasInvitation = false
+  let collectingErrors = false
   const nextSentenceLines: string[] = []
   const appendFeedbackToComment = (feedback: string) => {
+    const cleanedFeedback = stripTranslationProtocolLabel(feedback)
+    if (!cleanedFeedback) return
     const baseComment = comment?.replace(/^Комментарий:\s*/i, '').trim() || 'Отлично!'
-    comment = `Комментарий: ${[baseComment, feedback.trim()].filter(Boolean).join(' ')}`
+    comment = `Комментарий: ${[baseComment, cleanedFeedback].filter(Boolean).join(' ')}`
   }
 
   for (const line of lines) {
+    // Force-SUCCESS поверх ERROR-карточки: тело поддержки → praise, хвост ошибок не в next drill.
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий_перевод\s*:/i.test(line)) {
+      collectingErrors = false
+      const body = stripTranslationProtocolLabel(line)
+      if (body) comment = `Комментарий: ${body}`
+      continue
+    }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_мусор|_выход)\s*:/i.test(line)) {
+      collectingErrors = false
+      continue
+    }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:/i.test(line)) {
+      collectingErrors = false
       const c = line.replace(/^[\s\-•]*(?:\d+[\.)]\s*)*Комментарий(?:_ошибка)?\s*:\s*/i, '').trim()
       if (c) comment = `Комментарий: ${c}`
       continue
+    }
+    if (/^[\s\-•]*(?:\d+[\.)]\s*)*Ошибки\s*:/i.test(line)) {
+      collectingErrors = true
+      continue
+    }
+    if (collectingErrors) {
+      if (TRANSLATION_PROTOCOL_BLOCK_LINE.test(line)) {
+        collectingErrors = false
+        // fall through — обработать этот protocol header ниже/следующими ветками
+      } else if (/^[\s\-•]*(?:\d+[\.)]\s*)*(?:Переведи|Переведите)(?=\s|:|$)/i.test(line)) {
+        collectingErrors = false
+        // fall through to invitation handling
+      } else {
+        continue
+      }
     }
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Время\s*:/i.test(line)) continue
     if (/^[\s\-•]*(?:\d+[\.)]\s*)*Конструкция\s*:/i.test(line)) continue

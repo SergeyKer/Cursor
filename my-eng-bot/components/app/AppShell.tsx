@@ -60,6 +60,8 @@ import {
   buildTranslationFooterView,
   resolveTranslationFooterMoment,
 } from '@/lib/translation/translationFooter'
+import { resolveTranslationSessionExitChips } from '@/lib/translation/resolveTranslationSessionExitChips'
+import type { TranslationSessionExitChipId } from '@/lib/translation/resolveTranslationSessionExitChips'
 import {
   hashTranslationAssistantKey,
 } from '@/lib/translation/translationSessionEconomy'
@@ -1442,6 +1444,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const abandonTranslationSession = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'translation_session_abandoned' }))
   }, [])
+  const translationSessionExitBusyRef = React.useRef(false)
   const handleAccentSessionCompleted = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'accent_session_completed' }))
   }, [])
@@ -5881,6 +5884,46 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('root')
   }, [resetStructuredLessonSession])
 
+  const exitTranslationSessionTo = useCallback(
+    (target: 'myPlan' | 'practice') => {
+      if (translationSessionExitBusyRef.current) return
+      translationSessionExitBusyRef.current = true
+      try {
+        firstMessageRequestIdRef.current += 1
+        firstMessageInFlightRef.current = false
+        setDialogStarted(false)
+        setMessages([])
+        setSettingsAtLastSend(null)
+        setLoading(false)
+        setRetryMessage(null)
+        setForceNextMicLang(null)
+        setLoadingTranslationIndex(null)
+        setFooterTransitionText(null)
+        bumpFooterSessionContext()
+        setHomeMenuView('root')
+        if (target === 'myPlan') {
+          if (featureFlags.myPlanSpaceV1) {
+            openMyPlanSpace()
+            return
+          }
+          openMenuAt('myPlan')
+          return
+        }
+        openMenuAt('practice')
+      } finally {
+        translationSessionExitBusyRef.current = false
+      }
+    },
+    [bumpFooterSessionContext, openMenuAt, openMyPlanSpace]
+  )
+
+  const handleTranslationSessionExitChip = useCallback(
+    (id: TranslationSessionExitChipId) => {
+      exitTranslationSessionTo(id === 'done' ? 'myPlan' : 'practice')
+    },
+    [exitTranslationSessionTo]
+  )
+
   const backFromMyPlanSpace = useCallback(() => {
     setMyPlanSpaceActive(false)
     setDialogStarted(false)
@@ -8856,7 +8899,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   }, [activeStreakSessionMode])
   const translationChatActive =
-    dialogStarted && settings.mode === 'translation' && !engvoVoiceMode
+    dialogStarted &&
+    settings.mode === 'translation' &&
+    !engvoVoiceMode &&
+    !myPlanSpaceActive &&
+    !progressSpaceActive &&
+    !tutorChatSpaceActive
   React.useEffect(() => {
     if (!storageLoaded) return
     if (translationChatActive) {
@@ -8869,6 +8917,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
     abandonTranslationSession()
   }, [storageLoaded, translationChatActive, abandonTranslationSession])
+  const translationSessionExitChips = React.useMemo(
+    () =>
+      translationChatActive
+        ? resolveTranslationSessionExitChips(rewardsState.translationSession?.status)
+        : [],
+    [translationChatActive, rewardsState.translationSession?.status]
+  )
   const translationFooterView = React.useMemo(() => {
     if (!translationChatActive) return null
     const session = rewardsState.translationSession
@@ -10542,6 +10597,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   }
                   onSelectLearningAction={activeLearningLessonId ? handleSelectLearningAction : undefined}
                   composerSessionKey={composerSessionKey}
+                  composerNavChips={
+                    translationSessionExitChips.length > 0 ? translationSessionExitChips : undefined
+                  }
+                  onComposerNavChipSelect={
+                    translationSessionExitChips.length > 0
+                      ? handleTranslationSessionExitChip
+                      : undefined
+                  }
                   engvo={{
                     active: engvoVoiceMode,
                     callPhase: engvoCallPhase,
