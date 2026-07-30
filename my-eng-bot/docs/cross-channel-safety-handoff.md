@@ -35,25 +35,15 @@ Jailbreak **намеренно** не в local hard-stop (иначе ломае�
 
 ---
 
-## Промпт-задание для нового чата
+## Статус выполнения (2026-07-30)
 
-```
-Контекст: в my-eng-bot закрыт стресс-hardening Репетитора (tutorGate/tutorTurnRouter/TutorChatPanel pending-gate/tutor-explain). Не трогай tutor без нужды.
+| Этап | Commit | Суть |
+|---|---|---|
+| **P0** | `e856e1b` | Bare translate + `buildAiSafetyRulesBlock` + dual-mode refuse/EN-only + guard |
+| **P1** | — (readonly) | Матрица: homework/insult dialogue; NSFW topic_choice teacher; RU paraphrase + HW free_call |
+| **P2** | `4ab30aa` | Prompt-фиксы dialogue/teacher/free_call + guards; reclaim/AppShell/tutorGate не трогали |
 
-Задача: hardening других каналов, KISS, без порта matchTutorGate в voice.
-
-P0 — Общение/перевод:
-В app/api/chat/route.ts ветка communication && explicitTranslateTarget (~7179): system сейчас только Translate без buildAiSafetyRulesBlock. Добавь safety (channel communication, audience) + refuse 18+/harm/jailbreak; иначе только EN. Не ломай учебный translate. Guard-тест на safety в translate path.
-
-P1 — сначала прогон без правок:
-dialogue locked+free_talk; teacher topic_choice; free_call RU paraphrase/homework/persona/child.
-Матрица T/C/D/L/H → потом тонкий план.
-
-P2 — точечные фиксы по прогону (отдельные PR):
-dialogue узкий refuse homework/off-topic; teacher отказ NSFW topic_choice до lock; free_call 1–2 строки practice-not-homework + child free_talk.
-
-Non-negotiables: AppShell UTF-8; не SERVICE_ROLE; не ломать drill reclaim / topicRetention; не монолит всех каналов в одном PR.
-```
+P2 детали: dialogue homework/insult refuse; teacher unsafe topic naming + drill-not-HW; free_call Safety override на paraphrase, practice-not-homework, child identity без «14+».
 
 ---
 
