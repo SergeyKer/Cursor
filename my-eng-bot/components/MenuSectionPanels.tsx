@@ -292,6 +292,7 @@ type SettingsMenuPanel =
   | 'pattern'
   | 'patternPick'
   | 'patternBlend'
+  | 'audience'
 type EngvoPanel =
   | 'summary'
   | 'kind'
@@ -316,6 +317,7 @@ const SETTINGS_PANEL_TITLE: Record<SettingsMenuPanel, string> = {
   pattern: 'Фон чата',
   patternPick: 'Паттерн',
   patternBlend: 'Режим смешивания',
+  audience: 'Взрослый / Ребёнок',
 }
 const ENGVO_PANEL_TITLE: Record<EngvoPanel, string> = {
   summary: 'Звонок',
@@ -3962,8 +3964,24 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 value={practiceTtsSpeedLabel}
                 onClick={() => setSettingsPanel('playbackSpeed')}
               />
+              <MenuSettingRow
+                label="Взрослый / Ребёнок"
+                value={audienceLabel}
+                onClick={() => setSettingsPanel('audience')}
+              />
             </div>
           </div>
+        )}
+
+        {menuView === 'settings' && settingsPanel === 'audience' && (
+          <PickerList
+            options={AUDIENCE_OPTIONS}
+            value={settings.audience}
+            onSelect={(id) => {
+              applyAudienceSelection(id as Settings['audience'])
+              setSettingsPanel('summary')
+            }}
+          />
         )}
 
         {menuView === 'settings' && settingsPanel === 'playbackSpeed' && (
