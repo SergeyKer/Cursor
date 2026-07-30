@@ -1,0 +1,2689 @@
+English Grammar Interesting Questions & Answers
+Levels A1 – B2 (800 items)
+Compiled without corrections or additions from previous responses.
+
+================================================================================
+A1 — 200 QUESTIONS AND ANSWERS
+================================================================================
+
+### To be (am / is / are) — формы и использование
+
+1. Почему мы говорим «I am busy», а не «I busy»?
+В английском почти всегда нужен глагол. Для состояний (busy, happy, tired) используем to be.
+Пример: I am busy. She is happy. They are tired.
+Без am/is/are предложение грамматически неправильное.
+
+2. Почему с «I» — am, с «he/she/it» — is, а с «you/we/they» — are?
+Глагол to be в настоящем времени имеет три формы:
+- I → am
+- he / she / it → is
+- you / we / they → are
+Это единственный глагол, который так сильно меняется.
+
+3. Почему «I am a student», а не «I is a student»?
+С местоимением I всегда только am. Is — для he/she/it.
+
+4. Почему «You are my friend», даже если «you» — один человек?
+В современном английском you всегда берёт форму are (и в единственном, и во множественном числе).
+
+5. Почему «She is from Italy», а не «She are from Italy»?
+She — третье лицо единственного числа → только is.
+
+6. Почему «We are tired», а не «We is tired»?
+We — множественное → are.
+
+7. Почему в разговоре часто говорят «I’m», «you’re», «he’s»?
+Это сокращения (I am → I’m, you are → you’re, he is → he’s). В речи они звучат естественнее.
+
+8. Почему «I am hungry», а не «I have hungry»?
+Возраст, голод, жажда, холод, страх в английском передаются через be, а не have.
+I am hungry. I am 20 years old. I am cold. She is afraid.
+
+9. Почему «It is cold today», а не «Is cold today»?
+В английском почти всегда нужно подлежащее. Если реального подлежащего нет, ставим it (погода, время, расстояние).
+
+10. Почему «It is 3 o’clock», а не «Is 3 o’clock»?
+Снова нужно подлежащее it для времени.
+
+11. Почему «How are you?», а не «How you are?»?
+В вопросах с be глагол ставится перед подлежащим: Are you…? Is she…?
+
+12. Почему на «How are you?» обычно отвечают «I’m fine, thanks»?
+Это самый стандартный вежливый короткий ответ. Можно также: I’m good, thanks. / Not bad. / I’m okay.
+
+13. Можно ли ответить просто «Yes» или «No» на вопрос с be?
+Можно, но звучит резко. Лучше короткий ответ: Yes, I am. / No, I’m not.
+
+14. Почему «Yes, I am», а не «Yes, I’m» в коротком ответе?
+В утвердительных коротких ответах сокращение обычно не используют: Yes, I am.
+В отрицательных — можно: No, I’m not.
+
+15. Почему «She’s a doctor», а не «She’s doctor»?
+Названия профессий в единственном числе обычно требуют артикля a/an.
+
+### Артикли a / an / the
+
+16. Когда говорить «a», а когда «an»?
+Смотрим на звук, а не на букву:
+- a перед согласным звуком: a book, a car, a university
+- an перед гласным звуком: an apple, an hour, an umbrella
+
+17. Почему «a university», хотя слово начинается на гласную букву?
+Потому что начинается со звука /j/ («ю») — согласный звук → a university.
+
+18. Почему «an hour», хотя есть буква h?
+Буква h не произносится, слово начинается с гласного звука → an hour.
+
+19. Почему «an honest man»?
+H молчит → гласный звук → an honest…
+
+20. Почему «a European country»?
+Начинается со звука /j/ → a European.
+
+21. Почему «I like pizza», но «I like the pizza»?
+Без артикля — пицца вообще. С the — конкретная пицца (эта, на столе).
+
+22. Почему «She is a teacher», а не «She is the teacher» (когда говорим о профессии вообще)?
+Когда называем профессию впервые или вообще — обычно a/an.
+
+23. Почему «the sun», «the moon»?
+Уникальные объекты — с определённым артиклем the.
+
+24. Почему «I go to school», но иногда «I go to the school»?
+Go to school — как ученик (учреждение). Go to the school — к конкретному зданию.
+
+25. Почему «in hospital» (BrE) и «in the hospital» (AmE) могут отличаться?
+В британском in hospital часто значит «как пациент». С the — конкретное здание.
+
+26. Почему мы не говорим «a water»?
+Water, milk, rice, sugar — неисчисляемые. Нельзя a water, но можно a glass of water.
+
+27. Почему «the internet» часто с the?
+Многие воспринимают его как уникальную систему → часто the internet.
+
+28. Почему «I have a car», а не «I have the car» (когда просто факт наличия)?
+Когда упоминаем что-то впервые или в общем смысле — a/an.
+
+### Present Simple
+
+29. Почему «She works», а не «She work»?
+В Present Simple у he/she/it глагол получает окончание -s/-es.
+
+30. Почему «He goes», «She watches», «It flies»?
+Особые правила написания:
+- -o, -s, -sh, -ch, -x, -z → -es (goes, watches)
+- согласная + y → -ies (flies)
+
+31. Почему «I work every day», но «She works every day»?
+Только третье лицо единственного числа добавляет -s.
+
+32. Почему в вопросах появляется do/does?
+Когда нет be или модального глагола, нужен помощник:
+Do you like coffee? Does she live here?
+
+33. Почему «Does she like…?», а не «Does she likes…?»?
+После does глагол всегда в базовой форме (без -s).
+
+34. Почему «I don’t like…», «He doesn’t like…»?
+Отрицание: don’t (I/you/we/they) и doesn’t (he/she/it) + базовая форма.
+
+35. Почему Present Simple для привычек и фактов?
+I get up at 7. Water boils at 100 degrees. She works in a bank.
+
+36. Почему «I like pizza», а не «I am like pizza»?
+Like, love, hate, want в значении постоянного чувства обычно в Present Simple, а не Continuous.
+
+37. Почему после like/love/hate часто -ing?
+I like reading. She loves swimming. He hates getting up early.
+Это герундий после глаголов чувства.
+
+### Present Continuous
+
+38. Почему «I am working now»?
+Present Continuous (am/is/are + -ing) — для действия прямо сейчас.
+
+39. Почему «She is reading», а не «She reading»?
+Нужен глагол be + -ing.
+
+40. Почему «They are playing football at the moment»?
+Слова now, at the moment, currently часто сигнализируют Continuous.
+
+41. Почему не говорим «I am knowing» или «I am wanting»?
+Глаголы состояния (know, like, want, love, understand) обычно не используют Continuous.
+
+42. В чём разница «I work every day» и «I am working now»?
+Simple — регулярность/факт. Continuous — действие в момент речи.
+
+### Вопросы и порядок слов
+
+43. Почему «Where is the station?», а не «Where the station is?»?
+Вопросительное слово + be + подлежащее.
+
+44. Почему «What is your name?»?
+Стандартный вопрос. Ответ: My name is… или I’m…
+
+45. Почему «How old are you?»?
+Возраст спрашивают только так. Ответ: I am 25 (years old).
+
+46. Почему «What time is it?»?
+Фиксированный вопрос о времени.
+
+47. Почему «How much is this?» для цены?
+How much — для цены и неисчисляемых. How many — для исчисляемых.
+
+48. Почему «Do you have a pen?» и «Have you got a pen?» оба возможны?
+Оба правильные. Have you got…? особенно часто в британском английском.
+
+49. Почему «Where do you live?»?
+Present Simple + do для обычных действий и фактов.
+
+50. Почему «What do you do?» значит «Кем ты работаешь?»?
+Это устойчивый вопрос о профессии.
+
+### Отрицания и краткие ответы
+
+51. Почему «I don’t know», а не «I no know»?
+Отрицание через don’t/doesn’t + базовая форма.
+
+52. Почему «I’m not tired», а не «I amn’t tired»?
+Отрицание be: I’m not / he isn’t / they aren’t. Формы amn’t почти нет в стандартном английском.
+
+53. Почему короткие ответы важны?
+Yes, I do. / No, I don’t. / Yes, she is. / No, they aren’t.
+Так звучит естественно.
+
+54. Почему «Yes, I can» / «No, I can’t»?
+После can короткий ответ повторяет модальный глагол.
+
+### Местоимения и притяжательные
+
+55. Почему «I» и «me» разные?
+I — подлежащее (I like pizza).
+Me — дополнение (She likes me).
+
+56. Почему «He gave the book to her», а не «to she»?
+После предлога — объектная форма (me, him, her, us, them).
+
+57. Почему «my book», «your car», «his sister»?
+My, your, his, her, its, our, their — притяжательные прилагательные. Стоят перед существительным.
+
+58. Почему «This is mine», а не «This is my»?
+Mine, yours, his, hers, ours, theirs — притяжательные местоимения (без существительного).
+
+59. Почему «Tom’s book»?
+’s показывает принадлежность: Tom’s car, my friend’s house.
+
+60. Почему «the children’s toys»?
+Если множественное число неправильное и не заканчивается на -s, ’s всё равно добавляем.
+
+61. Почему «its» без апострофа, а «it’s» с апострофом?
+Its — притяжательное (The dog wagged its tail).
+It’s = it is или it has.
+
+### There is / There are
+
+62. Почему «There is a book on the table»?
+There is/are используем, чтобы сказать, что что-то существует или находится где-то.
+
+63. Почему «There are two cats», а не «There is two cats»?
+Множественное число → there are.
+
+64. Почему «There’s a pen» (сокращение) даже иногда с множественным в речи?
+В неформальной речи there’s часто используют широко, но грамматически правильно различать.
+
+65. Почему не говорим «It is a book on the table» в значении «есть книга»?
+It is — про конкретный предмет. There is — про наличие.
+
+### Предлоги
+
+66. Почему «in London», «in Russia»?
+Города и страны — обычно in.
+
+67. Почему «at the station», «at home», «at work»?
+Точечные места и устойчивые выражения — часто at.
+
+68. Почему «on the table», «on the wall»?
+Поверхность — on.
+
+69. Почему «on Monday», но «in July», «at 5 o’clock»?
+- дни → on
+- месяцы/годы → in
+- точное время → at
+
+70. Почему «I go to school», но «I go home» (без to)?
+Home, here, there обычно без to.
+
+71. Почему «in the morning», «at night»?
+Устойчивые сочетания: in the morning/afternoon/evening, но at night.
+
+72. Почему «by car», но «on the bus» / «on the train»?
+By + вид транспорта в общем. On/in — когда говорим о конкретном транспорте.
+
+73. Почему «I’m from Spain»?
+Происхождение — предлог from.
+
+74. Почему «a present for you»?
+For — для кого / с какой целью.
+
+75. Почему «with my friends»?
+With — вместе с кем-то или с помощью чего-то.
+
+### Множественное число
+
+76. Почему большинство слов просто + -s?
+Book → books, dog → dogs. Это регулярное множественное число.
+
+77. Почему «child → children», «man → men», «woman → women»?
+Это неправильные формы. Их нужно запомнить.
+
+78. Почему «tooth → teeth», «foot → feet»?
+Тоже неправильные.
+
+79. Почему «mouse → mice»?
+Ещё один частый неправильный plural.
+
+80. Почему «a pair of jeans / trousers / scissors»?
+Некоторые слова обозначают парные предметы и часто используются с a pair of.
+
+81. Почему «people are», а не «people is»?
+People — множественное существительное.
+
+82. Почему «the news is…»?
+News — неисчисляемое (выглядит как множественное, но грамматически единственное).
+
+83. Почему «information is», а не «informations»?
+Information, advice, furniture — неисчисляемые.
+
+### Can / Can’t
+
+84. Почему «I can swim», а не «I can to swim»?
+После can — голый инфинитив (без to).
+
+85. Почему «Can you help me?» звучит как вежливая просьба?
+Can используется и для возможности, и для просьб.
+
+86. Почему «Could you help me?» ещё вежливее?
+Could делает просьбу мягче.
+
+87. Почему «I can’t come»?
+Can’t = cannot — отрицание возможности или разрешения.
+
+88. Почему короткий ответ «Yes, I can» / «No, I can’t»?
+Повторяем модальный глагол.
+
+### Императив (команды)
+
+89. Почему «Go!», «Sit down!», «Listen!» — уже полные предложения?
+Подлежащее you подразумевается и обычно опускается.
+
+90. Почему «Don’t worry!», «Don’t touch!»?
+Отрицательный императив: Don’t + базовая форма.
+
+91. Почему «Let’s go!»?
+Let’s = Let us — предложение сделать что-то вместе.
+
+92. Почему «Please sit down» звучит мягче?
+Please делает команду вежливой просьбой.
+
+### Have / Have got
+
+93. Почему «I have a car» и «I’ve got a car»?
+Оба означают обладание. Have got очень распространён в британском английском.
+
+94. Почему «Do you have…?» / «Have you got…?»?
+Два способа задать вопрос о наличии.
+
+95. Почему «She has got two brothers»?
+Has got — для he/she/it.
+
+96. Почему «I have breakfast at 8», но «I have a car»?
+Have может значить и «есть/принимать» (have breakfast), и «иметь».
+
+### Указательные и количественные слова
+
+97. Почему «this» и «that»?
+This — близко. That — далеко.
+
+98. Почему «these» и «those»?
+Множественное число от this/that.
+
+99. Почему «some» в утверждениях, «any» в вопросах и отрицаниях?
+Общее правило: I have some friends. Do you have any questions? I don’t have any money.
+
+100. Почему «How much water?» и «How many books?»?
+Much — неисчисляемые. Many — исчисляемые.
+
+101. Почему «a little milk» и «a few apples»?
+A little — немного (неисчисляемое). A few — несколько (исчисляемое). Оба с положительным оттенком.
+
+102. Почему «very» ставят перед прилагательным?
+Very good, very tired, very interesting — усиление.
+
+### Прилагательные и описание
+
+103. Почему прилагательное обычно перед существительным?
+A big house, a red car, a nice person (не a house big).
+
+104. Почему «She is tall», а не «She tall»?
+После be прилагательное идёт без дополнительного глагола, но be нужен.
+
+105. Почему «I am bored» и «The film is boring»?
+-ed — как себя чувствует человек. -ing — какой предмет/ситуация.
+
+106. Почему «good → better → the best»?
+Некоторые прилагательные имеют неправильные степени сравнения.
+
+107. Почему «big → bigger → the biggest»?
+Короткие прилагательные обычно добавляют -er / -est.
+
+### Наречия частоты и время
+
+108. Почему «I always get up early»?
+Наречия частоты (always, usually, often, sometimes, never) обычно стоят перед основным глаголом, но после be.
+
+109. Почему «She is always late»?
+С be наречие частоты идёт после глагола.
+
+110. Почему «every day», «once a week», «at the weekend»?
+Выражения частоты и времени важны для Present Simple.
+
+### Базовые союзы и связь идей
+
+111. Почему «and», «but», «or», «so», «because»?
+Самые частые союзы уровня A1 для соединения простых идей.
+
+112. Почему «I like tea and coffee»?
+And соединяет однородные члены.
+
+113. Почему «I like tea, but I don’t like coffee»?
+But — противопоставление.
+
+114. Почему «I’m tired because I work a lot»?
+Because — причина.
+
+115. Почему «I’m tired, so I want to sleep»?
+So — результат.
+
+### Вежливость и устойчивые фразы
+
+116. Почему «Nice to meet you»?
+Стандартная фраза при знакомстве. Ответ: Nice to meet you too.
+
+117. Почему «Excuse me» и «Sorry» — разные?
+Excuse me — привлечь внимание или пройти. Sorry — извиниться.
+
+118. Почему «Yes, please» и «No, thank you»?
+Самые вежливые ответы, когда что-то предлагают.
+
+119. Почему «Here you are» / «Here you go»?
+Говорят, когда передают вещь.
+
+120. Почему «Have a nice day!»?
+Распространённое пожелание.
+
+121. Почему «See you tomorrow!» / «See you later!»?
+Неформальное прощание.
+
+122. Почему «Good morning / Good afternoon / Good evening»?
+Приветствия по времени суток. Good night — скорее прощание.
+
+123. Почему «How do you spell that?»?
+Стандартный вопрос о написании.
+
+124. Почему «Can you repeat that, please?»?
+Вежливая просьба повторить.
+
+125. Почему «I don’t understand» — нормальная фраза?
+Да, и очень полезная на уровне A1.
+
+### Время, числа, даты
+
+126. Почему «It’s half past two» / «It’s half past 2»?
+Один из способов сказать 2:30.
+
+127. Почему «It’s a quarter past three»?
+15 минут после трёх.
+
+128. Почему «It’s a quarter to four»?
+15 минут до четырёх.
+
+129. Почему «on Monday the 5th of July»?
+Даты: день недели с on, дата часто с порядковым числительным.
+
+130. Почему «in 2025», «in July»?
+Годы и месяцы — in.
+
+### Типичные ошибки и «почему нельзя»
+
+131. Почему нельзя «I have 20 years»?
+Только I am 20 years old или I am 20.
+
+132. Почему нельзя «I very like pizza»?
+Правильно: I like pizza very much или I really like pizza.
+
+133. Почему нельзя «My brother he is a doctor»?
+Подлежащее называется один раз: My brother is a doctor.
+
+134. Почему нельзя «She go to school»?
+Нужно She goes.
+
+135. Почему нельзя «Do you can swim?»?
+С модальными can/must/should не ставим do. Просто: Can you swim?
+
+136. Почему нельзя «I am agree»?
+Правильно: I agree (без am).
+
+137. Почему нельзя «I am live in London»?
+Либо I live, либо I am living (сейчас). Не оба сразу без нужды.
+
+138. Почему нельзя «He don’t like»?
+Правильно: He doesn’t like.
+
+139. Почему нельзя «What’s mean…?»?
+Правильно: What does … mean?
+
+140. Почему нельзя «I no have money»?
+Правильно: I don’t have money или I haven’t got money.
+
+### Ещё полезные микро-вопросы A1
+
+141. Почему «What is this?» vs «What is that?»?
+Близко / далеко.
+
+142. Почему «Who is this?» по телефону или при представлении?
+Устойчивое использование.
+
+143. Почему «What’s your job?» / «What do you do?»?
+Оба вопроса о работе.
+
+144. Почему «Where are you from?»?
+Классический вопрос о происхождении.
+
+145. Почему «Do you speak English?»?
+Прямой и полезный вопрос.
+
+146. Почему «I speak a little English»?
+Честный и частый ответ начинающего.
+
+147. Почему «How are you?» можно заменить на «How’s it going?»?
+Более неформальный вариант (уже на грани A1–A2).
+
+148. Почему «I’m fine, and you?»?
+Вежливо вернуть вопрос.
+
+149. Почему «Thank you» и «Thanks»?
+Thanks — короче и неформальнее.
+
+150. Почему «You’re welcome» / «No problem» в ответ на «Thank you»?
+Стандартные ответы.
+
+151. Почему «I’m sorry I’m late»?
+Полная полезная фраза.
+
+152. Почему «What’s the weather like?»?
+Стандартный вопрос о погоде.
+
+153. Почему «It’s sunny / rainy / cloudy / windy»?
+Описание погоды через it is + прилагательное.
+
+154. Почему «I’d like a coffee» вежливее, чем «I want a coffee»?
+Would like звучит мягче.
+
+155. Почему «Can I have…?» в кафе?
+Очень частая вежливая просьба.
+
+156. Почему «How much does it cost?»?
+Ещё один способ спросить цену.
+
+157. Почему «Where is the toilet / bathroom?»?
+Практический вопрос. В BrE чаще toilet, в AmE — bathroom.
+
+158. Почему «Turn left / Turn right / Go straight on»?
+Базовые направления.
+
+159. Почему «It’s next to / opposite / between / near»?
+Предлоги и выражения места.
+
+160. Почему «I live in a flat / apartment»?
+Flat — BrE, apartment — AmE.
+
+161. Почему «I have breakfast / lunch / dinner»?
+Устойчивые выражения с have.
+
+162. Почему «at the weekend» (BrE) и «on the weekend» (AmE)?
+Разница вариантов английского.
+
+163. Почему «in the city centre» / «downtown»?
+Разные варианты выражения.
+
+164. Почему «My favourite colour is blue»?
+Favourite (BrE) / favorite (AmE).
+
+165. Почему «How do you go to work? — By bus / By train / On foot»?
+Способ передвижения.
+
+166. Почему «On foot», а не «by foot»?
+Устойчивое выражение.
+
+167. Почему «I get up at 7 and go to bed at 11»?
+Типичные глаголы распорядка дня.
+
+168. Почему «She is wearing a red dress»?
+Wear в Continuous, когда говорим о том, что на человеке сейчас.
+
+169. Почему «What does she look like?»?
+Вопрос о внешности.
+
+170. Почему «What is she like?» — другой вопрос?
+О характере (чуть выше чистого A1, но часто встречается рядом).
+
+171. Почему «I have two sisters and one brother»?
+Семья — один из первых топиков.
+
+172. Почему «This is my mother / father / friend»?
+Представление людей.
+
+173. Почему «Nice to meet you» говорят при первом знакомстве?
+Да, именно тогда.
+
+174. Почему «How do you do?» почти не используют в обычной речи сейчас?
+Устаревшая/очень формальная форма. Обычно Nice to meet you.
+
+175. Почему «I’m lost» — полезная фраза?
+Да, когда заблудился.
+
+176. Почему «Can you help me, please?»?
+Базовая просьба о помощи.
+
+177. Почему «I don’t know the way»?
+Ещё одна практическая фраза.
+
+178. Почему «It’s over there»?
+Указание места.
+
+179. Почему «Come in!» / «Sit down, please»?
+Простые приглашения.
+
+180. Почему «Make yourself at home»?
+Более тёплое приглашение (можно знать уже на A1).
+
+181. Почему «Would you like some tea?»?
+Вежливое предложение.
+
+182. Почему ответ «Yes, please» / «No, thanks»?
+Самые естественные.
+
+183. Почему «Help yourself»?
+«Угощайся».
+
+184. Почему «Cheers!» в разных ситуациях?
+Может значить «за здоровье», «спасибо» (BrE) или просто дружеское восклицание.
+
+185. Почему «Bless you!» когда чихают?
+Традиционная реакция.
+
+186. Почему «Good luck!»?
+Пожелание удачи.
+
+187. Почему «Congratulations!»?
+Поздравление.
+
+188. Почему «Happy birthday!»?
+Поздравление с днём рождения.
+
+189. Почему «Merry Christmas!» / «Happy New Year!»?
+Праздничные поздравления.
+
+190. Почему «See you!» можно сказать почти в любой неформальной ситуации?
+Да, очень универсальное прощание.
+
+191. Почему «Take care!»?
+Ещё одно тёплое прощание.
+
+192. Почему «Keep in touch!»?
+«Будь на связи».
+
+193. Почему «I have a question»?
+Простой и полезный способ начать.
+
+194. Почему «Sorry, can you speak slowly, please?»?
+Очень важная фраза для начинающих.
+
+195. Почему «Can you write it down, please?»?
+Когда нужно увидеть слово.
+
+196. Почему «What does this word mean?»?
+Классический вопрос на занятии или в разговоре.
+
+197. Почему «How do you say … in English?»?
+Ещё один полезный мета-вопрос.
+
+198. Почему «I’m learning English»?
+Простое и честное описание себя.
+
+199. Почему «English is difficult, but interesting»?
+Типичное предложение уровня A1 с but.
+
+200. Почему на уровне A1 важнее много повторять простые правильные конструкции, чем пытаться строить сложные предложения?
+Потому что цель A1 — уверенно и правильно использовать базовые структуры в реальных простых ситуациях. Когда база крепкая, следующий уровень даётся гораздо легче.
+
+================================================================================
+A2 — 200 QUESTIONS AND ANSWERS
+================================================================================
+
+### Past Simple
+
+1. Почему «I went», а не «I goed»?
+Многие глаголы неправильные. Go – went – gone. Их нужно запомнить.
+
+2. Почему «Did you go?», а не «Went you?»?
+В Past Simple вопросы и отрицания строятся с did + базовая форма глагола.
+Did you go? I didn’t go.
+
+3. Почему после did глагол без -ed?
+Did уже показывает прошедшее время, поэтому основной глагол остаётся в первой форме: Did she like it? (не liked).
+
+4. Почему «I worked yesterday», но «I went yesterday»?
+Правильные глаголы: + -ed. Неправильные — своя форма.
+
+5. Почему «was» и «were»?
+Past Simple от be: I/he/she/it was, you/we/they were.
+
+6. Почему «I was tired», а не «I were tired»?
+С I/he/she/it — только was.
+
+7. Почему «Were you at home?»?
+Вопрос с be в прошлом: was/were ставится перед подлежащим.
+
+8. Почему Past Simple для законченных действий в прошлом?
+Когда есть конкретное время (yesterday, last week, in 2019) — обычно Past Simple.
+
+9. Почему «I saw him yesterday», а не «I have seen him yesterday»?
+С точным временем в прошлом Present Perfect не используют.
+
+10. Почему «ago» только с Past Simple?
+Two days ago, a year ago — маркер законченного прошлого.
+
+### Past Continuous
+
+11. Почему «I was working at 6 o’clock»?
+Past Continuous (was/were + -ing) — действие в процессе в определённый момент прошлого.
+
+12. Почему «While I was cooking, the phone rang»?
+Continuous — длинное действие, Past Simple — короткое, которое его прервало.
+
+13. Почему «It was raining when I left»?
+Фон / ситуация в прошлом часто в Continuous.
+
+14. Почему не говорим «I was knowing»?
+Глаголы состояния (know, like, want) редко ставят в Continuous.
+
+### Present Perfect (начало A2)
+
+15. Почему «I have been to Paris»?
+Present Perfect — опыт за жизнь. Время не важно.
+
+16. Почему «I went to Paris last year»?
+Если есть точное время — Past Simple.
+
+17. Почему «Have you ever…?»?
+Классический вопрос об опыте: Have you ever eaten sushi?
+
+18. Почему «I’ve just finished»?
+Just — только что. Часто с Present Perfect.
+
+19. Почему «I’ve already done it»?
+Already — уже (раньше, чем ожидали).
+
+20. Почему «I haven’t done it yet»?
+Yet — ещё нет (в вопросах и отрицаниях).
+
+21. Почему «I’ve lived here for 5 years»?
+Действие началось в прошлом и продолжается до сейчас → Present Perfect + for/since.
+
+22. Почему «for» и «since»?
+For — период (for three years). Since — точка начала (since 2020).
+
+23. Почему «How long have you lived here?»?
+Вопрос о длительности до настоящего момента.
+
+24. Почему «I’ve lost my keys» (и сейчас не могу открыть дверь)?
+Present Perfect часто показывает результат в настоящем.
+
+25. Почему британцы чаще говорят «I’ve just had lunch», а американцы могут сказать «I just had lunch»?
+В AmE Past Simple иногда заменяет Present Perfect с just/already/yet.
+
+### Future: will / going to / Present Continuous
+
+26. Почему «I’m going to study tonight»?
+Going to — план или намерение, которые уже есть.
+
+27. Почему «I’ll help you!»?
+Will — спонтанное решение в момент речи.
+
+28. Почему «It will rain tomorrow» и «It’s going to rain»?
+Оба возможны. Going to — когда есть признаки сейчас. Will — более общий прогноз.
+
+29. Почему «I’m meeting John tomorrow»?
+Present Continuous для фиксированных договорённостей в будущем.
+
+30. Почему «I’ll be 30 next year»?
+Для фактов о будущем часто will.
+
+31. Почему «Shall we go?»?
+Shall в вопросах с I/we — предложение что-то сделать (особенно BrE).
+
+### Comparatives & Superlatives
+
+32. Почему «bigger than», но «more interesting than»?
+Короткие прилагательные — -er. Длинные — more.
+
+33. Почему «the biggest», «the most interesting»?
+Превосходная степень обычно с the.
+
+34. Почему «better», «worse», «further»?
+Неправильные степени: good – better – the best, bad – worse – the worst.
+
+35. Почему «as tall as»?
+Равенство: She is as tall as her brother.
+
+36. Почему «not as… as»?
+Неравенство: This book is not as interesting as that one.
+
+37. Почему «much better», «a bit colder»?
+Перед сравнительной степенью можно ставить much, a bit, a little, far.
+
+### Countable / Uncountable & Quantifiers
+
+38. Почему «much water», но «many books»?
+Much — неисчисляемые. Many — исчисляемые.
+
+39. Почему в утверждениях чаще «a lot of»?
+Much/many в утверждениях звучат формально. Обычно: a lot of water, a lot of friends.
+
+40. Почему «a little milk» и «a few apples»?
+A little — немного (неисчисляемое). A few — несколько (исчисляемое). Оба с положительным оттенком.
+
+41. Почему «little» и «few» без «a» звучат негативно?
+Little time = почти нет времени. Few friends = мало друзей.
+
+42. Почему «some» в предложениях, «any» в вопросах и отрицаниях?
+Общее правило (есть исключения в предложениях и просьбах).
+
+43. Почему «How much is it?» и «How many are there?»?
+Much — неисчисляемое/цена. Many — исчисляемое.
+
+44. Почему «information», «advice», «furniture» без -s и с единственным глаголом?
+Это неисчисляемые существительные.
+
+45. Почему «a piece of advice», «a bit of information»?
+Чтобы «посчитать» неисчисляемое, нужны слова меры.
+
+### Modals: have to, must, should, might
+
+46. Почему «I have to get up early»?
+Have to — необходимость, часто внешняя (правила, обстоятельства).
+
+47. Почему «I must go»?
+Must — сильная необходимость или личное чувство долга.
+
+48. Почему «You mustn’t smoke here»?
+Mustn’t — запрет.
+
+49. Почему «You don’t have to come»?
+Don’t have to — нет необходимости (можно не делать).
+
+50. Почему «You should rest»?
+Should — совет.
+
+51. Почему «You shouldn’t eat so much sugar»?
+Отрицательный совет.
+
+52. Почему «It might rain»?
+Might — возможность (менее уверенно, чем may).
+
+53. Почему «I can swim» уже знали на A1, а на A2 добавляем «could»?
+Could — прошедшее умение или более вежливая просьба.
+
+### Gerunds & Infinitives (базовый уровень)
+
+54. Почему «I like reading»?
+После like, love, hate, enjoy часто герундий (-ing).
+
+55. Почему «I want to go»?
+После want, need, decide, plan, hope — to + инфинитив.
+
+56. Почему «I would like to drink coffee»?
+Would like всегда + to-infinitive.
+
+57. Почему «I’m good at swimming»?
+После предлога почти всегда -ing.
+
+58. Почему «She stopped smoking» ≠ «She stopped to smoke»?
+Stop + -ing — прекратить действие. Stop + to-infinitive — остановиться, чтобы сделать другое.
+
+59. Почему «I remember locking the door» vs «I remembered to lock the door»?
+Герундий — воспоминание о прошлом. Инфинитив — не забыть сделать.
+
+### Conditionals (Zero & First)
+
+60. Почему «If you heat water, it boils»?
+Zero Conditional — общие истины и законы природы (Present + Present).
+
+61. Почему «If it rains, I’ll stay at home»?
+First Conditional — реальное будущее (If + Present, will + инфинитив).
+
+62. Почему не «If it will rain»?
+В if-части Future обычно не ставят (кроме особых случаев).
+
+63. Почему «If I see him, I’ll tell him»?
+Реальное условие в будущем.
+
+### Used to
+
+64. Почему «I used to play football»?
+Used to + инфинитив — привычка или состояние в прошлом, которого сейчас нет.
+
+65. Почему «I didn’t use to like vegetables»?
+Отрицание: didn’t use to (без -d).
+
+66. Почему «Did you use to live here?»?
+Вопрос: Did … use to…?
+
+67. Почему «I’m used to getting up early» — другое значение?
+Be used to + -ing — привычка сейчас. Не путай с used to.
+
+### Too / Enough
+
+68. Почему «too hot»?
+Too = слишком (больше, чем нужно). It’s too hot to go outside.
+
+69. Почему «enough money» / «old enough»?
+Enough стоит после прилагательного и перед существительным.
+She’s old enough to drive. We have enough time.
+
+70. Почему «not enough»?
+Недостаточно: There isn’t enough milk.
+
+### Relative clauses (начало)
+
+71. Почему «The man who lives next door is a doctor»?
+Who — для людей (подлежащее в придаточном).
+
+72. Почему «The book which/that I read was interesting»?
+Which/that — для вещей.
+
+73. Почему иногда можно опустить who/which/that?
+Когда они являются дополнением: The book (that) I read…
+
+74. Почему «where» в relative clauses?
+The place where I was born…
+
+### Connectors & Linking
+
+75. Почему «although» и «but»?
+Although it was raining, we went out. (хотя)
+It was raining, but we went out.
+
+76. Почему «however»?
+Более формальный контраст: It was raining. However, we went out.
+
+77. Почему «because» и «so»?
+Because — причина. So — результат.
+
+78. Почему «so that»?
+Цель: I study so that I can pass the exam.
+
+79. Почему «in order to»?
+Тоже цель (чуть формальнее): I study in order to pass.
+
+### Something / Anything / Nothing / Everything
+
+80. Почему «someone / anyone / no one»?
+Те же правила, что у some/any/no:
+Someone is at the door. Is anyone there? No one knows.
+
+81. Почему «I don’t know anything» = «I know nothing»?
+Два способа сказать одно и то же (второй сильнее).
+
+82. Почему «everything is ready»?
+Everything, everybody, everywhere — обычно с глаголом в единственном числе.
+
+### Passive (базовый)
+
+83. Почему «The book was written by Orwell»?
+Passive — когда важнее действие или объект, а не кто сделал.
+
+84. Почему «English is spoken here»?
+Present Passive для общих фактов.
+
+85. Почему «was/were + V3»?
+Past Passive.
+
+86. Почему агента (by…) часто не указывают?
+Потому что он неизвестен, очевиден или не важен.
+
+### So / Neither & Agreement
+
+87. Почему «So am I»?
+Согласие с утверждением: I’m tired. — So am I.
+
+88. Почему «Neither do I» / «Nor do I»?
+Согласие с отрицанием: I don’t like coffee. — Neither do I.
+
+89. Почему вспомогательный глагол повторяется?
+So/Neither + вспомогательный + подлежащее.
+
+### Adverbs & Word Order
+
+90. Почему наречия частоты стоят перед основным глаголом, но после be?
+I always eat breakfast. She is always late.
+
+91. Почему «very», «really», «quite»?
+Усилители перед прилагательными и наречиями.
+
+92. Почему «He speaks English well», а не «He speaks English good»?
+Good — прилагательное. Well — наречие.
+
+93. Почему «fast» может быть и прилагательным, и наречием?
+He is a fast runner. He runs fast.
+
+### Prepositions (A2 уровень)
+
+94. Почему «interested in», «good at», «afraid of»?
+Многие прилагательные требуют фиксированного предлога.
+
+95. Почему «depend on», «listen to», «wait for»?
+Глаголы тоже часто имеют фиксированные предлоги.
+
+96. Почему «by car», «on foot», «by myself»?
+Устойчивые выражения.
+
+97. Почему «at the end» vs «in the end»?
+At the end of the film — в конце чего-то. In the end — в конце концов.
+
+98. Почему «on time» и «in time»?
+On time — вовремя (по расписанию). In time — успеть.
+
+### Questions & Word Order (углубление)
+
+99. Почему «Who did you see?» vs «Who saw you?»?
+Object question (did) vs Subject question (без did).
+
+100. Почему «What are you looking for?» (предлог в конце)?
+В разговорном английском предлог часто остаётся в конце.
+
+101. Почему «How long does it take…?»?
+Стандартный вопрос о продолжительности: How long does it take to get there?
+
+102. Почему «What is he like?» vs «What does he look like?»?
+Характер vs внешность.
+
+### Common A2 Mistakes & Nuances
+
+103. Почему нельзя «I have seen him yesterday»?
+С конкретным временем прошлого — только Past Simple.
+
+104. Почему нельзя «I must to go»?
+После must, can, should — голый инфинитив (без to).
+
+105. Почему нельзя «She suggested me to go»?
+После suggest обычно suggest + -ing или suggest that….
+
+106. Почему «I look forward to meeting you» (to + -ing)?
+Здесь to — предлог, поэтому после него герундий.
+
+107. Почему «Despite the rain» / «In spite of the rain»?
+После них — существительное или -ing, а не полное предложение (для предложения — although).
+
+108. Почему «I’m thinking about it» можно, а «I think» обычно Simple?
+Think в значении «полагать» — Simple. В значении «обдумывать» — можно Continuous.
+
+109. Почему «The news is good», а не «are»?
+News — неисчисляемое.
+
+110. Почему «People are…», «The police are…»?
+Эти слова множественные по смыслу.
+
+111. Почему «a pair of jeans is…» или «are…»?
+Часто согласование идёт по смыслу, оба варианта встречаются.
+
+112. Почему «less money», но «fewer books»?
+Традиционно fewer — для исчисляемых, less — для неисчисляемых (хотя в речи less часто используют везде).
+
+### Everyday & Functional Language (A2)
+
+113. Почему «What do you do?» = вопрос о работе?
+Устойчивое значение.
+
+114. Почему «How’s it going?»?
+Неформальный вариант «How are you?».
+
+115. Почему «I’m afraid I can’t…»?
+Вежливый отказ.
+
+116. Почему «Would you mind + -ing…?»?
+Очень вежливая просьба.
+
+117. Почему «Do you mind if I…?»?
+Просьба о разрешении.
+
+118. Почему «It depends» / «It depends on…»?
+Частый ответ, когда нет точного ответа.
+
+119. Почему «Actually…»?
+Часто значит «на самом деле» (иногда с небольшим контрастом).
+
+120. Почему «By the way…»?
+Смена темы.
+
+121. Почему «Anyway…»?
+Возврат к теме или завершение.
+
+122. Почему «Let me see / Let me think»?
+Разговорные заполнители.
+
+123. Почему «You know…» так часто говорят?
+Заполнитель паузы в речи.
+
+124. Почему «I mean…»?
+Уточнение или исправление себя.
+
+125. Почему «The thing is…»?
+Выделение главной мысли.
+
+### Time Expressions & Adverbs
+
+126. Почему «at the moment», «currently», «nowadays»?
+Маркеры настоящего (Continuous или Simple).
+
+127. Почему «lately / recently» часто с Present Perfect?
+I’ve been busy lately.
+
+128. Почему «still» и «yet»?
+Still — всё ещё (утверждения). Yet — ещё (вопросы/отрицания).
+
+129. Почему «already»?
+Уже (часто раньше ожидаемого).
+
+130. Почему «no longer» / «not any more»?
+Больше не: I no longer live there. I don’t live there any more.
+
+### Adjectives & Descriptions (A2)
+
+131. Почему порядок прилагательных: opinion – size – age – colour…?
+A nice small old red car (носители чувствуют правильный порядок).
+
+132. Почему «bored / boring», «interested / interesting»?
+-ed — чувство человека. -ing — характеристика вещи/ситуации.
+
+133. Почему «fun» и «funny» разные?
+Fun — весёлый (о занятии). Funny — смешной.
+
+134. Почему «She’s good at maths»?
+Good at + noun/-ing.
+
+135. Почему «similar to», «different from»?
+Фиксированные предлоги.
+
+### Future Time Clauses
+
+136. Почему «When I arrive, I’ll call you» (не will в when-части)?
+В придаточных времени (when, as soon as, until, before, after) после if-логического правила Future обычно не ставят.
+
+137. Почему «As soon as I get home…»?
+As soon as — как только.
+
+138. Почему «Until»?
+I’ll wait until you come.
+
+### Basic Reported Speech (A2 introduction)
+
+139. Почему «She said she was tired»?
+Времена часто сдвигаются назад (Present → Past).
+
+140. Почему «He told me to wait»?
+Tell + object + to-infinitive.
+
+141. Почему «She asked me where I lived»?
+В косвенных вопросах порядок слов как в утверждении.
+
+### Phrasal Verbs (самые частые A2)
+
+142. Почему «get up», «wake up», «go out», «come back»?
+Очень употребительные фразовые глаголы повседневной жизни.
+
+143. Почему «look for», «look after», «look at»?
+Один глагол look + разные предлоги = разные значения.
+
+144. Почему «turn on / turn off»?
+Включать / выключать.
+
+145. Почему «pick up», «put down», «take off», «put on»?
+Базовые действия с одеждой и предметами.
+
+146. Почему «find out», «give up», «go on»?
+Частые абстрактные значения.
+
+### Articles (углубление A2)
+
+147. Почему «go to prison» vs «go to the prison»?
+Без артикля — как заключённый. С the — здание.
+
+148. Почему «in hospital» / «at university» / «in bed»?
+Многие институции и состояния имеют устойчивое употребление без артикля.
+
+149. Почему «the same», «the first», «the last», «the only»?
+После этих слов обычно the.
+
+150. Почему «play the piano», но «play football»?
+Музыкальные инструменты часто с the. Виды спорта — без.
+
+### More Useful Micro-Questions
+
+151. Почему «I’ve been here since Monday»?
+Since + точка начала + Present Perfect.
+
+152. Почему «I’ve been here for three days»?
+For + период.
+
+153. Почему «She’s gone to the shop» vs «She’s been to the shop»?
+Gone — ушла и ещё там / в процессе. Been — ходила и вернулась.
+
+154. Почему «I have to» vs «I must» в прошлом?
+Прошедшая необходимость обычно had to (у must нет прошлой формы в этом значении).
+
+155. Почему «You should have told me» (уже A2–B1 граница)?
+Сожаление о прошлом: should have + V3.
+
+156. Почему «If I were you…»?
+Устойчивое выражение совета (даже если грамматически Second Conditional).
+
+157. Почему «I’d rather stay home»?
+Предпочтение: would rather + голый инфинитив.
+
+158. Почему «I’d better go»?
+Had better — сильный совет / «лучше бы».
+
+159. Почему «It’s time to go» / «It’s time we went»?
+Второй вариант (с Past) звучит настойчивее.
+
+160. Почему «What if…?»?
+Предложение или гипотеза: What if we take a taxi?
+
+### Everyday Situations & Functional
+
+161. Почему «Could you tell me how to get to…?»?
+Вежливый способ спросить дорогу.
+
+162. Почему «I’m looking for…»?
+Когда ищешь место или вещь.
+
+163. Почему «Is this seat free?»?
+Практичный вопрос в транспорте/кафе.
+
+164. Почему «Help yourself»?
+«Угощайся».
+
+165. Почему «Make yourself at home»?
+«Будь как дома».
+
+166. Почему «Let me know»?
+«Дай знать».
+
+167. Почему «Keep in touch»?
+«На связи».
+
+168. Почему «Take care»?
+Тёплое прощание.
+
+169. Почему «All the best»?
+Пожелание в письмах и при прощании.
+
+170. Почему «Congratulations on…!»?
+Поздравление с чем-то конкретным.
+
+### Grammar Nuances & Avoiding Mistakes
+
+171. Почему «She suggested going» / «She suggested that we go»?
+Два основных способа после suggest.
+
+172. Почему «I enjoy reading», но не «I enjoy to read»?
+Enjoy + только -ing.
+
+173. Почему «I decided to go», но не «I decided going»?
+Decide + to-infinitive.
+
+174. Почему «I’m thinking of going»?
+Think of/about + -ing.
+
+175. Почему «I’m used to the noise» / «I’m used to living here»?
+Be used to + существительное или -ing.
+
+176. Почему «There is too much traffic»?
+Traffic — неисчисляемое.
+
+177. Почему «The furniture is new»?
+Furniture — неисчисляемое.
+
+178. Почему «My hair is long» (не hairs в обычном смысле)?
+Hair обычно неисчисляемое.
+
+179. Почему «Scissors are…», «Trousers are…»?
+Парные предметы часто во множественном числе.
+
+180. Почему «A pair of scissors is…»?
+Когда есть a pair of — согласование может быть единственным.
+
+### Final Block — Mixed Useful Questions
+
+181. Почему «The longer you wait, the worse it gets»?
+Конструкция the + comparative, the + comparative.
+
+182. Почему «She’s getting better and better»?
+Постепенное изменение: comparative and comparative.
+
+183. Почему «I’m getting used to it»?
+Процесс привыкания.
+
+184. Почему «It takes me 20 minutes to get to work»?
+Стандартная конструкция о затратах времени.
+
+185. Почему «How long does it take you to…?»?
+Вопрос к этой конструкции.
+
+186. Почему «I’m having a shower» (не I have в этот момент)?
+Для действий в процессе часто Continuous, даже с have.
+
+187. Почему «She’s having a baby»?
+Одно из устойчивых значений have в Continuous.
+
+188. Почему «I see what you mean» vs «I’m seeing the doctor»?
+See в значении «понимать» — Simple. В значении «встречаться» — можно Continuous.
+
+189. Почему «You look tired» (не are looking обычно)?
+Look в значении «выглядеть» чаще Simple.
+
+190. Почему «She seems nice»?
+Seem + прилагательное — без Continuous в этом значении.
+
+191. Почему «I feel good» / «I feel well»?
+Оба возможны. Well чаще про здоровье.
+
+192. Почему «I’m fine» — самый частый ответ?
+Да, на уровне A2 он остаётся самым универсальным.
+
+193. Почему «It’s worth seeing» / «It’s worth it»?
+Worth + -ing или местоимение.
+
+194. Почему «There’s no point in waiting»?
+No point in + -ing.
+
+195. Почему «It’s no use crying»?
+No use + -ing.
+
+196. Почему «Be careful!» / «Take care!»?
+Предупреждение и пожелание.
+
+197. Почему «Watch out!» / «Look out!»?
+Осторожно! (опасность).
+
+198. Почему «Hurry up!»?
+Простая и очень частая команда.
+
+199. Почему на уровне A2 уже важно различать «I’ve been to» и «I went to»?
+Да — это одна из ключевых точек, которая отделяет A2 от A1.
+
+200. Почему на A2 полезно много слушать простые истории в Past Simple и Present Perfect?
+Потому что именно на этих временах строится умение рассказывать о прошлом опыте и событиях — одна из главных целей уровня.
+
+================================================================================
+B1 — 200 QUESTIONS AND ANSWERS
+================================================================================
+
+### Present Perfect vs Past Simple (углубление)
+
+1. Почему «I’ve lost my keys» (и сейчас не могу открыть), а не «I lost my keys»?
+Present Perfect подчёркивает результат в настоящем. Past Simple просто сообщает о прошлом факте.
+
+2. Почему «I lost my keys yesterday» — только Past Simple?
+Есть точное время в прошлом → Present Perfect нельзя.
+
+3. Почему «I’ve been to Japan» = опыт, а «I went to Japan in 2019» = конкретная поездка?
+Present Perfect — «когда-либо в жизни». Past Simple — когда именно.
+
+4. Почему «She’s gone to the shop» ≠ «She’s been to the shop»?
+Gone — ушла и ещё не вернулась. Been — ходила и уже вернулась.
+
+5. Почему «I’ve known him for years» (не Continuous)?
+Глаголы состояния (know, like, believe, understand) редко ставят в Continuous даже в Perfect.
+
+6. Почему британцы чаще используют Present Perfect с just/already/yet, чем американцы?
+В AmE в этих случаях часто предпочитают Past Simple.
+
+### Present Perfect Continuous
+
+7. Почему «I’ve been waiting for an hour»?
+Present Perfect Continuous подчёркивает длительность действия до сейчас (часто с чувством или результатом).
+
+8. Почему «I’ve been working all day» (и поэтому устал)?
+Акцент на процессе и его влиянии на настоящее.
+
+9. Почему «I’ve read the book» vs «I’ve been reading the book»?
+Simple — закончил / есть результат. Continuous — процесс (возможно, ещё не закончил).
+
+10. Почему с always в Perfect Continuous часто есть раздражение?
+He’s always been complaining — звучит критично.
+
+11. Почему «How long have you been learning English?» — очень частый вопрос?
+Именно Continuous лучше передаёт длительность процесса.
+
+### Past Perfect
+
+12. Почему «When I arrived, the train had left»?
+Past Perfect (had + V3) — действие, которое случилось раньше другого прошлого действия.
+
+13. Почему «I had never seen her before that day»?
+Past Perfect для опыта «до того момента в прошлом».
+
+14. Почему «By the time we got there, the film had already started»?
+By the time часто требует Past Perfect.
+
+15. Почему не нужно везде ставить Past Perfect?
+Только когда важно показать, что одно прошлое действие было раньше другого. Если порядок ясен — часто хватает Past Simple.
+
+### Future Forms (B1)
+
+16. Почему «This time tomorrow I’ll be lying on the beach»?
+Future Continuous — действие, которое будет в процессе в определённый момент будущего.
+
+17. Почему «I’ll have finished by 6»?
+Future Perfect — закончим к определённому моменту в будущем.
+
+18. Почему «I’m about to leave»?
+Be about to = вот-вот (очень скоро).
+
+19. Почему «It’s going to rain» при виде туч?
+Есть настоящие признаки → going to.
+
+20. Почему в придаточных времени (when, as soon as, until) обычно не ставят will?
+When I arrive, I’ll call you (не when I will arrive).
+
+### Second Conditional
+
+21. Почему «If I had more time, I would travel more»?
+Second Conditional — нереальная или маловероятная ситуация в настоящем/будущем.
+
+22. Почему «If I were you…» (почти всегда were)?
+Традиционная форма. Was тоже встречается, но were звучит правильнее и формальнее.
+
+23. Почему «If I won the lottery, I would buy a house»?
+Маловероятное будущее + would.
+
+24. Почему можно сказать «If I was rich» в разговорной речи?
+Да, особенно в AmE, но в учебном и формальном стиле лучше were.
+
+### Third Conditional
+
+25. Почему «If I had studied, I would have passed»?
+Third Conditional — сожаление о прошлом (нереальное прошлое условие → нереальный прошлый результат).
+
+26. Почему «If you had told me, I would have helped»?
+Критика или сожаление о том, что уже не изменить.
+
+27. Почему сокращения «If I’d known…» / «I would’ve helped» очень частые?
+В речи Third Conditional почти всегда сокращают.
+
+### Mixed Conditionals (введение)
+
+28. Почему «If I had studied medicine, I would be a doctor now»?
+Прошлое условие → настоящий результат (Mixed).
+
+29. Почему «If I were more careful, I wouldn’t have made that mistake»?
+Настоящая характеристика → прошлый результат.
+
+### Modals of Deduction
+
+30. Почему «She must be at home — the lights are on»?
+Must — почти уверенный вывод о настоящем.
+
+31. Почему «He can’t be serious!»?
+Can’t — почти уверен, что это неправда.
+
+32. Почему «She might/may/could be at work»?
+Разные степени возможности.
+
+33. Почему «He must have left already»?
+Must have + V3 — вывод о прошлом.
+
+34. Почему «She can’t have forgotten»?
+Уверенность, что этого не произошло в прошлом.
+
+35. Почему «They might have got lost»?
+Возможность в прошлом.
+
+36. Почему «You should have told me»?
+Критика / сожаление о прошлом действии (или бездействии).
+
+37. Почему «You needn’t have done it» ≠ «You didn’t need to do it»?
+Needn’t have — сделал зря. Didn’t need to — не было необходимости (и мог не делать).
+
+### Reported Speech
+
+38. Почему «She said she was tired» (was вместо is)?
+Backshift: времена часто сдвигаются на шаг назад.
+
+39. Почему «He said he had finished»?
+Present Perfect / Past Simple часто переходят в Past Perfect.
+
+40. Почему «She said she would come»?
+Will → would.
+
+41. Почему «He told me to wait»?
+Приказы и просьбы: tell/ask + object + to-infinitive.
+
+42. Почему «She asked me if I was ready»?
+Yes/No вопросы вводят через if/whether.
+
+43. Почему «She asked where I lived» (порядок слов прямой)?
+В косвенных вопросах нет инверсии.
+
+44. Почему иногда backshift не делают?
+Если ситуация всё ещё актуальна: She said she is pregnant (если это всё ещё правда).
+
+### Passive Voice (B1)
+
+45. Почему «The book was written in 1948»?
+Важнее объект и факт, чем автор (автора можно добавить через by).
+
+46. Почему «The house is being built»?
+Continuous Passive — процесс сейчас.
+
+47. Почему «The documents have been signed»?
+Perfect Passive — результат к настоящему.
+
+48. Почему «It is said that…» / «He is said to be…»?
+Два способа передать «говорят, что…».
+
+49. Почему агента часто не упоминают?
+Он неизвестен, очевиден или не важен.
+
+50. Почему «I was given a present» возможно?
+Некоторые глаголы позволяют два пассивных варианта (A present was given to me / I was given a present).
+
+### Relative Clauses
+
+51. Почему «The man who called you is my boss» (без запятых)?
+Defining clause — необходимая информация (какой именно человек).
+
+52. Почему «My brother, who lives in Canada, is visiting us» (с запятыми)?
+Non-defining — дополнительная информация. Без неё предложение всё равно понятно.
+
+53. Почему в non-defining нельзя that?
+Только who/which.
+
+54. Почему можно опустить местоимение в defining clause?
+Когда оно дополнение: The book (that/which) I bought…
+
+55. Почему «whose»?
+Принадлежность: The woman whose car was stolen…
+
+56. Почему «where / when / why» в relative clauses?
+The place where I was born, the day when we met, the reason why I left.
+
+### Gerunds & Infinitives (B1 nuances)
+
+57. Почему «I remember locking the door» vs «I remembered to lock the door»?
+Герундий — воспоминание о прошлом действии. Инфинитив — не забыл сделать.
+
+58. Почему «I stopped smoking» ≠ «I stopped to smoke»?
+Большая разница в смысле.
+
+59. Почему «I tried restarting the computer» vs «I tried to restart it»?
+Try + -ing — эксперимент. Try + to — попытка (часто трудная).
+
+60. Почему «I regret saying that» vs «I regret to say…»?
+Герундий — сожаление о прошлом. Инфинитив — сожаление сообщать что-то сейчас (формально).
+
+61. Почему «I mean to help» vs «It means getting up early»?
+Разница в значении mean.
+
+62. Почему после предлогов почти всегда -ing?
+I’m interested in learning. She’s good at painting. He left without saying goodbye.
+
+63. Почему «look forward to meeting» (to + -ing)?
+Здесь to — предлог, а не частица инфинитива.
+
+64. Почему «used to do» ≠ «be used to doing» ≠ «get used to doing»?
+- used to do — раньше делал
+- be used to doing — привык (состояние)
+- get used to doing — привыкать (процесс)
+
+### Wish / If only
+
+65. Почему «I wish I knew» (Past Simple)?
+Сожаление о настоящем → Past Simple / were.
+
+66. Почему «I wish I had studied harder»?
+Сожаление о прошлом → Past Perfect.
+
+67. Почему «I wish you would stop doing that»?
+Раздражение или желание, чтобы кто-то изменил поведение → would.
+
+68. Почему «If only» звучит сильнее, чем «I wish»?
+Да, эмоциональнее.
+
+### Causative (have/get something done)
+
+69. Почему «I had my hair cut»?
+Кто-то другой сделал это для меня.
+
+70. Почему «I’m going to have my car repaired»?
+Будущее: организую, чтобы мне сделали.
+
+71. Почему «get something done» тоже возможно?
+Да, часто более разговорный вариант.
+
+### Connectors & Discourse
+
+72. Почему «although / even though / though»?
+Уступка. Though можно ставить в конце разговорного предложения.
+
+73. Почему «despite / in spite of» + существительное/-ing?
+Despite the rain / Despite feeling tired. Для предложения нужен although или despite the fact that.
+
+74. Почему «however / nevertheless / still»?
+Контраст на уровне предложения или абзаца.
+
+75. Почему «whereas / while» для контраста?
+I like tea, whereas he prefers coffee.
+
+76. Почему «so that / in order that / in order to / so as to»?
+Цель. So that + предложение. In order to + инфинитив.
+
+77. Почему «as long as / provided that / providing»?
+Условие «при условии что».
+
+78. Почему «unless» = if not?
+Unless you hurry, we’ll be late.
+
+79. Почему «in case» ≠ «if»?
+In case — на всякий случай (подготовка к возможному).
+
+80. Почему «as / since / because»?
+Причина. As/since чаще в начале предложения и чуть формальнее.
+
+### Quantifiers & Articles (B1)
+
+81. Почему «most people» vs «most of the people»?
+Most + существительное вообще. Most of the + конкретная группа.
+
+82. Почему «all people» звучит странно, а «all of the people» / «everybody» нормально?
+С people чаще everybody или all of the people.
+
+83. Почему «the whole» vs «all the»?
+The whole day / all the day (первый вариант естественнее для некоторых слов).
+
+84. Почему «both / either / neither»?
+Для двух предметов/людей.
+
+85. Почему «none of them is/are»?
+Оба согласования встречаются; are чаще в разговорной речи.
+
+86. Почему после the иногда всё равно говорим о классе вещей?
+The giraffe is a tall animal (типичный представитель).
+
+### Adjective / Verb + Preposition
+
+87. Почему «interested in», «keen on», «fond of», «afraid of», «proud of»?
+Фиксированные сочетания — их нужно запоминать.
+
+88. Почему «depend on», «rely on», «congratulate on», «insist on»?
+Глаголы тоже требуют определённых предлогов.
+
+89. Почему «angry with someone», «angry about something»?
+Разница предлога меняет объект.
+
+90. Почему «good at», «bad at», «surprised at/by»?
+Частые прилагательные + предлог.
+
+### Question Tags & Agreement
+
+91. Почему «You’re tired, aren’t you?»?
+Question tag — противоположный вспомогательный глагол + местоимение.
+
+92. Почему «You don’t like it, do you?»?
+После отрицания — положительный tag.
+
+93. Почему «I’m late, aren’t I?» (не amn’t I)?
+Особый случай.
+
+94. Почему «So do I» / «Neither do I»?
+Согласие. Вспомогательный глагол должен совпадать по времени и смыслу.
+
+### So / Such
+
+95. Почему «so tired» / «such a nice day»?
+So + прилагательное. Such + (прилагательное) + существительное.
+
+96. Почему «so much / so many»?
+So much — неисчисляемые. So many — исчисляемые.
+
+97. Почему «She is so clever that…» / «It was such a good film that…»?
+Конструкция результата.
+
+### Phrasal Verbs & Common Verbs (B1)
+
+98. Почему так много фразовых глаголов с get, take, put, go, look, come?
+Они самые частотные и многозначные.
+
+99. Почему «give up», «make up», «take up», «put up with»?
+Разные значения даже с одним глаголом.
+
+100. Почему «look forward to», «look after», «look into», «look up»?
+Один look — совершенно разные смыслы.
+
+101. Почему «find out», «figure out», «work out»?
+Близкие, но не всегда взаимозаменяемые.
+
+102. Почему «carry on», «go on», «keep on»?
+Продолжать (с небольшими нюансами).
+
+### Wish, Preference, Advice
+
+103. Почему «I’d rather stay» / «I’d rather you stayed»?
+Предпочтение. Когда другое лицо — часто Past Simple.
+
+104. Почему «I’d better go now»?
+Сильный совет себе или другому («лучше бы»).
+
+105. Почему «It’s time we left»?
+It’s time + Past = пора уже.
+
+106. Почему «I’d prefer to stay» / «I’d prefer it if you stayed»?
+Разница конструкций с prefer.
+
+### Narrative & Time Clauses
+
+107. Почему в историях часто чередуют Past Simple и Past Continuous?
+Simple — события. Continuous — фон.
+
+108. Почему Past Perfect нужен не всегда, но иногда критически важен?
+Когда без него непонятен порядок событий.
+
+109. Почему «Hardly had I arrived when…» / «No sooner… than…»?
+Инверсия после негативных наречий (уже более высокий регистр, но встречается на B1).
+
+110. Почему «Not only… but also…» с инверсией?
+Not only did she pass, but she also got a distinction.
+
+### Common B1 Mistakes & Subtle Points
+
+111. Почему нельзя «If I will see him…»?
+В if-clause will обычно не ставят.
+
+112. Почему нельзя «She suggested me to go»?
+Правильно: suggested going или suggested that I go.
+
+113. Почему нельзя «I regret to say that I didn’t lock…» в значении сожаления о прошлом?
+Для прошлого сожаления — regret + -ing.
+
+114. Почему «I’m agreed» неправильно?
+Правильно: I agree.
+
+115. Почему «According to me» звучит неестественно?
+Лучше in my opinion / I think.
+
+116. Почему «I have difficulty to do» неправильно?
+Have difficulty (in) doing.
+
+117. Почему «Despite of» — ошибка?
+Либо despite, либо in spite of.
+
+118. Почему «I explained him the rule» часто ошибка?
+Explain something to someone.
+
+119. Почему «He said me…» неправильно?
+Said to me или told me.
+
+120. Почему «I didn’t use to» правильнее, чем «I usen’t to» в современном языке?
+Да.
+
+### Functional & Discourse Markers (B1)
+
+121. Почему «Actually…» часто не значит «на самом деле» в смысле «actually»?
+Часто просто уточнение или мягкий контраст.
+
+122. Почему «Basically…»?
+Упрощение или введение главной мысли.
+
+123. Почему «Apparently…»?
+По имеющейся информации / как говорят.
+
+124. Почему «Presumably…»?
+Предположительно.
+
+125. Почему «As a matter of fact…»?
+Усиление или контраст.
+
+126. Почему «To be honest…» / «Frankly…»?
+Маркеры искренности.
+
+127. Почему «At the end of the day…»?
+В конечном счёте.
+
+128. Почему «When it comes to…»?
+Когда речь заходит о…
+
+129. Почему «As far as I’m concerned…»?
+Что касается меня / моё мнение.
+
+130. Почему «In terms of…»?
+С точки зрения…
+
+### More Grammar Points
+
+131. Почему «The more you practice, the better you get»?
+Параллельная конструкция the comparative… the comparative….
+
+132. Почему «She’s getting more and more confident»?
+Постепенное изменение.
+
+133. Почему «I’m getting used to the weather»?
+Процесс привыкания.
+
+134. Почему «There’s no point in waiting» / «It’s no use waiting»?
+Бессмысленно что-то делать.
+
+135. Почему «It’s worth seeing» / «It’s worth it»?
+Стоит того.
+
+136. Почему «I can’t help laughing»?
+Не могу не…
+
+137. Почему «I can’t stand waiting»?
+Не выношу.
+
+138. Почему «I don’t mind helping»?
+Не возражаю.
+
+139. Почему «Would you mind opening…?»?
+Очень вежливая просьба.
+
+140. Почему «Do you mind if I open…?»?
+Просьба о разрешении.
+
+### Passive & Causative Extensions
+
+141. Почему «She had her bag stolen»?
+Causative может описывать и неприятные события (не только услуги).
+
+142. Почему «Get something done» часто звучит разговорнее, чем «have something done»?
+Да.
+
+143. Почему «It is believed that the company is in trouble»?
+Impersonal passive — очень характерен для новостей и формального стиля.
+
+144. Почему «She is believed to be in trouble»?
+Тот же смысл другой структурой.
+
+### Conditionals & Hypotheticals
+
+145. Почему «Suppose / Supposing / Imagine…»?
+Вводят гипотетическую ситуацию.
+
+146. Почему «What if I told you…?»?
+Гипотеза в настоящем/будущем.
+
+147. Почему «What if I had told you…?»?
+Гипотеза о прошлом.
+
+148. Почему «If so / If not»?
+Короткие замены целых условий.
+
+### Time & Reason Clauses
+
+149. Почему «By the time…» часто с Perfect?
+К моменту, когда… уже произойдёт/произошло.
+
+150. Почему «As soon as / the moment / immediately»?
+Как только.
+
+151. Почему «While / as / when» — не всегда взаимозаменяемы?
+While/as чаще для одновременности, when — шире.
+
+152. Почему «Since» может значить и «с тех пор как», и «поскольку»?
+Да — время и причина.
+
+### Vocabulary-Grammar Interfaces
+
+153. Почему «make» и «do» такие проблемные?
+Много фиксированных сочетаний: make a decision, do homework, make a mistake, do business…
+
+154. Почему «have a shower / have a rest / have a look»?
+Have + существительное действия — очень часто.
+
+155. Почему «take a photo / take a decision (BrE) / make a decision»?
+Есть варианты и предпочтения.
+
+156. Почему «say / tell / speak / talk» путают даже на B1?
+Да: tell someone something, say something (to someone), speak a language, talk to/with.
+
+### Advanced Basic Structures
+
+157. Почему «Not only… but also…»?
+Добавление с усилением.
+
+158. Почему «Either… or…» / «Neither… nor…»?
+Выбор / отрицание обоих.
+
+159. Почему «Both… and…»?
+Оба.
+
+160. Почему «Whether… or…»?
+Косвенный вопрос или выбор.
+
+### Common Errors Still Made at B1
+
+161. Почему «I have difficulty to sleep» — ошибка?
+Difficulty (in) sleeping.
+
+162. Почему «I discussed about the problem» — ошибка?
+Discuss the problem (без about).
+
+163. Почему «I entered into the room» часто лишнее?
+Обычно просто entered the room.
+
+164. Почему «I returned back» — избыточно?
+Return уже содержит смысл «назад».
+
+165. Почему «I think yes / I think no» звучит неестественно?
+Лучше I think so / I don’t think so.
+
+166. Почему «According to me» лучше заменить?
+На in my opinion / from my point of view.
+
+167. Почему «I’m agree with you» — классическая ошибка?
+I agree with you.
+
+168. Почему «She said me the truth» — ошибка?
+Told me the truth или said the truth to me.
+
+169. Почему «I was waiting him» — ошибка?
+Waiting for him.
+
+170. Почему «I listened the music» — ошибка?
+Listened to the music.
+
+### Discourse & Fluency Markers
+
+171. Почему «I mean…» так часто в речи?
+Уточнение, исправление, заполнение паузы.
+
+172. Почему «You know…»?
+Вовлечение слушателя / пауза.
+
+173. Почему «Well…» в начале ответа?
+Подготовка к ответу, иногда неполное согласие.
+
+174. Почему «Right» / «OK» / «So» как маркеры перехода?
+Организация речи.
+
+175. Почему «Anyway…»?
+Возврат к теме или смена темы.
+
+176. Почему «By the way…»?
+Побочная информация.
+
+177. Почему «Speaking of…»?
+Связь с предыдущей темой.
+
+178. Почему «That reminds me…»?
+Ассоциативный переход.
+
+179. Почему «To put it another way…»?
+Перефразирование.
+
+180. Почему «In other words…»?
+То же.
+
+### Final Mixed Block
+
+181. Почему «The thing is…»?
+Выделение главной проблемы или мысли.
+
+182. Почему «The point is…»?
+Суть.
+
+183. Почему «As I was saying…»?
+Возврат после отступления.
+
+184. Почему «Where was I?»?
+Когда потерял нить.
+
+185. Почему «Let me put it this way…»?
+Попытка объяснить яснее.
+
+186. Почему «Don’t get me wrong…»?
+Предупреждение, что могут неправильно понять.
+
+187. Почему «It’s not that… it’s just that…»?
+Мягкое отрицание + объяснение.
+
+188. Почему «I see what you mean, but…»?
+Частичное согласие + возражение.
+
+189. Почему «That’s a good point»?
+Признание сильного аргумента.
+
+190. Почему «I couldn’t agree more»?
+Полное согласие.
+
+191. Почему «That’s not necessarily true»?
+Мягкое несогласие.
+
+192. Почему «It depends on how you look at it»?
+Отказ от однозначного ответа.
+
+193. Почему «There’s no denying that…»?
+Нельзя отрицать.
+
+194. Почему «It’s worth bearing in mind that…»?
+Стоит иметь в виду.
+
+195. Почему «When all is said and done…»?
+В конечном итоге.
+
+196. Почему «At the end of the day…»?
+Практически то же.
+
+197. Почему на B1 уже важно уметь объяснять почему ты так думаешь, а не только что ты думаешь?
+Да — уровень требует более развёрнутой аргументации.
+
+198. Почему умение использовать Past Perfect и Reported Speech сильно влияет на storytelling?
+Позволяет чётко показывать последовательность событий и передавать чужие слова.
+
+199. Почему Second и Third Conditionals — ключ к выражению гипотез и сожалений?
+Без них речь остаётся слишком «фактической» и менее гибкой.
+
+200. Почему на B1 переход от «правильных предложений» к «естественной связной речи» важнее, чем просто новые времена?
+Потому что именно связность, маркеры дискурса, точный выбор времён и конструкций делают речь по-настоящему среднего уровня.
+
+================================================================================
+B2 — 200 QUESTIONS AND ANSWERS
+================================================================================
+
+### Mixed Conditionals & Hypotheticals
+
+1. Почему «If I had studied medicine, I would be a doctor now»?
+Прошлое нереальное условие → настоящий результат. Классический mixed conditional.
+
+2. Почему «If I were more organised, I would have finished on time»?
+Настоящая (постоянная) характеристика → прошлый результат.
+
+3. Почему mixed conditionals часто звучат естественнее «чистых» Third в реальной речи?
+Потому что мы часто связываем прошлое решение с нынешней ситуацией.
+
+4. Почему «If it weren’t for…» / «If it hadn’t been for…»?
+Особые конструкции со значением «если бы не…».
+
+5. Почему «But for your help, I would have failed»?
+But for = if it hadn’t been for (формальный/письменный стиль).
+
+### Inversion
+
+6. Почему «Never have I seen such a thing»?
+После негативных/ограничивающих наречий (never, rarely, seldom, hardly, no sooner) в начале предложения — инверсия.
+
+7. Почему «Not only did she pass, but she also got top marks»?
+После not only в начале — инверсия.
+
+8. Почему «Under no circumstances should you open this door»?
+Сильный запрет + инверсия.
+
+9. Почему «Only then did I understand»?
+После only + time expression — инверсия.
+
+10. Почему «Had I known, I would have acted differently»?
+Инверсия в условных (вместо If I had known). Формальный и письменный стиль.
+
+11. Почему «Should you need any help, just call»?
+Инверсия в First Conditional (If you should need…).
+
+12. Почему «Were I in your position, I would refuse»?
+Инверсия во Second Conditional.
+
+13. Почему инверсия делает речь более формальной и эмфатической?
+Да — она характерна для письменного, ораторского и официального стиля.
+
+### Advanced Modals & Perfect Modals
+
+14. Почему «She must have been exhausted»?
+Логический вывод о прошлом (почти уверенность).
+
+15. Почему «He can’t have forgotten — I reminded him twice»?
+Уверенное отрицание прошлого факта.
+
+16. Почему «They might have been waiting for hours»?
+Возможность длительного действия в прошлом.
+
+17. Почему «You should have told me earlier»?
+Критика или сожаление о прошлом.
+
+18. Почему «You needn’t have bought a gift» (сделал зря)?
+Needn’t have = сделал, но это было не нужно.
+Didn’t need to = не было необходимости (и часто не сделал).
+
+19. Почему «I didn’t need to go, so I stayed at home» vs «I needn’t have gone»?
+Разница именно в том, пошёл человек или нет.
+
+20. Почему «He may have been being blackmailed» (редко, но возможно)?
+Continuous perfect modal — очень сложная форма, почти не используется в речи.
+
+21. Почему «She will have arrived by now»?
+Уверенный вывод о настоящем на основе будущего совершенного.
+
+22. Почему «You might as well go home»?
+«Можно с таким же успехом / нет смысла не…».
+
+23. Почему «I may as well admit it»?
+Похожий оттенок смирения или прагматичности.
+
+### Cleft Sentences & Emphasis
+
+24. Почему «It was John who broke the vase»?
+Cleft sentence (It + be + … + who/that) — выделение конкретного элемента.
+
+25. Почему «What I need is a holiday»?
+Wh-cleft (pseudo-cleft) — выделение через what.
+
+26. Почему «The reason why I left was…» / «The person who…»?
+Усиленное выделение причины, человека, места и т.д.
+
+27. Почему «All I want is silence»?
+Ещё один способ эмфазы.
+
+28. Почему «It is only when we lose something that we realise its value»?
+Сложная cleft-структура для философского или письменного стиля.
+
+### Participle Clauses
+
+29. Почему «Feeling tired, I went to bed early»?
+Present participle clause — одновременность или причина.
+
+30. Почему «Having finished the report, she left»?
+Perfect participle — действие раньше основного.
+
+31. Почему «Built in 1890, the house is still standing»?
+Past participle clause — пассивный смысл.
+
+32. Почему «Not knowing what to do, I called her»?
+Отрицательная participle clause.
+
+33. Почему «The man standing by the door is my boss»?
+Reduced relative clause.
+
+34. Почему причастные обороты делают речь компактнее и более «письменной»?
+Да — особенно характерны для B2–C1 письменного английского.
+
+### Advanced Passive & Causative
+
+35. Почему «The problem is being dealt with»?
+Continuous Passive.
+
+36. Почему «She is said to have left the country»?
+Perfect infinitive в passive reporting structure.
+
+37. Почему «It is widely believed that…»?
+Impersonal passive — очень часто в новостях и академическом стиле.
+
+38. Почему «He had his car stolen»?
+Causative для неприятных событий (не только услуг).
+
+39. Почему «She got herself invited to the party»?
+Get + reflexive иногда имеет оттенок «умудрилась / сумела».
+
+40. Почему «I won’t have you speaking to me like that»?
+Особый causative со значением «не потерплю».
+
+### Nominalisation
+
+41. Почему «The destruction of the forest…» вместо «They destroyed the forest»?
+Nominalisation делает стиль более формальным и объективным.
+
+42. Почему в академическом и новостном английском так много существительных от глаголов?
+Чтобы убрать деятеля и повысить плотность информации.
+
+43. Почему «Her refusal to answer raised suspicions»?
+Номинализация позволяет строить более сложные и сжатые предложения.
+
+### Subjunctive & Formal Structures
+
+44. Почему «I suggest that he go» (без -s)?
+Present subjunctive после suggest, recommend, insist, demand (особенно AmE и формальный BrE).
+
+45. Почему «It is essential that she be informed»?
+Тот же subjunctive.
+
+46. Почему «If I were…» сохраняется даже в разговорной речи?
+Один из самых живучих остатков subjunctive.
+
+47. Почему «God save the King!» / «Long live…»?
+Застывшие subjunctive-формулы.
+
+48. Почему «Be that as it may…»?
+Устойчивое формальное выражение уступки.
+
+### Advanced Relative Clauses & Reduced Forms
+
+49. Почему «The person to whom I spoke» (формально) vs «The person I spoke to»?
+Preposition + whom — формальный стиль. В речи предлог обычно в конце.
+
+50. Почему «whose» может относиться и к вещам?
+A house whose roof was damaged… (хотя иногда предпочитают of which).
+
+51. Почему «of which / of whom» в формальном стиле?
+The committee, three of whose members…
+
+52. Почему non-defining clauses особенно часты в письменной речи?
+Они добавляют информацию без разрыва основного потока.
+
+### Future Perfect & Future Perfect Continuous
+
+53. Почему «By next year I will have been working here for 10 years»?
+Future Perfect Continuous — длительность до точки в будущем.
+
+54. Почему «They will have arrived by now»?
+Уверенное предположение о настоящем.
+
+55. Почему эти формы реже в разговорной речи, чем в письменной и экзаменационной?
+Да — они точные, но тяжёлые для спонтанной речи.
+
+### Discourse Markers & Register (B2)
+
+56. Почему «Having said that…» / «That said…»?
+Уступка после собственного утверждения.
+
+57. Почему «Mind you…»?
+Разговорное уточнение или контраст.
+
+58. Почему «As it happens…»?
+«Как оказалось / между прочим».
+
+59. Почему «For that matter…»?
+Расширение предыдущей мысли.
+
+60. Почему «In the event of…»?
+Формальная альтернатива if.
+
+61. Почему «Inasmuch as…» / «Insofar as…»?
+Очень формальные ограничители.
+
+62. Почему «Albeit»?
+Формальное «хотя» (обычно внутри фразы).
+
+63. Почему «Notwithstanding»?
+Сильный формальный аналог despite.
+
+64. Почему выбор маркера сильно меняет регистр?
+Да — but vs however vs nevertheless vs notwithstanding.
+
+### Verb Patterns & Subtle Differences
+
+65. Почему «I mean to do it» vs «This means doing it»?
+Намерение vs следствие.
+
+66. Почему «I went on to become a doctor» vs «I went on talking»?
+Go on to do — перешёл к следующему. Go on doing — продолжал.
+
+67. Почему «I dread to think» vs «I dread getting up early»?
+Разница инфинитива и герундия меняет оттенок.
+
+68. Почему «I can’t bear to watch» / «I can’t bear watching»?
+Оба возможны, но есть лёгкая разница в фокусе.
+
+69. Почему «He is known to have been involved»?
+Perfect infinitive после known / thought / believed.
+
+70. Почему «She appears to have been crying»?
+Вывод о предшествующем действии.
+
+### Emphasis & Fronting
+
+71. Почему «Strange as it may seem…»?
+Fronting + as = уступка.
+
+72. Почему «Try as he might, he couldn’t open it»?
+Уступка с инверсией/фронтингом.
+
+73. Почему «Much as I admire him…»?
+«Как бы я им ни восхищался…».
+
+74. Почему «Come what may…»?
+«Что бы ни случилось».
+
+75. Почему «Be it ever so humble…»?
+Застывшая формальная конструкция.
+
+### Advanced Conditionals & Alternatives
+
+76. Почему «Should anything happen, call me»?
+Формальная альтернатива First Conditional.
+
+77. Почему «Were anything to happen…»?
+Ещё более формальный вариант.
+
+78. Почему «If so / If not / If anything»?
+Сжатые условные выражения.
+
+79. Почему «Suppose he were to refuse?»?
+Гипотетическая форма с were to.
+
+80. Почему «Whether you like it or not…»?
+Безусловность.
+
+### Nominal Clauses & Complex Structures
+
+81. Почему «The fact that he lied made everything worse»?
+Nominal clause как подлежащее/дополнение.
+
+82. Почему «What is surprising is that nobody noticed»?
+Wh-clause + be + that-clause.
+
+83. Почему «I doubt whether/if…»?
+Косвенный вопрос после doubt.
+
+84. Почему «It’s not that I don’t care — it’s that I can’t help»?
+Тонкое разграничение причин.
+
+### Adjectives, Adverbs & Modification
+
+85. Почему «utterly / completely / totally / absolutely» с разными прилагательными?
+Не все интенсификаторы сочетаются со всеми словами (utterly wrong, но редко utterly happy в том же регистре).
+
+86. Почему «quite» может значить и «довольно», и «совершенно»?
+Зависит от прилагательного (gradable vs absolute).
+
+87. Почему «rather» часто имеет неожиданный или неприятный оттенок?
+Да — rather difficult звучит менее нейтрально, чем quite difficult.
+
+88. Почему «fairly / pretty / reasonably» — разные уровни силы?
+Да, и разный регистр.
+
+### Prepositions & Complex Prepositional Phrases
+
+89. Почему «in view of», «with a view to», «in the light of»?
+Формальные причинные и целевые выражения.
+
+90. Почему «on account of», «owing to», «due to»?
+Близкие, но не всегда взаимозаменяемые (особенно due to).
+
+91. Почему «for the sake of», «in the interest(s) of»?
+Цель / благо.
+
+92. Почему «by virtue of», «by means of»?
+Очень формальные.
+
+93. Почему «in terms of», «with respect to», «as regards»?
+Ограничение темы.
+
+### Register, Formality & Style
+
+94. Почему «purchase» вместо «buy», «assist» вместо «help» в формальном стиле?
+Латинские/более длинные слова повышают формальность.
+
+95. Почему «I would be grateful if you could…» предпочтительнее «Can you…» в письмах?
+Регистр и вежливость.
+
+96. Почему «Please find attached…» — клише деловой переписки?
+Да, хотя многие уже считают его устаревшим.
+
+97. Почему пассив часто используют, чтобы избежать «I» и «we» в академическом стиле?
+Да — создаёт впечатление объективности.
+
+98. Почему nominalisation + passive = типичный научный стиль?
+Максимальная плотность и минимальная личная ответственность.
+
+### Common B2 Pitfalls
+
+99. Почему «I am used to wake up early» — ошибка?
+Нужно used to + -ing или существительное.
+
+100. Почему «Despite of» до сих пор делают даже на B2?
+Правильно: despite или in spite of.
+
+101. Почему «I suggest you to go» — ошибка?
+Suggest + -ing или suggest that + subjunctive/should.
+
+102. Почему «He explained me the problem» — ошибка?
+Explained the problem to me.
+
+103. Почему «I have difficulty to understand» — ошибка?
+Difficulty (in) understanding.
+
+104. Почему «According to me» звучит неестественно?
+Лучше in my view / from my point of view.
+
+105. Почему «The reason is because…» многие считают избыточным?
+Часто предпочитают The reason is that….
+
+106. Почему «In my opinion, I think…» — избыточно?
+Да, достаточно одного маркера.
+
+### Emphasis with Negative & Restrictive Adverbs
+
+107. Почему «Little did I know…»?
+Инверсия после little.
+
+108. Почему «Barely / Hardly / Scarcely had I… when…»?
+Классические структуры с инверсией.
+
+109. Почему «No sooner had I… than…»?
+Парная конструкция.
+
+110. Почему «On no account / On no condition…»?
+Сильный запрет с инверсией.
+
+### Advanced Verb + Object + Complement Patterns
+
+111. Почему «I consider him (to be) a friend»?
+Consider / find / believe + object + (to be) + complement.
+
+112. Почему «She made him cry» / «She made him clean the room»?
+Make + object + bare infinitive.
+
+113. Почему «She let him go»?
+Let + object + bare infinitive.
+
+114. Почему «I had him do it» vs «I had it done»?
+Разница «заставил его» и «организовал услугу».
+
+### Time, Reason, Result & Contrast (advanced)
+
+115. Почему «All the more so because…»?
+Тем более что…
+
+116. Почему «Inasmuch as / Insofar as»?
+В той мере в какой / поскольку (формально).
+
+117. Почему «Much to my surprise / disappointment…»?
+Эмфатическое выражение реакции.
+
+118. Почему «To the best of my knowledge…»?
+Насколько мне известно.
+
+119. Почему «For all I know…»?
+Насколько я знаю (часто с оттенком «может быть и нет»).
+
+120. Почему «For all his wealth, he is unhappy»?
+For all = despite.
+
+### Ellipsis & Substitution
+
+121. Почему «I think so / I hope so / I’m afraid so»?
+Замена целого предложения.
+
+122. Почему «I think not / I hope not»?
+Отрицательные варианты (некоторые более формальные).
+
+123. Почему «And so on / and so forth»?
+И так далее.
+
+124. Почему «… and neither / nor did she»?
+Согласие с отрицанием + инверсия.
+
+125. Почему в ответах часто опускают всё, кроме вспомогательного глагола?
+Yes, I have. No, she didn’t. So am I.
+
+### Advanced Discourse & Pragmatics
+
+126. Почему «I’m not sure I agree» звучит мягче, чем «I disagree»?
+Hedging — важная часть B2–C1 прагматики.
+
+127. Почему «That’s not quite how I see it»?
+Дипломатичное несогласие.
+
+128. Почему «I take your point, but…»?
+Признание + возражение.
+
+129. Почему «With respect…» может звучать конфликтно?
+Да — иногда это маркер начинающегося спора.
+
+130. Почему «Far be it from me to criticise, but…»?
+Формула, после которой обычно следует критика.
+
+131. Почему «Don’t get me wrong, but…»?
+Предупреждение о возможном неправильном толковании.
+
+132. Почему «It’s not that I don’t want to — it’s just that…»?
+Мягкое объяснение отказа.
+
+### Complex Sentences & Information Structure
+
+133. Почему важную информацию часто ставят в конец предложения?
+End-focus — принцип информационной структуры английского.
+
+134. Почему «There is… / It is…» часто используют для введения нового?
+Подготовка к новой информации.
+
+135. Почему cleft и fronting помогают управлять вниманием слушателя?
+Да — это инструменты информационной структуры.
+
+### Lexical Grammar (B2)
+
+136. Почему «highly» сочетается с unlikely, successful, recommended, но не со всеми прилагательными?
+Collocation — слова «дружат» избирательно.
+
+137. Почему «deeply» часто с regret, concerned, offended?
+Типичные коллокации.
+
+138. Почему «strongly» с recommend, suggest, believe?
+Особенно в формальных рекомендациях.
+
+139. Почему «bitterly disappointed / coldly received / heavily criticised»?
+Наречия тоже имеют предпочтительные пары.
+
+140. Почему на B2 уже важно замечать не только правила, но и типичные сочетания?
+Да — именно коллокации делают речь «своей».
+
+### Hedging & Academic Tone
+
+141. Почему «It seems / appears / would seem that…»?
+Hedging — снижение категоричности.
+
+142. Почему «There is some evidence to suggest that…»?
+Типичный академический ход.
+
+143. Почему «To a certain extent / To some degree…»?
+Ограничение утверждения.
+
+144. Почему «It could be argued that…»?
+Введение альтернативной точки зрения.
+
+145. Почему «This is not to say that…»?
+Предотвращение неправильного вывода.
+
+### Advanced Conditionals & Wishes
+
+146. Почему «If only I had known» звучит эмоциональнее «I wish I had known»?
+If only сильнее по чувству.
+
+147. Почему «I wish you would listen»?
+Желание изменения поведения другого человека (часто с раздражением).
+
+148. Почему «I’d rather you didn’t do that»?
+Предпочтение относительно действий другого лица.
+
+149. Почему «It’s high time something was done»?
+High time + Past = давно пора.
+
+150. Почему «Suppose / Supposing / Imagine that…» открывают гипотетические сценарии?
+Да — удобные маркеры.
+
+### Passive Reporting & Distance
+
+151. Почему «He is alleged to have stolen…»?
+Дистанцирование от утверждения (юридический/новостной стиль).
+
+152. Почему «She is rumoured to be leaving»?
+Передача слухов без ответственности.
+
+153. Почему «It has been suggested that…»?
+Мягкое введение идеи.
+
+### Final Mixed Advanced Points
+
+154. Почему «The more… the more…» может быть очень сложным?
+The more carefully you plan, the less likely you are to fail.
+
+155. Почему «Not until… did I realise»?
+Инверсия после not until.
+
+156. Почему «Only by doing X can you achieve Y»?
+Инверсия после only + prepositional phrase.
+
+157. Почему «So + adjective + be + subject that…»?
+So difficult was the exam that many failed (эмфатическая инверсия).
+
+158. Почему «Such + be + noun that…»?
+Such was the pressure that he resigned.
+
+159. Почему эти структуры почти не встречаются в спонтанной речи?
+Да — они принадлежат письменному и ораторскому стилю.
+
+160. Почему B2 — это уровень, где начинают ценить не только правильность, но и гибкость и стиль?
+Потому что базовые правила уже усвоены, и на первый план выходит умение выбирать.
+
+### Pragmatics, Politeness & Understatement
+
+161. Почему британский английский часто использует understatement?
+It’s not bad может значить «очень хорошо». A bit of a problem — серьёзная проблема.
+
+162. Почему «I’m not entirely convinced» = вежливое «не согласен»?
+Hedging и understatement.
+
+163. Почему «That’s an interesting idea» иногда значит «мне не нравится»?
+Зависит от интонации и контекста.
+
+164. Почему «We should meet for coffee sometime» не всегда реальное приглашение?
+Часто просто вежливое завершение разговора.
+
+165. Почему на B2 уже важно читать между строк?
+Да — прагматика становится критичной.
+
+### Collocation & Lexical Precision
+
+166. Почему «make a decision» / «take a decision» (BrE) / «reach a decision»?
+Разные коллокации и оттенки.
+
+167. Почему «do research» / «conduct research» / «carry out research»?
+Разница регистра.
+
+168. Почему «heavy rain» / «strong wind» / «high temperature»?
+Прилагательные не всегда логичны с точки зрения родного языка.
+
+169. Почему «raise a question» / «pose a problem» / «draw a conclusion»?
+Типичные академические коллокации.
+
+170. Почему ошибка в коллокации сразу выдаёт неносителя даже при идеальной грамматике?
+Да.
+
+### Cohesion & Coherence
+
+171. Почему «This / That / These / Those» как ссылки на предыдущие идеи?
+Важный инструмент связности.
+
+172. Почему «The former / the latter»?
+Формальная ссылка на два упомянутых элемента.
+
+173. Почему «The above / the following»?
+Письменные маркеры.
+
+174. Почему «As previously mentioned / As noted above»?
+Академическая связность.
+
+175. Почему хорошая связность на B2 важнее идеальной сложности предложений?
+Часто да.
+
+### Exam & Real-Life Balance
+
+176. Почему в FCE/B2 First любят проверять именно inversion, cleft, participle clauses и fixed phrases?
+Они отличают B2 от B1.
+
+177. Почему в реальной жизни носители используют эти структуры реже, чем в учебниках?
+Потому что учебники готовят в том числе к письму и формальному регистру.
+
+178. Почему всё равно стоит их знать?
+Они нужны для чтения серьёзных текстов, письма и понимания нюансов.
+
+179. Почему на B2 полезно читать качественную журналистику и слушать длинные интервью?
+Там как раз живые примеры advanced grammar в контексте.
+
+180. Почему пересказ сложных текстов своими словами — один из лучших способов закрепить B2?
+Потому что заставляет перерабатывать структуры, а не копировать.
+
+### Closing Reflections (B2)
+
+181. Почему «I couldn’t agree more» сильнее, чем «I agree»?
+Идиоматическое усиление.
+
+182. Почему «That’s not to say that…»?
+Важный ограничитель.
+
+183. Почему «Having said that, I still think…»?
+Уступка + возврат к своей позиции.
+
+184. Почему «In the final analysis / When all is said and done…»?
+Формальные способы подвести итог.
+
+185. Почему «Be that as it may…»?
+Признание возражения + настойчивость.
+
+186. Почему «Far from + -ing…»?
+Far from being a failure, it was a success.
+
+187. Почему «Little more than…» / «Nothing less than…»?
+Тонкие усилители и преуменьшения.
+
+188. Почему на B2 уже можно и нужно играть с акцентом и эмфазой?
+Да — грамматика становится инструментом выразительности.
+
+189. Почему идеальный B2 — это не отсутствие ошибок, а умение ясно, связно и уместно выражать сложные мысли?
+Именно так уровень описан в CEFR.
+
+190. Почему стоит сознательно практиковать и формальный, и неформальный регистр?
+Реальная коммуникация требует обоих.
+
+191. Почему перефразирование — один из главных навыков B2?
+Потому что он нужен и на экзаменах, и в жизни.
+
+192. Почему умение объяснять одно и то же разными способами показывает глубину владения?
+Да.
+
+193. Почему на B2 полезно вести «тетрадь нюансов» (разница must have / might have / should have, примеры inversion и т.д.)?
+Очень полезно.
+
+194. Почему разбор ошибок носителей (в подкастах, колонках) помогает на этом уровне?
+Показывает живую грамматику и вариативность.
+
+195. Почему B2 — последний уровень, где ещё имеет смысл систематически «закрывать» грамматические дыры?
+Дальше больше упор на стиль, точность и объём.
+
+196. Почему после сильного B2 переход на C1 больше связан с тонкостью и автоматизмом, чем с новыми правилами?
+Да.
+
+197. Почему стоит иногда специально усложнять свою речь (в письме), а в разговоре упрощать?
+Разница регистра и условий коммуникации.
+
+198. Почему хорошее чувство регистра — один из главных признаков уверенного B2+?
+Потому что грамматика уже не мешает, и становится видно, как человек выбирает средства.
+
+199. Почему на B2 особенно полезны качественные sample essays и model answers?
+Они показывают, как advanced structures работают в реальных текстах.
+
+200. Почему главный вопрос уровня B2 — уже не «Как правильно сказать?», а «Как лучше и уместнее сказать в этой ситуации?»?
+Именно переход от correctness к effectiveness и appropriateness отличает сильный Upper-Intermediate.
+
+================================================================================
+END OF FILE
+================================================================================

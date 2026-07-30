@@ -23,6 +23,8 @@ import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
 import { recordTutorCuriosity } from '@/lib/tutor/curiosityStore'
+import { featureFlags } from '@/lib/featureFlags'
+import { getLocalFaqById, idleFaqSeed, matchLocalFaq, pickIdleFaq } from '@/lib/tutor/localFaq'
 import { localTutorTriage, resolvePendingTriageFollowUp } from '@/lib/tutor/localTriage'
 import type { TutorSchoolPhotoResult } from '@/lib/tutor/normalizeSchoolPhoto'
 import { routeTutorTurn } from '@/lib/tutor/tutorTurnRouter'
@@ -40,7 +42,12 @@ import {
   stashTutorReturnContext,
   type TutorReturnContextSnapshot,
 } from '@/lib/tutor/tutorReturnContext'
-import { TUTOR_CHAT_COPY, pickTutorIdleExamples, tutorComposerPlaceholder } from '@/lib/uiCopy/tutorChat'
+import {
+  TUTOR_CHAT_COPY,
+  pickTutorIdleExamples,
+  tutorComposerPlaceholder,
+} from '@/lib/uiCopy/tutorChat'
+import type { TutorIdleExampleItem } from '@/components/tutor/TutorIdleMenu'
 import { isAndroidMobileUserAgent } from '@/lib/mobileViewport'
 import {
   isIosChromeBrowser,
@@ -146,6 +153,7 @@ export default function TutorChatPanel({
   const [microIndex, setMicroIndex] = useState(0)
   const [microCorrectCount, setMicroCorrectCount] = useState(0)
   const [pendingTriageQuery, setPendingTriageQuery] = useState<string | null>(null)
+  const [pendingFaqId, setPendingFaqId] = useState<string | null>(null)
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
@@ -158,11 +166,24 @@ export default function TutorChatPanel({
   const seqRef = useRef(0)
   const restoredRef = useRef(false)
   const pendingTriageDoneRef = useRef(false)
+  const pendingFaqDoneRef = useRef(false)
   const autoSubmitDoneRef = useRef(false)
 
   const inviteKey = useMemo(() => resolveTutorInviteKey(thread), [thread])
   const voice = useLessonVoiceInput({ inviteKey, speechMode: 'mix' })
-  const idleExamples = useMemo(() => pickTutorIdleExamples(3), [])
+  const sessionLevel = session?.settings.level ?? 'a2'
+  const idleExamples = useMemo((): TutorIdleExampleItem[] => {
+    if (featureFlags.tutorFaqPoolV1) {
+      const picked = pickIdleFaq(sessionLevel, 3, idleFaqSeed(sessionLevel))
+      if (picked.length > 0) {
+        return picked.map((e) => ({ id: e.id, questionRu: e.questionRu }))
+      }
+    }
+    return pickTutorIdleExamples(3, idleFaqSeed(sessionLevel)).map((questionRu, index) => ({
+      id: `bank_${index}_${questionRu.slice(0, 24)}`,
+      questionRu,
+    }))
+  }, [sessionLevel])
   const composerPlaceholder = useMemo(
     () => tutorComposerPlaceholder(session?.settings.audience === 'child' ? 'child' : 'adult'),
     [session?.settings.audience]
@@ -221,6 +242,9 @@ export default function TutorChatPanel({
     if (snap.pendingTriageQuery?.trim()) {
       setPendingTriageQuery(snap.pendingTriageQuery.trim())
     }
+    if (snap.pendingFaqId?.trim()) {
+      setPendingFaqId(snap.pendingFaqId.trim())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
   }, [])
 
@@ -257,17 +281,20 @@ export default function TutorChatPanel({
   }, [anchorQuery, draft, lastExplain, postExplainChips, thread])
 
   const promoteWithUserQuery = useCallback(
-    (text: string, baseThread?: ThreadMessage[]) => {
+    (text: string, baseThread?: ThreadMessage[], faqId?: string | null) => {
       const trimmed = text.trim()
       if (!trimmed || !onPromoteToSpace) return false
       const prior = baseThread ?? thread
       const userMsg = { id: nextId(), role: 'user' as const, text: trimmed }
+      const id = faqId?.trim() || null
       stashTutorReturnContext({
         draft: '',
         anchorQuery: null,
         postExplainChips: false,
-        thread: [...prior.map(({ id, role, text: t }) => ({ id, role, text: t })), userMsg],
-        pendingTriageQuery: trimmed,
+        thread: [...prior.map(({ id: mid, role, text: t }) => ({ id: mid, role, text: t })), userMsg],
+        ...(id
+          ? { pendingFaqId: id }
+          : { pendingTriageQuery: trimmed }),
         ...(lastExplain ? { lastExplain } : {}),
       })
       onPromoteToSpace()
@@ -647,7 +674,29 @@ export default function TutorChatPanel({
         )
         return
       }
-      // first | switch → same triage path; A explains without old topicContext
+      // first | switch → FAQ match (canonical) then triage
+      if (featureFlags.tutorFaqPoolV1) {
+        const hit = matchLocalFaq(route.query, session?.settings.level ?? 'a2')
+        if (hit) {
+          const canon = hit.entry.questionRu
+          setTriageChips([])
+          setAnchorQuery(canon)
+          if (!userAlreadyInThread || text !== canon) {
+            setThread((prev) => {
+              const next = [...prev]
+              for (let i = next.length - 1; i >= 0; i -= 1) {
+                if (next[i]!.role === 'user') {
+                  next[i] = { ...next[i]!, text: canon }
+                  break
+                }
+              }
+              return next
+            })
+          }
+          void runExplain(canon)
+          return
+        }
+      }
       applyTriage(localTutorTriage(route.query))
     },
     [
@@ -657,10 +706,26 @@ export default function TutorChatPanel({
       lastExplain,
       nextId,
       runExplain,
+      session?.settings.level,
       thread,
       triageChips.length,
     ]
   )
+
+  useEffect(() => {
+    if (!pendingFaqId || pendingFaqDoneRef.current) return
+    pendingFaqDoneRef.current = true
+    const id = pendingFaqId
+    setPendingFaqId(null)
+    const entry = getLocalFaqById(id)
+    if (!entry) {
+      handleUserTurn(id, { userAlreadyInThread: true })
+      return
+    }
+    setTriageChips([])
+    setAnchorQuery(entry.questionRu)
+    void runExplain(entry.questionRu)
+  }, [handleUserTurn, pendingFaqId, runExplain])
 
   useEffect(() => {
     if (!pendingTriageQuery || pendingTriageDoneRef.current) return
@@ -713,22 +778,37 @@ export default function TutorChatPanel({
   ])
 
   const handleExampleSelect = useCallback(
-    (text: string) => {
-      const trimmed = text.trim()
-      if (!trimmed || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) return
+    (item: TutorIdleExampleItem) => {
+      const trimmed = item.questionRu.trim()
+      if (!trimmed || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) {
+        return
+      }
+      const faqEntry =
+        featureFlags.tutorFaqPoolV1 && !item.id.startsWith('bank_')
+          ? getLocalFaqById(item.id)
+          : null
       if (embeddedInMenu && onPromoteToSpace) {
-        if (promoteWithUserQuery(trimmed)) return
+        if (promoteWithUserQuery(trimmed, undefined, faqEntry?.id ?? null)) return
       }
       setDraftSynced('')
+      if (faqEntry) {
+        append('user', faqEntry.questionRu)
+        setTriageChips([])
+        setAnchorQuery(faqEntry.questionRu)
+        void runExplain(faqEntry.questionRu)
+        return
+      }
       handleUserTurn(trimmed, { userAlreadyInThread: false })
     },
     [
+      append,
       busy,
       embeddedInMenu,
       handleUserTurn,
       microPhase,
       onPromoteToSpace,
       promoteWithUserQuery,
+      runExplain,
       setDraftSynced,
       voice.isVoiceActive,
       voice.listening,

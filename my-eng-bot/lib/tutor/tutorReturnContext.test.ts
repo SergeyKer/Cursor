@@ -34,22 +34,19 @@ describe('tutorReturnContext', () => {
     expect(peekTutorReturnContext()?.draft).toBe('hello')
     const consumed = consumeTutorReturnContext()
     expect(consumed?.anchorQuery).toBe('Present Perfect')
-    expect(consumed?.lastExplain?.canonicalKey ?? consumed?.lastExplain?.topicAnchor.canonicalKey).toBe(
-      'pp'
-    )
+    expect(consumed?.lastExplain?.topicAnchor.canonicalKey).toBe('pp')
     expect(consumeTutorReturnContext()).toBeNull()
   })
 
-  it('preserves pendingTriageQuery through stash/consume', () => {
+  it('preserves pendingFaqId through stash/consume', () => {
     stashTutorReturnContext({
       draft: '',
       anchorQuery: null,
       postExplainChips: false,
-      thread: [{ id: 'u1', role: 'user', text: 'Чем a и an отличаются?' }],
-      pendingTriageQuery: 'Чем a и an отличаются?',
+      thread: [{ id: 'u1', role: 'user', text: 'Почему «I am busy», а не «I busy»?' }],
+      pendingFaqId: 'a1.to_be.001',
     })
     const snap = consumeTutorReturnContext()
-    expect(snap?.pendingTriageQuery).toBe('Чем a и an отличаются?')
-    expect(snap?.thread).toHaveLength(1)
+    expect(snap?.pendingFaqId).toBe('a1.to_be.001')
   })
 })

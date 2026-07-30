@@ -3,9 +3,14 @@
 import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 
+export type TutorIdleExampleItem = {
+  id: string
+  questionRu: string
+}
+
 export type TutorIdleMenuProps = {
-  examples: string[]
-  onExampleSelect: (text: string) => void
+  examples: TutorIdleExampleItem[]
+  onExampleSelect: (item: TutorIdleExampleItem) => void
 }
 
 /** Same touch/overflow helpers as menu lesson lists (MenuSectionPanels lessonMenuInnerScrollClass). */
@@ -45,13 +50,13 @@ export default function TutorIdleMenu({ examples, onExampleSelect }: TutorIdleMe
         <div className="border-t border-[var(--chat-section-card-divider)] px-3 py-2">
           <ul className="m-0 flex list-none flex-col gap-1 p-0">
             {examples.map((example) => (
-              <li key={example}>
+              <li key={example.id}>
                 <button
                   type="button"
                   onClick={() => onExampleSelect(example)}
                   className="w-full rounded-xl border border-blue-200 bg-blue-50 px-3 py-2 text-left text-[15px] leading-snug text-blue-700 touch-manipulation transition-all duration-200 [@media(hover:hover)]:hover:bg-blue-100 active:opacity-90"
                 >
-                  {example}
+                  {example.questionRu}
                 </button>
               </li>
             ))}
