@@ -187,7 +187,7 @@ export default function AppFooter({
       ? Math.max(0, Math.min(100, Math.floor(sessionMeter!.fillPercent)))
       : Math.round((Math.min(meterCurrent, meterTarget) / meterTarget) * 100)
   const meterLabel = hasSessionMeter
-    ? `${meterCurrent}/${meterTarget} · ⭐+${meterXp} · ${normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}`
+    ? `⭐+${meterXp} XP · ${meterCurrent}/${meterTarget} · ${normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}`
     : ''
   const bottomLineTitle = hasSessionMeter
     ? meterLabel
@@ -306,33 +306,40 @@ export default function AppFooter({
             >
               {hasSessionMeter ? (
                 <div
-                  className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden whitespace-nowrap tabular-nums"
+                  className="live-footer-stats-row flex min-w-0 flex-1 items-center gap-3 overflow-visible whitespace-nowrap tabular-nums sm:gap-4"
                   title={bottomLineTitle}
                 >
-                  <div
-                    className="h-1.5 min-w-[2.75rem] max-w-[4.5rem] flex-1 overflow-hidden rounded-full bg-slate-200"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={meterTarget}
-                    aria-valuenow={Math.min(meterCurrent, meterTarget)}
-                    aria-label={`Прогресс сессии ${meterCurrent} из ${meterTarget}`}
-                  >
-                    <div
-                      className="h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
-                      style={{ width: `${meterFill}%` }}
-                    />
-                  </div>
-                  <span className={`min-w-0 shrink truncate text-left ${FOOTER_STAT_VALUE_CLASS}`}>
-                    <span className="tabular-nums">
-                      {meterCurrent}/{meterTarget}
-                    </span>
-                    <span aria-hidden> · </span>
+                  <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-start gap-1.5 overflow-visible sm:w-[6.5rem]">
                     <span className={FOOTER_STAT_GLYPH_CLASS} aria-hidden>
                       ⭐
                     </span>
-                    <span className="tabular-nums">+{meterXp}</span>
-                    <span aria-hidden> · </span>
-                    <span className="truncate">{normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}</span>
+                    <span className={`tabular-nums ${FOOTER_STAT_VALUE_CLASS}`}>+{meterXp} XP</span>
+                  </span>
+                  <span className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[0.875rem] leading-none sm:text-base">
+                    <span className="shrink-0 tabular-nums" aria-hidden>
+                      0
+                    </span>
+                    <span
+                      className="relative top-px h-[0.65em] w-full max-w-[7.5rem] min-w-[2.5rem] overflow-hidden rounded-full bg-slate-200 sm:max-w-[9rem]"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={meterTarget}
+                      aria-valuenow={Math.min(meterCurrent, meterTarget)}
+                      aria-label={`Прогресс сессии ${meterCurrent} из ${meterTarget}`}
+                    >
+                      <span
+                        className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                        style={{ width: `${meterFill}%` }}
+                      />
+                    </span>
+                    <span className="shrink-0 tabular-nums" aria-hidden>
+                      {meterTarget}
+                    </span>
+                  </span>
+                  <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-center overflow-visible sm:w-[6.5rem]">
+                    <span className={`${TRUNCATE_X_CLASS} ${FOOTER_STAT_VALUE_CLASS}`}>
+                      {normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
+                    </span>
                   </span>
                 </div>
               ) : lessonFooterMode ? (

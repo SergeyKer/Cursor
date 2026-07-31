@@ -16,16 +16,16 @@ export const TRANSLATION_FOOTER_TOP = {
     child: 'Ещё раз это предложение. {n}/8.',
   },
   soft_fail: {
-    adult: 'Идём дальше. {n}/8 · +1.',
-    child: 'Идём дальше. {n}/8 · +1.',
+    adult: 'Идём дальше. {n}/8 · +1 XP.',
+    child: 'Идём дальше. {n}/8 · +1 XP.',
   },
   success: {
-    adult: 'Верно. {n}/8 · +4.',
-    child: 'Верно! {n}/8 · +4.',
+    adult: 'Верно. {n}/8 · +4 XP.',
+    child: 'Верно! {n}/8 · +4 XP.',
   },
   complete: {
-    adult: 'Цель 8/8. +{xp} к уровню.',
-    child: 'Цель 8/8! +{xp} к уровню!',
+    adult: 'Цель 8/8. +{xp} XP к уровню.',
+    child: 'Цель 8/8! +{xp} XP к уровню!',
   },
   post_complete: {
     adult: 'Можно продолжать — XP уже начислен.',

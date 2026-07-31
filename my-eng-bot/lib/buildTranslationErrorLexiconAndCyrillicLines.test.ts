@@ -163,4 +163,38 @@ describe('buildTranslationErrorLexiconAndCyrillicLines', () => {
     expect(joined).toContain('"tomorrow"')
     expect(joined).not.toContain('→ "time"')
   })
+
+  it('I am not from family vs I\'m not from a family: артикль, не family→I\'m', () => {
+    const gold = "I'm not from a family."
+    const lines = buildTranslationErrorLexiconAndCyrillicLines('I am not from family', gold)
+    const joined = lines.join('\n')
+    expect(joined.toLowerCase()).not.toMatch(/"family"\s*→\s*"i'?m"/i)
+    expect(joined.toLowerCase()).toMatch(/from\s+family/)
+    expect(joined.toLowerCase()).toMatch(/from\s+a\s+family/)
+    expect(joined).toMatch(/перед\s+family/i)
+    const sayCard = ['Ошибки:', ...lines, `Скажи: ${gold}`].join('\n')
+    expect(sayCard).toContain(`Скажи: ${gold}`)
+    expect(sayCard.match(/^Скажи:/gim)?.length ?? 0).toBe(1)
+  })
+
+  it('mixed RU+polarity: I am from семьи → нужно отрицание, не глушит shape', () => {
+    const gold = "I'm not from a family."
+    const lines = buildTranslationErrorLexiconAndCyrillicLines('I am from семьи', gold)
+    expect(lines.length).toBe(1)
+    expect(lines[0]).toMatch(/нужно отрицание/i)
+    expect(lines.join('\n')).not.toMatch(/family"\s*→\s*"i'?m"/i)
+  })
+
+  it('pure RU: одна строка «нужен английский», без я/не/из → [перевод]', () => {
+    const gold = "I'm not from a family."
+    const lines = buildTranslationErrorLexiconAndCyrillicLines('Я не из семьи', gold)
+    expect(lines.length).toBe(1)
+    expect(lines[0]).toContain('Я не из семьи')
+    expect(lines[0]).toContain(gold.replace(/"/g, "'"))
+    expect(lines[0]).toMatch(/нужен английский/i)
+    expect(lines.join('\n')).not.toContain('[перевод по контексту]')
+    expect(lines.join('\n')).not.toMatch(/"я"\s*→/i)
+    expect(lines.join('\n')).not.toMatch(/"не"\s*→/i)
+    expect(lines.join('\n')).not.toMatch(/"из"\s*→/i)
+  })
 })

@@ -37,7 +37,56 @@ describe('translationFooter', () => {
     expect(view.sessionMeter.current).toBe(3)
     expect(view.sessionMeter.target).toBe(8)
     expect(view.sessionMeter.sessionXp).toBe(12)
+    expect(view.sessionMeter.statusLabel).toBe('в работе')
     expect(view.dynamicText).toContain('3/8')
+    expect(view.dynamicText).toContain('+4 XP')
+  })
+
+  it('shows цель at zero progress even when session is in_progress', () => {
+    const session = {
+      ...createDefaultTranslationSession(),
+      status: 'in_progress' as const,
+      progress: 0,
+      sessionStartedAt: new Date().toISOString(),
+    }
+    const view = buildTranslationFooterView({
+      session,
+      moment: 'idle',
+      audience: 'adult',
+    })
+    expect(view.sessionMeter.statusLabel).toBe('цель')
+  })
+
+  it('shows готово when session is completed', () => {
+    const session = {
+      ...createDefaultTranslationSession(),
+      status: 'completed' as const,
+      progress: 8,
+      sessionXpAwarded: 40,
+      sessionStartedAt: new Date().toISOString(),
+    }
+    const view = buildTranslationFooterView({
+      session,
+      moment: 'post_complete',
+      audience: 'adult',
+    })
+    expect(view.sessionMeter.statusLabel).toBe('готово')
+  })
+
+  it('shows лимит when daily XP cap is reached', () => {
+    const session = {
+      ...createDefaultTranslationSession(),
+      status: 'in_progress' as const,
+      progress: 0,
+      dailyXpAwarded: 40,
+      sessionStartedAt: new Date().toISOString(),
+    }
+    const view = buildTranslationFooterView({
+      session,
+      moment: 'daily_cap',
+      audience: 'adult',
+    })
+    expect(view.sessionMeter.statusLabel).toBe('лимит')
   })
 
   it('resolves checking while loading', () => {

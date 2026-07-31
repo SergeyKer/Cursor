@@ -2442,9 +2442,9 @@ html[data-theme='glass3'] {
   align-items: center;
 }
 
-/* Р§РёСЃР»Р° РІ РЅРёР¶РЅРµР№ РїРѕР»РѕРІРёРЅРµ: Р±РµР· Р·Р°РІС‹С€РµРЅРЅРѕРіРѕ line-height вЂ” С†РµРЅС‚СЂ РїРѕ РІРµСЂС‚РёРєР°Р»Рё СЏС‡РµР№РєРё. */
+/* Числа в нижней половине: LH = ячейка glyph; вертикальный центр через inline-flex, не через LH:1 (режет descenders). */
 .app-footer-body .footer-stat-value {
-  line-height: 1;
+  line-height: var(--app-footer-line-height);
   padding-block: 0;
 }
 

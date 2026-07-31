@@ -39,13 +39,14 @@ export type TranslationFooterView = {
 function statusLabelFor(
   status: TranslationSessionStatus,
   dailyXpAwarded: number,
-  audience: TranslationFooterCopyAudience
+  audience: TranslationFooterCopyAudience,
+  progress: number
 ): string {
   if (dailyXpAwarded >= TRANSLATION_DAILY_GLOBAL_XP_CAP && status !== 'completed') {
     return TRANSLATION_FOOTER_STATUS.capped[audience]
   }
   if (status === 'completed') return TRANSLATION_FOOTER_STATUS.done[audience]
-  if (status === 'in_progress') return TRANSLATION_FOOTER_STATUS.active[audience]
+  if (status === 'in_progress' && progress > 0) return TRANSLATION_FOOTER_STATUS.active[audience]
   return TRANSLATION_FOOTER_STATUS.goal[audience]
 }
 
@@ -93,7 +94,7 @@ export function buildTranslationFooterView(params: {
       current: Math.min(n, target),
       target,
       sessionXp: session.sessionXpAwarded,
-      statusLabel: statusLabelFor(session.status, session.dailyXpAwarded, audience),
+      statusLabel: statusLabelFor(session.status, session.dailyXpAwarded, audience, n),
       fillPercent: translationFillPercent(n, target),
     },
     typingKey: `translation-footer:${moment}:${n}:${session.sessionXpAwarded}`,

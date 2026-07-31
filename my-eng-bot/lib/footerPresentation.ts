@@ -33,7 +33,7 @@ interface ResolveFooterPresentationParams {
 const ADAPTIVE_FOOTER_PRESENTATION_ENABLED = process.env.NEXT_PUBLIC_ADAPTIVE_FOOTER_PRESENTATION !== '0'
 
 /** Нижняя строка статов - тот же размер, что в structured lesson footer. */
-const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-none text-gray-400'
+const FOOTER_BOTTOM_LINE_CLASS = 'text-[13px] leading-[1.375rem] text-gray-400'
 
 export const CHILD_EMOJI_BY_TONE: Record<FooterVoiceTone, readonly string[]> = {
   celebrate: ['🎉', '✨', '🌟', '🏆', '😄', '🤩', '😊'],
@@ -146,8 +146,7 @@ export function resolveFooterPresentation({
       enabled: true,
       mode: 'playful',
       typingSpeed: 44,
-      topLineRowClassName:
-        'flex h-full min-w-0 items-center gap-2 overflow-hidden pl-1',
+      topLineRowClassName: 'flex h-full min-w-0 items-center gap-2 pl-1',
       topLineClassName,
       bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
       bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,
@@ -161,7 +160,7 @@ export function resolveFooterPresentation({
     enabled: true,
     mode: 'professional',
     typingSpeed: 28,
-    topLineRowClassName: 'flex h-full min-w-0 items-center gap-2 overflow-hidden',
+    topLineRowClassName: 'flex h-full min-w-0 items-center gap-2',
     topLineClassName,
     bottomLineRowClassName: hideDynamicMarker ? '' : 'pl-2',
     bottomLineClassName: FOOTER_BOTTOM_LINE_CLASS,

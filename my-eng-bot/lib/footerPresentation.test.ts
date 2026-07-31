@@ -30,6 +30,8 @@ describe('resolveFooterPresentation', () => {
     expect(first.markerText).toBe(second.markerText)
     expect(first.typingSpeed).toBe(44)
     expect(first.bottomLineRowClassName).toBe('pl-2')
+    expect(first.bottomLineClassName.includes('leading-none')).toBe(false)
+    expect(first.topLineRowClassName.includes('overflow-hidden')).toBe(false)
     expect(first.topLineRowClassName.includes('rounded-full')).toBe(false)
     expect(first.topLineRowClassName.includes('bg-white')).toBe(false)
     expect(first.topLineRowClassName.includes('pl-1')).toBe(true)
@@ -78,6 +80,8 @@ describe('resolveFooterPresentation', () => {
     expect(ADULT_EMOJI_BY_TONE.error).toContain(first.markerText)
     expect(first.typingSpeed).toBe(28)
     expect(first.bottomLineRowClassName).toBe('pl-2')
+    expect(first.bottomLineClassName.includes('leading-none')).toBe(false)
+    expect(first.topLineRowClassName.includes('overflow-hidden')).toBe(false)
     expect(first.topLineRowClassName.includes('rounded-full')).toBe(false)
   })
 

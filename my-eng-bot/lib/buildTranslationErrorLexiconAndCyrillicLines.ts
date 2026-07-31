@@ -79,10 +79,121 @@ const CONTENT_STOP = new Set([
   'their',
 ])
 
+/** Предлоги-якоря для phrase gap (артикли между from/_/family). */
+const PHRASE_ANCHOR_PREPS = new Set(['from', 'to', 'in', 'on', 'at', 'for', 'with', 'by', 'of', 'into', 'onto'])
+
+const RU_STOP = new Set([
+  'я',
+  'ты',
+  'он',
+  'она',
+  'мы',
+  'вы',
+  'они',
+  'не',
+  'из',
+  'в',
+  'на',
+  'с',
+  'и',
+  'а',
+  'но',
+  'это',
+  'как',
+  'что',
+  'для',
+  'по',
+  'к',
+  'у',
+  'о',
+  'об',
+  'от',
+  'до',
+  'за',
+  'при',
+  'без',
+  'ни',
+  'же',
+  'ли',
+  'бы',
+  'то',
+  'все',
+  'уже',
+  'ещё',
+  'еще',
+  'мне',
+  'меня',
+  'мой',
+  'моя',
+  'мое',
+  'моё',
+  'тебе',
+  'тебя',
+  'его',
+  'ее',
+  'её',
+  'их',
+  'нас',
+  'вам',
+  'вас',
+])
+
 const CYRILLIC = /[\u0400-\u04FF]/
 
+/** Expand contractions before token align so I'm is not a phantom content token. */
+function expandContractionsForAlign(text: string): string {
+  let out = text
+  const rules: Array<[RegExp, string]> = [
+    [/\bwon't\b/gi, 'will not'],
+    [/\bcan't\b/gi, 'cannot'],
+    [/\bshan't\b/gi, 'shall not'],
+    [/\bain't\b/gi, 'is not'],
+    [/\bdon't\b/gi, 'do not'],
+    [/\bdoesn't\b/gi, 'does not'],
+    [/\bdidn't\b/gi, 'did not'],
+    [/\bisn't\b/gi, 'is not'],
+    [/\baren't\b/gi, 'are not'],
+    [/\bwasn't\b/gi, 'was not'],
+    [/\bweren't\b/gi, 'were not'],
+    [/\bhaven't\b/gi, 'have not'],
+    [/\bhasn't\b/gi, 'has not'],
+    [/\bhadn't\b/gi, 'had not'],
+    [/\bwouldn't\b/gi, 'would not'],
+    [/\bcouldn't\b/gi, 'could not'],
+    [/\bshouldn't\b/gi, 'should not'],
+    [/\bmustn't\b/gi, 'must not'],
+    [/\bi'm\b/gi, 'i am'],
+    [/\byou're\b/gi, 'you are'],
+    [/\bhe's\b/gi, 'he is'],
+    [/\bshe's\b/gi, 'she is'],
+    [/\bit's\b/gi, 'it is'],
+    [/\bwe're\b/gi, 'we are'],
+    [/\bthey're\b/gi, 'they are'],
+    [/\bi've\b/gi, 'i have'],
+    [/\byou've\b/gi, 'you have'],
+    [/\bwe've\b/gi, 'we have'],
+    [/\bthey've\b/gi, 'they have'],
+    [/\bi'll\b/gi, 'i will'],
+    [/\byou'll\b/gi, 'you will'],
+    [/\bhe'll\b/gi, 'he will'],
+    [/\bshe'll\b/gi, 'she will'],
+    [/\bwe'll\b/gi, 'we will'],
+    [/\bthey'll\b/gi, 'they will'],
+    [/\bi'd\b/gi, 'i would'],
+    [/\byou'd\b/gi, 'you would'],
+    [/\bhe'd\b/gi, 'he would'],
+    [/\bshe'd\b/gi, 'she would'],
+    [/\bwe'd\b/gi, 'we would'],
+    [/\bthey'd\b/gi, 'they would'],
+  ]
+  for (const [re, rep] of rules) {
+    out = out.replace(re, rep)
+  }
+  return out
+}
+
 function tokenizeEnglish(text: string): string[] {
-  return foldLatinHomoglyphsForEnglishMatch(text)
+  return foldLatinHomoglyphsForEnglishMatch(expandContractionsForAlign(text))
     .toLowerCase()
     .match(/[a-z']+/g)
     ?.map((t) => t.replace(/^'+|'+$/g, ''))
@@ -92,6 +203,11 @@ function tokenizeEnglish(text: string): string[] {
 function isContentTok(t: string): boolean {
   if (!t || t.length < 3 || !/[a-z]/i.test(t)) return false
   return !CONTENT_STOP.has(t.toLowerCase())
+}
+
+function isPhraseAnchorTok(t: string): boolean {
+  if (isContentTok(t)) return true
+  return PHRASE_ANCHOR_PREPS.has(t.toLowerCase())
 }
 
 function loveLikeFamily(t: string): 'love' | 'like' | null {
@@ -142,7 +258,9 @@ function levenshteinDistance(a: string, b: string): number {
 }
 
 function tokenizeForPrefixCheck(text: string): string[] {
-  return text.match(/[a-z0-9']+/gi)?.map((token) => token.toLowerCase()) ?? []
+  return expandContractionsForAlign(text)
+    .match(/[a-z0-9']+/gi)
+    ?.map((token) => token.toLowerCase()) ?? []
 }
 
 function isLikelySingularPluralTokenMismatch(userTok: string, goldTok: string): boolean {
@@ -253,7 +371,7 @@ function escapeRegExpToken(token: string): string {
   return token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** Поверхность от одного content-токена до следующего (включительно) в исходной строке. */
+/** Поверхность от одного якоря до следующего (включительно) в исходной строке. */
 function surfaceSpanBetweenContentTokens(text: string, fromTok: string, toTok: string): string | null {
   const re = new RegExp(
     `\\b${escapeRegExpToken(fromTok)}\\b([\\s\\S]*?)\\b${escapeRegExpToken(toTok)}\\b`,
@@ -265,7 +383,7 @@ function surfaceSpanBetweenContentTokens(text: string, fromTok: string, toTok: s
 }
 
 /**
- * Content-токены совпадают, но в эталоне между ними есть служебные слова (to/the/…),
+ * Якоря (content или предлог) совпадают, но в эталоне между ними есть служебные слова,
  * которых нет у ученика — одна фразовая пара. right всегда подстрока эталона.
  */
 function collectMissingFunctionWordPair(userText: string, repeatEnglish: string): ReplacementPair | null {
@@ -273,30 +391,30 @@ function collectMissingFunctionWordPair(userText: string, repeatEnglish: string)
   const repeatTokens = tokenizeEnglish(repeatEnglish)
   if (userTokens.length < 2 || repeatTokens.length < 2) return null
 
-  const userContentIdx: number[] = []
+  const userAnchorIdx: number[] = []
   for (let i = 0; i < userTokens.length; i++) {
-    if (isContentTok(userTokens[i] ?? '')) userContentIdx.push(i)
+    if (isPhraseAnchorTok(userTokens[i] ?? '')) userAnchorIdx.push(i)
   }
-  const repeatContentIdx: number[] = []
+  const repeatAnchorIdx: number[] = []
   for (let i = 0; i < repeatTokens.length; i++) {
-    if (isContentTok(repeatTokens[i] ?? '')) repeatContentIdx.push(i)
+    if (isPhraseAnchorTok(repeatTokens[i] ?? '')) repeatAnchorIdx.push(i)
   }
 
-  const n = Math.min(userContentIdx.length, repeatContentIdx.length)
+  const n = Math.min(userAnchorIdx.length, repeatAnchorIdx.length)
   if (n < 2) return null
 
   let aligned = 0
   for (let k = 0; k < n; k++) {
-    if (userTokens[userContentIdx[k]!] !== repeatTokens[repeatContentIdx[k]!]) break
+    if (userTokens[userAnchorIdx[k]!] !== repeatTokens[repeatAnchorIdx[k]!]) break
     aligned++
   }
   if (aligned < 2) return null
 
   for (let k = 0; k < aligned - 1; k++) {
-    const uStart = userContentIdx[k]!
-    const uEnd = userContentIdx[k + 1]!
-    const rStart = repeatContentIdx[k]!
-    const rEnd = repeatContentIdx[k + 1]!
+    const uStart = userAnchorIdx[k]!
+    const uEnd = userAnchorIdx[k + 1]!
+    const rStart = repeatAnchorIdx[k]!
+    const rEnd = repeatAnchorIdx[k + 1]!
     const uMid = userTokens.slice(uStart + 1, uEnd)
     const rMid = repeatTokens.slice(rStart + 1, rEnd)
     if (uMid.some((t) => isContentTok(t))) continue
@@ -361,6 +479,27 @@ function findNearestTypoCandidate(
   return best
 }
 
+/** Отсекает позиционный мусор вроде family → I'm. */
+function shouldAcceptLexiconPair(
+  wrong: string,
+  right: string,
+  userText: string,
+  goldText: string
+): boolean {
+  const w = wrong.toLowerCase().replace(/^['"]+|['"]+$/g, '').trim()
+  const r = right.toLowerCase().replace(/^['"]+|['"]+$/g, '').trim()
+  if (!w || !r || w === r) return false
+  const userSet = new Set(tokenizeEnglish(userText))
+  const goldSet = new Set(tokenizeEnglish(goldText))
+  const rightToks = tokenizeEnglish(right)
+  if (rightToks.length === 0) return false
+  // wrong есть и у ученика, и в эталоне; «исправление» уже целиком есть у ученика → сдвиг align
+  if (userSet.has(w) && goldSet.has(w) && rightToks.every((t) => userSet.has(t))) {
+    return false
+  }
+  return true
+}
+
 function collectEnglishLexiconPairs(userText: string, repeatEnglish: string): ReplacementPair[] {
   const userTokens = tokenizeEnglish(userText)
   const repeatTokens = tokenizeEnglish(repeatEnglish)
@@ -370,6 +509,7 @@ function collectEnglishLexiconPairs(userText: string, repeatEnglish: string): Re
   const pairs: ReplacementPair[] = []
 
   const pushPair = (wrong: string, right: string, reason = '') => {
+    if (!shouldAcceptLexiconPair(wrong, right, userText, repeatEnglish)) return
     const key = `${wrong.toLowerCase()}→${right.toLowerCase()}`
     if (seen.has(key)) return
     seen.add(key)
@@ -455,7 +595,8 @@ function collectEnglishLexiconPairs(userText: string, repeatEnglish: string): Re
     const uSurf =
       new RegExp(`\\b${ut.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(userText)?.[0] ?? ut
     const rSurf =
-      new RegExp(`\\b${targetRt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(repeatEnglish)?.[0] ?? targetRt
+      new RegExp(`\\b${targetRt.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').exec(repeatEnglish)?.[0] ??
+      targetRt
     pushPair(uSurf, rSurf, reason)
     iu++
     ir += advanceRepeat
@@ -492,16 +633,28 @@ function collectRussianLexiconPairs(userText: string): ReplacementPair[] {
   const rawWords = userText.match(/[\u0400-\u04FF]+/g) ?? []
   const seen = new Set<string>()
   const pairs: ReplacementPair[] = []
+  let unknownPlaceholderUsed = false
   for (const raw of rawWords) {
     const key = raw.toLowerCase()
     if (seen.has(key)) continue
     seen.add(key)
     const normKey = normalizeRuTopicKeyword(raw)
+    if (RU_STOP.has(key) || (normKey && RU_STOP.has(normKey))) continue
     const en = normKey ? RU_TOPIC_KEYWORD_TO_EN[normKey] : undefined
     const displayRu = normalizeTopicToken(raw) || raw.toLowerCase()
+    if (!en) {
+      if (raw.length < 3 || unknownPlaceholderUsed) continue
+      unknownPlaceholderUsed = true
+      pairs.push({
+        wrong: displayRu,
+        right: '[перевод по контексту]',
+        reason: 'переведи',
+      })
+      continue
+    }
     pairs.push({
       wrong: displayRu,
-      right: en || '[перевод по контексту]',
+      right: en,
       reason: 'переведи',
     })
   }
@@ -528,25 +681,59 @@ function buildClauseShapeMismatchLine(userText: string, repeatEnglish: string): 
   })
 }
 
+/** Нет латинских слов длины ≥2 при наличии кириллицы → целиком русский ответ. */
+function isPureRussianAnswer(text: string): boolean {
+  const cyrWords = text.match(/[\u0400-\u04FF]+/g) ?? []
+  if (cyrWords.length === 0) return false
+  const latinWords = text.match(/[A-Za-z]{2,}/g) ?? []
+  return latinWords.length === 0
+}
+
 export function buildTranslationErrorLexiconAndCyrillicLines(userText: string, repeatEnglish: string): string[] {
   const trimmedUser = userText.trim()
   const trimmedRepeat = repeatEnglish.trim()
   const hasCyrillic = CYRILLIC.test(trimmedUser)
 
-  const lines: string[] = []
-  const ruPairs = hasCyrillic ? collectRussianLexiconPairs(trimmedUser) : []
-
-  // Приоритет: кириллица -> clause-shape mismatch -> лексика/структура -> опечатка, максимум 3 строки.
-  for (const pair of ruPairs) {
-    lines.push(formatReplacementLine(pair))
-    if (lines.length >= 3) return lines
+  // 1) Pure RU — до shape, иначе «Я не из семьи» ловит ложное «нужно отрицание».
+  if (trimmedRepeat && isPureRussianAnswer(trimmedUser)) {
+    return [
+      formatReplacementLine({
+        wrong: trimmedUser,
+        right: trimmedRepeat,
+        reason: 'нужен английский ответ',
+      }),
+    ]
   }
 
-  if (!hasCyrillic && trimmedRepeat && lines.length === 0) {
+  // 2) Clause shape / polarity — и при mixed кириллице.
+  if (trimmedRepeat) {
     const shapeLine = buildClauseShapeMismatchLine(trimmedUser, trimmedRepeat)
     if (shapeLine) return [shapeLine]
   }
 
+  const lines: string[] = []
+
+  // 3) Mixed RU content pairs (stop-list, без spam служебных).
+  if (hasCyrillic) {
+    for (const pair of collectRussianLexiconPairs(trimmedUser)) {
+      lines.push(formatReplacementLine(pair))
+      if (lines.length >= 3) return lines
+    }
+  }
+
+  // 4) Incomplete prefix — до article.
+  if (!hasCyrillic && trimmedRepeat) {
+    const incompleteLine = buildIncompleteTranslationLine(trimmedUser, trimmedRepeat)
+    if (incompleteLine) return [incompleteLine]
+  }
+
+  // 5) Article / function-word phrase gap — до lexicon.
+  if (!hasCyrillic && trimmedRepeat && lines.length === 0) {
+    const functionWordGap = collectMissingFunctionWordPair(trimmedUser, trimmedRepeat)
+    if (functionWordGap) return [formatReplacementLine(functionWordGap)]
+  }
+
+  // 6) Lexicon / typo на нормализованных (expanded) токенах.
   const enPairs = trimmedRepeat ? collectEnglishLexiconPairs(trimmedUser, trimmedRepeat) : []
   for (const pair of enPairs) {
     lines.push(formatReplacementLine(pair))
@@ -557,9 +744,6 @@ export function buildTranslationErrorLexiconAndCyrillicLines(userText: string, r
     const functionWordGap = collectMissingFunctionWordPair(trimmedUser, trimmedRepeat)
     if (functionWordGap) return [formatReplacementLine(functionWordGap)]
   }
-
-  const incompleteLine = !hasCyrillic && trimmedRepeat ? buildIncompleteTranslationLine(trimmedUser, trimmedRepeat) : null
-  if (incompleteLine) return [incompleteLine]
 
   if (lines.length > 0) return lines
 
