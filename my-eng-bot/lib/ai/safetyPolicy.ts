@@ -93,6 +93,14 @@ function buildLowSignalBlock(channel: AiSafetyChannel): string | null {
   return `${AI_SAFETY_MARKERS.lowSignal}: if the user sends obvious nonsense, trolling, or low-signal spam (random letters, repeated junk), do not treat it as a real topic; briefly ask for a clear message or suggest a neutral chat topic.`
 }
 
+/** Refuse wording only — does not change when to refuse. No new AI_SAFETY marker. */
+function buildRefusePhrasingBlock(): string {
+  return (
+    'Refuse phrasing: never "I don\'t need to…" / "мне не нужно…"; use capability/role ' +
+    '("I can\'t help with that" / "я не могу помочь с этим") + redirect.'
+  )
+}
+
 /**
  * Compact safety rules injected into system/realtime instructions.
  * Keep short: realtime and chat prompts already carry channel-specific pedagogy.
@@ -107,6 +115,7 @@ export function buildAiSafetyRulesBlock(params: {
     params.audience === 'child' ? buildChildTeenHardeningBlock(params.channel) : null,
     buildAntiExfiltrationBlock(params.channel),
     buildLowSignalBlock(params.channel),
+    buildRefusePhrasingBlock(),
   ].filter(Boolean) as string[]
 
   return parts.join(' ')

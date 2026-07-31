@@ -36,6 +36,14 @@ const REWARD_TOP_LINE_TEMPLATES: RewardTemplateMap = {
     adult: ['Перевод: шаг засчитан. +{xp}.'],
     child: ['Шаг перевода! +{xp}!'],
   },
+  dialogue_session_completed: {
+    adult: ['Цель диалога 8/8. +{xp}.'],
+    child: ['Цель диалога 8/8! +{xp}!'],
+  },
+  dialogue_step_resolved: {
+    adult: ['Диалог: шаг засчитан. +{xp}.'],
+    child: ['Шаг диалога! +{xp}!'],
+  },
 }
 
 const FALLBACK_REWARD_TOP_LINE: Record<FooterCopyAudience, string> = {

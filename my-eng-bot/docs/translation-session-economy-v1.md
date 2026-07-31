@@ -37,7 +37,8 @@ Sticky nav-chips над composer, пока сессия `completed` и чат п
 - Низ: одна линия `AppFooter.sessionMeter` (высота chrome без изменений). Разметка:
   - LEFT: `⭐ +{sessionXp} XP`
   - CENTER: `0` + continuous progressbar + `{target}` (`role=progressbar`, fill = `current/target`)
-  - RIGHT: `{statusLabel}` (truncate)
+  - RIGHT glyphs: `🎯{remaining}` / `🔁` (error) / `🏁` (complete) / `👍` (daily cap)
+- daily_cap TOP: «XP дня набран. Можно переводить.» (не запрещает занятие)
 - Prop: `{ current, target, sessionXp, statusLabel, fillPercent? }`; default `null`.
 - `sessionMeter` XOR `lessonFooterSegments`; без `variantProgress` dots.
 - Урок/практика/другие режимы: `sessionMeter=null` → без регрессии.

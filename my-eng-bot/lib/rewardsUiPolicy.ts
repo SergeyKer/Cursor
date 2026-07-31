@@ -10,6 +10,7 @@ const QUIET_PROGRESS_REASONS = new Set([
   'communication_goal_progress',
   'engvo_goal_progress',
   'translation_step_resolved',
+  'dialogue_step_resolved',
 ])
 
 export function rewardReasonAllowsDynamicTickerOverride(reason: string): boolean {
@@ -29,6 +30,7 @@ export function rewardReasonShowsToast(
     case 'communication_goal_completed':
     case 'engvo_goal_completed':
     case 'translation_session_completed':
+    case 'dialogue_session_completed':
       return true
     default:
       return false
@@ -120,6 +122,11 @@ export function buildRewardPopupText(params: {
       audience === 'child'
         ? alternatives(`Цель перевода 8/8! +${xp} XP!`, `Перевод 8/8! +${xp} XP!`)
         : alternatives(`Цель перевода 8/8. +${xp} XP`, `Перевод: цель 8/8. +${xp} XP`)
+  } else if (reason === 'dialogue_session_completed') {
+    variants =
+      audience === 'child'
+        ? alternatives(`Цель диалога 8/8! +${xp} XP!`, `Диалог 8/8! +${xp} XP!`)
+        : alternatives(`Цель диалога 8/8. +${xp} XP`, `Диалог: цель 8/8. +${xp} XP`)
   } else {
     variants = audience === 'child' ? alternatives(`Отлично! +${xp} XP!`) : alternatives(`+${xp} XP`)
   }

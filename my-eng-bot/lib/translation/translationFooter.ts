@@ -3,10 +3,8 @@ import {
   TRANSLATION_SESSION_LENGTH,
   translationFillPercent,
   type TranslationSessionState,
-  type TranslationSessionStatus,
 } from '@/lib/translation/translationSessionEconomy'
 import {
-  TRANSLATION_FOOTER_STATUS,
   TRANSLATION_FOOTER_TOP,
   formatTranslationFooterTop,
   type TranslationFooterCopyAudience,
@@ -36,18 +34,17 @@ export type TranslationFooterView = {
   typingKey: string
 }
 
-function statusLabelFor(
-  status: TranslationSessionStatus,
-  dailyXpAwarded: number,
-  audience: TranslationFooterCopyAudience,
-  progress: number
-): string {
-  if (dailyXpAwarded >= TRANSLATION_DAILY_GLOBAL_XP_CAP && status !== 'completed') {
-    return TRANSLATION_FOOTER_STATUS.capped[audience]
-  }
-  if (status === 'completed') return TRANSLATION_FOOTER_STATUS.done[audience]
-  if (status === 'in_progress' && progress > 0) return TRANSLATION_FOOTER_STATUS.active[audience]
-  return TRANSLATION_FOOTER_STATUS.goal[audience]
+export function translationStatusLabel(params: {
+  moment: TranslationFooterMoment
+  remaining: number
+  status: TranslationSessionState['status']
+  dailyXpAwarded: number
+}): string {
+  const { moment, remaining, status, dailyXpAwarded } = params
+  if (status === 'completed') return '🏁'
+  if (dailyXpAwarded >= TRANSLATION_DAILY_GLOBAL_XP_CAP) return '👍'
+  if (moment === 'error') return '🔁'
+  return `🎯${Math.max(0, Math.floor(remaining))}`
 }
 
 export function resolveTranslationFooterMoment(params: {
@@ -88,13 +85,19 @@ export function buildTranslationFooterView(params: {
     xp: moment === 'complete' ? lastAwardedXp || session.sessionXpAwarded : session.sessionXpAwarded,
   })
   const target = session.target || TRANSLATION_SESSION_LENGTH
+  const remaining = Math.max(0, target - n)
   return {
     dynamicText,
     sessionMeter: {
       current: Math.min(n, target),
       target,
       sessionXp: session.sessionXpAwarded,
-      statusLabel: statusLabelFor(session.status, session.dailyXpAwarded, audience, n),
+      statusLabel: translationStatusLabel({
+        moment,
+        remaining,
+        status: session.status,
+        dailyXpAwarded: session.dailyXpAwarded,
+      }),
       fillPercent: translationFillPercent(n, target),
     },
     typingKey: `translation-footer:${moment}:${n}:${session.sessionXpAwarded}`,

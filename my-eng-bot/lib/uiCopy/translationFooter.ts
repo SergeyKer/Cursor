@@ -32,11 +32,12 @@ export const TRANSLATION_FOOTER_TOP = {
     child: 'Можно дальше — XP уже начислен.',
   },
   daily_cap: {
-    adult: 'Лимит перевода на сегодня: 40.',
-    child: 'Лимит перевода на сегодня: 40.',
+    adult: 'XP дня набран. Можно переводить.',
+    child: 'XP дня готов! Можно переводить!',
   },
 } as const
 
+/** @deprecated RIGHT meter uses glyphs; kept for any legacy callers. */
 export const TRANSLATION_FOOTER_STATUS = {
   goal: { adult: 'цель', child: 'цель' },
   active: { adult: 'в работе', child: 'в работе' },

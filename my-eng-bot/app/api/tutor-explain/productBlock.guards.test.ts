@@ -13,4 +13,12 @@ describe('tutor-explain product block guard', () => {
     expect(src).toContain('Do not write essays/homework sentence-by-sentence')
     expect(src).toContain("buildAiSafetyRulesBlock({ channel: 'tutor'")
   })
+
+  it('pins natural Russian out_of_scope refusal phrasing', () => {
+    const src = readFileSync(join(ROOT, 'app/api/tutor-explain/route.ts'), 'utf8')
+    expect(src).toContain('мне не нужно')
+    expect(src).toContain('Я не могу помочь с этим')
+    expect(src).toContain('Это не про английский')
+    expect(src).toContain('no «мне не нужно»')
+  })
 })

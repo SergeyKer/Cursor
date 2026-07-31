@@ -25,4 +25,9 @@ export {
   TRANSLATION_FOOTER_STATUS,
   formatTranslationFooterTop,
 } from '@/lib/uiCopy/translationFooter'
+export {
+  DIALOGUE_FOOTER_TOP,
+  formatDialogueFooterTop,
+} from '@/lib/uiCopy/dialogueFooter'
+export { DIALOGUE_SESSION_EXIT_COPY } from '@/lib/uiCopy/dialogueSessionExit'
 

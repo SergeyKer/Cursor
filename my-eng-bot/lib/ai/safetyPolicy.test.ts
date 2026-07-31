@@ -94,6 +94,14 @@ describe('buildAiSafetyRulesBlock', () => {
   it('keeps marker key count disciplined (+2 in this PR)', () => {
     expect(Object.keys(AI_SAFETY_MARKERS).length).toBe(7)
   })
+
+  it('bans need-calque refuse phrasing and prefers capability/role', () => {
+    const text = buildAiSafetyRulesBlock({ channel: 'tutor', audience: 'adult' })
+    expect(text).toContain('мне не нужно')
+    expect(text).toContain("I don't need to")
+    expect(text).toContain('я не могу помочь с этим')
+    expect(text).toContain("I can't help with that")
+  })
 })
 
 describe('anti-exfiltration red-team prompt contract', () => {

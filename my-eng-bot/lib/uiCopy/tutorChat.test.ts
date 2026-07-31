@@ -16,6 +16,21 @@ describe('TUTOR_CHAT_COPY', () => {
     expect(TUTOR_CHAT_COPY.gateEntertainment.length).toBeGreaterThan(10)
     expect(TUTOR_CHAT_COPY.gatePersonaMeta.length).toBeGreaterThan(10)
     expect(TUTOR_CHAT_COPY.gateProductParent.length).toBeGreaterThan(10)
+    const gateLines = [
+      TUTOR_CHAT_COPY.outOfScopeFallback,
+      TUTOR_CHAT_COPY.gateHomeworkDump,
+      TUTOR_CHAT_COPY.gateInsultTeach,
+      TUTOR_CHAT_COPY.gateEntertainment,
+      TUTOR_CHAT_COPY.gatePersonaMeta,
+      TUTOR_CHAT_COPY.gateProductParent,
+      TUTOR_CHAT_COPY.clarifyDefault,
+      TUTOR_CHAT_COPY.gateSoftNext,
+      TUTOR_CHAT_COPY.photoReject,
+      TUTOR_CHAT_COPY.photoBlur,
+    ]
+    for (const line of gateLines) {
+      expect(line).not.toContain('мне не нужно')
+    }
     expect(TUTOR_CHAT_COPY.triagePickGoal('Present Perfect')).toContain('Present Perfect')
     expect(TUTOR_CHAT_COPY.triagePickAngle('глаголы')).toContain('глаголы')
     expect(TUTOR_CHAT_COPY.photoReject).toContain('английскому')

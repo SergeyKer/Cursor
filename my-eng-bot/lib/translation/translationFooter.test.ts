@@ -21,7 +21,7 @@ describe('translationFooter', () => {
     }
   })
 
-  it('builds session meter for in-progress session', () => {
+  it('builds session meter with glyph status labels', () => {
     const session = {
       ...createDefaultTranslationSession(),
       status: 'in_progress' as const,
@@ -37,12 +37,12 @@ describe('translationFooter', () => {
     expect(view.sessionMeter.current).toBe(3)
     expect(view.sessionMeter.target).toBe(8)
     expect(view.sessionMeter.sessionXp).toBe(12)
-    expect(view.sessionMeter.statusLabel).toBe('в работе')
+    expect(view.sessionMeter.statusLabel).toBe('🎯5')
     expect(view.dynamicText).toContain('3/8')
     expect(view.dynamicText).toContain('+4 XP')
   })
 
-  it('shows цель at zero progress even when session is in_progress', () => {
+  it('shows 🎯8 at zero progress', () => {
     const session = {
       ...createDefaultTranslationSession(),
       status: 'in_progress' as const,
@@ -54,10 +54,10 @@ describe('translationFooter', () => {
       moment: 'idle',
       audience: 'adult',
     })
-    expect(view.sessionMeter.statusLabel).toBe('цель')
+    expect(view.sessionMeter.statusLabel).toBe('🎯8')
   })
 
-  it('shows готово when session is completed', () => {
+  it('shows 🏁 when session is completed', () => {
     const session = {
       ...createDefaultTranslationSession(),
       status: 'completed' as const,
@@ -70,10 +70,10 @@ describe('translationFooter', () => {
       moment: 'post_complete',
       audience: 'adult',
     })
-    expect(view.sessionMeter.statusLabel).toBe('готово')
+    expect(view.sessionMeter.statusLabel).toBe('🏁')
   })
 
-  it('shows лимит when daily XP cap is reached', () => {
+  it('shows 👍 when daily XP cap is reached', () => {
     const session = {
       ...createDefaultTranslationSession(),
       status: 'in_progress' as const,
@@ -86,7 +86,23 @@ describe('translationFooter', () => {
       moment: 'daily_cap',
       audience: 'adult',
     })
-    expect(view.sessionMeter.statusLabel).toBe('лимит')
+    expect(view.sessionMeter.statusLabel).toBe('👍')
+    expect(view.dynamicText).toContain('Можно переводить')
+  })
+
+  it('shows 🔁 on error moment', () => {
+    const session = {
+      ...createDefaultTranslationSession(),
+      status: 'in_progress' as const,
+      progress: 2,
+      sessionStartedAt: new Date().toISOString(),
+    }
+    const view = buildTranslationFooterView({
+      session,
+      moment: 'error',
+      audience: 'adult',
+    })
+    expect(view.sessionMeter.statusLabel).toBe('🔁')
   })
 
   it('resolves checking while loading', () => {

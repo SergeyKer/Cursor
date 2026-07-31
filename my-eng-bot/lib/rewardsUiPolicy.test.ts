@@ -9,16 +9,22 @@ describe('rewardsUiPolicy', () => {
   it('treats communication and engvo per-turn progress as quiet for footer ticker override', () => {
     expect(rewardReasonAllowsDynamicTickerOverride('communication_goal_progress')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('engvo_goal_progress')).toBe(false)
+    expect(rewardReasonAllowsDynamicTickerOverride('translation_step_resolved')).toBe(false)
+    expect(rewardReasonAllowsDynamicTickerOverride('dialogue_step_resolved')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('lesson_xp_awarded')).toBe(true)
   })
 
   it('shows toast for milestones and level-up only', () => {
     expect(rewardReasonShowsToast('communication_goal_progress', false)).toBe(false)
     expect(rewardReasonShowsToast('engvo_goal_progress', false)).toBe(false)
+    expect(rewardReasonShowsToast('translation_step_resolved', false)).toBe(false)
+    expect(rewardReasonShowsToast('dialogue_step_resolved', false)).toBe(false)
     expect(rewardReasonShowsToast('practice_completed', false)).toBe(true)
     expect(rewardReasonShowsToast('accent_session_completed', false)).toBe(true)
     expect(rewardReasonShowsToast('communication_goal_completed', false)).toBe(true)
     expect(rewardReasonShowsToast('engvo_goal_completed', false)).toBe(true)
+    expect(rewardReasonShowsToast('translation_session_completed', false)).toBe(true)
+    expect(rewardReasonShowsToast('dialogue_session_completed', false)).toBe(true)
     expect(rewardReasonShowsToast('communication_goal_progress', true)).toBe(true)
   })
 
@@ -30,6 +36,13 @@ describe('rewardsUiPolicy', () => {
         levelUp: null,
       })
     ).toBe('Цель общения 7/7 закрыта. +40 XP')
+    expect(
+      buildRewardPopupText({
+        reason: 'dialogue_session_completed',
+        amount: 28,
+        levelUp: null,
+      })
+    ).toBe('Цель диалога 8/8. +28 XP')
     expect(
       buildRewardPopupText({
         reason: 'lesson_xp_awarded',

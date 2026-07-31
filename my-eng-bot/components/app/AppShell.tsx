@@ -69,6 +69,14 @@ import {
   resolveTranslationProtocolFromAssistantContent,
   resolveTranslationStepAward,
 } from '@/lib/translation/translationStepOutcome'
+import {
+  buildDialogueFooterView,
+  resolveDialogueFooterMoment,
+} from '@/lib/dialogue/dialogueFooter'
+import { resolveDialogueSessionExitChips } from '@/lib/dialogue/resolveDialogueSessionExitChips'
+import type { DialogueSessionExitChipId } from '@/lib/dialogue/resolveDialogueSessionExitChips'
+import { hashDialogueAssistantKey } from '@/lib/dialogue/dialogueSessionEconomy'
+import { resolveDialogueStepAward } from '@/lib/dialogue/dialogueStepOutcome'
 import { resolveLessonCoinAward, type LessonCoinAward } from '@/lib/coinAwards'
 import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
@@ -1444,7 +1452,30 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const abandonTranslationSession = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'translation_session_abandoned' }))
   }, [])
+  const bumpDialogueStep = useCallback(
+    (params: {
+      assistantContent: string
+      userContent?: string | null
+      prevAssistantContent?: string | null
+      dialogueCorrect?: boolean | null
+    }) => {
+      const award = resolveDialogueStepAward(params)
+      if (!award) return
+      setRewardsState((prev) =>
+        applyRewardsEvent(prev, {
+          type: 'dialogue_step_resolved',
+          outcome: award.outcome,
+          assistantKey: award.assistantKey,
+        })
+      )
+    },
+    []
+  )
+  const abandonDialogueSession = useCallback(() => {
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'dialogue_session_abandoned' }))
+  }, [])
   const translationSessionExitBusyRef = React.useRef(false)
+  const dialogueSessionExitBusyRef = React.useRef(false)
   const handleAccentSessionCompleted = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'accent_session_completed' }))
   }, [])
@@ -4522,6 +4553,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
       if (settings.mode === 'translation') {
         bumpTranslationStep(main)
+      } else if (settings.mode === 'dialogue') {
+        const prevAssistant = [...toSend].reverse().find((m) => m.role === 'assistant')
+        bumpDialogueStep({
+          assistantContent: main,
+          userContent: lastUser?.content,
+          prevAssistantContent: prevAssistant?.content,
+          dialogueCorrect: response.dialogueCorrect,
+        })
       }
       void fetchUsage()
     } catch (e) {
@@ -4556,6 +4595,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     settings.topic,
     engvoVoiceMode,
     bumpTranslationStep,
+    bumpDialogueStep,
   ])
 
   React.useEffect(() => {
@@ -5922,6 +5962,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       exitTranslationSessionTo(id === 'done' ? 'myPlan' : 'practice')
     },
     [exitTranslationSessionTo]
+  )
+  const exitDialogueSessionTo = useCallback(
+    (target: 'myPlan' | 'practice') => {
+      if (dialogueSessionExitBusyRef.current) return
+      dialogueSessionExitBusyRef.current = true
+      try {
+        exitTranslationSessionTo(target)
+      } finally {
+        dialogueSessionExitBusyRef.current = false
+      }
+    },
+    [exitTranslationSessionTo]
+  )
+  const handleDialogueSessionExitChip = useCallback(
+    (id: DialogueSessionExitChipId) => {
+      exitDialogueSessionTo(id === 'done' ? 'myPlan' : 'practice')
+    },
+    [exitDialogueSessionTo]
   )
 
   const backFromMyPlanSpace = useCallback(() => {
@@ -7549,6 +7607,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           bumpCommunicationGoal()
         } else if (settings.mode === 'translation') {
           bumpTranslationStep(main)
+        } else if (settings.mode === 'dialogue') {
+          const prevAssistant = [...nextMessages].reverse().find((m) => m.role === 'assistant')
+          bumpDialogueStep({
+            assistantContent: main,
+            userContent: text,
+            prevAssistantContent: prevAssistant?.content,
+            dialogueCorrect: response.dialogueCorrect,
+          })
         }
         setSettingsAtLastSend(settings)
         void fetchUsage()
@@ -7587,6 +7653,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       communicationVoiceInputMode,
       bumpCommunicationGoal,
       bumpTranslationStep,
+      bumpDialogueStep,
     ]
   )
 
@@ -8905,6 +8972,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     !myPlanSpaceActive &&
     !progressSpaceActive &&
     !tutorChatSpaceActive
+  const dialogueChatActive =
+    dialogStarted &&
+    settings.mode === 'dialogue' &&
+    !engvoVoiceMode &&
+    !myPlanSpaceActive &&
+    !progressSpaceActive &&
+    !tutorChatSpaceActive
   React.useEffect(() => {
     if (!storageLoaded) return
     if (translationChatActive) {
@@ -8917,12 +8991,31 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
     abandonTranslationSession()
   }, [storageLoaded, translationChatActive, abandonTranslationSession])
+  React.useEffect(() => {
+    if (!storageLoaded) return
+    if (dialogueChatActive) {
+      setRewardsState((prev) => {
+        const status = prev.dialogueSession?.status
+        if (status === 'in_progress' || status === 'completed') return prev
+        return applyRewardsEvent(prev, { type: 'dialogue_session_started' })
+      })
+      return
+    }
+    abandonDialogueSession()
+  }, [storageLoaded, dialogueChatActive, abandonDialogueSession])
   const translationSessionExitChips = React.useMemo(
     () =>
       translationChatActive
         ? resolveTranslationSessionExitChips(rewardsState.translationSession?.status)
         : [],
     [translationChatActive, rewardsState.translationSession?.status]
+  )
+  const dialogueSessionExitChips = React.useMemo(
+    () =>
+      dialogueChatActive
+        ? resolveDialogueSessionExitChips(rewardsState.dialogueSession?.status)
+        : [],
+    [dialogueChatActive, rewardsState.dialogueSession?.status]
   )
   const translationFooterView = React.useMemo(() => {
     if (!translationChatActive) return null
@@ -8957,6 +9050,52 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [
     translationChatActive,
     rewardsState.translationSession,
+    rewardsState.ui.lastReward,
+    messages,
+    loading,
+    settings.audience,
+  ])
+  const dialogueFooterView = React.useMemo(() => {
+    if (!dialogueChatActive) return null
+    const session = rewardsState.dialogueSession
+    const assistants = messages.filter((message) => message.role === 'assistant')
+    const lastAssistant = assistants[assistants.length - 1]
+    const prevAssistant = assistants[assistants.length - 2]
+    const lastKey = lastAssistant?.content
+      ? hashDialogueAssistantKey(lastAssistant.content)
+      : null
+    const justCompleted =
+      session.status === 'completed' &&
+      lastKey != null &&
+      lastKey === session.lastAwardedAssistantKey
+    const lastOutcome =
+      lastKey != null && lastKey === session.lastAwardedAssistantKey
+        ? resolveDialogueStepAward({
+            dialogueCorrect: lastAssistant?.dialogueCorrect,
+            assistantContent: lastAssistant?.content ?? '',
+            prevAssistantContent: prevAssistant?.content,
+          })?.outcome ?? null
+        : null
+    const moment = resolveDialogueFooterMoment({
+      loading,
+      lastAssistantContent: lastAssistant?.content ?? null,
+      lastOutcome,
+      session,
+      justCompleted,
+    })
+    const lastAwardedXp =
+      rewardsState.ui.lastReward?.reason === 'dialogue_session_completed'
+        ? rewardsState.ui.lastReward.amount
+        : session.sessionXpAwarded
+    return buildDialogueFooterView({
+      session,
+      moment,
+      audience: settings.audience === 'child' ? 'child' : 'adult',
+      lastAwardedXp,
+    })
+  }, [
+    dialogueChatActive,
+    rewardsState.dialogueSession,
     rewardsState.ui.lastReward,
     messages,
     loading,
@@ -9045,7 +9184,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : dialogStarted
         ? translationChatActive
           ? resolveFooterWithStreakLayer(translationFooterView?.dynamicText ?? null)
-          : resolveFooterWithStreakLayer(chatFooterVoice?.text ?? null)
+          : dialogueChatActive
+            ? resolveFooterWithStreakLayer(dialogueFooterView?.dynamicText ?? null)
+            : resolveFooterWithStreakLayer(chatFooterVoice?.text ?? null)
         : resolveFooterWithStreakLayer(
             footerTransitionText ?? adaptiveFooterView?.dynamicText ?? homeFooterVoice?.text ?? null
           )
@@ -9066,7 +9207,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : isLessonActive
       ? learningLessonFooterStaticText
       : dialogStarted
-        ? translationChatActive
+        ? translationChatActive || dialogueChatActive
           ? null
           : settings.mode === 'communication'
           ? formatModeGoalFooter('communication', rewardsState)
@@ -9142,7 +9283,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
     (isPracticeActive && practiceFooterLive) ||
-    translationChatActive
+    translationChatActive ||
+    dialogueChatActive
       ? null
       : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
@@ -9162,7 +9304,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       : dialogStarted
       ? translationChatActive
         ? translationFooterView?.typingKey ?? 'translation-footer'
-        : chatFooterVoice?.typingKey ?? 'chat-footer'
+        : dialogueChatActive
+          ? dialogueFooterView?.typingKey ?? 'dialogue-footer'
+          : chatFooterVoice?.typingKey ?? 'chat-footer'
       : adaptiveFooterView?.typingKey ?? homeFooterVoice?.typingKey ?? 'home-footer'
   const footerTypingKey = structuredLessonCompletionFooterText
     ? `lesson-complete-${activeLearningLessonId ?? 'lesson'}:ctx-${footerSessionContextNonce}`
@@ -9250,7 +9394,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && translationChatActive ? translationFooterView?.sessionMeter ?? null : null
+    footerHydrated && translationChatActive
+      ? translationFooterView?.sessionMeter ?? null
+      : footerHydrated && dialogueChatActive
+        ? dialogueFooterView?.sessionMeter ?? null
+        : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
   const abortLanguageNoteRequest = useCallback(() => {
     languageNoteAbortRef.current?.abort()
@@ -10598,12 +10746,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onSelectLearningAction={activeLearningLessonId ? handleSelectLearningAction : undefined}
                   composerSessionKey={composerSessionKey}
                   composerNavChips={
-                    translationSessionExitChips.length > 0 ? translationSessionExitChips : undefined
+                    translationSessionExitChips.length > 0
+                      ? translationSessionExitChips
+                      : dialogueSessionExitChips.length > 0
+                        ? dialogueSessionExitChips
+                        : undefined
                   }
                   onComposerNavChipSelect={
                     translationSessionExitChips.length > 0
                       ? handleTranslationSessionExitChip
-                      : undefined
+                      : dialogueSessionExitChips.length > 0
+                        ? handleDialogueSessionExitChip
+                        : undefined
                   }
                   engvo={{
                     active: engvoVoiceMode,

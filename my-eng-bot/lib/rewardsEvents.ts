@@ -1,15 +1,24 @@
 import {
+  DIALOGUE_XP_COMPLETION,
+  clampDialogueDailyXp,
+  xpForDialogueStep,
+  type DialogueStepOutcome,
+} from '@/lib/dialogue/dialogueSessionEconomy'
+import {
   TRANSLATION_XP_COMPLETION,
   clampTranslationDailyXp,
   xpForTranslationStep,
   type TranslationStepOutcome,
 } from '@/lib/translation/translationSessionEconomy'
 import {
+  abandonDialogueSessionState,
   abandonTranslationSessionState,
   awardGlobalXp,
   getTodayDateString,
   incrementModeGoal,
+  normalizeDialogueSession,
   normalizeTranslationSession,
+  startDialogueSessionState,
   startTranslationSessionState,
   type RewardsState,
 } from './rewardsState'
@@ -30,6 +39,13 @@ export type RewardsEvent =
     }
   | { type: 'translation_session_started' }
   | { type: 'translation_session_abandoned' }
+  | {
+      type: 'dialogue_step_resolved'
+      outcome: DialogueStepOutcome
+      assistantKey: string
+    }
+  | { type: 'dialogue_session_started' }
+  | { type: 'dialogue_session_abandoned' }
 
 function applyTranslationStepResolved(
   state: RewardsState,
@@ -99,6 +115,83 @@ function applyTranslationStepResolved(
         lastReward: {
           amount: 0,
           reason: 'translation_session_completed',
+          at: rewardAt,
+        },
+      },
+    }
+  }
+
+  return next
+}
+
+function applyDialogueStepResolved(
+  state: RewardsState,
+  outcome: DialogueStepOutcome,
+  assistantKey: string
+): RewardsState {
+  const today = getTodayDateString()
+  const key = typeof assistantKey === 'string' ? assistantKey.trim() : ''
+  if (!key) return state
+
+  let next = {
+    ...state,
+    dialogueSession: normalizeDialogueSession(state.dialogueSession, { today }),
+  }
+  let session = next.dialogueSession
+
+  if (session.lastAwardedAssistantKey === key) return next
+  if (session.status === 'completed') return next
+
+  if (session.status !== 'in_progress') {
+    next = startDialogueSessionState(next, today)
+    session = next.dialogueSession
+  }
+
+  const stepWant = xpForDialogueStep(outcome)
+  const stepActual = clampDialogueDailyXp(session.dailyXpAwarded, stepWant)
+  const nextProgress = Math.min(session.target, session.progress + 1)
+  const completedNow = nextProgress >= session.target
+  const afterStepDaily = session.dailyXpAwarded + stepActual
+  const completionWant = completedNow ? DIALOGUE_XP_COMPLETION : 0
+  const completionActual = completedNow
+    ? clampDialogueDailyXp(afterStepDaily, completionWant)
+    : 0
+  const totalActual = stepActual + completionActual
+  const nextDaily = afterStepDaily + completionActual
+  const nextSessionXp = session.sessionXpAwarded + totalActual
+
+  next = {
+    ...next,
+    dialogueSession: {
+      ...session,
+      progress: nextProgress,
+      sessionXpAwarded: nextSessionXp,
+      status: completedNow ? 'completed' : 'in_progress',
+      lastAwardedAssistantKey: key,
+      dailyXpAwarded: nextDaily,
+      dailyXpDate: today,
+    },
+  }
+
+  const reason = completedNow ? 'dialogue_session_completed' : 'dialogue_step_resolved'
+  if (totalActual > 0) {
+    return awardGlobalXp(next, totalActual, reason, {
+      ticker: completedNow
+        ? `Цель диалога 8/8. +${totalActual}.`
+        : `Диалог: +${totalActual}.`,
+    })
+  }
+
+  if (completedNow) {
+    const rewardAt = new Date().toISOString()
+    return {
+      ...next,
+      ui: {
+        ...next.ui,
+        footerTicker: 'Цель диалога 8/8.',
+        lastReward: {
+          amount: 0,
+          reason: 'dialogue_session_completed',
           at: rewardAt,
         },
       },
@@ -180,6 +273,12 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       return abandonTranslationSessionState(state)
     case 'translation_step_resolved':
       return applyTranslationStepResolved(state, event.outcome, event.assistantKey)
+    case 'dialogue_session_started':
+      return startDialogueSessionState(state)
+    case 'dialogue_session_abandoned':
+      return abandonDialogueSessionState(state)
+    case 'dialogue_step_resolved':
+      return applyDialogueStepResolved(state, event.outcome, event.assistantKey)
     default:
       return state
   }

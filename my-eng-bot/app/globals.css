@@ -1262,6 +1262,29 @@ select.select-chevron {
   }
 }
 
+@keyframes sessionMeterStatusEnter {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.session-meter-status-enter {
+  display: inline-block;
+  max-width: 100%;
+  animation: sessionMeterStatusEnter 200ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-meter-status-enter {
+    animation: none;
+  }
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

@@ -43,7 +43,7 @@ type AppFooterProps = {
     total: number
     current: number
   } | null
-  /** Continuous session bar (translation). XOR with lessonFooterSegments; default null. */
+  /** Continuous session bar (translation | dialogue). XOR with lessonFooterSegments; default null. */
   sessionMeter?: AppFooterSessionMeter | null
   audience?: Audience
   lessonFooterAccount?: string | null
@@ -337,7 +337,10 @@ export default function AppFooter({
                     </span>
                   </span>
                   <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-center overflow-visible sm:w-[6.5rem]">
-                    <span className={`${TRUNCATE_X_CLASS} ${FOOTER_STAT_VALUE_CLASS}`}>
+                    <span
+                      key={normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
+                      className={`session-meter-status-enter ${TRUNCATE_X_CLASS} ${FOOTER_STAT_VALUE_CLASS}`}
+                    >
                       {normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
                     </span>
                   </span>

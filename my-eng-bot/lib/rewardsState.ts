@@ -6,6 +6,12 @@ import {
 } from '@/lib/levelCurve'
 import { resolveStreakDailyBonus } from '@/lib/streakDailyBonus'
 import {
+  DIALOGUE_SESSION_LENGTH,
+  DIALOGUE_SESSION_TTL_MS,
+  createDefaultDialogueSession,
+  type DialogueSessionState,
+} from '@/lib/dialogue/dialogueSessionEconomy'
+import {
   TRANSLATION_SESSION_LENGTH,
   TRANSLATION_SESSION_TTL_MS,
   createDefaultTranslationSession,
@@ -226,10 +232,12 @@ export interface RewardsState {
   modeGoals: Record<ModeGoalId, ModeGoalState>
   /** Сессия перевода: счётчик 8 + daily XP. Soft-default, без bump version. */
   translationSession: TranslationSessionState
+  /** Сессия диалога: счётчик 8 + daily XP. Soft-default, без bump version. */
+  dialogueSession: DialogueSessionState
   ui: RewardUiState
 }
 
-export type { TranslationSessionState }
+export type { TranslationSessionState, DialogueSessionState }
 
 const MODE_GOAL_SESSION_TTL_MS = 45 * 60 * 1000
 
@@ -294,6 +302,7 @@ export function createDefaultRewardsState(): RewardsState {
       engvo: createDefaultGoal(7, 5),
     },
     translationSession: createDefaultTranslationSession(),
+    dialogueSession: createDefaultDialogueSession(),
     ui: {
       footerTicker: 'Готов к следующему шагу.',
       lastReward: null,
@@ -496,6 +505,115 @@ export function abandonTranslationSessionState(state: RewardsState): RewardsStat
   }
 }
 
+function rollDialogueDailyXp(
+  session: DialogueSessionState,
+  today: string = getTodayDateString()
+): DialogueSessionState {
+  if (session.dailyXpDate === today) return session
+  return {
+    ...session,
+    dailyXpAwarded: 0,
+    dailyXpDate: null,
+  }
+}
+
+function abandonDialogueSessionSlice(session: DialogueSessionState): DialogueSessionState {
+  return {
+    ...session,
+    progress: 0,
+    sessionXpAwarded: 0,
+    status: 'abandoned',
+    sessionStartedAt: null,
+    lastAwardedAssistantKey: null,
+  }
+}
+
+export function normalizeDialogueSession(
+  raw: unknown,
+  options?: { now?: Date; today?: string }
+): DialogueSessionState {
+  const fallback = createDefaultDialogueSession()
+  const today = options?.today ?? getTodayDateString()
+  const nowTs = (options?.now ?? new Date()).getTime()
+  if (!raw || typeof raw !== 'object') return fallback
+  const src = raw as Partial<DialogueSessionState>
+  const target =
+    typeof src.target === 'number' ? Math.max(1, Math.floor(src.target)) : DIALOGUE_SESSION_LENGTH
+  const progress =
+    typeof src.progress === 'number' ? Math.max(0, Math.min(target, Math.floor(src.progress))) : 0
+  const sessionXpAwarded =
+    typeof src.sessionXpAwarded === 'number' ? Math.max(0, Math.floor(src.sessionXpAwarded)) : 0
+  let status: DialogueSessionState['status'] =
+    src.status === 'in_progress' ||
+    src.status === 'completed' ||
+    src.status === 'not_started' ||
+    src.status === 'abandoned'
+      ? src.status
+      : progress >= target
+        ? 'completed'
+        : progress > 0
+          ? 'in_progress'
+          : 'not_started'
+  if (progress >= target) status = 'completed'
+  let session: DialogueSessionState = rollDialogueDailyXp(
+    {
+      target,
+      progress: status === 'completed' ? target : progress,
+      sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
+      status,
+      sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
+      lastAwardedAssistantKey:
+        typeof src.lastAwardedAssistantKey === 'string' ? src.lastAwardedAssistantKey : null,
+      dailyXpAwarded:
+        typeof src.dailyXpAwarded === 'number' ? Math.max(0, Math.floor(src.dailyXpAwarded)) : 0,
+      dailyXpDate: typeof src.dailyXpDate === 'string' ? src.dailyXpDate : null,
+    },
+    today
+  )
+  if (session.status === 'in_progress' && session.sessionStartedAt) {
+    const started = parseDateOrNull(session.sessionStartedAt)
+    if (started && nowTs - started.getTime() > DIALOGUE_SESSION_TTL_MS) {
+      session = abandonDialogueSessionSlice(session)
+    }
+  }
+  return session
+}
+
+export function startDialogueSessionState(
+  state: RewardsState,
+  today: string = getTodayDateString()
+): RewardsState {
+  const rolled = rollDialogueDailyXp(state.dialogueSession, today)
+  return {
+    ...state,
+    dialogueSession: {
+      ...rolled,
+      target: DIALOGUE_SESSION_LENGTH,
+      progress: 0,
+      sessionXpAwarded: 0,
+      status: 'in_progress',
+      sessionStartedAt: new Date().toISOString(),
+      lastAwardedAssistantKey: null,
+    },
+  }
+}
+
+export function abandonDialogueSessionState(state: RewardsState): RewardsState {
+  const session = rollDialogueDailyXp(state.dialogueSession)
+  if (
+    (session.status === 'not_started' || session.status === 'abandoned') &&
+    session.progress === 0 &&
+    session.sessionXpAwarded === 0 &&
+    session.lastAwardedAssistantKey == null
+  ) {
+    return state.dialogueSession === session ? state : { ...state, dialogueSession: session }
+  }
+  return {
+    ...state,
+    dialogueSession: abandonDialogueSessionSlice(session),
+  }
+}
+
 function normalizeRewardsState(raw: unknown): RewardsState {
   const fallback = createDefaultRewardsState()
   if (!raw || typeof raw !== 'object') return fallback
@@ -562,6 +680,7 @@ function normalizeRewardsState(raw: unknown): RewardsState {
     translationSession: normalizeTranslationSession(
       (src as { translationSession?: unknown }).translationSession
     ),
+    dialogueSession: normalizeDialogueSession((src as { dialogueSession?: unknown }).dialogueSession),
     ui: {
       footerTicker: typeof src.ui?.footerTicker === 'string' ? src.ui.footerTicker : fallback.ui.footerTicker,
       lastReward:
