@@ -122,6 +122,20 @@ describe('getAppHeaderTitleMaxWidthClass', () => {
     ).toBe('max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]')
   })
 
+  it('reserves extra space for session exit next to communication controls', () => {
+    expect(
+      getAppHeaderTitleMaxWidthClass({
+        dialogStarted: true,
+        hasCommunicationControls: true,
+        lessonPageTitleView: false,
+        hasLessonHeaderProgress: false,
+        isLessonPreSteps: false,
+        hasHeaderMedal: false,
+        hasSessionExitControl: true,
+      })
+    ).toBe('max-w-[calc(100%-3rem-12rem)] sm:max-w-[calc(100%-3rem-13rem)]')
+  })
+
   it('uses lesson progress width when progress label is shown', () => {
     expect(
       getAppHeaderTitleMaxWidthClass({

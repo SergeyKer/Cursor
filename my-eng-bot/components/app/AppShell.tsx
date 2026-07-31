@@ -8183,6 +8183,28 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const isLessonBriefingActive = Boolean(activeStructuredLesson && activeLearningLesson && lessonViewStage === 'briefing')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
 
+  const translationChatActive =
+    dialogStarted &&
+    settings.mode === 'translation' &&
+    !engvoVoiceMode &&
+    !myPlanSpaceActive &&
+    !progressSpaceActive &&
+    !tutorChatSpaceActive
+  const dialogueChatActive =
+    dialogStarted &&
+    settings.mode === 'dialogue' &&
+    !engvoVoiceMode &&
+    !myPlanSpaceActive &&
+    !progressSpaceActive &&
+    !tutorChatSpaceActive
+  const communicationChatActive =
+    dialogStarted &&
+    settings.mode === 'communication' &&
+    !engvoVoiceMode &&
+    !myPlanSpaceActive &&
+    !progressSpaceActive &&
+    !tutorChatSpaceActive
+
   const showSessionExitControl = shouldShowSessionExitControl({
     menuOpen,
     isStructuredLessonActive,
@@ -8190,11 +8212,27 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isPracticeActive,
     practiceSessionStatus: practiceSession.session?.status ?? null,
     practiceFlowState: practiceSession.state,
+    translationChatActive,
+    translationSessionStatus: rewardsState.translationSession?.status ?? null,
+    dialogueChatActive,
+    dialogueSessionStatus: rewardsState.dialogueSession?.status ?? null,
+    communicationChatActive,
+    communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
+    isVocabularyHubActive,
+    isAccentActive,
   })
   const sessionExitKind = resolveSessionExitKind({
     isStructuredLessonActive,
     activeStructuredLessonStatus,
     isPracticeActive,
+    translationChatActive,
+    translationSessionStatus: rewardsState.translationSession?.status ?? null,
+    dialogueChatActive,
+    dialogueSessionStatus: rewardsState.dialogueSession?.status ?? null,
+    communicationChatActive,
+    communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
+    isVocabularyHubActive,
+    isAccentActive,
   })
 
   useEffect(() => {
@@ -8209,6 +8247,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const openSessionExitConfirm = useCallback(() => {
     if (!showSessionExitControl || !sessionExitKind) return
+    setCommunicationVoiceDropdownOpen(false)
     setSessionExitConfirmOpen(true)
   }, [sessionExitKind, showSessionExitControl])
 
@@ -8237,8 +8276,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     try {
       if (kind === 'practice') {
         backToPracticeMenu()
-      } else {
+      } else if (kind === 'lesson') {
         backToLessonList()
+      } else if (kind === 'translation') {
+        exitTranslationSessionTo('myPlan')
+      } else if (kind === 'dialogue') {
+        exitDialogueSessionTo('myPlan')
+      } else if (kind === 'communication') {
+        exitCommunicationSessionTo('myPlan')
       }
     } finally {
       window.setTimeout(() => {
@@ -8246,7 +8291,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         sessionExitIgnorePopRef.current = false
       }, 0)
     }
-  }, [backToLessonList, backToPracticeMenu, sessionExitKind])
+  }, [
+    backToLessonList,
+    backToPracticeMenu,
+    exitCommunicationSessionTo,
+    exitDialogueSessionTo,
+    exitTranslationSessionTo,
+    sessionExitKind,
+  ])
 
   useEffect(() => {
     const needsGuard = showSessionExitControl || sessionExitConfirmOpen
@@ -8265,6 +8317,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return
       }
       if (showSessionExitControl) {
+        setCommunicationVoiceDropdownOpen(false)
         setSessionExitConfirmOpen(true)
       }
     }
@@ -9135,27 +9188,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStreakHintConsumedForMode(null)
     }
   }, [activeStreakSessionMode])
-  const translationChatActive =
-    dialogStarted &&
-    settings.mode === 'translation' &&
-    !engvoVoiceMode &&
-    !myPlanSpaceActive &&
-    !progressSpaceActive &&
-    !tutorChatSpaceActive
-  const dialogueChatActive =
-    dialogStarted &&
-    settings.mode === 'dialogue' &&
-    !engvoVoiceMode &&
-    !myPlanSpaceActive &&
-    !progressSpaceActive &&
-    !tutorChatSpaceActive
-  const communicationChatActive =
-    dialogStarted &&
-    settings.mode === 'communication' &&
-    !engvoVoiceMode &&
-    !myPlanSpaceActive &&
-    !progressSpaceActive &&
-    !tutorChatSpaceActive
   React.useEffect(() => {
     if (!storageLoaded) return
     if (translationChatActive) {

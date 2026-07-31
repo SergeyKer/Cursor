@@ -37,8 +37,14 @@ import { getCommunicationWebSearchDecision } from '@/lib/webSearchContext'
 import { buildAiSafetyRulesBlock } from '@/lib/ai/safetyPolicy'
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
 import {
+  buildCommunicationBandReinforcement,
+  isCommunicationALevelForRuWarn,
+} from '@/lib/communication/cefrBands'
+import { extractCommunicationSpeakText } from '@/lib/communication/extractCommunicationSpeakText'
+import {
   buildCommunicationEnglishContinuationFallback,
   buildCommunicationFallbackMessage,
+  buildCommunicationFirstMessage,
   buildCommunicationMaxTokens,
   detectCommunicationDetailLevel,
   extractExplicitTranslateTarget,
@@ -586,6 +592,7 @@ function buildSystemPrompt(params: {
     mode: mode as AppMode,
     level: level as LevelId,
     audience: audience as Audience,
+    ...(mode === 'communication' ? { channel: 'chat_communication' as const } : {}),
   })
   const tenseName = TENSE_NAMES[tense] ?? 'Present Simple'
   const topicName = TOPIC_NAMES[topic] ?? 'general'
@@ -639,12 +646,13 @@ ${buildCommunicationMixLearningRule(communicationVoiceInputMode)}
 - ${audienceStyleRule}
 - ${childTopicSafetyRule}
 - ${buildCommunicationEnglishStyleRule(audience)}
-- ${buildCommunicationLevelRules(level)}
+- ${buildCommunicationLevelRules(level, audience as Audience)}
+- ${buildCommunicationBandReinforcement(level as LevelId, audience as Audience)}
 - ${styleRule}
 - ${grammarFocusRule}
 - ${personalizationRule}
 - ${cefrPromptBlock}
-- ${buildCommunicationDetailRule(communicationDetailLevel)}
+- ${buildCommunicationDetailRule(communicationDetailLevel, level as LevelId, audience as Audience)}
 - Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
 - If AI_SAFETY:sensitive_no_interview or AI_SAFETY:child_teen_hardening applies, do NOT ask follow-up/clarifying questions about that topic; apply safety redirect instead of personalization.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Скажи:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
@@ -653,10 +661,12 @@ ${buildCommunicationMixLearningRule(communicationVoiceInputMode)}
 
 When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
-- The very first assistant message MUST be in English (short, CEFR-appropriate).
-- Use exactly one greeting only; do not stack multiple greetings or add extra filler before the invitation.
+- Fixed A levels (starter/A1/A2) only: you MAY start with exactly one short Russian meta line that honestly warns replies are English-only, then one short English greeting + invitation. No more Russian after that line. Follow-up turns remain English only.
+- For B1+ and adaptive ("all"): the very first assistant message MUST be in English only (short, CEFR-appropriate).
+- Use exactly one English greeting only; do not stack multiple greetings or add extra filler before the invitation.
 - Vary the wording across different conversations; do not reuse the same opening phrase every time.
 - CHILD -> warm, simple English; ADULT -> clear, polite English with natural "you". Keep the same tone for follow-ups in English.
+- C1/C2: peer tone at register (not a lesson tutor; not an academic dump).
 
 No other format. Output only the chat message text.`
   }
@@ -1008,7 +1018,8 @@ function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string
 }
 
 /** Только режим communication: потолок CEFR или динамика для level === 'all'. */
-function buildCommunicationLevelRules(level: string): string {
+function buildCommunicationLevelRules(level: string, audience: Audience): string {
+  void audience
   if (level === 'all') {
     return [
       'English level mode: adaptive ("all"). Infer the learner\'s approximate English level only from the user\'s messages in the current request context (the conversation history you see). Do not print CEFR labels in your reply.',
@@ -1018,20 +1029,50 @@ function buildCommunicationLevelRules(level: string): string {
     ].join(' ')
   }
   const ceiling = buildLevelPrompt(level)
+  const tenseLine = `Tense range for this CEFR level: ${getLevelProfile(level).tenses}`
   return [
     `Fixed learner English level (CEFR ceiling): ${ceiling}`,
+    tenseLine,
     'Your English output must NOT exceed this profile: vocabulary, grammar, tense range, and sentence complexity must stay within the level described above. Do not use structures or idioms clearly above this level.',
     'All assistant replies are English; Russian input is allowed but never answered in Russian.',
   ].join(' ')
 }
 
-function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
+/** Depth keywords change volume only — never CEFR difficulty. */
+function buildCommunicationDetailRule(
+  detailLevel: 0 | 1 | 2,
+  level: LevelId,
+  audience: Audience
+): string {
+  const isA = ['starter', 'a1', 'a2'].includes(level)
+  const sameLevelLock =
+    'CRITICAL: detail keywords change VOLUME only (more sentences / more simple examples). Do NOT raise CEFR difficulty, vocabulary rarity, or tense complexity. Prefer more concrete examples over harder words. Reply stays English.'
+
   if (detailLevel === 2) {
-    return 'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", answer much more expansively than usual: give a fuller explanation, add relevant nuance, and use up to 2 short paragraphs if needed. Reply stays English; keep tone and audience style. These keywords are language-neutral and only change depth.'
+    if (isA) {
+      return [
+        'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", give more volume with several short simple sentences and concrete examples.',
+        audience === 'child'
+          ? 'For child A-levels: short sentences only — not an essay, not abstract nuance.'
+          : 'For A-levels: keep sentences short and concrete — not academic paragraphs.',
+        sameLevelLock,
+        'These keywords are language-neutral and only change depth.',
+      ].join(' ')
+    }
+    return [
+      'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", give more volume: more examples/steps, up to 2 short paragraphs of level-appropriate sentences.',
+      'Do not treat "nuance" as a license to jump to a higher CEFR register or academic dump.',
+      sameLevelLock,
+      'These keywords are language-neutral and only change depth.',
+    ].join(' ')
   }
 
   if (detailLevel === 1) {
-    return 'If the user writes "Подробнее", "more details", or "in more detail", answer more expansively than usual: give a short but clearer explanation with a bit more context. Reply stays English; keep tone and audience style. These keywords are language-neutral and only change depth.'
+    return [
+      'If the user writes "Подробнее", "more details", or "in more detail", add a bit more volume: +1–2 short sentences or 1–2 simple examples.',
+      sameLevelLock,
+      'These keywords are language-neutral and only change depth.',
+    ].join(' ')
   }
 
   return 'Without a detail keyword, keep the reply short and focused (1–3 sentences).'
@@ -1076,16 +1117,61 @@ function finalizeCommunicationContentWithCefr(params: {
 }): string {
   if (params.targetLang === 'ru') return params.content
 
+  const isA = ['starter', 'a1', 'a2'].includes(params.level)
+  let ruPrefix = ''
+  let contentToGuard = params.content
+  if (params.firstTurn && isCommunicationALevelForRuWarn(params.level)) {
+    const enTail = extractCommunicationSpeakText(params.content)
+    if (enTail && enTail !== params.content.trim()) {
+      const idx = params.content.indexOf(enTail)
+      if (idx > 0) {
+        ruPrefix = params.content.slice(0, idx).trimEnd()
+        contentToGuard = enTail
+      }
+    }
+  }
+
+  const reassemble = (en: string) => (ruPrefix ? `${ruPrefix}\n${en}`.trim() : en)
+
   const guarded = applyCefrOutputGuard({
     mode: 'communication',
-    content: params.content,
+    content: contentToGuard,
     level: params.level,
     audience: params.audience,
     communicationTargetLang: 'en',
   })
-  // Даже при «утечке» после упрощения показываем лучший вариант ответа модели, а не вопрос-заглушку:
-  // пользователь может задавать вопрос любой сложности.
-  if (guarded.content.trim()) return guarded.content
+
+  // A-levels: on residual leak, prefer CEFR-safe fallback (do not show hard leaked wording).
+  if (isA && guarded.leaked) {
+    const levelFallback = params.firstTurn
+      ? buildCommunicationFirstMessage({
+          audience: params.audience,
+          level: params.level,
+          seedText: params.seedText,
+        })
+      : buildCommunicationFallbackMessage({
+          audience: params.audience,
+          language: 'en',
+          level: params.level,
+          firstTurn: false,
+          seedText: params.seedText,
+        })
+    if (params.firstTurn && isCommunicationALevelForRuWarn(params.level)) {
+      return levelFallback
+    }
+    const guardedFallback = applyCefrOutputGuard({
+      mode: 'communication',
+      content: levelFallback,
+      level: params.level,
+      audience: params.audience,
+      communicationTargetLang: 'en',
+    })
+    if (guardedFallback.content.trim()) return reassemble(guardedFallback.content)
+    return reassemble('Can you say it another way?')
+  }
+
+  // B/C (and clean A): best-effort model text. C must not be force-downgraded to B fallbacks here.
+  if (guarded.content.trim()) return reassemble(guarded.content)
 
   const levelFallback = buildCommunicationFallbackMessage({
     audience: params.audience,
@@ -1101,11 +1187,19 @@ function finalizeCommunicationContentWithCefr(params: {
     audience: params.audience,
     communicationTargetLang: 'en',
   })
-  if (!guardedFallback.leaked && guardedFallback.content.trim()) return guardedFallback.content
+  if (!guardedFallback.leaked && guardedFallback.content.trim()) {
+    return params.firstTurn && isCommunicationALevelForRuWarn(params.level)
+      ? levelFallback
+      : reassemble(guardedFallback.content)
+  }
 
   return ['starter', 'a1', 'a2'].includes(params.level)
     ? params.firstTurn
-      ? 'Hello! How are you? What do you want to talk about?'
+      ? buildCommunicationFirstMessage({
+          audience: params.audience,
+          level: params.level,
+          seedText: params.seedText,
+        })
       : 'Can you say it another way?'
     : params.firstTurn
       ? 'Hello! What would you like to talk about today?'
@@ -7245,7 +7339,12 @@ export async function POST(req: NextRequest) {
       mode === 'communication' ? detectCommunicationDetailLevel(lastUserText) : 0
     const communicationMaxTokens =
       mode === 'communication'
-        ? buildCommunicationMaxTokens(communicationDetailLevel, MAX_RESPONSE_TOKENS)
+        ? buildCommunicationMaxTokens(
+            communicationDetailLevel,
+            MAX_RESPONSE_TOKENS,
+            level as LevelId,
+            audience
+          )
         : MAX_RESPONSE_TOKENS
     const lastUserContentForResponse = stripWebSearchForceCode(lastUserText)
     const priorAssistantContentForDialogue =
@@ -7380,11 +7479,9 @@ export async function POST(req: NextRequest) {
     // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
     // Ранее ответ все равно заменялся fallback-репликой после провайдера.
     if (mode === 'communication' && isFirstTurn && !communicationSearchRequested) {
-      const firstFallback = buildCommunicationFallbackMessage({
+      const firstFallback = buildCommunicationFirstMessage({
         audience,
-        language: 'en',
-        level,
-        firstTurn: true,
+        level: level as LevelId,
         seedText: dialogSeed,
       })
       const firstContent = finalizeCommunicationContentWithCefr({
@@ -8994,7 +9091,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
       if (!cleaned) cleaned = fallback
 
-      let responseLang = detectLangFromText(cleaned, targetLang)
+      let responseLang = detectLangFromText(
+        targetLang === 'en' ? extractCommunicationSpeakText(cleaned) || cleaned : cleaned,
+        targetLang
+      )
       if (responseLang !== targetLang) {
         // Repair: принудительно просим вернуть ответ на нужном языке (RU/EN) и без протокольных маркеров.
         const repairApiMessages = [...apiMessages]
@@ -9003,7 +9103,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
           role: 'system',
           content:
             systemContent +
-            `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Скажи", no tutor/protocol markers, no "RU:/Russian:/Перевод".`,
+            `\n\nIMPORTANT LANGUAGE FIX: You MUST reply ONLY in ${targetLabel} (no switching languages). Keep it short (1–3 sentences). No "Комментарий/Скажи", no tutor/protocol markers, no "RU:/Russian:/Перевод".` +
+            (isFirstTurn && isCommunicationALevelForRuWarn(level as LevelId)
+              ? ' Exception for first A-level bubble only: one short Russian meta warning line is allowed before the English greeting.'
+              : ''),
         }
 
         const res2 = await callProviderChat({
@@ -9030,7 +9133,10 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               })
             }
             if (!cleaned) cleaned = fallback
-            responseLang = detectLangFromText(cleaned, targetLang)
+            responseLang = detectLangFromText(
+              targetLang === 'en' ? extractCommunicationSpeakText(cleaned) || cleaned : cleaned,
+              targetLang
+            )
             if (responseLang !== targetLang) cleaned = fallback
           } else {
             cleaned = fallback
@@ -9056,11 +9162,12 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
       // Гарантия приветствия на первом ассистентском сообщении в `communication`.
       // Модель иногда выдаёт сразу вопрос без "Привет"/"Hello", и вы это заметили на UI.
       if (isFirstTurn) {
-        // Расширяем проверку на приветствия: модель иногда выдает опечатку
-        // вроде "Здраствуй" вместо "Здравствуй", из-за чего авто-добавление
-        // приветствия раньше срабатывало повторно (получалось "двойное приветствие").
-        const hasRuGreeting = /^(Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b/i.test(cleaned)
-        const hasEnGreeting = /^(Hi|Hello|Hey|Greetings)\b/i.test(cleaned)
+        // A-level bilingual bubbles start with RU meta — check EN greeting on the EN tail.
+        const greetingProbe = extractCommunicationSpeakText(cleaned) || cleaned
+        const hasRuGreeting = /^(Привет|Здравствуй|Здраствуй|Здравствуйте|Добрый\s+день|Приветик|Хай)\b/i.test(
+          greetingProbe
+        )
+        const hasEnGreeting = /^(Hi|Hello|Hey|Greetings)\b/i.test(greetingProbe)
         const hasGreeting = targetLang === 'ru' ? hasRuGreeting : hasEnGreeting
         if (!hasGreeting) {
           cleaned = fallback

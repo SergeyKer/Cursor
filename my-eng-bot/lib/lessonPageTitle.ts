@@ -81,7 +81,9 @@ export function getAppHeaderTitleMaxWidthClass(input: {
       : 'max-w-[calc(100%-3rem-8rem)] sm:max-w-[calc(100%-3rem-9.5rem)]'
   }
   if (input.hasCommunicationControls) {
-    return 'max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]'
+    return exit
+      ? 'max-w-[calc(100%-3rem-12rem)] sm:max-w-[calc(100%-3rem-13rem)]'
+      : 'max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]'
   }
   if (input.dialogStarted) {
     return exit

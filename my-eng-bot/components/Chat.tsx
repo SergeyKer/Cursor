@@ -24,6 +24,7 @@ import {
   stripLeadingBulbEmojisForPrefixedCard,
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
+import { extractCommunicationSpeakText } from '@/lib/communication/extractCommunicationSpeakText'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import TranslationSessionExitChips from '@/components/translation/TranslationSessionExitChips'
@@ -2894,7 +2895,14 @@ function MessageBubble({
     isTranslationMode && displayText
       ? splitTranslationInvitation(displayText)
       : { mainBefore: displayText ?? '', invitation: null as string | null, mainAfter: '' }
-  const isCommunicationEnglish = !isUser && mode === 'communication' && detectTextLang(displayText ?? '') === 'en'
+  const communicationPracticeText =
+    !isUser && mode === 'communication'
+      ? extractCommunicationSpeakText(displayText ?? '')
+      : ''
+  const isCommunicationEnglish =
+    !isUser &&
+    mode === 'communication' &&
+    detectTextLang(communicationPracticeText || displayText || '') === 'en'
 
   // При правильном ответе ИИ пишет похвалу (Комментарий: Отлично! / Молодец! и т.д.) - блок "Правильно:" не показываем
   const isCorrectAnswerPraise = Boolean(comment && /^(Отлично|Молодец|Верно|Хорошо|Супер|Правильно)[!.]?\s*/i.test(comment.trim()))
@@ -3150,7 +3158,10 @@ function MessageBubble({
         ? [engvoRepeatCue.correction, `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`].join(' ')
         : `${engvoRepeatCue.marker}: ${engvoRepeatCue.repeatText}`
       : null
-  const textToTranslate = engvoSpeakText || repeatTextForCard || rest || visibleContent
+  const textToTranslate =
+    mode === 'communication' && communicationPracticeText
+      ? communicationPracticeText
+      : engvoSpeakText || repeatTextForCard || rest || visibleContent
 
   const stripRepeatLeadForSpeak = (raw: string) =>
     raw.replace(/^(Скажи|Say|Повтори|Repeat)\s*:?\s*/i, '').trim()
@@ -3168,7 +3179,9 @@ function MessageBubble({
             .filter((s): s is string => typeof s === 'string')
             .map((s) => s.trim())
             .find(Boolean) ?? ''
-        : (engvoSpeakText || repeatTextForCard || rest || visibleContent || '').trim()
+        : mode === 'communication' && communicationPracticeText
+          ? communicationPracticeText
+          : (engvoSpeakText || repeatTextForCard || rest || visibleContent || '').trim()
       : ''
 
   const handleSpeak = () => {

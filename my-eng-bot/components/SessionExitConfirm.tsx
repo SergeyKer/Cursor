@@ -89,13 +89,44 @@ export default function SessionExitConfirm({
         aria-modal="true"
         aria-labelledby={titleId}
         aria-label={SESSION_EXIT_COPY.dialogAriaLabel}
-        className={`w-full max-w-md rounded-2xl border border-[var(--border)] bg-[#f9fafb] p-5 shadow-xl ${cardClass}`}
+        className={`relative w-full max-w-md rounded-2xl border border-[var(--border)] bg-white/90 p-5 shadow-xl backdrop-blur-sm ${cardClass}`}
       >
-        <h2 id={titleId} className="text-base font-semibold text-[var(--text)]">
+        <button
+          type="button"
+          className="footer-sheet__close absolute right-3 top-3 touch-manipulation focus-visible:outline-none"
+          onClick={finishStay}
+          disabled={leaveBusy || closing}
+          aria-label="Закрыть"
+        >
+          <svg
+            className="footer-sheet__close-icon"
+            viewBox="0 0 14 14"
+            width="14"
+            height="14"
+            aria-hidden
+          >
+            <path
+              d="M2 2l10 10M12 2L2 12"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.85"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+        <h2 id={titleId} className="text-center text-base font-semibold text-[var(--text)]">
           {SESSION_EXIT_COPY.confirmTitle}
         </h2>
-        <p className="mt-3 text-sm leading-6 text-[var(--text)]">{body}</p>
-        <div className="mt-5 flex flex-col gap-2 sm:flex-row-reverse">
+        <p className="mt-3 text-center text-sm leading-6 text-[var(--text)]">{body}</p>
+        <div className="mt-5 flex flex-row gap-2">
+          <button
+            type="button"
+            className={`${POST_LESSON_NEUTRAL_BUTTON_CLASS} !border-[var(--chat-section-neutral-border)]`}
+            onClick={onLeave}
+            disabled={leaveBusy || closing}
+          >
+            {SESSION_EXIT_COPY.leave}
+          </button>
           <button
             ref={stayRef}
             type="button"
@@ -104,14 +135,6 @@ export default function SessionExitConfirm({
             disabled={leaveBusy || closing}
           >
             {SESSION_EXIT_COPY.stay}
-          </button>
-          <button
-            type="button"
-            className={POST_LESSON_NEUTRAL_BUTTON_CLASS}
-            onClick={onLeave}
-            disabled={leaveBusy || closing}
-          >
-            {SESSION_EXIT_COPY.leave}
           </button>
         </div>
       </div>

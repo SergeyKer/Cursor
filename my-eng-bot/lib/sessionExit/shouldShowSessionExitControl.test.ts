@@ -11,6 +11,14 @@ const base = {
   isPracticeActive: false,
   practiceSessionStatus: null as string | null,
   practiceFlowState: null as string | null,
+  translationChatActive: false,
+  translationSessionStatus: null as string | null,
+  dialogueChatActive: false,
+  dialogueSessionStatus: null as string | null,
+  communicationChatActive: false,
+  communicationSessionStatus: null as string | null,
+  isVocabularyHubActive: false,
+  isAccentActive: false,
 }
 
 describe('shouldShowSessionExitControl', () => {
@@ -88,15 +96,108 @@ describe('shouldShowSessionExitControl', () => {
       })
     ).toBe(false)
   })
+
+  it('shows for translation/dialogue/communication in_progress', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
+      })
+    ).toBe(true)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        dialogueChatActive: true,
+        dialogueSessionStatus: 'in_progress',
+      })
+    ).toBe(true)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        communicationChatActive: true,
+        communicationSessionStatus: 'in_progress',
+      })
+    ).toBe(true)
+  })
+
+  it('hides chat sessions when completed, not_started, or abandoned', () => {
+    for (const status of ['completed', 'not_started', 'abandoned'] as const) {
+      expect(
+        shouldShowSessionExitControl({
+          ...base,
+          translationChatActive: true,
+          translationSessionStatus: status,
+        })
+      ).toBe(false)
+      expect(
+        shouldShowSessionExitControl({
+          ...base,
+          dialogueChatActive: true,
+          dialogueSessionStatus: status,
+        })
+      ).toBe(false)
+      expect(
+        shouldShowSessionExitControl({
+          ...base,
+          communicationChatActive: true,
+          communicationSessionStatus: status,
+        })
+      ).toBe(false)
+    }
+  })
+
+  it('hides chat mid-session when menu is open', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        menuOpen: true,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
+      })
+    ).toBe(false)
+  })
+
+  it('hides chat mid-session on vocabulary or accent overlays', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
+        isVocabularyHubActive: true,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        communicationChatActive: true,
+        communicationSessionStatus: 'in_progress',
+        isAccentActive: true,
+      })
+    ).toBe(false)
+  })
+
+  it('hides when chat is not active (call / inactive)', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        translationChatActive: false,
+        translationSessionStatus: 'in_progress',
+      })
+    ).toBe(false)
+  })
 })
 
 describe('resolveSessionExitKind', () => {
   it('prefers lesson when both could apply', () => {
     expect(
       resolveSessionExitKind({
+        ...base,
         isStructuredLessonActive: true,
         activeStructuredLessonStatus: 'idle',
         isPracticeActive: true,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
       })
     ).toBe('lesson')
   })
@@ -104,10 +205,51 @@ describe('resolveSessionExitKind', () => {
   it('returns practice when only practice is active', () => {
     expect(
       resolveSessionExitKind({
-        isStructuredLessonActive: false,
-        activeStructuredLessonStatus: null,
+        ...base,
         isPracticeActive: true,
       })
     ).toBe('practice')
+  })
+
+  it('returns translation, dialogue, communication kinds', () => {
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
+      })
+    ).toBe('translation')
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        dialogueChatActive: true,
+        dialogueSessionStatus: 'in_progress',
+      })
+    ).toBe('dialogue')
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        communicationChatActive: true,
+        communicationSessionStatus: 'in_progress',
+      })
+    ).toBe('communication')
+  })
+
+  it('returns null for completed chat or overlays', () => {
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        translationChatActive: true,
+        translationSessionStatus: 'completed',
+      })
+    ).toBe(null)
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        dialogueChatActive: true,
+        dialogueSessionStatus: 'in_progress',
+        isVocabularyHubActive: true,
+      })
+    ).toBe(null)
   })
 })

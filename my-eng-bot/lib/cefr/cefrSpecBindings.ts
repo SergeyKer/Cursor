@@ -140,6 +140,11 @@ export function createCefrSpecApi(getCefrLevelConfig: CefrLevelConfigGetter) {
     level: LevelId
     audience: Audience
     mode: 'dialogue' | 'translation' | 'communication'
+    /**
+     * Optional channel. Dialogue can-do is injected ONLY for chat communication
+     * so Engvo free_call (also mode=communication) is not affected.
+     */
+    channel?: 'chat_communication'
   }): string {
     const spec = getCefrSpec(params.level)
     if (!spec) {
@@ -156,7 +161,7 @@ export function createCefrSpecApi(getCefrLevelConfig: CefrLevelConfigGetter) {
         : 'Avoid unnecessary complexity and rare words above this level.'
     const config = getCefrLevelConfig(params.level)
 
-    return [
+    const parts = [
       CEFR_LEVELS_CONFIG_PROMPT_REF,
       `CEFR lexical ceiling (${spec.id.toUpperCase()}): keep output within this level limits.`,
       `Sentence length: usually <= ${spec.maxSentenceWords} words.`,
@@ -170,7 +175,25 @@ export function createCefrSpecApi(getCefrLevelConfig: CefrLevelConfigGetter) {
       params.mode === 'translation'
         ? 'For translation mode: keep Russian task sentence simple for the same CEFR level, and keep expected English answer within this CEFR level.'
         : 'If a word above level is unavoidable, use it minimally and immediately paraphrase with a simpler equivalent.',
-    ].join(' ')
+    ]
+
+    if (params.channel === 'chat_communication') {
+      const dialogueCanDo = (config?.dialogue ?? '').trim()
+      const monologueCanDo = (config?.monologue ?? '').trim()
+      if (dialogueCanDo) {
+        const isC = spec.id === 'c1' || spec.id === 'c2'
+        parts.push(
+          isC
+            ? `Learner dialogue can-do (${spec.id.toUpperCase()}): ${dialogueCanDo}. Practice WITH the learner at this register as a peer (not a lesson tutor).`
+            : `Learner dialogue can-do (${spec.id.toUpperCase()}): ${dialogueCanDo}. Match assistant help to this interaction ability (scaffold on A, situational on A2/B).`
+        )
+      }
+      if (monologueCanDo) {
+        parts.push(`Learner monologue can-do (${spec.id.toUpperCase()}): ${monologueCanDo}.`)
+      }
+    }
+
+    return parts.join(' ')
   }
 
   return { getCefrSpec, getCefrDenyWords, buildCefrPromptBlock }

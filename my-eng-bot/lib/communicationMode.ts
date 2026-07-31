@@ -1,5 +1,10 @@
+import {
+  buildCommunicationARuWarn,
+  isCommunicationALevelForRuWarn,
+  resolveCommunicationCefrBand,
+} from '@/lib/communication/cefrBands'
 import { normalizeCommunicationDetailText } from '@/lib/communicationReplyLanguage'
-import type { LevelId } from '@/lib/types'
+import type { Audience, LevelId } from '@/lib/types'
 
 function stableHash32(input: string): number {
   let hash = 0x811c9dc5
@@ -24,10 +29,111 @@ export function detectCommunicationDetailLevel(text: string): 0 | 1 | 2 {
   return 0
 }
 
-export function buildCommunicationMaxTokens(detailLevel: 0 | 1 | 2, baseMaxTokens: number): number {
-  if (detailLevel === 2) return 1024
-  if (detailLevel === 1) return 768
-  return baseMaxTokens
+/** Token budget for communication: depth increases volume, CEFR caps the ceiling. */
+export function buildCommunicationMaxTokens(
+  detailLevel: 0 | 1 | 2,
+  baseMaxTokens: number,
+  level: LevelId = 'a1',
+  audience: Audience = 'adult'
+): number {
+  if (detailLevel === 0) return baseMaxTokens
+
+  const child = audience === 'child'
+  const band = resolveCommunicationCefrBand(level)
+
+  if (band === 'a1' || band === 'a2') {
+    if (detailLevel === 2) return Math.min(baseMaxTokens, child ? 420 : 520)
+    return Math.min(baseMaxTokens, child ? 320 : 400)
+  }
+  if (band === 'b1' || band === 'b2') {
+    if (detailLevel === 2) return Math.min(baseMaxTokens, 720)
+    return Math.min(baseMaxTokens, 560)
+  }
+  if (band === 'c1' || band === 'c2') {
+    if (detailLevel === 2) return Math.min(baseMaxTokens, 900)
+    return Math.min(baseMaxTokens, 700)
+  }
+  // adaptive
+  if (detailLevel === 2) return Math.min(baseMaxTokens, 768)
+  return Math.min(baseMaxTokens, 560)
+}
+
+function pickEnFirstInvite(params: {
+  audience: Audience
+  level: LevelId
+  seedText: string
+}): string {
+  const { audience, level, seedText } = params
+  const band = resolveCommunicationCefrBand(level)
+  const isChild = audience === 'child'
+  const seed = stableHash32(`communication_first|en|${audience}|${level}|${seedText}`)
+  const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
+
+  if (band === 'a1' || band === 'a2') {
+    return isChild
+      ? pick([
+          'Hi! Let’s talk. What do you like?',
+          'Hi! How are you? What do you like?',
+          'Hello! Let’s start. What do you like to do?',
+          'Hi! What do you want to talk about?',
+        ])
+      : pick([
+          'Hello! How are you? What do you want to talk about?',
+          'Hello! Let’s talk. What do you like?',
+          'Hello! What do you want to talk about today?',
+          'Hello! Let’s start. How are you?',
+        ])
+  }
+
+  if (band === 'b1' || band === 'b2') {
+    return isChild
+      ? pick([
+          'Hi! How’s it going? What would you like to talk about?',
+          'Hi! Ready to chat? What’s interesting for you today?',
+          'Hello! What should we talk about?',
+        ])
+      : pick([
+          'Hello! How are you doing? What would you like to discuss?',
+          'Hello! Good to see you. What would you like to talk about?',
+          'Hello! What would you like to chat about today?',
+          'Hello! What’s on your mind today?',
+        ])
+  }
+
+  if (band === 'c1' || band === 'c2') {
+    return pick([
+      'Hello — good to connect. What would you like to dig into today?',
+      'Hi. Ready when you are — what’s worth talking through?',
+      'Hello. What’s the angle you want to explore today?',
+    ])
+  }
+
+  // adaptive
+  return isChild
+    ? pick(['Hi! How are you? What do you want to talk about?', 'Hi! Let’s talk. What do you like?'])
+    : pick([
+        'Hello! How are you? What would you like to talk about?',
+        'Hello! What would you like to chat about today?',
+      ])
+}
+
+/**
+ * First assistant bubble for communication.
+ * Fixed A levels: RU meta warn + EN invite. B/C/all: EN only.
+ */
+export function buildCommunicationFirstMessage(params: {
+  audience: Audience
+  level?: LevelId
+  seedText?: string | null
+}): string {
+  const audience = params.audience
+  const level = params.level ?? 'a1'
+  const seedText = params.seedText ?? ''
+  const en = pickEnFirstInvite({ audience, level, seedText })
+  if (isCommunicationALevelForRuWarn(level)) {
+    return `${buildCommunicationARuWarn(audience)}\n${en}`
+  }
+  return en
 }
 
 export function buildCommunicationFallbackMessage(params: {
@@ -38,72 +144,35 @@ export function buildCommunicationFallbackMessage(params: {
   seedText?: string | null
 }): string {
   const { audience, language, level = 'a1', firstTurn = false, seedText = '' } = params
-  const isChild = audience === 'child'
-  const isLowLevel = ['starter', 'a1', 'a2'].includes(level)
 
-  if (firstTurn) {
-    const seed = stableHash32(`communication_first|${language}|${audience}|${seedText}`)
+  if (firstTurn && language === 'en') {
+    return buildCommunicationFirstMessage({ audience, level, seedText })
+  }
+
+  if (firstTurn && language === 'ru') {
+    // Legacy path (should not run under EN-only product lock). Keep simple RU greetings.
+    const seed = stableHash32(`communication_first|ru|${audience}|${seedText}`)
     const pick = (variants: string[]) => variants[seed % variants.length] ?? variants[0] ?? ''
-
-    if (language === 'ru') {
-      return isChild
-        ? pick([
-            'Привет! Как ты? Что хочешь обсудить?',
-            'Привет! Как у тебя дела? О чём хочешь поговорить?',
-            'Привет! Что нового? Что тебе сегодня интересно?',
-            'Привет! Что ты хочешь обсудить сегодня?',
-            'Привет! Давай поговорим. Что тебя сейчас интересует?',
-            'Привет! О чём хочешь поговорить сегодня?',
-          ])
-        : pick([
-            'Здравствуйте! Как вы? О чём хотите поговорить?',
-            'Здравствуйте! Рад вас видеть. Чем займёмся сегодня?',
-            'Здравствуйте! Что вам интересно обсудить?',
-            'Здравствуйте! Готовы поговорить? Что интересного у вас сегодня?',
-            'Здравствуйте! О чём хотите поговорить сегодня?',
-            'Здравствуйте! Чем могу быть полезен?',
-          ])
-    }
-    return isChild
-      ? isLowLevel
-        ? pick([
-            'Hi! How are you? What do you want to talk about?',
-            'Hi! What do you want to talk about today?',
-            'Hi! Let’s talk. What topic do you want?',
-            'Hello! What do you want to practice today?',
-          ])
-        : pick([
-            'Hi! How are you? What would you like to talk about?',
-            'Hi! What’s up? What would you like to chat about?',
-            'Hi! Ready to talk? What would you like to discuss?',
-            'Hi! How’s it going? What should we talk about?',
-            'Hey! What would you like to practice today?',
-            'Hi there! What’s on your mind today?',
-          ])
-      : isLowLevel
-        ? pick([
-            'Hello! How are you? What do you want to talk about?',
-            'Hello! What topic do you want to discuss today?',
-            'Hello! Let’s talk. What should we discuss?',
-            'Hello! What do you want to practice today?',
-          ])
-        : pick([
-            'Hello! How are you doing? What would you like to discuss?',
-            'Hello! Good to see you. What would you like to talk about?',
-            'Hello! What would you like to chat about today?',
-            'Hello! What is on your mind today?',
-            'Hello! What would you like to explore today?',
-            'Hello! How can I help you today?',
-          ])
+    return audience === 'child'
+      ? pick([
+          'Привет! Как ты? Что хочешь обсудить?',
+          'Привет! Как у тебя дела? О чём хочешь поговорить?',
+          'Привет! Что нового? Что тебе сегодня интересно?',
+        ])
+      : pick([
+          'Здравствуйте! Как вы? О чём хотите поговорить?',
+          'Здравствуйте! Рад вас видеть. Чем займёмся сегодня?',
+          'Здравствуйте! Что вам интересно обсудить?',
+        ])
   }
 
   if (language === 'ru') {
-    return isChild
+    return audience === 'child'
       ? 'Уточни, пожалуйста, что ты имеешь в виду.'
       : 'Уточните, пожалуйста, что вы имеете в виду.'
   }
 
-  return isChild
+  return audience === 'child'
     ? 'What do you mean? Could you say that another way?'
     : 'Could you clarify what you mean?'
 }
