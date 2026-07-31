@@ -23,6 +23,15 @@ Engvo наверху **не запрещает разговор** — огран
 
 N = eligible `dialogueCorrect` advance (следующий вопрос), не сообщения пользователя и не ответы ИИ.
 
+**Не двигают N** (клиентский фильтр [`dialogueStepOutcome.ts`](../lib/dialogue/dialogueStepOutcome.ts)):
+
+- freeze / `dialogueCorrect === false` (Повтори)
+- free_talk topic-lock: ответ на invite / меню тем → первый вопрос по теме
+- re-ask темы (current assistant снова solicitation)
+- numbered choice `1`–`9` при меню в prev
+- refusal смены fixed topic; domain clarification (короткий ответ)
+- seed без user; идемпотентность `assistantKey`; сессия уже `completed`
+
 ## Exit chips (после 8/8)
 
 Sticky nav-chips над composer, пока сессия `completed` и чат диалога открыт:

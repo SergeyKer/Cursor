@@ -63,21 +63,30 @@ export function getAppHeaderTitleMaxWidthClass(input: {
   hasLessonHeaderProgress: boolean
   isLessonPreSteps: boolean
   hasHeaderMedal: boolean
+  /** × выхода mid-cycle справа (~2.5rem + gap). */
+  hasSessionExitControl?: boolean
 }): string {
+  const exit = Boolean(input.hasSessionExitControl)
   if (input.lessonPageTitleView) {
     if (input.hasLessonHeaderProgress) {
-      return 'max-w-[calc(100%-3rem-10rem)] sm:max-w-[calc(100%-3rem-12rem)]'
+      return exit
+        ? 'max-w-[calc(100%-3rem-12.5rem)] sm:max-w-[calc(100%-3rem-14.5rem)]'
+        : 'max-w-[calc(100%-3rem-10rem)] sm:max-w-[calc(100%-3rem-12rem)]'
     }
     if (input.isLessonPreSteps && !input.hasHeaderMedal) {
       return 'max-w-[calc(100%-3rem-7rem)] sm:max-w-[calc(100%-3rem-9rem)]'
     }
-    return 'max-w-[calc(100%-3rem-8rem)] sm:max-w-[calc(100%-3rem-9.5rem)]'
+    return exit
+      ? 'max-w-[calc(100%-3rem-10.5rem)] sm:max-w-[calc(100%-3rem-12rem)]'
+      : 'max-w-[calc(100%-3rem-8rem)] sm:max-w-[calc(100%-3rem-9.5rem)]'
   }
   if (input.hasCommunicationControls) {
     return 'max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]'
   }
   if (input.dialogStarted) {
-    return 'max-w-[calc(100%-3rem-3.5rem)]'
+    return exit
+      ? 'max-w-[calc(100%-3rem-6rem)]'
+      : 'max-w-[calc(100%-3rem-3.5rem)]'
   }
   return 'max-w-[calc(100%-3.5rem)]'
 }

@@ -14,7 +14,19 @@ import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
+import { SessionExitIcon } from '@/components/SessionExitIcon'
+import SessionExitConfirm from '@/components/SessionExitConfirm'
 import { AppIconFrame } from '@/components/AppIconFrame'
+import {
+  resolveSessionExitKind,
+  shouldShowSessionExitControl,
+} from '@/lib/sessionExit/shouldShowSessionExitControl'
+import {
+  isSessionExitHistoryState,
+  pushSessionExitHistoryGuard,
+  stripSessionExitHistoryGuard,
+} from '@/lib/sessionExit/sessionExitHistory'
+import { SESSION_EXIT_COPY } from '@/lib/uiCopy/sessionExit'
 import type {
   LessonMenuContext,
   LessonsPanel,
@@ -877,6 +889,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [streakHintConsumedForMode, setStreakHintConsumedForMode] = useState<string | null>(null)
   const [footerTransitionText, setFooterTransitionText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [sessionExitConfirmOpen, setSessionExitConfirmOpen] = useState(false)
+  const sessionExitLeaveBusyRef = React.useRef(false)
+  const sessionExitIgnorePopRef = React.useRef(false)
+  const sessionExitConfirmOpenRef = React.useRef(false)
   const [footerSheetContext, setFooterSheetContext] = useState<FooterSheetContext | null>(null)
   const footerSheetRef = React.useRef<FooterDetailSheetHandle>(null)
   /** Chip → reference: restore chat / tutor / menu on back. */
@@ -6954,6 +6970,27 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMenuOpen(true)
   }, [bumpFooterSessionContext, cleanupEngvoRuntime, openMenuAt, openMyPlanSpace, resetStructuredLessonSession])
 
+  const backToPracticeMenu = useCallback(() => {
+    setPracticeRewardUi(null)
+    setPracticeCompletionMeta(null)
+    practiceSession.abandonSession()
+    setDialogStarted(false)
+    setHomeMenuView('root')
+    setLessonMenuContext((prev) => ({
+      menuView: 'lessons',
+      lessonsPanel: 'practice',
+      activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,
+      activeTheoryTagId: prev?.activeTheoryTagId ?? null,
+      theorySearchQuery: prev?.theorySearchQuery ?? null,
+      activeTheoryTagIds: prev?.activeTheoryTagIds ?? null,
+      theoryLessonSource: prev?.theoryLessonSource ?? null,
+      theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,
+      practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+    }))
+    restoreLessonMenuOnNextOpenRef.current = true
+    setMenuOpen(true)
+  }, [practiceSession])
+
   const backToVocabularyMenu = useCallback(() => {
     firstMessageRequestIdRef.current += 1
     firstMessageInFlightRef.current = false
@@ -8112,6 +8149,102 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isLessonBriefingActive = Boolean(activeStructuredLesson && activeLearningLesson && lessonViewStage === 'briefing')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
+
+  const showSessionExitControl = shouldShowSessionExitControl({
+    menuOpen,
+    isStructuredLessonActive,
+    activeStructuredLessonStatus,
+    isPracticeActive,
+    practiceSessionStatus: practiceSession.session?.status ?? null,
+    practiceFlowState: practiceSession.state,
+  })
+  const sessionExitKind = resolveSessionExitKind({
+    isStructuredLessonActive,
+    activeStructuredLessonStatus,
+    isPracticeActive,
+  })
+
+  useEffect(() => {
+    sessionExitConfirmOpenRef.current = sessionExitConfirmOpen
+  }, [sessionExitConfirmOpen])
+
+  useEffect(() => {
+    if (menuOpen && sessionExitConfirmOpen) {
+      setSessionExitConfirmOpen(false)
+    }
+  }, [menuOpen, sessionExitConfirmOpen])
+
+  const openSessionExitConfirm = useCallback(() => {
+    if (!showSessionExitControl || !sessionExitKind) return
+    setSessionExitConfirmOpen(true)
+  }, [sessionExitKind, showSessionExitControl])
+
+  const staySessionExit = useCallback(() => {
+    setSessionExitConfirmOpen(false)
+    if (showSessionExitControl) {
+      pushSessionExitHistoryGuard()
+    }
+  }, [showSessionExitControl])
+
+  const leaveSessionExit = useCallback(() => {
+    if (sessionExitLeaveBusyRef.current) return
+    const kind = sessionExitKind
+    if (!kind) {
+      setSessionExitConfirmOpen(false)
+      return
+    }
+    sessionExitLeaveBusyRef.current = true
+    setSessionExitConfirmOpen(false)
+    sessionExitIgnorePopRef.current = true
+    if (typeof window !== 'undefined' && isSessionExitHistoryState(window.history.state)) {
+      window.history.back()
+    } else {
+      stripSessionExitHistoryGuard()
+    }
+    try {
+      if (kind === 'practice') {
+        backToPracticeMenu()
+      } else {
+        backToLessonList()
+      }
+    } finally {
+      window.setTimeout(() => {
+        sessionExitLeaveBusyRef.current = false
+        sessionExitIgnorePopRef.current = false
+      }, 0)
+    }
+  }, [backToLessonList, backToPracticeMenu, sessionExitKind])
+
+  useEffect(() => {
+    const needsGuard = showSessionExitControl || sessionExitConfirmOpen
+    if (!needsGuard) {
+      return
+    }
+    pushSessionExitHistoryGuard()
+
+    const onPopState = () => {
+      if (sessionExitIgnorePopRef.current) return
+      if (sessionExitConfirmOpenRef.current) {
+        setSessionExitConfirmOpen(false)
+        if (showSessionExitControl) {
+          pushSessionExitHistoryGuard()
+        }
+        return
+      }
+      if (showSessionExitControl) {
+        setSessionExitConfirmOpen(true)
+      }
+    }
+    window.addEventListener('popstate', onPopState)
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+    }
+  }, [sessionExitConfirmOpen, showSessionExitControl])
+
+  useEffect(() => {
+    if (showSessionExitControl || sessionExitConfirmOpen) return
+    stripSessionExitHistoryGuard()
+  }, [sessionExitConfirmOpen, showSessionExitControl])
 
   const activeBranchResolved = useMemo(
     (): BranchId | null =>
@@ -9876,6 +10009,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isLessonPreSteps:
       isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isTutorLessonPending || isReferenceSheetActive,
     hasHeaderMedal: lessonHeaderMedal != null,
+    hasSessionExitControl: showSessionExitControl,
   })
 
   const pageTitle = !dialogStarted
@@ -10156,7 +10290,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 </span>
               ) : null}
               {dialogStarted && lessonHeaderMedal ? (
-                <span className="app-header-avatar mr-1 sm:mr-2 flex h-10 w-10 shrink-0 items-center justify-center">
+                <span
+                  className={`app-header-avatar flex h-10 w-10 shrink-0 items-center justify-center ${
+                    showSessionExitControl ? '' : 'mr-1 sm:mr-2'
+                  }`}
+                >
                   <MedalBadge
                     tier={lessonHeaderMedal.tier}
                     frozen={lessonHeaderMedal.frozen}
@@ -10165,7 +10303,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     title={lessonHeaderMedal.title}
                   />
                 </span>
-              ) : dialogStarted && !isLessonHeaderContext ? (
+              ) : dialogStarted && !isLessonHeaderContext && !showSessionExitControl ? (
                 <AppIconFrame
                   variant="header"
                   src="/engvo-mascot.png"
@@ -10173,6 +10311,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   className="mr-1 sm:mr-2"
                   sizes="40px"
                 />
+              ) : null}
+              {showSessionExitControl ? (
+                <button
+                  type="button"
+                  onClick={openSessionExitConfirm}
+                  className="app-header-control chat-action-button pointer-events-auto relative z-20 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation mr-1 sm:mr-2"
+                  style={{ borderRadius: 'var(--app-header-control-radius)' }}
+                  aria-label={SESSION_EXIT_COPY.buttonAriaLabel}
+                  title={SESSION_EXIT_COPY.buttonTitle}
+                >
+                  <SessionExitIcon />
+                </button>
               ) : null}
             </div>
           </div>
@@ -10476,26 +10626,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     if (!practiceSession.session) return
                     openChatFromPractice(practiceSession.session)
                   }}
-                  onBackToPracticeMenu={() => {
-                    setPracticeRewardUi(null)
-                    setPracticeCompletionMeta(null)
-                    practiceSession.abandonSession()
-                    setDialogStarted(false)
-                    setHomeMenuView('root')
-                    setLessonMenuContext((prev) => ({
-                      menuView: 'lessons',
-                      lessonsPanel: 'practice',
-                      activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,
-                      activeTheoryTagId: prev?.activeTheoryTagId ?? null,
-                      theorySearchQuery: prev?.theorySearchQuery ?? null,
-                      activeTheoryTagIds: prev?.activeTheoryTagIds ?? null,
-                      theoryLessonSource: prev?.theoryLessonSource ?? null,
-                      theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,
-                      practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
-                    }))
-                    restoreLessonMenuOnNextOpenRef.current = true
-                    setMenuOpen(true)
-                  }}
+                  onBackToPracticeMenu={backToPracticeMenu}
                   generationBusy={loading}
                 />
               ) : isTutorLessonPending ? (
@@ -10940,6 +11071,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           title={coinForgivenessHelpOverlay.title}
           lines={coinForgivenessHelpOverlay.lines}
           onClose={() => setCoinForgivenessHelpOverlay(null)}
+        />
+      ) : null}
+
+      {sessionExitConfirmOpen && sessionExitKind ? (
+        <SessionExitConfirm
+          kind={sessionExitKind}
+          onStay={staySessionExit}
+          onLeave={leaveSessionExit}
         />
       ) : null}
 

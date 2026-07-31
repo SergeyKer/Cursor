@@ -134,4 +134,32 @@ describe('getAppHeaderTitleMaxWidthClass', () => {
       })
     ).toBe('max-w-[calc(100%-3rem-10rem)] sm:max-w-[calc(100%-3rem-12rem)]')
   })
+
+  it('reserves extra space when session exit control is shown with progress', () => {
+    expect(
+      getAppHeaderTitleMaxWidthClass({
+        dialogStarted: true,
+        hasCommunicationControls: false,
+        lessonPageTitleView: true,
+        hasLessonHeaderProgress: true,
+        isLessonPreSteps: false,
+        hasHeaderMedal: true,
+        hasSessionExitControl: true,
+      })
+    ).toBe('max-w-[calc(100%-3rem-12.5rem)] sm:max-w-[calc(100%-3rem-14.5rem)]')
+  })
+
+  it('reserves exit control space on dialog without lesson title', () => {
+    expect(
+      getAppHeaderTitleMaxWidthClass({
+        dialogStarted: true,
+        hasCommunicationControls: false,
+        lessonPageTitleView: false,
+        hasLessonHeaderProgress: false,
+        isLessonPreSteps: false,
+        hasHeaderMedal: false,
+        hasSessionExitControl: true,
+      })
+    ).toBe('max-w-[calc(100%-3rem-6rem)]')
+  })
 })
