@@ -1,5 +1,5 @@
 import type { ChatMessage, CommunicationInputExpectedLang, CommunicationVoiceInputMode } from '@/lib/types'
-import { detectLangFromText, type DetectedLang } from '@/lib/detectLang'
+import type { DetectedLang } from '@/lib/detectLang'
 
 export function normalizeCommunicationDetailText(text: string): string {
   return text.toLowerCase().replace(/ё/g, 'е').trim().replace(/[.!?…]+$/g, '').replace(/\s+/g, ' ')
@@ -51,17 +51,9 @@ export function detectCommunicationUserMessageLang(text: string, tieBreak: Detec
 
 /** Язык ожидаемого ответа ИИ в режиме communication - как `detectedUserLang` в api/chat/route. */
 export function getExpectedCommunicationReplyLang(
-  messages: ChatMessage[],
-  options?: { inputPreference?: CommunicationInputExpectedLang; voiceInputMode?: CommunicationVoiceInputMode }
+  _messages: ChatMessage[],
+  _options?: { inputPreference?: CommunicationInputExpectedLang; voiceInputMode?: CommunicationVoiceInputMode }
 ): DetectedLang {
-  if (options?.voiceInputMode === 'mix') return 'en'
-  const lastUserText = [...messages].reverse().find((m) => m.role === 'user')?.content ?? ''
-  const lastAssistantContentForLangTie = [...messages].reverse().find((m) => m.role === 'assistant')?.content ?? ''
-  const lastAssistantLang = detectLangFromText(lastAssistantContentForLangTie, 'ru')
-  const communicationDetailOnly = isCommunicationDetailOnlyMessage(lastUserText)
-  const communicationLanguageProbe = stripCommunicationDetailKeywords(lastUserText)
-  const tieBreak = options?.inputPreference ?? lastAssistantLang
-  return communicationDetailOnly
-    ? lastAssistantLang
-    : detectCommunicationUserMessageLang(communicationLanguageProbe, tieBreak)
+  // Product lock: assistant always replies in English in communication mode.
+  return 'en'
 }

@@ -625,16 +625,16 @@ function buildSystemPrompt(params: {
       level,
       lastUserText,
     })
-    return `Communication chat mode (NOT a tutor).
+    void communicationLanguageHint
+    void communicationDetailOnly
+    return `Communication chat mode (NOT a tutor). Calm English practice chat (like free call, text).
 
 Rules:
-- Language: detect the user's language from their last message (Russian/English). Answer in the same language. If unclear, default to Russian.
-- Language detection rule (must match app logic): if the user's last message has mixed Cyrillic + Latin, use current conversation language. Otherwise: any Cyrillic -> Russian, any Latin -> English. If no letters, use current conversation language.
-- Mixed learner input rule: if the message contains both Latin and Cyrillic and current conversation language is English, treat this as an English attempt with Russian word substitutions. Infer intended meaning and CONTINUE the topic in English (1 short reaction + 1 short follow-up question). Do not default to "What do you mean?" if the core intent is understandable.
-- For mixed colloquial Russian inserts (especially kids' slang), infer natural English meaning instead of literal word-by-word translation. Example intent mapping: "I целый день лежу на диване и балдю" -> "I'm lying on the couch all day and chilling."
+- The assistant must ALWAYS answer in English only. The learner may write Russian, English, or mixed; you always reply in English.
 ${buildCommunicationMixLearningRule(communicationVoiceInputMode)}
-- Detail keywords are language-neutral: "Подробнее", "Ещё подробнее", "more details", and "even more details" only change depth, not language. If the last user message is only a detail keyword, keep the current conversation language.
-- Current conversation language: ${communicationLanguageHint}. ${communicationDetailOnly ? 'The last user message is only a detail keyword, so preserve this language exactly.' : 'Preserve this language across follow-up detail requests.'}
+- Mixed learner input rule: if the message contains both Latin and Cyrillic, treat this as an English attempt with Russian word substitutions. Infer intended meaning and CONTINUE the topic in English (1 short reaction + 1 short follow-up question). Do not default to "What do you mean?" if the core intent is understandable.
+- For mixed colloquial Russian inserts (especially kids' slang), infer natural English meaning instead of literal word-by-word translation. Example intent mapping: "I целый день лежу на диване и балдю" -> "I'm lying on the couch all day and chilling."
+- Detail keywords are language-neutral: "Подробнее", "Ещё подробнее", "more details", and "even more details" only change depth. Reply stays English; keywords never switch reply language to Russian.
 - Translation-only rule: ONLY when the user explicitly asks to translate (for example: "переведи", "translate", "нужен перевод"), return ONLY the English translation of the requested phrase with no extra comments or follow-up questions.
 - ${audienceStyleRule}
 - ${childTopicSafetyRule}
@@ -648,18 +648,15 @@ ${buildCommunicationMixLearningRule(communicationVoiceInputMode)}
 - Conversational follow-up questions and brief natural reactions are encouraged when they fit the thread. This is not tutor feedback: stay in chat mode.
 - If AI_SAFETY:sensitive_no_interview or AI_SAFETY:child_teen_hardening applies, do NOT ask follow-up/clarifying questions about that topic; apply safety redirect instead of personalization.
 - Do NOT output any tutor/protocol markers: no "Комментарий:", no "Скажи:", no "Время:", no "Конструкция:", no "Переведи на английский", and no "RU:" / "Russian:" labels.
-- Persona voice in Russian (communication mode only): use masculine self-reference forms only. Correct examples: "я понял", "я готов", "я рад", "я постараюсь помочь". Never use feminine variants or mixed forms like "понял(-а)", "готов(а)", "рад(а)".
-- Allow both Russian and English conversation freely. You may vary length and detail for follow-ups, but you MUST keep the same Russian address register for the whole chat: CHILD audience -> always informal "ты" (never "вы"), and every Russian sentence must stay in correct singular second-person grammar like "ты пошёл", "ты спросил", "у тебя есть"; ADULT audience -> always "вы" (never informal "ты"). Do not change register because the user asked for steps, a task, or structured instructions, and do not compose the sentence in plural/formal form first.
 - Clarification: use a clarifying question ONLY for truly unintelligible input (random/noise text, no recoverable intent). Do not use clarification for mixed learner input when meaning can be inferred.
 - ${buildAiSafetyRulesBlock({ channel: 'communication', audience })}
 
 When you are sending the very first assistant message:
 - Output a friendly brief greeting + an invitation to ask a question or continue the conversation.
-- The very first assistant message MUST be in ${communicationLanguageHint} (same as Current conversation language above).
+- The very first assistant message MUST be in English (short, CEFR-appropriate).
 - Use exactly one greeting only; do not stack multiple greetings or add extra filler before the invitation.
 - Vary the wording across different conversations; do not reuse the same opening phrase every time.
-- If Current conversation language is Russian: CHILD -> only "ты" (simple, warm); ADULT -> only "вы" (respectful, natural). Never mix registers mid-conversation in Russian.
-- If Current conversation language is English: CHILD -> warm, simple English; ADULT -> clear, polite English with natural "you". Keep the same tone for follow-ups in English.
+- CHILD -> warm, simple English; ADULT -> clear, polite English with natural "you". Keep the same tone for follow-ups in English.
 
 No other format. Output only the chat message text.`
   }
@@ -1006,8 +1003,8 @@ function buildCommentToneRule(audience: 'child' | 'adult', level: string): strin
 
 function buildCommunicationEnglishStyleRule(audience: 'child' | 'adult'): string {
   return audience === 'child'
-    ? 'English-only communication style: If you answer in English, keep the voice warm, simple, friendly, and concrete across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
-    : 'English-only communication style: If you answer in English, keep the voice natural, respectful, and concise across turns. Use one short greeting plus one invitation on the first English reply, and keep later English replies short and natural. Do not repeat the same opening phrase or add extra filler.'
+    ? 'English-only communication style: keep the voice warm, simple, friendly, and concrete across turns. Use one short greeting plus one invitation on the first reply, and keep later replies short and natural. Do not repeat the same opening phrase or add extra filler.'
+    : 'English-only communication style: keep the voice natural, respectful, and concise across turns. Use one short greeting plus one invitation on the first reply, and keep later replies short and natural. Do not repeat the same opening phrase or add extra filler.'
 }
 
 /** Только режим communication: потолок CEFR или динамика для level === 'all'. */
@@ -1017,28 +1014,24 @@ function buildCommunicationLevelRules(level: string): string {
       'English level mode: adaptive ("all"). Infer the learner\'s approximate English level only from the user\'s messages in the current request context (the conversation history you see). Do not print CEFR labels in your reply.',
       'If the user\'s English stays simple (short sentences, basic vocabulary, limited tense variety), keep your English similarly simple; do not introduce noticeably heavier vocabulary, rare idioms, or complex syntax than they typically use in this thread.',
       'If the user writes fluent, accurate English with richer vocabulary and varied tenses, you may match that apparent level and stay natural-without sounding like an exam or a textbook. Re-evaluate as the conversation evolves.',
-      'Russian replies: follow CHILD/ADULT register rules; keep Russian phrasing clear and natural. English complexity is what you align to the learner; Russian stays governed by audience style.',
+      'All assistant replies are English; align English complexity to the learner. Russian input is allowed but never answered in Russian.',
     ].join(' ')
   }
   const ceiling = buildLevelPrompt(level)
-  const lowRu = level === 'starter' || level === 'a1' || level === 'a2'
-  const ruHint = lowRu
-    ? 'For Russian replies: prefer short, clear sentences; avoid bureaucratic or overly formal phrasing. CHILD/ADULT register rules still apply.'
-    : 'CHILD/ADULT register rules apply to Russian.'
   return [
     `Fixed learner English level (CEFR ceiling): ${ceiling}`,
     'Your English output must NOT exceed this profile: vocabulary, grammar, tense range, and sentence complexity must stay within the level described above. Do not use structures or idioms clearly above this level.',
-    ruHint,
+    'All assistant replies are English; Russian input is allowed but never answered in Russian.',
   ].join(' ')
 }
 
 function buildCommunicationDetailRule(detailLevel: 0 | 1 | 2): string {
   if (detailLevel === 2) {
-    return 'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", answer much more expansively than usual: give a fuller explanation, add relevant nuance, and use up to 2 short paragraphs if needed. Keep the same language, tone, and audience style. These keywords are language-neutral and only change depth.'
+    return 'If the user writes "Ещё подробнее", "Еще подробнее", "even more details", or "in even more detail", answer much more expansively than usual: give a fuller explanation, add relevant nuance, and use up to 2 short paragraphs if needed. Reply stays English; keep tone and audience style. These keywords are language-neutral and only change depth.'
   }
 
   if (detailLevel === 1) {
-    return 'If the user writes "Подробнее", "more details", or "in more detail", answer more expansively than usual: give a short but clearer explanation with a bit more context. Keep the same language, tone, and audience style. These keywords are language-neutral and only change depth.'
+    return 'If the user writes "Подробнее", "more details", or "in more detail", answer more expansively than usual: give a short but clearer explanation with a bit more context. Reply stays English; keep tone and audience style. These keywords are language-neutral and only change depth.'
   }
 
   return 'Without a detail keyword, keep the reply short and focused (1–3 sentences).'
@@ -7371,15 +7364,7 @@ export async function POST(req: NextRequest) {
           })
         : detectLangFromText(lastUserContentForResponse, lastAssistantLang)
     const communicationLanguageHint: 'Russian' | 'English' =
-      mode === 'communication' && communicationVoiceInputMode === 'mix'
-        ? 'English'
-        : mode === 'communication' && !hasAssistantInThread
-          ? detectedUserLang === 'en'
-            ? 'English'
-            : 'Russian'
-          : lastAssistantLang === 'en'
-            ? 'English'
-            : 'Russian'
+      mode === 'communication' ? 'English' : lastAssistantLang === 'en' ? 'English' : 'Russian'
     const communicationSearchDecision = getCommunicationWebSearchDecision({
       mode,
       explicitTranslateTarget,
@@ -7390,72 +7375,14 @@ export async function POST(req: NextRequest) {
     const communicationSearchRequested = communicationSearchDecision.requested
     const communicationSearchSourcesRequested =
       communicationSearchRequested && communicationSearchDecision.sourcesRequested
-    const weatherSourcesRequested =
-      shouldRequestOpenAiWebSearchSources(lastUserContentForResponse) ||
-      shouldRequestAllOpenAiWebSearchSources(lastUserContentForResponse)
-    const weatherFollowupRequested = isWeatherFollowupRequest(lastUserContentForResponse)
-    const shouldAllowGismeteoIntent = shouldAllowGismeteoByIntent({
-      text: lastUserContentForResponse,
-      isFollowup: weatherFollowupRequested,
-    })
-    const weatherLocationQueryOverride = weatherFollowupRequested ? getLastWeatherLocationQuery(recentMessages) : null
-    const extractedWeatherLocation = extractWeatherLocationQuery(lastUserContentForResponse)
-    const hasWeatherLocationForGismeteo = Boolean(
-      (weatherLocationQueryOverride && weatherLocationQueryOverride.trim()) ||
-        (extractedWeatherLocation && extractedWeatherLocation.trim())
-    )
-
-    if (
-      mode === 'communication' &&
-      !explicitTranslateTarget &&
-      shouldAllowGismeteoIntent &&
-      (isWeatherForecastRequest(lastUserContentForResponse) || weatherFollowupRequested) &&
-      hasWeatherLocationForGismeteo
-    ) {
-      const locationForGismeteo =
-        (weatherLocationQueryOverride && weatherLocationQueryOverride.trim()) ||
-        (extractedWeatherLocation && extractedWeatherLocation.trim()) ||
-        ''
-      const weatherResult = await callGismeteoWeatherAnswer({
-        query: lastUserContentForResponse,
-        language: detectedUserLang,
-        locationQueryOverride: locationForGismeteo,
-      })
-
-      if (weatherResult.ok) {
-        return NextResponse.json({
-          content: weatherResult.content,
-          webSearchSourcesRequested: weatherSourcesRequested,
-          webSearchSources: weatherResult.sources,
-          webSearchTriggered: true,
-        })
-      }
-
-      const fallbackMessage =
-        weatherResult.status === 400 || weatherResult.status === 404
-          ? detectedUserLang === 'ru'
-            ? 'Уточните город, пожалуйста.'
-            : 'Please specify a city.'
-          : detectedUserLang === 'ru'
-            ? 'Не удалось получить погоду с Gismeteo. Попробуйте ещё раз.'
-            : 'Could not load weather from Gismeteo. Please try again.'
-
-      return NextResponse.json({
-        content: formatOpenAiWebSearchAnswer({
-          answer: fallbackMessage,
-          sources: [],
-          language: detectedUserLang,
-        }),
-        webSearchTriggered: true,
-      })
-    }
+    // Product lock: Gismeteo / weather external fetch disabled for communication (no branch).
 
     // Fast-path: первое сообщение в режиме общения не требует вызова LLM.
     // Ранее ответ все равно заменялся fallback-репликой после провайдера.
     if (mode === 'communication' && isFirstTurn && !communicationSearchRequested) {
       const firstFallback = buildCommunicationFallbackMessage({
         audience,
-        language: detectedUserLang,
+        language: 'en',
         level,
         firstTurn: true,
         seedText: dialogSeed,
@@ -7464,7 +7391,7 @@ export async function POST(req: NextRequest) {
         content: firstFallback,
         level: level as LevelId,
         audience,
-        targetLang: detectedUserLang,
+        targetLang: 'en',
         firstTurn: true,
         seedText: dialogSeed,
       })

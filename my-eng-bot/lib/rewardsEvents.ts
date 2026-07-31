@@ -1,4 +1,9 @@
 import {
+  COMMUNICATION_XP_COMPLETION,
+  clampCommunicationDailyXp,
+  xpForCommunicationStep,
+} from '@/lib/communication/communicationSessionEconomy'
+import {
   DIALOGUE_XP_COMPLETION,
   clampDialogueDailyXp,
   xpForDialogueStep,
@@ -11,13 +16,16 @@ import {
   type TranslationStepOutcome,
 } from '@/lib/translation/translationSessionEconomy'
 import {
+  abandonCommunicationSessionState,
   abandonDialogueSessionState,
   abandonTranslationSessionState,
   awardGlobalXp,
   getTodayDateString,
   incrementModeGoal,
+  normalizeCommunicationSession,
   normalizeDialogueSession,
   normalizeTranslationSession,
+  startCommunicationSessionState,
   startDialogueSessionState,
   startTranslationSessionState,
   type RewardsState,
@@ -28,7 +36,14 @@ export type RewardsEvent =
   | { type: 'practice_completed'; amount: number; ticker?: string }
   | { type: 'accent_block_completed' }
   | { type: 'accent_session_completed' }
+  /** @deprecated use communication_step_resolved */
   | { type: 'communication_turn_completed' }
+  | {
+      type: 'communication_step_resolved'
+      assistantKey: string
+    }
+  | { type: 'communication_session_started' }
+  | { type: 'communication_session_abandoned' }
   | { type: 'engvo_turn_completed' }
   | { type: 'coins_spent'; amount: number; reason: string; ticker?: string }
   | { type: 'coins_earned'; amount: number; reason: string; ticker?: string }
@@ -201,6 +216,98 @@ function applyDialogueStepResolved(
   return next
 }
 
+function applyCommunicationStepResolved(state: RewardsState, assistantKey: string): RewardsState {
+  const today = getTodayDateString()
+  const key = typeof assistantKey === 'string' ? assistantKey.trim() : ''
+  if (!key) return state
+
+  let next = {
+    ...state,
+    communicationSession: normalizeCommunicationSession(state.communicationSession, { today }),
+  }
+  let session = next.communicationSession
+
+  if (session.lastAwardedAssistantKey === key) return next
+  if (session.status === 'completed') return next
+
+  if (session.status !== 'in_progress') {
+    next = startCommunicationSessionState(next, today)
+    session = next.communicationSession
+  }
+
+  const stepWant = xpForCommunicationStep()
+  const stepActual = clampCommunicationDailyXp(session.dailyXpAwarded, stepWant)
+  const nextProgress = Math.min(session.target, session.progress + 1)
+  const completedNow = nextProgress >= session.target
+  const afterStepDaily = session.dailyXpAwarded + stepActual
+  const completionWant = completedNow ? COMMUNICATION_XP_COMPLETION : 0
+  const completionActual = completedNow
+    ? clampCommunicationDailyXp(afterStepDaily, completionWant)
+    : 0
+  const totalActual = stepActual + completionActual
+  const nextDaily = afterStepDaily + completionActual
+  const nextSessionXp = session.sessionXpAwarded + totalActual
+
+  next = {
+    ...next,
+    communicationSession: {
+      ...session,
+      progress: nextProgress,
+      sessionXpAwarded: nextSessionXp,
+      status: completedNow ? 'completed' : 'in_progress',
+      lastAwardedAssistantKey: key,
+      dailyXpAwarded: nextDaily,
+      dailyXpDate: today,
+    },
+  }
+
+  // Bridge MyPlan / Progress: mirror completed flag on modeGoals.communication
+  if (completedNow) {
+    const goal = next.modeGoals.communication
+    next = {
+      ...next,
+      modeGoals: {
+        ...next.modeGoals,
+        communication: {
+          ...goal,
+          goalProgress: next.communicationSession.target,
+          goalTarget: next.communicationSession.target,
+          completed: true,
+          status: 'completed',
+          sessionCompletedAt: new Date().toISOString(),
+        },
+      },
+    }
+  }
+
+  const reason = completedNow ? 'communication_session_completed' : 'communication_step_resolved'
+  if (totalActual > 0) {
+    return awardGlobalXp(next, totalActual, reason, {
+      ticker: completedNow
+        ? `Цель общения 8/8. +${totalActual}.`
+        : `Общение: +${totalActual}.`,
+    })
+  }
+
+  if (completedNow) {
+    const rewardAt = new Date().toISOString()
+    return {
+      ...next,
+      ui: {
+        ...next.ui,
+        footerTicker: 'Цель общения 8/8.',
+        lastReward: {
+          amount: 0,
+          reason: 'communication_session_completed',
+          at: rewardAt,
+        },
+      },
+    }
+  }
+
+  return next
+}
+
 export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): RewardsState {
   switch (event.type) {
     case 'lesson_xp_awarded': {
@@ -226,9 +333,14 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
         ticker: 'Сессия произношения завершена. +30.',
       })
     case 'communication_turn_completed':
-      return incrementModeGoal(state, 'communication', {
-        completionXp: 35,
-      })
+      // Legacy: XP moved to communication_step_resolved (+ assistantKey).
+      return state
+    case 'communication_step_resolved':
+      return applyCommunicationStepResolved(state, event.assistantKey)
+    case 'communication_session_started':
+      return startCommunicationSessionState(state)
+    case 'communication_session_abandoned':
+      return abandonCommunicationSessionState(state)
     case 'engvo_turn_completed':
       return incrementModeGoal(state, 'engvo', {
         completionXp: 35,

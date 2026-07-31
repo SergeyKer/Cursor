@@ -12,12 +12,15 @@ function offsetDateString(base: string, dayOffset: number): string {
 }
 
 describe('applyRewardsEvent', () => {
-  it('increments communication goal and xp on completed turn', () => {
+  it('increments communication session and xp on step', () => {
     const state = createDefaultRewardsState()
-    const next = applyRewardsEvent(state, { type: 'communication_turn_completed' })
-    expect(next.modeGoals.communication.goalProgress).toBe(1)
-    expect(next.progress.totalXP).toBeGreaterThanOrEqual(5)
-    expect(next.ui.lastReward?.reason).toBe('communication_goal_progress')
+    const next = applyRewardsEvent(state, {
+      type: 'communication_step_resolved',
+      assistantKey: 'c:test:1',
+    })
+    expect(next.communicationSession.progress).toBe(1)
+    expect(next.progress.totalXP).toBeGreaterThanOrEqual(2)
+    expect(next.ui.lastReward?.reason).toBe('communication_step_resolved')
   })
 
   it('awards structured lesson xp with variable amount', () => {
@@ -36,14 +39,18 @@ describe('applyRewardsEvent', () => {
     expect(next.ui.lastReward).toBeNull()
   })
 
-  it('marks communication goal completed on seventh turn', () => {
+  it('marks communication session completed on eighth step', () => {
     let state = createDefaultRewardsState()
-    for (let i = 0; i < 7; i += 1) {
-      state = applyRewardsEvent(state, { type: 'communication_turn_completed' })
+    for (let i = 0; i < 8; i += 1) {
+      state = applyRewardsEvent(state, {
+        type: 'communication_step_resolved',
+        assistantKey: `c:test:${i}`,
+      })
     }
-    expect(state.modeGoals.communication.goalProgress).toBe(7)
+    expect(state.communicationSession.progress).toBe(8)
+    expect(state.communicationSession.status).toBe('completed')
     expect(state.modeGoals.communication.completed).toBe(true)
-    expect(state.ui.lastReward?.reason).toBe('communication_goal_completed')
+    expect(state.ui.lastReward?.reason).toBe('communication_session_completed')
   })
 
   it('records coins_spent without awarding xp', () => {
@@ -76,19 +83,32 @@ describe('applyRewardsEvent', () => {
     expect(next.ui.lastReward?.amount).toBe(1)
   })
 
-  it('awards streak bonus on first communication turn when streak reaches 3', () => {
+  it('awards streak bonus on first communication step when streak reaches 3', () => {
     const today = getTodayDateString()
     const yesterday = offsetDateString(today, -1)
     let state = createDefaultRewardsState()
     state.progress.dailyStreak = 2
     state.progress.lastActiveDate = yesterday
-    const next = applyRewardsEvent(state, { type: 'communication_turn_completed' })
+    const next = applyRewardsEvent(state, {
+      type: 'communication_step_resolved',
+      assistantKey: 'c:streak:1',
+    })
     expect(next.progress.dailyStreak).toBe(3)
-    expect(next.ui.lastReward?.amount).toBe(15)
+    expect(next.ui.lastReward?.amount).toBeGreaterThanOrEqual(2)
     expect(next.ui.lastReward?.streakBonus).toBe(10)
 
-    const again = applyRewardsEvent(next, { type: 'communication_turn_completed' })
-    expect(again.ui.lastReward?.amount).toBe(5)
+    const again = applyRewardsEvent(next, {
+      type: 'communication_step_resolved',
+      assistantKey: 'c:streak:2',
+    })
+    expect(again.ui.lastReward?.amount).toBe(2)
     expect(again.ui.lastReward?.streakBonus).toBeUndefined()
+  })
+
+  it('legacy communication_turn_completed does not award xp', () => {
+    const state = createDefaultRewardsState()
+    const next = applyRewardsEvent(state, { type: 'communication_turn_completed' })
+    expect(next.communicationSession.progress).toBe(0)
+    expect(next.progress.totalXP).toBe(0)
   })
 })

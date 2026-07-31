@@ -47,7 +47,7 @@ describe('isLikelyWebSearchFollowup', () => {
 })
 
 describe('getCommunicationWebSearchDecision', () => {
-  it('turns on search for context follow-up in communication', () => {
+  it('product lock: never requests web search in communication', () => {
     const decision = getCommunicationWebSearchDecision({
       mode: 'communication',
       explicitTranslateTarget: null,
@@ -57,7 +57,7 @@ describe('getCommunicationWebSearchDecision', () => {
         { role: 'assistant', content: '(i) Курс доллара ...', webSearchTriggered: true },
       ],
     })
-    expect(decision.requested).toBe(true)
+    expect(decision.requested).toBe(false)
   })
 
   it('does not turn on search for ru detail-only follow-up after web-search context', () => {
@@ -152,7 +152,7 @@ describe('getCommunicationWebSearchDecision', () => {
     expect(decision.requested).toBe(false)
   })
 
-  it('turns on web search for recency-sensitive "the weather today"', () => {
+  it('product lock: weather today also stays offline', () => {
     const decision = getCommunicationWebSearchDecision({
       mode: 'communication',
       explicitTranslateTarget: null,
@@ -160,6 +160,6 @@ describe('getCommunicationWebSearchDecision', () => {
       cleanedText: 'the weather today',
       recentMessages: [],
     })
-    expect(decision.requested).toBe(true)
+    expect(decision.requested).toBe(false)
   })
 })

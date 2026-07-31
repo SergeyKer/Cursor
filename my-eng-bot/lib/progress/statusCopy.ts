@@ -203,9 +203,25 @@ export function buildProgressStatusCopy(params: {
   const modeGoals: ModeGoalStatusLine[] = modes.map((mode) => {
     const goal = state?.modeGoals[mode]
     const label = mode === 'communication' ? params.copy.modeCommunication : params.copy.modeEngvo
-    const progress = goal?.goalProgress ?? 0
-    const target = goal?.goalTarget ?? 7
-    const statusLabel = modeStatusLabel(goal, params.copy)
+    const session = mode === 'communication' ? state?.communicationSession : null
+    const progress =
+      mode === 'communication' && session
+        ? session.progress
+        : (goal?.goalProgress ?? 0)
+    const target =
+      mode === 'communication' && session
+        ? session.target || 8
+        : (goal?.goalTarget ?? 7)
+    const statusLabel =
+      mode === 'communication' && session
+        ? session.status === 'completed'
+          ? params.copy.statusCompleted
+          : session.status === 'in_progress'
+            ? params.copy.statusInProgress
+            : session.status === 'abandoned'
+              ? params.copy.statusAbandoned
+              : params.copy.statusNotStarted
+        : modeStatusLabel(goal, params.copy)
     const line =
       params.audience === 'child'
         ? `${label} ${progress} из ${target}`

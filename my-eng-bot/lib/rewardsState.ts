@@ -12,6 +12,12 @@ import {
   type DialogueSessionState,
 } from '@/lib/dialogue/dialogueSessionEconomy'
 import {
+  COMMUNICATION_SESSION_LENGTH,
+  COMMUNICATION_SESSION_TTL_MS,
+  createDefaultCommunicationSession,
+  type CommunicationSessionState,
+} from '@/lib/communication/communicationSessionEconomy'
+import {
   TRANSLATION_SESSION_LENGTH,
   TRANSLATION_SESSION_TTL_MS,
   createDefaultTranslationSession,
@@ -234,10 +240,12 @@ export interface RewardsState {
   translationSession: TranslationSessionState
   /** Сессия диалога: счётчик 8 + daily XP. Soft-default, без bump version. */
   dialogueSession: DialogueSessionState
+  /** Сессия общения: счётчик 8 + daily XP. Soft-default, без bump version. */
+  communicationSession: CommunicationSessionState
   ui: RewardUiState
 }
 
-export type { TranslationSessionState, DialogueSessionState }
+export type { TranslationSessionState, DialogueSessionState, CommunicationSessionState }
 
 const MODE_GOAL_SESSION_TTL_MS = 45 * 60 * 1000
 
@@ -303,6 +311,7 @@ export function createDefaultRewardsState(): RewardsState {
     },
     translationSession: createDefaultTranslationSession(),
     dialogueSession: createDefaultDialogueSession(),
+    communicationSession: createDefaultCommunicationSession(),
     ui: {
       footerTicker: 'Готов к следующему шагу.',
       lastReward: null,
@@ -614,6 +623,121 @@ export function abandonDialogueSessionState(state: RewardsState): RewardsState {
   }
 }
 
+function rollCommunicationDailyXp(
+  session: CommunicationSessionState,
+  today: string = getTodayDateString()
+): CommunicationSessionState {
+  if (session.dailyXpDate === today) return session
+  return {
+    ...session,
+    dailyXpAwarded: 0,
+    dailyXpDate: null,
+  }
+}
+
+function abandonCommunicationSessionSlice(
+  session: CommunicationSessionState
+): CommunicationSessionState {
+  return {
+    ...session,
+    progress: 0,
+    sessionXpAwarded: 0,
+    status: 'abandoned',
+    sessionStartedAt: null,
+    lastAwardedAssistantKey: null,
+  }
+}
+
+export function normalizeCommunicationSession(
+  raw: unknown,
+  options?: { now?: Date; today?: string }
+): CommunicationSessionState {
+  const fallback = createDefaultCommunicationSession()
+  const today = options?.today ?? getTodayDateString()
+  const nowTs = (options?.now ?? new Date()).getTime()
+  if (!raw || typeof raw !== 'object') return fallback
+  const src = raw as Partial<CommunicationSessionState>
+  const target =
+    typeof src.target === 'number'
+      ? Math.max(1, Math.floor(src.target))
+      : COMMUNICATION_SESSION_LENGTH
+  const progress =
+    typeof src.progress === 'number' ? Math.max(0, Math.min(target, Math.floor(src.progress))) : 0
+  const sessionXpAwarded =
+    typeof src.sessionXpAwarded === 'number' ? Math.max(0, Math.floor(src.sessionXpAwarded)) : 0
+  let status: CommunicationSessionState['status'] =
+    src.status === 'in_progress' ||
+    src.status === 'completed' ||
+    src.status === 'not_started' ||
+    src.status === 'abandoned'
+      ? src.status
+      : progress >= target
+        ? 'completed'
+        : progress > 0
+          ? 'in_progress'
+          : 'not_started'
+  if (progress >= target) status = 'completed'
+  let session: CommunicationSessionState = rollCommunicationDailyXp(
+    {
+      target,
+      progress: status === 'completed' ? target : progress,
+      sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
+      status,
+      sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
+      lastAwardedAssistantKey:
+        typeof src.lastAwardedAssistantKey === 'string' ? src.lastAwardedAssistantKey : null,
+      dailyXpAwarded:
+        typeof src.dailyXpAwarded === 'number' ? Math.max(0, Math.floor(src.dailyXpAwarded)) : 0,
+      dailyXpDate: typeof src.dailyXpDate === 'string' ? src.dailyXpDate : null,
+    },
+    today
+  )
+  if (session.status === 'in_progress' && session.sessionStartedAt) {
+    const started = parseDateOrNull(session.sessionStartedAt)
+    if (started && nowTs - started.getTime() > COMMUNICATION_SESSION_TTL_MS) {
+      session = abandonCommunicationSessionSlice(session)
+    }
+  }
+  return session
+}
+
+export function startCommunicationSessionState(
+  state: RewardsState,
+  today: string = getTodayDateString()
+): RewardsState {
+  const rolled = rollCommunicationDailyXp(state.communicationSession, today)
+  return {
+    ...state,
+    communicationSession: {
+      ...rolled,
+      target: COMMUNICATION_SESSION_LENGTH,
+      progress: 0,
+      sessionXpAwarded: 0,
+      status: 'in_progress',
+      sessionStartedAt: new Date().toISOString(),
+      lastAwardedAssistantKey: null,
+    },
+  }
+}
+
+export function abandonCommunicationSessionState(state: RewardsState): RewardsState {
+  const session = rollCommunicationDailyXp(state.communicationSession)
+  if (
+    (session.status === 'not_started' || session.status === 'abandoned') &&
+    session.progress === 0 &&
+    session.sessionXpAwarded === 0 &&
+    session.lastAwardedAssistantKey == null
+  ) {
+    return state.communicationSession === session
+      ? state
+      : { ...state, communicationSession: session }
+  }
+  return {
+    ...state,
+    communicationSession: abandonCommunicationSessionSlice(session),
+  }
+}
+
 function normalizeRewardsState(raw: unknown): RewardsState {
   const fallback = createDefaultRewardsState()
   if (!raw || typeof raw !== 'object') return fallback
@@ -681,6 +805,9 @@ function normalizeRewardsState(raw: unknown): RewardsState {
       (src as { translationSession?: unknown }).translationSession
     ),
     dialogueSession: normalizeDialogueSession((src as { dialogueSession?: unknown }).dialogueSession),
+    communicationSession: normalizeCommunicationSession(
+      (src as { communicationSession?: unknown }).communicationSession
+    ),
     ui: {
       footerTicker: typeof src.ui?.footerTicker === 'string' ? src.ui.footerTicker : fallback.ui.footerTicker,
       lastReward:

@@ -1,0 +1,10 @@
+[
+  [
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    (isPracticeActive && practiceFooterLive) ||\n    translationChatActive\n      ? null\n      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)\n",
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    (isPracticeActive && practiceFooterLive) ||\n    translationChatActive ||\n    dialogueChatActive\n      ? null\n      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)\n"
+  ],
+  [
+    "      : dialogStarted\n      ? translationChatActive\n        ? translationFooterView?.typingKey ?? 'translation-footer'\n        : chatFooterVoice?.typingKey ?? 'chat-footer'\n",
+    "      : dialogStarted\n      ? translationChatActive\n        ? translationFooterView?.typingKey ?? 'translation-footer'\n        : dialogueChatActive\n          ? dialogueFooterView?.typingKey ?? 'dialogue-footer'\n          : chatFooterVoice?.typingKey ?? 'chat-footer'\n"
+  ]
+]

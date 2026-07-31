@@ -21,8 +21,16 @@ const REWARD_TOP_LINE_TEMPLATES: RewardTemplateMap = {
     child: ['Произношение готово! +{xp}!'],
   },
   communication_goal_completed: {
-    adult: ['Цель общения 7/7 закрыта. +{xp}.'],
-    child: ['Цель чата 7/7! +{xp}!'],
+    adult: ['Цель общения 8/8 закрыта. +{xp}.'],
+    child: ['Цель чата 8/8! +{xp}!'],
+  },
+  communication_session_completed: {
+    adult: ['Цель общения 8/8. +{xp}.'],
+    child: ['Цель общения 8/8! +{xp}!'],
+  },
+  communication_step_resolved: {
+    adult: ['Общение: шаг засчитан. +{xp}.'],
+    child: ['Шаг общения! +{xp}!'],
   },
   engvo_goal_completed: {
     adult: ['Цель звонка 7/7 закрыта. +{xp}.'],

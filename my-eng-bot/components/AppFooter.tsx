@@ -43,7 +43,7 @@ type AppFooterProps = {
     total: number
     current: number
   } | null
-  /** Continuous session bar (translation | dialogue). XOR with lessonFooterSegments; default null. */
+  /** Continuous session bar (translation | dialogue | communication). XOR with lessonFooterSegments; default null. */
   sessionMeter?: AppFooterSessionMeter | null
   audience?: Audience
   lessonFooterAccount?: string | null

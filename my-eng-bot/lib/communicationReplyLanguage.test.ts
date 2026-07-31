@@ -3,63 +3,24 @@ import { getExpectedCommunicationReplyLang } from './communicationReplyLanguage'
 import type { ChatMessage } from './types'
 
 describe('getExpectedCommunicationReplyLang', () => {
-  it('empty thread: uses inputPreference ru', () => {
-    expect(
-      getExpectedCommunicationReplyLang([], { inputPreference: 'ru' }),
-    ).toBe('ru')
+  it('always returns en (product lock EN-only replies)', () => {
+    expect(getExpectedCommunicationReplyLang([], { inputPreference: 'ru' })).toBe('en')
+    expect(getExpectedCommunicationReplyLang([], { inputPreference: 'en' })).toBe('en')
   })
 
-  it('empty thread: uses inputPreference en (inherit new chat / English learners)', () => {
-    expect(
-      getExpectedCommunicationReplyLang([], { inputPreference: 'en' }),
-    ).toBe('en')
-  })
-
-  it('last user Latin only -> en', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Здравствуйте! О чём поговорим?' },
-      { role: 'user', content: 'Hi' },
-    ]
-    expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru' })).toBe('en')
-  })
-
-  it('last user Cyrillic only -> ru', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Hello! What would you like to discuss?' },
-      { role: 'user', content: 'Привет' },
-    ]
-    expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'en' })).toBe('ru')
-  })
-
-  it('mixed RU+EN user input keeps current assistant language (tie-break)', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Hello! How can I help you today?' },
-      { role: 'user', content: 'I хочу узнать больше' },
-    ]
-    expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'en' })).toBe('en')
-  })
-
-  it('detail-only keyword keeps previous language', () => {
-    const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Hello! I can explain this in more detail.' },
-      { role: 'user', content: 'Подробнее' },
-    ]
-    expect(getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru' })).toBe('en')
-  })
-
-  it('mix mode: russian-only user input still keeps english reply', () => {
+  it('russian-only user input still expects english reply', () => {
     const messages: ChatMessage[] = [
       { role: 'assistant', content: 'Hello! How are you doing today?' },
       { role: 'user', content: 'как дела дружище' },
     ]
     expect(
-      getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru', voiceInputMode: 'mix' }),
+      getExpectedCommunicationReplyLang(messages, { inputPreference: 'ru', voiceInputMode: 'ru' }),
     ).toBe('en')
   })
 
-  it('mix mode: detail-only keyword keeps english reply', () => {
+  it('mix mode still english', () => {
     const messages: ChatMessage[] = [
-      { role: 'assistant', content: 'Hello! I can explain this in more detail.' },
+      { role: 'assistant', content: 'Hello!' },
       { role: 'user', content: 'Подробнее' },
     ]
     expect(

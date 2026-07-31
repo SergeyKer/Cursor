@@ -8,6 +8,7 @@ import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 
 const QUIET_PROGRESS_REASONS = new Set([
   'communication_goal_progress',
+  'communication_step_resolved',
   'engvo_goal_progress',
   'translation_step_resolved',
   'dialogue_step_resolved',
@@ -28,6 +29,7 @@ export function rewardReasonShowsToast(
     case 'practice_completed':
     case 'accent_session_completed':
     case 'communication_goal_completed':
+    case 'communication_session_completed':
     case 'engvo_goal_completed':
     case 'translation_session_completed':
     case 'dialogue_session_completed':

@@ -11,6 +11,13 @@ describe('buildProgressStatusCopy', () => {
     state.modeGoals.communication.status = 'in_progress'
     state.modeGoals.communication.goalProgress = 3
     state.modeGoals.communication.goalTarget = 7
+    state.communicationSession = {
+      ...state.communicationSession,
+      status: 'in_progress',
+      progress: 3,
+      target: 8,
+      sessionStartedAt: '2026-07-18T12:00:00.000Z',
+    }
 
     const status = buildProgressStatusCopy({
       rewardsState: state,

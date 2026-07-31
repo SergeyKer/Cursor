@@ -1,0 +1,6 @@
+[
+  [
+    "  useEffect(() => {\n    if (showSessionExitControl || sessionExitConfirmOpen) return\n    if (typeof window === 'undefined') return\n    if (!isSessionExitHistoryState(window.history.state)) return\n    sessionExitIgnorePopRef.current = true\n    window.history.back()\n    window.setTimeout(() => {\n      sessionExitIgnorePopRef.current = false\n    }, 0)\n  }, [sessionExitConfirmOpen, showSessionExitControl])\n\n  const activeBranchResolved = useMemo(",
+    "  useEffect(() => {\n    if (showSessionExitControl || sessionExitConfirmOpen) return\n    stripSessionExitHistoryGuard()\n  }, [sessionExitConfirmOpen, showSessionExitControl])\n\n  const activeBranchResolved = useMemo("
+  ]
+]

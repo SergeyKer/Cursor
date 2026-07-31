@@ -1,0 +1,10 @@
+[
+  [
+    "                  onBackToPracticeMenu={() => {\n                    setPracticeRewardUi(null)\n                    setPracticeCompletionMeta(null)\n                    practiceSession.abandonSession()\n                    setDialogStarted(false)\n                    setHomeMenuView('root')\n                    setLessonMenuContext((prev) => ({\n                      menuView: 'lessons',\n                      lessonsPanel: 'practice',\n                      activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,\n                      activeTheoryTagId: prev?.activeTheoryTagId ?? null,\n                      theorySearchQuery: prev?.theorySearchQuery ?? null,\n                      activeTheoryTagIds: prev?.activeTheoryTagIds ?? null,\n                      theoryLessonSource: prev?.theoryLessonSource ?? null,\n                      theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,\n                      practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,\n                    }))\n                    restoreLessonMenuOnNextOpenRef.current = true\n                    setMenuOpen(true)\n                  }}",
+    "                  onBackToPracticeMenu={backToPracticeMenu}"
+  ],
+  [
+    "  const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')\n\n  const activeBranchResolved = useMemo(",
+    "  const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')\n\n  const showSessionExitControl = shouldShowSessionExitControl({\n    menuOpen,\n    isStructuredLessonActive,\n    activeStructuredLessonStatus,\n    isPracticeActive,\n    practiceSessionStatus: practiceSession.session?.status ?? null,\n    practiceFlowState: practiceSession.state,\n  })\n  const sessionExitKind = resolveSessionExitKind({\n    isStructuredLessonActive,\n    activeStructuredLessonStatus,\n    isPracticeActive,\n  })\n\n  const activeBranchResolved = useMemo("
+  ]
+]

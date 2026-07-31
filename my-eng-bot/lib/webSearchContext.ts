@@ -17,7 +17,6 @@ export function hasRecentWebSearchContext(messages: WebSearchContextMessage[]): 
     if (m.role !== 'assistant') return false
     if (m.webSearchTriggered) return true
     const sourcesLen = m.webSearchSources?.length ?? 0
-    // (i) без флага и без сохранённых источников - не считаем «контекстом веб-поиска» (избегаем ложных follow-up).
     return /^\s*\(i\)/i.test(m.content ?? '') && sourcesLen > 0
   })
 }
@@ -44,20 +43,18 @@ export function getCommunicationWebSearchDecision(params: {
   sourcesRequested: boolean
   hasContext: boolean
 } {
-  const { mode, explicitTranslateTarget, rawText, cleanedText, recentMessages } = params
-  const explicitSearchRequest = shouldUseOpenAiWebSearch(rawText)
-  const sourcesRequested = shouldRequestOpenAiWebSearchSources(rawText)
+  const { mode, recentMessages } = params
   const hasContext = hasRecentWebSearchContext(recentMessages)
-  const forcedWebSearchByCode = hasWebSearchForceCode(rawText)
-  const followup = isLikelyWebSearchFollowup(cleanedText)
+  // Keep shared heuristics imported for other callers / future modes.
+  void shouldUseOpenAiWebSearch
+  void shouldRequestOpenAiWebSearchSources
+  void hasWebSearchForceCode
+  void params
 
-  const requested =
-    mode === 'communication' &&
-    !explicitTranslateTarget &&
-    (forcedWebSearchByCode ||
-      explicitSearchRequest ||
-      (sourcesRequested && hasContext) ||
-      (followup && hasContext))
+  // Product lock: Общение — без внешних фактов (web/Gismeteo/sources). Hard OFF.
+  if (mode === 'communication') {
+    return { requested: false, sourcesRequested: false, hasContext }
+  }
 
-  return { requested, sourcesRequested, hasContext }
+  return { requested: false, sourcesRequested: false, hasContext }
 }

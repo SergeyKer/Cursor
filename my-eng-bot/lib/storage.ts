@@ -45,7 +45,7 @@ const DEFAULT_SETTINGS: Settings = {
   audience: 'adult',
   voiceId: '',
   communicationInputExpectedLang: 'en',
-  communicationVoiceInputMode: 'en',
+  communicationVoiceInputMode: 'mix',
   translationDrillKind: 'tense_drill',
   translationLessonId: 'all',
 }

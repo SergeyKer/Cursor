@@ -1,0 +1,30 @@
+[
+  [
+    "import {\n  resolveTranslationProtocolFromAssistantContent,\n  resolveTranslationStepAward,\n} from '@/lib/translation/translationStepOutcome'\n",
+    "import {\n  resolveTranslationProtocolFromAssistantContent,\n  resolveTranslationStepAward,\n} from '@/lib/translation/translationStepOutcome'\nimport {\n  buildDialogueFooterView,\n  resolveDialogueFooterMoment,\n} from '@/lib/dialogue/dialogueFooter'\nimport { resolveDialogueSessionExitChips } from '@/lib/dialogue/resolveDialogueSessionExitChips'\nimport type { DialogueSessionExitChipId } from '@/lib/dialogue/resolveDialogueSessionExitChips'\nimport { hashDialogueAssistantKey } from '@/lib/dialogue/dialogueSessionEconomy'\nimport { resolveDialogueStepAward } from '@/lib/dialogue/dialogueStepOutcome'\n"
+  ],
+  [
+    "  const abandonTranslationSession = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'translation_session_abandoned' }))\n  }, [])\n  const translationSessionExitBusyRef = React.useRef(false)\n",
+    "  const abandonTranslationSession = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'translation_session_abandoned' }))\n  }, [])\n  const bumpDialogueStep = useCallback(\n    (params: {\n      assistantContent: string\n      userContent?: string | null\n      prevAssistantContent?: string | null\n      dialogueCorrect?: boolean | null\n    }) => {\n      const award = resolveDialogueStepAward(params)\n      if (!award) return\n      setRewardsState((prev) =>\n        applyRewardsEvent(prev, {\n          type: 'dialogue_step_resolved',\n          outcome: award.outcome,\n          assistantKey: award.assistantKey,\n        })\n      )\n    },\n    []\n  )\n  const abandonDialogueSession = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'dialogue_session_abandoned' }))\n  }, [])\n  const translationSessionExitBusyRef = React.useRef(false)\n  const dialogueSessionExitBusyRef = React.useRef(false)\n"
+  ],
+  [
+    "      if (settings.mode === 'translation') {\n        bumpTranslationStep(main)\n      }\n      void fetchUsage()\n    } catch (e) {\n      console.error(e)\n      const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'\n      if (\n        errText.startsWith('Диалог слишком длинный') ||\n        errText.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»')\n      ) {\n        // Если диалог перерос лимит или модель перегружена, автоматически\n        // начинаем новый диалог и запрашиваем первый вопрос, но остаёмся\n        // в экране диалога (без возврата к стартовому меню).\n",
+    "      if (settings.mode === 'translation') {\n        bumpTranslationStep(main)\n      } else if (settings.mode === 'dialogue') {\n        const prevAssistant = [...toSend].reverse().find((m) => m.role === 'assistant')\n        bumpDialogueStep({\n          assistantContent: main,\n          userContent: lastUser?.content,\n          prevAssistantContent: prevAssistant?.content,\n          dialogueCorrect: response.dialogueCorrect,\n        })\n      }\n      void fetchUsage()\n    } catch (e) {\n      console.error(e)\n      const errText = e instanceof Error ? e.message : 'Не удалось получить ответ. Попробуйте снова.'\n      if (\n        errText.startsWith('Диалог слишком длинный') ||\n        errText.startsWith('ИИ сейчас перегружен и немного «ушёл отдыхать»')\n      ) {\n        // Если диалог перерос лимит или модель перегружена, автоматически\n        // начинаем новый диалог и запрашиваем первый вопрос, но остаёмся\n        // в экране диалога (без возврата к стартовому меню).\n"
+  ],
+  [
+    "    engvoVoiceMode,\n    bumpTranslationStep,\n  ])\n",
+    "    engvoVoiceMode,\n    bumpTranslationStep,\n    bumpDialogueStep,\n  ])\n"
+  ],
+  [
+    "        if (settings.mode === 'communication') {\n          bumpCommunicationGoal()\n        } else if (settings.mode === 'translation') {\n          bumpTranslationStep(main)\n        }\n        setSettingsAtLastSend(settings)\n",
+    "        if (settings.mode === 'communication') {\n          bumpCommunicationGoal()\n        } else if (settings.mode === 'translation') {\n          bumpTranslationStep(main)\n        } else if (settings.mode === 'dialogue') {\n          const prevAssistant = [...nextMessages].reverse().find((m) => m.role === 'assistant')\n          bumpDialogueStep({\n            assistantContent: main,\n            userContent: text,\n            prevAssistantContent: prevAssistant?.content,\n            dialogueCorrect: response.dialogueCorrect,\n          })\n        }\n        setSettingsAtLastSend(settings)\n"
+  ],
+  [
+    "      bumpCommunicationGoal,\n      bumpTranslationStep,\n    ]\n  )\n",
+    "      bumpCommunicationGoal,\n      bumpTranslationStep,\n      bumpDialogueStep,\n    ]\n  )\n"
+  ],
+  [
+    "  const handleTranslationSessionExitChip = useCallback(\n    (id: TranslationSessionExitChipId) => {\n      exitTranslationSessionTo(id === 'done' ? 'myPlan' : 'practice')\n    },\n    [exitTranslationSessionTo]\n  )\n",
+    "  const handleTranslationSessionExitChip = useCallback(\n    (id: TranslationSessionExitChipId) => {\n      exitTranslationSessionTo(id === 'done' ? 'myPlan' : 'practice')\n    },\n    [exitTranslationSessionTo]\n  )\n  const exitDialogueSessionTo = useCallback(\n    (target: 'myPlan' | 'practice') => {\n      if (dialogueSessionExitBusyRef.current) return\n      dialogueSessionExitBusyRef.current = true\n      try {\n        exitTranslationSessionTo(target)\n      } finally {\n        dialogueSessionExitBusyRef.current = false\n      }\n    },\n    [exitTranslationSessionTo]\n  )\n  const handleDialogueSessionExitChip = useCallback(\n    (id: DialogueSessionExitChipId) => {\n      exitDialogueSessionTo(id === 'done' ? 'myPlan' : 'practice')\n    },\n    [exitDialogueSessionTo]\n  )\n"
+  ]
+]

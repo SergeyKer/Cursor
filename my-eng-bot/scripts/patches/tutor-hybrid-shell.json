@@ -1,0 +1,62 @@
+[
+  [
+    "import { myPlanCopy } from '@/lib/uiCopy/myPlan'\n",
+    "import { myPlanCopy } from '@/lib/uiCopy/myPlan'\nimport { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'\nimport TutorChatPanel from '@/components/tutor/TutorChatPanel'\nimport { clearTutorReturnContext } from '@/lib/tutor/tutorReturnContext'\n"
+  ],
+  [
+    "  const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)\n  const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)\n",
+    "  const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)\n  const [tutorChatSpaceActive, setTutorChatSpaceActive] = useState(false)\n  const [tutorChatAutoSubmitInitial, setTutorChatAutoSubmitInitial] = useState(false)\n  const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)\n"
+  ],
+  [
+    "    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(false)\n    setAdaptiveFooterView(null)\n",
+    "    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(false)\n    setTutorChatSpaceActive(false)\n    clearTutorReturnContext()\n    setAdaptiveFooterView(null)\n"
+  ],
+  [
+    "    setMyPlanSpaceActive(false)\n    setProgressSpaceActive(false)\n    setTutorChatMountKey((k) => k + 1)\n    setDialogStarted(false)\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })\n    restoreLessonMenuOnNextOpenRef.current = true\n    setHomeMenuView('lessons')\n    setMenuOpen(true)\n  }, [bumpFooterSessionContext, cleanupEngvoRuntime])\n",
+    "    setMyPlanSpaceActive(false)\n    setProgressSpaceActive(false)\n    setTutorChatMountKey((k) => k + 1)\n    setTutorChatSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [bumpFooterSessionContext, cleanupEngvoRuntime])\n"
+  ],
+  [
+    "  const [tutorChatPrefill, setTutorChatPrefill] = useState('')\n  const [tutorChatMountKey, setTutorChatMountKey] = useState(0)\n  const openTutorChat = useCallback((opts?: { prefill?: string }) => {\n    if (!featureFlags.tutorChatV1) return\n    setTutorChatPrefill(opts?.prefill?.trim() || '')\n    cleanupEngvoRuntime({ markIgnoredCurrent: true })\n    setEngvoVoiceMode(false)\n    setEngvoCallPhase('idle')\n    setEngvoErrorText(null)\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(false)\n    setTutorChatMountKey((k) => k + 1)\n    setDialogStarted(false)\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })\n    restoreLessonMenuOnNextOpenRef.current = true\n    setHomeMenuView('lessons')\n    setMenuOpen(true)\n  }, [cleanupEngvoRuntime, resetStructuredLessonSession])\n",
+    "  const [tutorChatPrefill, setTutorChatPrefill] = useState('')\n  const [tutorChatMountKey, setTutorChatMountKey] = useState(0)\n  const openTutorMenuIdle = useCallback(() => {\n    if (!featureFlags.tutorChatV1) return\n    setTutorChatPrefill('')\n    setTutorChatAutoSubmitInitial(false)\n    cleanupEngvoRuntime({ markIgnoredCurrent: true })\n    setEngvoVoiceMode(false)\n    setEngvoCallPhase('idle')\n    setEngvoErrorText(null)\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(false)\n    setTutorChatSpaceActive(false)\n    setTutorChatMountKey((k) => k + 1)\n    setDialogStarted(false)\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })\n    restoreLessonMenuOnNextOpenRef.current = true\n    setHomeMenuView('lessons')\n    setMenuOpen(true)\n  }, [cleanupEngvoRuntime, resetStructuredLessonSession])\n\n  const openTutorChatSpace = useCallback((opts?: { prefill?: string; autoSubmitInitial?: boolean }) => {\n    if (!featureFlags.tutorChatV1) return\n    setTutorChatPrefill(opts?.prefill?.trim() || '')\n    setTutorChatAutoSubmitInitial(Boolean(opts?.autoSubmitInitial && opts?.prefill?.trim()))\n    cleanupEngvoRuntime({ markIgnoredCurrent: true })\n    setEngvoVoiceMode(false)\n    setEngvoCallPhase('idle')\n    setEngvoErrorText(null)\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setProgressSpaceActive(false)\n    setMyPlanSpaceActive(false)\n    setTutorChatMountKey((k) => k + 1)\n    setTutorChatSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [cleanupEngvoRuntime, resetStructuredLessonSession])\n\n  const promoteTutorFromMenu = useCallback(() => {\n    if (!featureFlags.tutorChatV1) return\n    setTutorChatAutoSubmitInitial(false)\n    setTutorChatPrefill('')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })\n    setTutorChatMountKey((k) => k + 1)\n    setTutorChatSpaceActive(true)\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('root')\n  }, [])\n\n  const backFromTutorChat = useCallback(() => {\n    setTutorChatSpaceActive(false)\n    setTutorChatPrefill('')\n    setTutorChatAutoSubmitInitial(false)\n    clearTutorReturnContext()\n    setDialogStarted(false)\n    openMenuAt('lessons')\n  }, [openMenuAt])\n\n  const openTutorChat = useCallback((opts?: { prefill?: string }) => {\n    const prefill = opts?.prefill?.trim() || ''\n    if (prefill) openTutorChatSpace({ prefill, autoSubmitInitial: true })\n    else openTutorMenuIdle()\n  }, [openTutorChatSpace, openTutorMenuIdle])\n"
+  ],
+  [
+    "    if (myPlanSpaceActive || progressSpaceActive) return\n",
+    "    if (tutorChatSpaceActive || myPlanSpaceActive || progressSpaceActive) return\n"
+  ],
+  [
+    "    myPlanSpaceActive,\n    progressSpaceActive,\n    settings,\n    restartChatForNewModeFromMenu,\n  ])\n",
+    "    tutorChatSpaceActive,\n    myPlanSpaceActive,\n    progressSpaceActive,\n    settings,\n    restartChatForNewModeFromMenu,\n  ])\n"
+  ],
+  [
+    "        engvoVoiceMode,\n        myPlanSpaceActive,\n        progressSpaceActive,\n      })\n",
+    "        engvoVoiceMode,\n        tutorChatSpaceActive,\n        myPlanSpaceActive,\n        progressSpaceActive,\n      })\n"
+  ],
+  [
+    "    engvoVoiceMode,\n    myPlanSpaceActive,\n    progressSpaceActive,\n  ])\n\n  useEffect(() => {\n    return () => {\n      cleanupEngvoRuntime({ markIgnoredCurrent: true })\n    }\n  }, [cleanupEngvoRuntime])\n",
+    "    engvoVoiceMode,\n    tutorChatSpaceActive,\n    myPlanSpaceActive,\n    progressSpaceActive,\n  ])\n\n  useEffect(() => {\n    return () => {\n      cleanupEngvoRuntime({ markIgnoredCurrent: true })\n    }\n  }, [cleanupEngvoRuntime])\n"
+  ],
+  [
+    "  const isProgressSpaceActive = progressSpaceActive\n  const isMyPlanSpaceActive = myPlanSpaceActive\n",
+    "  const isProgressSpaceActive = progressSpaceActive\n  const isMyPlanSpaceActive = myPlanSpaceActive\n  const isTutorChatSpaceActive = tutorChatSpaceActive\n"
+  ],
+  [
+    "    !isProgressSpaceActive &&\n    !isMyPlanSpaceActive &&\n    !isLessonActive &&\n",
+    "    !isProgressSpaceActive &&\n    !isMyPlanSpaceActive &&\n    !isTutorChatSpaceActive &&\n    !isLessonActive &&\n"
+  ],
+  [
+    "      : isMyPlanSpaceActive\n      ? myPlanCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle\n",
+    "      : isTutorChatSpaceActive\n      ? TUTOR_CHAT_COPY.panelTitle\n      : isMyPlanSpaceActive\n      ? myPlanCopy(settings.audience === 'child' ? 'child' : 'adult').spaceTitle\n"
+  ],
+  [
+    "              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isMyPlanSpaceActive || isVocabularyHubActive ? (\n",
+    "              ) : !dialogStarted || !storageLoaded || activeLessonTitle || engvoVoiceMode || isPracticeActive || isProgressSpaceActive || isMyPlanSpaceActive || isTutorChatSpaceActive || isVocabularyHubActive ? (\n"
+  ],
+  [
+    "              <div className=\"flex min-h-0 flex-1 flex-col\">\n                {isMyPlanSpaceActive ? (\n                  <MyPlanSheetScreen\n",
+    "              <div className=\"flex min-h-0 flex-1 flex-col\">\n                {isTutorChatSpaceActive ? (\n                  <TutorChatPanel\n                    key={tutorChatMountKey}\n                    initialPrefill={tutorChatPrefill}\n                    autoSubmitInitial={tutorChatAutoSubmitInitial}\n                    onDone={backFromTutorChat}\n                  />\n                ) : isMyPlanSpaceActive ? (\n                  <MyPlanSheetScreen\n"
+  ],
+  [
+    "        onOpenTutorChat={openTutorChat}\n        tutorChatPrefill={tutorChatPrefill}\n        tutorChatMountKey={tutorChatMountKey}\n        onOpenQuickTest={openQuickTest}\n",
+    "        onOpenTutorChat={openTutorChat}\n        onPromoteTutorFromMenu={promoteTutorFromMenu}\n        tutorChatPrefill={tutorChatPrefill}\n        tutorChatMountKey={tutorChatMountKey}\n        onOpenQuickTest={openQuickTest}\n"
+  ]
+]
