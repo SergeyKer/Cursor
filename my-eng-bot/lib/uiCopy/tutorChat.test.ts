@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildMicroStrongFinaleText,
+  microFinaleRememberPrefix,
   pickTutorIdleBullets,
   pickTutorIdleExamples,
   TUTOR_CHAT_COPY,
@@ -9,8 +11,11 @@ import {
 describe('TUTOR_CHAT_COPY', () => {
   it('has required chip and card stubs', () => {
     expect(TUTOR_CHAT_COPY.panelTitle).toBe('Репетитор')
+    expect(TUTOR_CHAT_COPY.closeAriaLabel).toBe('Закрыть')
+    expect(TUTOR_CHAT_COPY.closeTitle).toBe('Закрыть')
     expect(TUTOR_CHAT_COPY.chipMicro).toContain('2 мин')
     expect(TUTOR_CHAT_COPY.chipDone).toBe('Готово')
+    expect(TUTOR_CHAT_COPY.chipAgain).toBe('Повторить проверку')
     expect(TUTOR_CHAT_COPY.chipCheatsheet).toBe('Шпаргалка')
     expect(TUTOR_CHAT_COPY.cardSectionTitle).toBe('Репетитор')
     expect(TUTOR_CHAT_COPY.cardButtonAsk).toBe('Спросить')
@@ -79,8 +84,44 @@ describe('TUTOR_CHAT_COPY', () => {
   })
 
   it('builds micro finale copy by score', () => {
-    expect(TUTOR_CHAT_COPY.microFinaleStrong(4, 5)).toContain('4 из 5')
+    expect(TUTOR_CHAT_COPY.microFinaleStrong(4, 5)).toBe('4 из 5 — отлично.')
+    expect(TUTOR_CHAT_COPY.microFinaleAskMore).toContain('по этой теме')
     expect(TUTOR_CHAT_COPY.microFinaleMid(2, 5)).toContain('пробелы')
     expect(TUTOR_CHAT_COPY.microFinaleWeak(0, 5)).toContain('сложная')
+  })
+
+  it('remember prefix matches audience', () => {
+    expect(microFinaleRememberPrefix('child')).toBe('Запомни:')
+    expect(microFinaleRememberPrefix('adult')).toBe('Запомните:')
+    expect(microFinaleRememberPrefix()).toBe('Запомните:')
+  })
+
+  it('builds strong micro finale with remember then ask-more', () => {
+    const remember =
+      'Сколько объектов – столько и глаголов: «are» для множественного, «is» для единственного.'
+    expect(
+      buildMicroStrongFinaleText({
+        correct: 3,
+        total: 3,
+        audience: 'adult',
+        rememberRu: remember,
+      })
+    ).toBe(
+      `3 из 3 — отлично. Запомните: ${remember}\n\nМожно спросить ещё по этой теме в поле ниже.`
+    )
+    expect(
+      buildMicroStrongFinaleText({
+        correct: 3,
+        total: 3,
+        audience: 'child',
+        rememberRu: remember,
+      })
+    ).toContain('Запомни:')
+  })
+
+  it('builds strong micro finale without remember as one line', () => {
+    expect(
+      buildMicroStrongFinaleText({ correct: 3, total: 3, audience: 'adult' })
+    ).toBe('3 из 3 — отлично. Можно спросить ещё по этой теме в поле ниже.')
   })
 })

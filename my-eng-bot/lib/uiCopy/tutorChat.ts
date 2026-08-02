@@ -16,6 +16,8 @@ export function tutorComposerPlaceholder(audience: TutorChatAudience = 'adult'):
 
 export const TUTOR_CHAT_COPY = {
   panelTitle: 'Репетитор',
+  closeAriaLabel: 'Закрыть',
+  closeTitle: 'Закрыть',
   composerPlaceholder: COMPOSER_PLACEHOLDER.child,
   send: 'Отправить',
   retry: 'Повторить',
@@ -39,7 +41,7 @@ export const TUTOR_CHAT_COPY = {
   chipMicro: 'Закрепить 2 мин',
   chipCheatsheet: 'Шпаргалка',
   chipDone: 'Готово',
-  chipAgain: 'Ещё раз',
+  chipAgain: 'Повторить проверку',
 
   cheatsheetMissing: 'Готовой шпаргалки пока нет — спроси ещё в поле или открой тему заново.',
   cheatsheetUnavailable: 'Шпаргалку сейчас не собрать. Напиши вопрос в поле.',
@@ -49,7 +51,8 @@ export const TUTOR_CHAT_COPY = {
     'Для этой темы короткая проверка не подходит — спроси ещё или открой шпаргалку.',
 
   microFinaleStrong: (correct: number, total: number) =>
-    `${correct} из ${total} — отлично. Можно спросить ещё в поле ниже.`,
+    `${correct} из ${total} — отлично.`,
+  microFinaleAskMore: 'Можно спросить ещё по этой теме в поле ниже.',
   microFinaleMid: (correct: number, total: number) =>
     `${correct} из ${total} — есть пробелы. Открой шпаргалку или пройди ещё раз.`,
   microFinaleWeak: (correct: number, total: number) =>
@@ -118,6 +121,28 @@ export const TUTOR_CHAT_COPY = {
     'Чем in / on / at отличаются?',
   ],
 } as const
+
+/** «Запомни» for child, «Запомните» for adult. */
+export function microFinaleRememberPrefix(audience: TutorChatAudience = 'adult'): string {
+  return audience === 'child' ? 'Запомни:' : 'Запомните:'
+}
+
+/** Strong micro finale: score + optional remember, then ask-more CTA. */
+export function buildMicroStrongFinaleText(params: {
+  correct: number
+  total: number
+  audience?: TutorChatAudience
+  rememberRu?: string | null
+}): string {
+  const score = TUTOR_CHAT_COPY.microFinaleStrong(params.correct, params.total)
+  const askMore = TUTOR_CHAT_COPY.microFinaleAskMore
+  const remember = params.rememberRu?.trim()
+  if (!remember) {
+    return `${score} ${askMore}`
+  }
+  const prefix = microFinaleRememberPrefix(params.audience === 'child' ? 'child' : 'adult')
+  return `${score} ${prefix} ${remember}\n\n${askMore}`
+}
 
 /** Chip labels for local triage (B / C / meta). */
 export const TUTOR_TRIAGE_CHIP_LABELS = {

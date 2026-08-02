@@ -834,9 +834,14 @@ export default function MenuSectionPanels({
   const [catalogBrowseIntent, setCatalogBrowseIntent] = React.useState<CatalogBrowseIntent>('lesson')
   const [referenceHubSearchQuery, setReferenceHubSearchQuery] = React.useState('')
   const [referenceHubSearchMiss, setReferenceHubSearchMiss] = React.useState<string | null>(null)
+  const [referenceHubSearchFocused, setReferenceHubSearchFocused] = React.useState(false)
   const [referenceSyllabusLevel, setReferenceSyllabusLevel] = React.useState<LessonCatalogLevel | null>(null)
   const [referenceTopicSearchQuery, setReferenceTopicSearchQuery] = React.useState('')
   const isReferenceBrowse = featureFlags.referenceV1 && catalogBrowseIntent === 'reference'
+
+  React.useEffect(() => {
+    if (!isReferenceBrowse) setReferenceHubSearchFocused(false)
+  }, [isReferenceBrowse])
 
   const a2TheoryItems = React.useMemo(() => {
     const source = isReferenceBrowse
@@ -2786,18 +2791,18 @@ export default function MenuSectionPanels({
               <div className="space-y-3">
                 {isReferenceBrowse ? (
                   <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                    <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('reference-hub-search')}>
-                      Поиск
-                    </label>
                     <div className="flex gap-2">
                       <input
                         id={pid('reference-hub-search')}
                         type="text"
+                        aria-label="Поиск"
                         value={referenceHubSearchQuery}
                         onChange={(e) => {
                           setReferenceHubSearchQuery(e.target.value)
                           setReferenceHubSearchMiss(null)
                         }}
+                        onFocus={() => setReferenceHubSearchFocused(true)}
+                        onBlur={() => setReferenceHubSearchFocused(false)}
                         onKeyDown={(e) => {
                           if (e.key !== 'Enter' || !onOpenReferenceTopic) return
                           e.preventDefault()
@@ -2823,12 +2828,12 @@ export default function MenuSectionPanels({
                           setReferenceHubSearchMiss(null)
                           void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
                         }}
-                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
-                        placeholder={REFERENCE_COPY.searchPlaceholder}
+                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+                        placeholder={referenceHubSearchFocused ? '' : REFERENCE_COPY.searchPlaceholder}
                       />
                       <button
                         type="button"
-                        className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] font-medium text-[var(--text)]"
+                        className="btn-3d-menu shrink-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] px-3 py-2 text-[14px] font-medium text-[var(--text)] touch-manipulation focus-visible:outline-none"
                         onClick={() => {
                           if (!onOpenReferenceTopic) return
                           const q = referenceHubSearchQuery.trim()

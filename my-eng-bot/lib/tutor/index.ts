@@ -66,6 +66,12 @@ export { bandFromMicroScore, tutorMicroScoreRatio } from '@/lib/tutor/microScore
 export { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 export { buildTutorMicroPackFromExplain, inferContrastCorrectIndex } from '@/lib/tutor/buildMicroPack'
 export {
+  buildAgeChoiceItems,
+  buildPhraseContrastChoiceItems,
+  isPhraseContrastPair,
+  matchAgeBeExample,
+} from '@/lib/tutor/buildMicroChoiceItems'
+export {
   canOfferTutorMicro,
   isJunkMicroPrompt,
   isMicroAnswerKindEligible,

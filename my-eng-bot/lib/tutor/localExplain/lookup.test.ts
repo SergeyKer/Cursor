@@ -36,6 +36,16 @@ describe('localExplain golden path packs', () => {
     expect(a?.topicAnchor.lessonIdHint).toBe('4')
   })
 
+  it('resolves age mistake FAQ to lesson 4 with drillable examples', () => {
+    const byId = getLocalExplainPackByFaqId('a1.mistakes.131')
+    expect(byId?.answer.topicAnchor.lessonIdHint).toBe('4')
+    expect(byId?.answer.examplesEn.some((ex) => /years old/i.test(ex))).toBe(true)
+
+    const byText = lookupLocalExplainPack('Почему нельзя «I have 20 years»?', 'adult')
+    expect(byText?.topicAnchor.canonicalKey).toBe('age_be')
+    expect(byText?.contrastPair?.[1]).toContain('I am 20 years old')
+  })
+
   it('resolves It’s time FAQ question to lesson 1', () => {
     const a = lookupLocalExplainPack(
       'Почему «It’s time to go» / «It’s time we went»?',

@@ -1,3 +1,7 @@
+import {
+  buildAgeChoiceItems,
+  buildPhraseContrastChoiceItems,
+} from '@/lib/tutor/buildMicroChoiceItems'
 import type { TutorExplainAnswer, TutorMicroItem, TutorMicroPack } from '@/lib/tutor/types'
 import { isTutorMicroPackEligible } from '@/lib/tutor/microEligible'
 import { normalizeTutorMicroPack } from '@/lib/tutor/normalizeMicro'
@@ -122,6 +126,21 @@ export function buildTutorMicroPackFromExplain(answer: TutorExplainAnswer): Tuto
           })
         )
       }
+    }
+  }
+
+  // Phrase / age choice only when tense contrast did not yield a pack.
+  if (items.length < 2) {
+    const phraseItems = buildPhraseContrastChoiceItems(answer, skillTagId)
+    if (phraseItems.length >= 2) {
+      items.push(...phraseItems)
+    }
+  }
+
+  if (items.length < 2) {
+    const ageItems = buildAgeChoiceItems(answer, skillTagId)
+    if (ageItems.length >= 2) {
+      items.push(...ageItems)
     }
   }
 

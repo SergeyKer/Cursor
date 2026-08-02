@@ -43,16 +43,18 @@ export function isTutorMicroPackEligible(
   return pack.items.some((item) => item.kind === 'pick_side' || item.kind === 'best_fit')
 }
 
-/** Chip visibility: local pack ready, or LLM flag may still produce one for strong kinds. */
+/**
+ * Chip visibility (product): LLM flag + strong answerKind only.
+ * localPack ignored — no local micro in product path.
+ */
 export function canOfferTutorMicro(
   answer: TutorExplainAnswer,
   opts?: {
     llmEnabled?: boolean
+    /** @deprecated Ignored. Kept for call-site compat during migration. */
     localPack?: TutorMicroPack | null
   }
 ): boolean {
-  const local = opts?.localPack
-  if (local && isTutorMicroPackEligible(local, answer)) return true
   if (opts?.llmEnabled && isMicroAnswerKindEligible(answer.answerKind)) return true
   return false
 }

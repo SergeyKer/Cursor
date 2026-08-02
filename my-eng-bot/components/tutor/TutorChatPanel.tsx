@@ -18,7 +18,6 @@ import {
 } from '@/lib/chatComposerMetrics'
 import { recordTutorMicroWrongSignal } from '@/lib/learningMemory/record'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
-import { buildTutorMicroPackFromExplain } from '@/lib/tutor/buildMicroPack'
 import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
@@ -55,6 +54,7 @@ import {
 } from '@/lib/tutor/tutorReturnContext'
 import {
   TUTOR_CHAT_COPY,
+  buildMicroStrongFinaleText,
   pickTutorIdleBullets,
   pickTutorIdleExamples,
   tutorComposerPlaceholder,
@@ -82,7 +82,7 @@ type MicroPhase = 'idle' | 'active' | 'finale'
 
 export type TutorChatPanelProps = {
   initialPrefill?: string
-  /** Готово → меню Уроки summary. */
+  /** Готово → меню Репетитор idle (space); embedded menu may pass summary. */
   onDone?: () => void
   /** Idle lives in slide-out menu; first question promotes to dialog-space. */
   embeddedInMenu?: boolean
@@ -888,12 +888,7 @@ export default function TutorChatPanel({
     }
 
     if (!featureFlags.tutorMicroLlmV1) {
-      const resolved = resolveTutorMicroPack({ answer: lastExplain })
-      if (!resolved.ok) {
-        failSoft(true)
-        return
-      }
-      activate(resolved.pack)
+      failSoft(true)
       return
     }
 
@@ -928,12 +923,7 @@ export default function TutorChatPanel({
       }
       activate(resolved.pack)
     } catch {
-      const resolved = resolveTutorMicroPack({ answer: lastExplain })
-      if (!resolved.ok) {
-        failSoft(false)
-        return
-      }
-      activate(resolved.pack)
+      failSoft(false)
     } finally {
       setBusy(false)
       setLoadingMicro(false)
@@ -946,19 +936,25 @@ export default function TutorChatPanel({
       setMicroPack(pack)
       const total = pack.items.length
       const band = bandFromMicroScore(correctCount, total)
+      const audience = session?.settings.audience === 'child' ? 'child' : 'adult'
       let finaleText =
         band === 'strong'
-          ? TUTOR_CHAT_COPY.microFinaleStrong(correctCount, total)
+          ? buildMicroStrongFinaleText({
+              correct: correctCount,
+              total,
+              audience,
+              rememberRu: lastExplain?.rememberRu,
+            })
           : band === 'mid'
             ? TUTOR_CHAT_COPY.microFinaleMid(correctCount, total)
             : TUTOR_CHAT_COPY.microFinaleWeak(correctCount, total)
-      if (lastExplain?.rememberRu) {
+      if (band !== 'strong' && lastExplain?.rememberRu) {
         finaleText = `${finaleText}\n\n${lastExplain.rememberRu}`
       }
       append('assistant', finaleText)
       setPostExplainChips(false)
     },
-    [append, lastExplain]
+    [append, lastExplain, session]
   )
 
   const answerMicro = useCallback(
@@ -1017,15 +1013,10 @@ export default function TutorChatPanel({
     lastExplain.cheatsheetVisibility !== 'hidden' &&
     (session?.referenceEnabled ?? true)
 
-  const localMicroPack = useMemo(
-    () => (lastExplain ? buildTutorMicroPackFromExplain(lastExplain) : null),
-    [lastExplain]
-  )
   const microChipVisible =
     lastExplain != null &&
     canOfferTutorMicro(lastExplain, {
       llmEnabled: featureFlags.tutorMicroLlmV1,
-      localPack: localMicroPack,
     })
 
   const finaleChips: TutorComposerChip[] = [

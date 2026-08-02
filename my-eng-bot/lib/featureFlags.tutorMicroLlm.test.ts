@@ -14,18 +14,18 @@ describe('featureFlags.tutorMicroLlmV1', () => {
     vi.resetModules()
   })
 
-  it('defaults OFF when env unset', async () => {
+  it('defaults ON when env unset', async () => {
     const { featureFlags } = await import('@/lib/featureFlags')
-    expect(featureFlags.tutorMicroLlmV1).toBe(false)
+    expect(featureFlags.tutorMicroLlmV1).toBe(true)
   })
 
-  it('turns ON only for exact true', async () => {
+  it('stays ON for true', async () => {
     process.env.NEXT_PUBLIC_FEATURE_TUTOR_MICRO_LLM = 'true'
     const { featureFlags } = await import('@/lib/featureFlags')
     expect(featureFlags.tutorMicroLlmV1).toBe(true)
   })
 
-  it('stays OFF for false', async () => {
+  it('turns OFF only for exact false (rollback)', async () => {
     process.env.NEXT_PUBLIC_FEATURE_TUTOR_MICRO_LLM = 'false'
     const { featureFlags } = await import('@/lib/featureFlags')
     expect(featureFlags.tutorMicroLlmV1).toBe(false)

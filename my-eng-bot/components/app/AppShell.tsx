@@ -6163,14 +6163,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('root')
   }, [])
 
-  const backFromTutorChat = useCallback(() => {
-    setTutorChatSpaceActive(false)
-    setTutorChatPrefill('')
-    setTutorChatAutoSubmitInitial(false)
+  const exitTutorChatSpace = useCallback(() => {
     clearTutorReturnContext()
-    setDialogStarted(false)
-    openMenuAt('lessons')
-  }, [openMenuAt])
+    openTutorMenuIdle()
+  }, [openTutorMenuIdle])
 
   const openTutorChat = useCallback((opts?: { prefill?: string }) => {
     const prefill = opts?.prefill?.trim() || ''
@@ -10518,7 +10514,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     title={lessonHeaderMedal.title}
                   />
                 </span>
-              ) : dialogStarted && !isLessonHeaderContext && !showSessionExitControl ? (
+              ) : dialogStarted && !isLessonHeaderContext && !showSessionExitControl && !isTutorChatSpaceActive ? (
                 <AppIconFrame
                   variant="header"
                   src="/engvo-mascot.png"
@@ -10535,6 +10531,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   style={{ borderRadius: 'var(--app-header-control-radius)' }}
                   aria-label={SESSION_EXIT_COPY.buttonAriaLabel}
                   title={SESSION_EXIT_COPY.buttonTitle}
+                >
+                  <SessionExitIcon />
+                </button>
+              ) : isTutorChatSpaceActive ? (
+                <button
+                  type="button"
+                  onClick={exitTutorChatSpace}
+                  className="app-header-control chat-action-button pointer-events-auto relative z-20 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation mr-1 sm:mr-2"
+                  style={{ borderRadius: 'var(--app-header-control-radius)' }}
+                  aria-label={TUTOR_CHAT_COPY.closeAriaLabel}
+                  title={TUTOR_CHAT_COPY.closeTitle}
                 >
                   <SessionExitIcon />
                 </button>
@@ -10709,7 +10716,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     key={tutorChatMountKey}
                     initialPrefill={tutorChatPrefill}
                     autoSubmitInitial={tutorChatAutoSubmitInitial}
-                    onDone={backFromTutorChat}
+                    onDone={exitTutorChatSpace}
                   />
                 ) : isMyPlanSpaceActive ? (
                   <MyPlanSheetScreen

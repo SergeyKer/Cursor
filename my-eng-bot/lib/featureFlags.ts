@@ -53,8 +53,8 @@ export const featureFlags = {
   tutorFaqPoolV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_FAQ_POOL !== 'false',
   /**
    * LLM micro pack for «Закрепить 2 мин» via /api/tutor-micro.
-   * Default off until eval pass; local buildMicroPack remains safety net.
+   * Default on; =false аварийный rollback (micro chip off).
    */
-  tutorMicroLlmV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_MICRO_LLM === 'true',
+  tutorMicroLlmV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_MICRO_LLM !== 'false',
 } as const
 

@@ -84,4 +84,26 @@ export const MICRO_EVAL_FIXTURES: Array<{
       cheatsheetVisibility: 'primary',
     },
   },
+  {
+    id: 'grammar_age_mistake',
+    userQuestion: 'Почему нельзя «I have 20 years»?',
+    expectOfferLocal: true,
+    answer: {
+      answerKind: 'grammar',
+      title: 'Возраст: I am … years old',
+      paragraphs: [
+        'Возраст — через be, не have.',
+        'I am 20 years old, не I have 20 years.',
+      ],
+      examplesEn: ['I am 20 years old.', 'She is 18 years old.'],
+      rememberRu: 'Возраст — I am … years old.',
+      topicAnchor: {
+        title: 'Возраст: I am … years old',
+        canonicalKey: 'age_be',
+        lessonIdHint: '4',
+        skillTagIds: ['present-simple'],
+      },
+      cheatsheetVisibility: 'primary',
+    },
+  },
 ]

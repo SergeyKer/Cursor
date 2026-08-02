@@ -118,4 +118,32 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
       cheatsheetVisibility: 'primary',
     },
   },
+  {
+    id: 'gp-mistakes-age-be',
+    faqIds: ['a1.mistakes.131'],
+    matchQueries: [
+      'Почему нельзя «I have 20 years»?',
+      'i have 20 years',
+      'почему нельзя i have 20 years',
+    ],
+    answer: {
+      answerKind: 'grammar',
+      title: 'Возраст: I am … years old',
+      paragraphs: [
+        'Возраст в английском — через be, не через have: I am 20 years old.',
+        'Калька с русского «мне 20 лет / у меня 20 лет» даёт ошибку I have 20 years.',
+        'Можно короче: I am 20. Про другого: She is 18 years old.',
+      ],
+      examplesEn: ['I am 20 years old.', 'I am 25 years old.', 'She is 18 years old.'],
+      rememberRu: 'Возраст — I am … years old, не I have … years.',
+      contrastPair: ['I have 20 years', 'I am 20 years old'],
+      topicAnchor: {
+        title: 'Возраст: I am … years old',
+        canonicalKey: 'age_be',
+        lessonIdHint: '4',
+        skillTagIds: ['present-simple'],
+      },
+      cheatsheetVisibility: 'primary',
+    },
+  },
 ]

@@ -6,7 +6,7 @@ import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
 
 describe('micro eval fixtures (local harness)', () => {
   for (const fixture of MICRO_EVAL_FIXTURES) {
-    it(`${fixture.id}: local offer=${fixture.expectOfferLocal}`, () => {
+    it(`${fixture.id}: local builder offer=${fixture.expectOfferLocal}`, () => {
       const pack = buildTutorMicroPackFromExplain(fixture.answer)
       if (fixture.expectOfferLocal) {
         expect(pack).not.toBeNull()
@@ -15,10 +15,14 @@ describe('micro eval fixtures (local harness)', () => {
           expect(isJunkMicroPrompt(item.promptRu)).toBe(false)
           expect(item.promptRu).not.toMatch(/Почему|Как сказать/i)
         }
+        // Product resolve ignores local — needs LLM pack
+        expect(resolveTutorMicroPack({ answer: fixture.answer }).ok).toBe(false)
+        expect(
+          resolveTutorMicroPack({ answer: fixture.answer, llmPack: pack }).ok
+        ).toBe(true)
       } else {
         expect(pack).toBeNull()
-        const resolved = resolveTutorMicroPack({ answer: fixture.answer })
-        expect(resolved.ok).toBe(false)
+        expect(resolveTutorMicroPack({ answer: fixture.answer }).ok).toBe(false)
       }
     })
   }

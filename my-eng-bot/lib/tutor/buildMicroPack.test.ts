@@ -93,6 +93,78 @@ describe('buildTutorMicroPackFromExplain', () => {
     const pack = buildTutorMicroPackFromExplain(answer!)
     expect(pack).toBeNull()
   })
+
+  it('builds choice pack from age be examples', () => {
+    const answer = normalizeTutorExplain(
+      {
+        answerKind: 'grammar',
+        title: 'Возраст',
+        paragraphs: ['Возраст через be.', 'Не через have.'],
+        examplesEn: ['I am 20 years old.', 'She is 18 years old.'],
+        rememberRu: 'Возраст — I am … years old.',
+        topicAnchor: {
+          title: 'Возраст',
+          canonicalKey: 'age_be',
+          skillTagIds: ['present-simple'],
+        },
+      },
+      { audience: 'adult' }
+    )
+    expect(answer).not.toBeNull()
+    const pack = buildTutorMicroPackFromExplain(answer!)
+    expect(pack).not.toBeNull()
+    expect(pack!.items.length).toBeGreaterThanOrEqual(2)
+    expect(pack!.items.every((item) => item.kind === 'choice')).toBe(true)
+    expect(pack!.items[0]!.options).toContain('I am 20 years old')
+    expect(pack!.items[0]!.options).toContain('I have 20 years')
+    expect(pack!.items[0]!.correctIndex).toBe(1)
+    for (const item of pack!.items) {
+      expect(isJunkMicroPrompt(item.promptRu)).toBe(false)
+      expect(item.promptRu).not.toMatch(/Почему|Как сказать/i)
+      expect(item.skillTagId).toBe('present-simple')
+    }
+    expect(canOfferTutorMicro(answer!, { llmEnabled: false, localPack: pack })).toBe(false)
+    expect(canOfferTutorMicro(answer!, { llmEnabled: true, localPack: pack })).toBe(true)
+  })
+
+  it('builds pack from age phrase contrastPair with concrete options', () => {
+    const answer = normalizeTutorExplain(
+      {
+        answerKind: 'grammar',
+        title: 'Возраст',
+        paragraphs: ['Возраст через be.', 'Не через have.'],
+        examplesEn: ['I am 20 years old.'],
+        contrastPair: ['I have 20 years', 'I am 20 years old'],
+        rememberRu: 'Возраст — I am … years old.',
+        topicAnchor: { title: 'Возраст', canonicalKey: 'age_be', skillTagIds: ['present-simple'] },
+      },
+      { audience: 'adult' }
+    )
+    expect(answer).not.toBeNull()
+    const pack = buildTutorMicroPackFromExplain(answer!)
+    expect(pack).not.toBeNull()
+    expect(pack!.items.length).toBeGreaterThanOrEqual(2)
+    for (const item of pack!.items) {
+      expect(item.options.every((opt) => !opt.includes('…') && !opt.includes('...'))).toBe(true)
+    }
+  })
+
+  it('does not offer pack for will / going to phrase stubs', () => {
+    const answer = normalizeTutorExplain(
+      {
+        answerKind: 'contrast',
+        title: 'Will vs going to',
+        paragraphs: ['Will — решение сейчас.', 'Going to — план.'],
+        examplesEn: ['I will call you.', 'I am going to call you.'],
+        contrastPair: ['will', 'going to'],
+        rememberRu: 'План — going to.',
+        topicAnchor: { title: 'Will vs going to', canonicalKey: 'will_going_to' },
+      },
+      { audience: 'adult' }
+    )
+    expect(answer).not.toBeNull()
+    expect(buildTutorMicroPackFromExplain(answer!)).toBeNull()
+  })
 })
 
 describe('canOfferTutorMicro', () => {

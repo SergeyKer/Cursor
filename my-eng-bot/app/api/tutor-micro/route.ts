@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
         { role: 'system', content: buildTutorMicroSystemPrompt(audience, level) },
         { role: 'user', content: buildTutorMicroUserPrompt({ userQuestion: query, answer }) },
       ],
-      maxTokens: 700,
+      maxTokens: 1000,
       openAiChatPreset,
       traceLabel: 'tutor-micro',
     })
