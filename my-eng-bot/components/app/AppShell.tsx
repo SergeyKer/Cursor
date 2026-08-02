@@ -290,6 +290,7 @@ import { TRANSLATION_MENU_COPY } from '@/lib/uiCopy/translationMenu'
 import { progressCopy } from '@/lib/uiCopy/progress'
 import { myPlanCopy } from '@/lib/uiCopy/myPlan'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
+import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import TutorChatPanel from '@/components/tutor/TutorChatPanel'
 import { clearTutorReturnContext } from '@/lib/tutor/tutorReturnContext'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
@@ -5165,6 +5166,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStructuredLessonVariantRegenerating(false)
       resetVariantPrepareRef.current()
       abandonPracticeSession()
+      setTutorChatSpaceActive(false)
+      setMyPlanSpaceActive(false)
+      setProgressSpaceActive(false)
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setVocabularyFooterView(null)
+      setAccentTrainerActive(false)
+      setAccentFooterView(null)
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
@@ -5201,14 +5210,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         catalogBrowseIntent: 'reference',
       }))
       setActiveLearningLessonId(lessonId)
-      const structuredLesson = getStructuredLessonById(lessonId)
       if (clearMessages) {
         setChatMessagesSnapshotForReference(null)
         setMessages([])
-      }
-      if (structuredLesson) {
-        setStructuredLessonShuffleNonce((n) => n + 1)
-        setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))
       }
       setLastStructuredLessonGlobalDelta(0)
       bumpFooterSessionContext()
@@ -5226,6 +5230,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStructuredLessonVariantRegenerating(false)
       resetVariantPrepareRef.current()
       abandonPracticeSession()
+      setTutorChatSpaceActive(false)
+      setMyPlanSpaceActive(false)
+      setProgressSpaceActive(false)
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setVocabularyFooterView(null)
+      setAccentTrainerActive(false)
+      setAccentFooterView(null)
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
@@ -9455,6 +9467,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             structuredLessonFooterTopLine ??
             activeStructuredLessonFooterDynamicText
         )
+      : isReferenceSheetActive
+      ? resolveFooterWithStreakLayer(null, null, null)
       : isLessonActive
       ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)
       : dialogStarted
@@ -9482,6 +9496,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ? 'Брифинг | 0/7 шагов'
       : isStructuredLessonActive
       ? activeStructuredLessonFooterStaticText
+      : isReferenceSheetActive
+      ? REFERENCE_COPY.hubTitle
       : isLessonActive
       ? learningLessonFooterStaticText
       : dialogStarted

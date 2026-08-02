@@ -46,5 +46,10 @@ export const featureFlags = {
    * Default on after P5; =false аварийный rollback на idleExampleBank.
    */
   tutorFaqPoolV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_FAQ_POOL !== 'false',
+  /**
+   * LLM micro pack for «Закрепить 2 мин» via /api/tutor-micro.
+   * Default off until eval pass; local buildMicroPack remains safety net.
+   */
+  tutorMicroLlmV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_MICRO_LLM === 'true',
 } as const
 

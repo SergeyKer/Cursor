@@ -1,5 +1,13 @@
-import { describe, expect, it, vi, afterEach } from 'vitest'
-import { buildTutorMicroPackFromExplain } from '@/lib/tutor/buildMicroPack'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  buildTutorMicroPackFromExplain,
+  inferContrastCorrectIndex,
+} from '@/lib/tutor/buildMicroPack'
+import {
+  canOfferTutorMicro,
+  isJunkMicroPrompt,
+  isTutorMicroPackEligible,
+} from '@/lib/tutor/microEligible'
 import { normalizeTutorExplain } from '@/lib/tutor/normalizeExplain'
 import {
   resetLearningMemoryStoragePort,
@@ -8,8 +16,26 @@ import {
 import { recordTutorMicroWrongSignal } from '@/lib/learningMemory/record'
 import type { LearningSignal } from '@/lib/learningMemory/types'
 
+describe('inferContrastCorrectIndex', () => {
+  it('picks Perfect for have + result marker', () => {
+    expect(
+      inferContrastCorrectIndex('I have lost my keys.', 'Present Perfect', 'Past Simple')
+    ).toBe(0)
+  })
+
+  it('picks Past Simple for yesterday', () => {
+    expect(
+      inferContrastCorrectIndex('I lost my keys yesterday.', 'Present Perfect', 'Past Simple')
+    ).toBe(1)
+  })
+
+  it('returns null when unsure', () => {
+    expect(inferContrastCorrectIndex('Hello.', 'Present Perfect', 'Past Simple')).toBeNull()
+  })
+})
+
 describe('buildTutorMicroPackFromExplain', () => {
-  it('builds pack from contrast explain', () => {
+  it('builds pack from contrast explain without junk prompts', () => {
     const answer = normalizeTutorExplain(
       {
         answerKind: 'contrast',
@@ -26,6 +52,65 @@ describe('buildTutorMicroPackFromExplain', () => {
     const pack = buildTutorMicroPackFromExplain(answer!)
     expect(pack?.items.length).toBeGreaterThanOrEqual(2)
     expect(pack?.summaryRu.length).toBeGreaterThan(0)
+    for (const item of pack!.items) {
+      expect(isJunkMicroPrompt(item.promptRu)).toBe(false)
+      expect(item.correctIndex).toBeGreaterThanOrEqual(0)
+      expect(item.correctIndex).toBeLessThan(item.options.length)
+    }
+    expect(isTutorMicroPackEligible(pack!, answer!)).toBe(true)
+  })
+
+  it('returns null for thin translate without contrast', () => {
+    const answer = normalizeTutorExplain(
+      {
+        answerKind: 'translate',
+        title: 'Как сказать',
+        paragraphs: ['Скажи так.'],
+        examplesEn: ['Nice to meet you.'],
+        rememberRu: 'Вежливое приветствие.',
+        topicAnchor: { title: 'Приветствие', canonicalKey: 'greeting' },
+      },
+      { audience: 'adult' }
+    )
+    expect(answer).not.toBeNull()
+    expect(buildTutorMicroPackFromExplain(answer!)).toBeNull()
+    expect(canOfferTutorMicro(answer!, { llmEnabled: false })).toBe(false)
+  })
+
+  it('does not invent тема сейчас fallback', () => {
+    const answer = normalizeTutorExplain(
+      {
+        answerKind: 'grammar',
+        title: 'Articles',
+        paragraphs: ['Правило короткое.', 'Ещё чуть-чуть.'],
+        examplesEn: ['an honest man'],
+        rememberRu: 'Silent h → an.',
+        topicAnchor: { title: 'Articles', canonicalKey: 'articles' },
+      },
+      { audience: 'child' }
+    )
+    expect(answer).not.toBeNull()
+    const pack = buildTutorMicroPackFromExplain(answer!)
+    expect(pack).toBeNull()
+  })
+})
+
+describe('canOfferTutorMicro', () => {
+  it('offers chip for LLM flag on strong kind even without local pack', () => {
+    const answer = normalizeTutorExplain(
+      {
+        answerKind: 'grammar',
+        title: 'Articles',
+        paragraphs: ['Правило короткое.', 'Ещё чуть-чуть.'],
+        examplesEn: ['an honest man'],
+        rememberRu: 'Silent h → an.',
+        topicAnchor: { title: 'Articles', canonicalKey: 'articles' },
+      },
+      { audience: 'child' }
+    )
+    expect(answer).not.toBeNull()
+    expect(canOfferTutorMicro(answer!, { llmEnabled: false, localPack: null })).toBe(false)
+    expect(canOfferTutorMicro(answer!, { llmEnabled: true, localPack: null })).toBe(true)
   })
 })
 

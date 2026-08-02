@@ -20,6 +20,7 @@ export const TUTOR_CHAT_COPY = {
   send: 'Отправить',
   retry: 'Повторить',
   loadingExplain: 'Готовлю ответ…',
+  loadingMicro: 'Готовлю проверку…',
   explainFailed: 'Не удалось объяснить. Попробуй ещё раз.',
   clarifyDefault: 'Напиши слово, правило или фразу — разберём.',
   outOfScopeFallback:
@@ -40,10 +41,12 @@ export const TUTOR_CHAT_COPY = {
   chipDone: 'Готово',
   chipAgain: 'Ещё раз',
 
-  cheatsheetMissing: 'Готовой шпаргалки пока нет — можно закрепить 2 мин или спросить в поле.',
-  cheatsheetUnavailable: 'Шпаргалку сейчас не собрать. Закрепи 2 мин или напиши вопрос в поле.',
+  cheatsheetMissing: 'Готовой шпаргалки пока нет — спроси ещё в поле или открой тему заново.',
+  cheatsheetUnavailable: 'Шпаргалку сейчас не собрать. Напиши вопрос в поле.',
 
   microFailed: 'Не удалось собрать проверку. Попробуй ещё раз.',
+  microUnsuitable:
+    'Для этой темы короткая проверка не подходит — спроси ещё или открой шпаргалку.',
 
   microFinaleStrong: (correct: number, total: number) =>
     `${correct} из ${total} — отлично. Можно спросить ещё в поле ниже.`,
@@ -75,12 +78,37 @@ export const TUTOR_CHAT_COPY = {
   cardCuriosityFallback: 'Ты спрашивал про эту тему — можно разобрать ещё раз.',
 
   idleExamplesHeading: 'Часто спрашивают',
-  idleBullets: [
-    'Напиши любой вопрос по английскому — разберём',
-    'Правило, слово, пример из учебника — ок',
-    'Спроси: чем отличаются a / an / the',
-    'Не знаешь с чего начать — выбери пример ниже',
-    'Можно надиктовать или сфоткать задание',
+  idleBulletBank: [
+    'Застрял на правиле — спроси своими словами, разберём',
+    'Непонятно слово или фраза из учебника — кинь сюда',
+    'Чем отличаются два похожих слова — сравним',
+    'Как сказать «я уже сделал» по-английски — спроси',
+    'Сфоткай один пункт задания — разберём, о чём он',
+    'Лень печатать — надиктуй вопрос голосом',
+    'Когда Present Perfect, а когда Past Simple — разложим',
+    'Почему «an hour», а не «a hour» — объясним',
+    'Предлоги in / on / at — на живых примерах',
+    'Переведи фразу и скажи, почему так, а не иначе',
+    'Не знаешь, с чего начать — выбери пример ниже',
+    'После разбора можно закрепить тему за 2 минуты',
+    'Нужна короткая памятка — попроси шпаргалку после ответа',
+    'Странная форма глагола — разберём, откуда она',
+    'Как вежливо попросить / отказаться — подскажем фразу',
+    'Ошибка в написании слова — поправим и поясним',
+    'Синонимы почти одинаковые — покажем, где какой',
+    'Условие упражнения мутное — сфоткай, уточним тему',
+    'Частая ошибка в теме — покажем, чтобы не словить',
+    'Пример из учебника не бьётся с правилом — разберём',
+    '«Что здесь значит это слово?» — разберём в контексте',
+    'Какое время поставить — по ситуации, не по таблице',
+    'Один вопрос из домашки — разберём точечно',
+    'Почему так говорят — разберём нюанс, не только правило',
+    'Статья a / an / the — спроси на своём примере',
+    'Как сказать естественнее, без кальки с русского',
+    'Вопрос из тетради — текстом или фото, как удобнее',
+    'Непонятная конструкция в предложении — разберём по частям',
+    'Нужно не «теория», а как сказать в жизни — спроси так',
+    'Короткий уточняющий вопрос по той же теме — можно сразу',
   ],
   idleExampleBank: [
     'Чем отличаются a / an / the?',
@@ -101,9 +129,8 @@ export const TUTOR_TRIAGE_CHIP_LABELS = {
 
 export type TutorChatCopyKey = keyof typeof TUTOR_CHAT_COPY
 
-/** Pick up to `count` examples from the bank (stable shuffle by seed). */
-export function pickTutorIdleExamples(count = 3, seed = Date.now()): string[] {
-  const bank = [...TUTOR_CHAT_COPY.idleExampleBank]
+function pickShuffledSlice(source: readonly string[], count: number, seed: number): string[] {
+  const bank = [...source]
   let s = seed >>> 0
   for (let i = bank.length - 1; i > 0; i -= 1) {
     s = (Math.imul(s, 1664525) + 1013904223) >>> 0
@@ -113,4 +140,14 @@ export function pickTutorIdleExamples(count = 3, seed = Date.now()): string[] {
     bank[j] = tmp
   }
   return bank.slice(0, Math.min(count, bank.length))
+}
+
+/** Pick up to `count` idle thesis lines from the bank (stable shuffle by seed). */
+export function pickTutorIdleBullets(count = 3, seed = Date.now()): string[] {
+  return pickShuffledSlice(TUTOR_CHAT_COPY.idleBulletBank, count, seed)
+}
+
+/** Pick up to `count` examples from the bank (stable shuffle by seed). */
+export function pickTutorIdleExamples(count = 3, seed = Date.now()): string[] {
+  return pickShuffledSlice(TUTOR_CHAT_COPY.idleExampleBank, count, seed)
 }

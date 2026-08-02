@@ -9,6 +9,7 @@ export type TutorIdleExampleItem = {
 }
 
 export type TutorIdleMenuProps = {
+  bullets: string[]
   examples: TutorIdleExampleItem[]
   onExampleSelect: (item: TutorIdleExampleItem) => void
 }
@@ -22,7 +23,7 @@ const IDLE_CARD_SURFACE = `shrink-0 chat-section-surface glass-surface overflow-
 /**
  * First-screen menu content for tutor (not a chat thread).
  */
-export default function TutorIdleMenu({ examples, onExampleSelect }: TutorIdleMenuProps) {
+export default function TutorIdleMenu({ bullets, examples, onExampleSelect }: TutorIdleMenuProps) {
   return (
     <div
       className={`flex flex-col gap-2 px-1 pt-1 pb-2 ${TUTOR_IDLE_SCROLL_CLASS}`}
@@ -30,7 +31,7 @@ export default function TutorIdleMenu({ examples, onExampleSelect }: TutorIdleMe
     >
       <div className={`${IDLE_CARD_SURFACE} px-3 py-2`}>
         <ul className="m-0 list-none space-y-1 p-0">
-          {TUTOR_CHAT_COPY.idleBullets.map((line) => (
+          {bullets.map((line) => (
             <li key={line} className="text-[15px] leading-snug text-[var(--text)]">
               <span className="text-[var(--text-muted)]" aria-hidden="true">
                 -{' '}
@@ -42,13 +43,13 @@ export default function TutorIdleMenu({ examples, onExampleSelect }: TutorIdleMe
       </div>
 
       <section className={IDLE_CARD_SURFACE}>
-        <div className="px-3 py-2">
+        <div className="px-6 py-2.5">
           <p className="m-0 text-[15px] font-semibold text-[var(--chat-label-main)]">
             {TUTOR_CHAT_COPY.idleExamplesHeading}
           </p>
         </div>
-        <div className="border-t border-[var(--chat-section-card-divider)] px-3 py-2">
-          <ul className="m-0 flex list-none flex-col gap-1 p-0">
+        <div className="border-t border-[var(--chat-section-card-divider)] px-4 py-2.5">
+          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
             {examples.map((example) => (
               <li key={example.id}>
                 <button

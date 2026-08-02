@@ -1,0 +1,26 @@
+[
+  [
+    "import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'\n",
+    "import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'\nimport { REFERENCE_COPY } from '@/lib/uiCopy/reference'\n"
+  ],
+  [
+    "      setReferenceLaunchFrom(from)\n      setRuntimeReferenceSheet(null)\n      lessonMenuLaunchSurfaceRef.current = 'slide'\n      menuLessonGenerateCleanupRef.current?.()\n      menuLessonBgFetchEpochRef.current += 1\n      setStructuredLessonVariantRegenerating(false)\n      resetVariantPrepareRef.current()\n      abandonPracticeSession()\n      firstMessageRequestIdRef.current += 1\n",
+    "      setReferenceLaunchFrom(from)\n      setRuntimeReferenceSheet(null)\n      lessonMenuLaunchSurfaceRef.current = 'slide'\n      menuLessonGenerateCleanupRef.current?.()\n      menuLessonBgFetchEpochRef.current += 1\n      setStructuredLessonVariantRegenerating(false)\n      resetVariantPrepareRef.current()\n      abandonPracticeSession()\n      setTutorChatSpaceActive(false)\n      setMyPlanSpaceActive(false)\n      setProgressSpaceActive(false)\n      setVocabularyWorldsActive(false)\n      setVocabularyByLevelActive(false)\n      setVocabularyFooterView(null)\n      setAccentTrainerActive(false)\n      setAccentFooterView(null)\n      firstMessageRequestIdRef.current += 1\n"
+  ],
+  [
+    "      setReferenceLaunchFrom('chat')\n      setRuntimeReferenceSheet({ ...sheet, hasPractice: false })\n      lessonMenuLaunchSurfaceRef.current = 'slide'\n      menuLessonGenerateCleanupRef.current?.()\n      menuLessonBgFetchEpochRef.current += 1\n      setStructuredLessonVariantRegenerating(false)\n      resetVariantPrepareRef.current()\n      abandonPracticeSession()\n      firstMessageRequestIdRef.current += 1\n",
+    "      setReferenceLaunchFrom('chat')\n      setRuntimeReferenceSheet({ ...sheet, hasPractice: false })\n      lessonMenuLaunchSurfaceRef.current = 'slide'\n      menuLessonGenerateCleanupRef.current?.()\n      menuLessonBgFetchEpochRef.current += 1\n      setStructuredLessonVariantRegenerating(false)\n      resetVariantPrepareRef.current()\n      abandonPracticeSession()\n      setTutorChatSpaceActive(false)\n      setMyPlanSpaceActive(false)\n      setProgressSpaceActive(false)\n      setVocabularyWorldsActive(false)\n      setVocabularyByLevelActive(false)\n      setVocabularyFooterView(null)\n      setAccentTrainerActive(false)\n      setAccentFooterView(null)\n      firstMessageRequestIdRef.current += 1\n"
+  ],
+  [
+    "      setActiveLearningLessonId(lessonId)\n      const structuredLesson = getStructuredLessonById(lessonId)\n      if (clearMessages) {\n        setChatMessagesSnapshotForReference(null)\n        setMessages([])\n      }\n      if (structuredLesson) {\n        setStructuredLessonShuffleNonce((n) => n + 1)\n        setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(structuredLesson))\n      }\n      setLastStructuredLessonGlobalDelta(0)\n      bumpFooterSessionContext()\n    },\n    [abandonPracticeSession, bumpFooterSessionContext, menuOpen]\n  )\n\n  const openRuntimeReferenceFromChip",
+    "      setActiveLearningLessonId(lessonId)\n      if (clearMessages) {\n        setChatMessagesSnapshotForReference(null)\n        setMessages([])\n      }\n      setLastStructuredLessonGlobalDelta(0)\n      bumpFooterSessionContext()\n    },\n    [abandonPracticeSession, bumpFooterSessionContext, menuOpen]\n  )\n\n  const openRuntimeReferenceFromChip"
+  ],
+  [
+    "      : isLessonBriefingActive\n      ? resolveFooterWithStreakLayer('Прочитайте правила - затем к заданию.', null, null)\n      : isStructuredLessonActive\n      ? resolveFooterWithStreakLayer(\n          structuredLessonCompletionFooterText ??\n            structuredLessonFooterTopLine ??\n            activeStructuredLessonFooterDynamicText\n        )\n      : isLessonActive\n      ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)",
+    "      : isLessonBriefingActive\n      ? resolveFooterWithStreakLayer('Прочитайте правила - затем к заданию.', null, null)\n      : isStructuredLessonActive\n      ? resolveFooterWithStreakLayer(\n          structuredLessonCompletionFooterText ??\n            structuredLessonFooterTopLine ??\n            activeStructuredLessonFooterDynamicText\n        )\n      : isReferenceSheetActive\n      ? resolveFooterWithStreakLayer(null, null, null)\n      : isLessonActive\n      ? resolveFooterWithStreakLayer(learningLessonFooterDynamicText)"
+  ],
+  [
+    "      : isLessonBriefingActive\n      ? 'Брифинг | 0/7 шагов'\n      : isStructuredLessonActive\n      ? activeStructuredLessonFooterStaticText\n      : isLessonActive\n      ? learningLessonFooterStaticText",
+    "      : isLessonBriefingActive\n      ? 'Брифинг | 0/7 шагов'\n      : isStructuredLessonActive\n      ? activeStructuredLessonFooterStaticText\n      : isReferenceSheetActive\n      ? REFERENCE_COPY.hubTitle\n      : isLessonActive\n      ? learningLessonFooterStaticText"
+  ]
+]

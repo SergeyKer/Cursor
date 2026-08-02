@@ -12,7 +12,7 @@
 |---|---|
 | topicContext | `buildTutorTopicContext` → API body |
 | scope | normalizeTutorExplainResult + prompt allowlist |
-| Чипы post-explain | micro + cheatsheet |
+| Чипы post-explain | micro (если pack eligible / LLM flag) + cheatsheet; local fallback; LLM via `/api/tutor-micro` за `tutorMicroLlmV1` (default off) |
 | Micro finale | microFinaleStrong/Mid/Weak + bandFromMicroScore |
 | Return context | key `engvo.tutorReturnContext:v2`, поле `lastExplain` |
 | followUpMode | удалён |

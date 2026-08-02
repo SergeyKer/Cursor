@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { pickTutorIdleExamples, TUTOR_CHAT_COPY, tutorComposerPlaceholder } from '@/lib/uiCopy/tutorChat'
+import {
+  pickTutorIdleBullets,
+  pickTutorIdleExamples,
+  TUTOR_CHAT_COPY,
+  tutorComposerPlaceholder,
+} from '@/lib/uiCopy/tutorChat'
 
 describe('TUTOR_CHAT_COPY', () => {
   it('has required chip and card stubs', () => {
@@ -31,13 +36,16 @@ describe('TUTOR_CHAT_COPY', () => {
     for (const line of gateLines) {
       expect(line).not.toContain('мне не нужно')
     }
-    expect(TUTOR_CHAT_COPY.triagePickGoal('Present Perfect')).toContain('Present Perfect')
+    expect(TUTOR_CHAT_COPY.loadingMicro).toContain('проверку')
+    expect(TUTOR_CHAT_COPY.microUnsuitable.length).toBeGreaterThan(10)
+    expect(TUTOR_CHAT_COPY.cheatsheetUnavailable).not.toContain('Закрепи 2 мин')
     expect(TUTOR_CHAT_COPY.triagePickAngle('глаголы')).toContain('глаголы')
     expect(TUTOR_CHAT_COPY.photoReject).toContain('английскому')
   })
 
-  it('has idle menu bullets and example bank', () => {
-    expect(TUTOR_CHAT_COPY.idleBullets).toHaveLength(5)
+  it('has idle menu bullet bank and example bank', () => {
+    expect(TUTOR_CHAT_COPY.idleBulletBank).toHaveLength(30)
+    expect(new Set(TUTOR_CHAT_COPY.idleBulletBank).size).toBe(30)
     expect(TUTOR_CHAT_COPY.idleExampleBank.length).toBeGreaterThanOrEqual(3)
     expect(TUTOR_CHAT_COPY.idleExamplesHeading.length).toBeGreaterThan(5)
     expect(TUTOR_CHAT_COPY.idleExamplesHeading).toBe('Часто спрашивают')
@@ -60,6 +68,14 @@ describe('TUTOR_CHAT_COPY', () => {
     const b = pickTutorIdleExamples(3, 42)
     expect(a).toEqual(b)
     expect(a).toHaveLength(3)
+  })
+
+  it('picks three idle bullets stably for a seed', () => {
+    const a = pickTutorIdleBullets(3, 42)
+    const b = pickTutorIdleBullets(3, 42)
+    expect(a).toEqual(b)
+    expect(a).toHaveLength(3)
+    expect(new Set(a).size).toBe(3)
   })
 
   it('builds micro finale copy by score', () => {

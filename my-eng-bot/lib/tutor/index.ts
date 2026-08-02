@@ -64,6 +64,17 @@ export { normalizeTutorSchoolPhoto, buildTutorSchoolPhotoPrompt } from '@/lib/tu
 export type { TutorSchoolPhotoResult, TutorSchoolPhotoRejectReason } from '@/lib/tutor/normalizeSchoolPhoto'
 export { bandFromMicroScore, tutorMicroScoreRatio } from '@/lib/tutor/microScore'
 export { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
+export { buildTutorMicroPackFromExplain, inferContrastCorrectIndex } from '@/lib/tutor/buildMicroPack'
+export {
+  canOfferTutorMicro,
+  isJunkMicroPrompt,
+  isMicroAnswerKindEligible,
+  isTutorMicroPackEligible,
+} from '@/lib/tutor/microEligible'
+export { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
+export type { ResolveTutorMicroResult } from '@/lib/tutor/resolveMicroPack'
+export { buildTutorMicroSystemPrompt, buildTutorMicroUserPrompt } from '@/lib/tutor/microPrompt'
+
 
 export {
   CHAT_INLINE_SPEAKER_BUTTON_CLASS,

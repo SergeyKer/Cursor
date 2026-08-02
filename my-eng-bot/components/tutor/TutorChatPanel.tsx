@@ -20,7 +20,9 @@ import { recordTutorMicroWrongSignal } from '@/lib/learningMemory/record'
 import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
 import { buildTutorMicroPackFromExplain } from '@/lib/tutor/buildMicroPack'
 import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
+import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
+import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
 import { recordTutorCuriosity } from '@/lib/tutor/curiosityStore'
 import { featureFlags } from '@/lib/featureFlags'
@@ -52,6 +54,7 @@ import {
 } from '@/lib/tutor/tutorReturnContext'
 import {
   TUTOR_CHAT_COPY,
+  pickTutorIdleBullets,
   pickTutorIdleExamples,
   tutorComposerPlaceholder,
 } from '@/lib/uiCopy/tutorChat'
@@ -156,7 +159,9 @@ export default function TutorChatPanel({
   const [postExplainChips, setPostExplainChips] = useState(false)
   const [lastExplain, setLastExplain] = useState<TutorExplainAnswer | null>(null)
   const [busy, setBusy] = useState(false)
+  const [loadingMicro, setLoadingMicro] = useState(false)
   const [microPhase, setMicroPhase] = useState<MicroPhase>('idle')
+  const answeringMicroRef = useRef(false)
   const [microPack, setMicroPack] = useState<TutorMicroPack | null>(null)
   const [microIndex, setMicroIndex] = useState(0)
   const [microCorrectCount, setMicroCorrectCount] = useState(0)
@@ -206,6 +211,10 @@ export default function TutorChatPanel({
     [session?.settings.audience]
   )
   const isIdle = thread.length === 0 && !busy
+  const idleBullets = useMemo(
+    () => (isIdle ? pickTutorIdleBullets(3) : []),
+    [isIdle]
+  )
 
   useEffect(() => {
     if (!featureFlags.tutorFaqPoolV1 || !isIdle) return
@@ -326,6 +335,8 @@ export default function TutorChatPanel({
     setMicroPack(null)
     setMicroIndex(0)
     setMicroCorrectCount(0)
+    setLoadingMicro(false)
+    answeringMicroRef.current = false
   }, [])
 
   const runExplain = useCallback(
@@ -830,25 +841,81 @@ export default function TutorChatPanel({
     [anchorQuery, append, busy, runExplain, triageChips]
   )
 
-  const startMicro = useCallback(() => {
+  const startMicro = useCallback(async () => {
     if (!lastExplain) {
       append('assistant', TUTOR_CHAT_COPY.microUnavailable)
       return
     }
-    const pack = buildTutorMicroPackFromExplain(lastExplain)
-    if (!pack) {
-      append('assistant', TUTOR_CHAT_COPY.microFailed)
+    if (busy || microPhase === 'active') return
+
+    const activate = (pack: TutorMicroPack) => {
+      setMicroPack(pack)
+      setMicroIndex(0)
+      setMicroCorrectCount(0)
+      setMicroPhase('active')
+      setPostExplainChips(false)
+      setTriageChips([])
+      append('assistant', `${TUTOR_CHAT_COPY.microStart}\n\n${pack.items[0]!.promptRu}`)
+    }
+
+    const failSoft = (unsuitable: boolean) => {
+      append('assistant', unsuitable ? TUTOR_CHAT_COPY.microUnsuitable : TUTOR_CHAT_COPY.microFailed)
       setPostExplainChips(true)
+      setMicroPhase('idle')
+    }
+
+    if (!featureFlags.tutorMicroLlmV1) {
+      const resolved = resolveTutorMicroPack({ answer: lastExplain })
+      if (!resolved.ok) {
+        failSoft(true)
+        return
+      }
+      activate(resolved.pack)
       return
     }
-    setMicroPack(pack)
-    setMicroIndex(0)
-    setMicroCorrectCount(0)
-    setMicroPhase('active')
+
+    setBusy(true)
+    setLoadingMicro(true)
     setPostExplainChips(false)
-    setTriageChips([])
-    append('assistant', `${TUTOR_CHAT_COPY.microStart}\n\n${pack.items[0]!.promptRu}`)
-  }, [append, lastExplain])
+    try {
+      const response = await fetch('/api/tutor-micro', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: anchorQuery || lastExplain.title,
+          answer: lastExplain,
+          audience: session?.settings.audience ?? 'adult',
+          level: session?.settings.level ?? 'a2',
+          provider: session?.settings.provider ?? 'openai',
+          openAiChatPreset: session?.settings.openAiChatPreset,
+        }),
+      })
+      let llmPack: TutorMicroPack | null | undefined
+      if (response.ok) {
+        const data = (await response.json()) as { micro?: TutorMicroPack | null }
+        llmPack = data.micro === undefined ? undefined : data.micro
+      }
+      const resolved = resolveTutorMicroPack({
+        answer: lastExplain,
+        llmPack: llmPack === undefined ? undefined : llmPack,
+      })
+      if (!resolved.ok) {
+        failSoft(llmPack === null)
+        return
+      }
+      activate(resolved.pack)
+    } catch {
+      const resolved = resolveTutorMicroPack({ answer: lastExplain })
+      if (!resolved.ok) {
+        failSoft(false)
+        return
+      }
+      activate(resolved.pack)
+    } finally {
+      setBusy(false)
+      setLoadingMicro(false)
+    }
+  }, [anchorQuery, append, busy, lastExplain, microPhase, session])
 
   const finishMicro = useCallback(
     (pack: TutorMicroPack, correctCount: number) => {
@@ -874,34 +941,42 @@ export default function TutorChatPanel({
   const answerMicro = useCallback(
     (optionIndex: number) => {
       if (microPhase !== 'active' || !microPack || !lastExplain) return
-      const item: TutorMicroItem | undefined = microPack.items[microIndex]
-      if (!item) return
-      const chosen = item.options[optionIndex] ?? ''
-      append('user', chosen)
-      const correct = optionIndex === item.correctIndex
-      const newCorrectCount = correct ? microCorrectCount + 1 : microCorrectCount
-      if (correct) {
-        setMicroCorrectCount(newCorrectCount)
-        append('assistant', TUTOR_CHAT_COPY.microCorrect)
-      } else {
-        const right = item.options[item.correctIndex] ?? ''
-        append('assistant', `${TUTOR_CHAT_COPY.microWrong} ${right}`)
-        recordTutorMicroWrongSignal({
-          skillTagId: item.skillTagId,
-          topicTitle: lastExplain.topicAnchor.title || lastExplain.title,
-          userAnswer: chosen,
-          correctAnswer: right,
-          canonicalKey: lastExplain.topicAnchor.canonicalKey,
-          lessonIdHint: lastExplain.topicAnchor.lessonIdHint,
+      if (answeringMicroRef.current) return
+      answeringMicroRef.current = true
+      try {
+        const item: TutorMicroItem | undefined = microPack.items[microIndex]
+        if (!item) return
+        const chosen = item.options[optionIndex] ?? ''
+        append('user', chosen)
+        const correct = optionIndex === item.correctIndex
+        const newCorrectCount = correct ? microCorrectCount + 1 : microCorrectCount
+        if (correct) {
+          setMicroCorrectCount(newCorrectCount)
+          append('assistant', TUTOR_CHAT_COPY.microCorrect)
+        } else {
+          const right = item.options[item.correctIndex] ?? ''
+          append('assistant', `${TUTOR_CHAT_COPY.microWrong} ${right}`)
+          recordTutorMicroWrongSignal({
+            skillTagId: item.skillTagId,
+            topicTitle: lastExplain.topicAnchor.title || lastExplain.title,
+            userAnswer: chosen,
+            correctAnswer: right,
+            canonicalKey: lastExplain.topicAnchor.canonicalKey,
+            lessonIdHint: lastExplain.topicAnchor.lessonIdHint,
+          })
+        }
+        const next = microIndex + 1
+        if (next >= microPack.items.length) {
+          finishMicro(microPack, newCorrectCount)
+          return
+        }
+        setMicroIndex(next)
+        append('assistant', microPack.items[next]!.promptRu)
+      } finally {
+        queueMicrotask(() => {
+          answeringMicroRef.current = false
         })
       }
-      const next = microIndex + 1
-      if (next >= microPack.items.length) {
-        finishMicro(microPack, newCorrectCount)
-        return
-      }
-      setMicroIndex(next)
-      append('assistant', microPack.items[next]!.promptRu)
     },
     [
       append,
@@ -919,8 +994,21 @@ export default function TutorChatPanel({
     lastExplain.cheatsheetVisibility !== 'hidden' &&
     (session?.referenceEnabled ?? true)
 
+  const localMicroPack = useMemo(
+    () => (lastExplain ? buildTutorMicroPackFromExplain(lastExplain) : null),
+    [lastExplain]
+  )
+  const microChipVisible =
+    lastExplain != null &&
+    canOfferTutorMicro(lastExplain, {
+      llmEnabled: featureFlags.tutorMicroLlmV1,
+      localPack: localMicroPack,
+    })
+
   const finaleChips: TutorComposerChip[] = [
-    { id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain },
+    ...(microChipVisible
+      ? [{ id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain } satisfies TutorComposerChip]
+      : []),
     ...(cheatsheetChipVisible
       ? [{ id: 'cheatsheet', labelRu: TUTOR_CHAT_COPY.chipCheatsheet } satisfies TutorComposerChip]
       : []),
@@ -941,7 +1029,9 @@ export default function TutorChatPanel({
         ? microOptionChips
         : postExplainChips
           ? [
-              { id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro },
+              ...(microChipVisible
+                ? [{ id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro } satisfies TutorComposerChip]
+                : []),
               ...(cheatsheetChipVisible
                 ? [{ id: 'cheatsheet', labelRu: TUTOR_CHAT_COPY.chipCheatsheet } satisfies TutorComposerChip]
                 : []),
@@ -960,7 +1050,7 @@ export default function TutorChatPanel({
 
       if (microPhase === 'finale') {
         if (chipId === 'again') {
-          startMicro()
+          void startMicro()
           return
         }
         if (chipId === 'done') {
@@ -989,7 +1079,7 @@ export default function TutorChatPanel({
         return
       }
       if (chipId === 'micro') {
-        startMicro()
+        void startMicro()
         return
       }
       if (chipId === 'cheatsheet') {
@@ -1147,7 +1237,11 @@ export default function TutorChatPanel({
               <div
                 className={`flex min-h-0 flex-1 flex-col pt-1 ${embeddedInMenu ? 'px-2.5' : 'px-0.5'}`}
               >
-                <TutorIdleMenu examples={idleExamples} onExampleSelect={handleExampleSelect} />
+                <TutorIdleMenu
+                  bullets={idleBullets}
+                  examples={idleExamples}
+                  onExampleSelect={handleExampleSelect}
+                />
               </div>
               {/* Same dock inset as Chat: px-2.5 + paddingBottom 0.625rem (menu bleed via -mx-3 -mb-3).
                   No border-t in menu: shell divider has nothing to separate and reads as a light seam. */}
@@ -1224,7 +1318,13 @@ export default function TutorChatPanel({
                   })}
                   {busy ? (
                     <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
-                      <EngvoFeedServiceTypingText text={TUTOR_CHAT_COPY.loadingExplain} />
+                      <EngvoFeedServiceTypingText
+                        text={
+                          loadingMicro
+                            ? TUTOR_CHAT_COPY.loadingMicro
+                            : TUTOR_CHAT_COPY.loadingExplain
+                        }
+                      />
                     </div>
                   ) : null}
                 </div>
