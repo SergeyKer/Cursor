@@ -1,11 +1,10 @@
 import type { TutorAnswerKind, TutorCheatsheetChipVisibility } from '@/lib/tutor/types'
 
-/** Plan: grammar/contrast/form → primary; translate → hidden; how_to_say/orthography → secondary. */
+/** Wave0: grammar/contrast/form → primary; how_to_say/orthography/translate/other → hidden. */
 export function cheatsheetVisibilityForAnswerKind(
   kind: TutorAnswerKind
 ): TutorCheatsheetChipVisibility {
   if (kind === 'grammar' || kind === 'contrast' || kind === 'form') return 'primary'
-  if (kind === 'how_to_say' || kind === 'orthography') return 'secondary'
   return 'hidden'
 }
 

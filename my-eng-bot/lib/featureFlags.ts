@@ -25,6 +25,11 @@ export const featureFlags = {
   learningMemoryDebugV1: process.env.NEXT_PUBLIC_FEATURE_LEARNING_MEMORY_DEBUG_V1 === 'true',
   /** Справочник-шпаргалки. Default on. */
   referenceV1: process.env.NEXT_PUBLIC_FEATURE_REFERENCE_V1 !== 'false',
+  /**
+   * Runtime generate reference sheet on miss (tutor/search).
+   * Default OFF until Eval + staging opt-in; =true only for explicit staging.
+   */
+  referenceGenerate: process.env.NEXT_PUBLIC_FEATURE_REFERENCE_GENERATE === 'true',
   /** Full-screen пространство «Прогресс». Default on; =false → старое меню ProgressPanel. */
   progressSpaceV1: process.env.NEXT_PUBLIC_FEATURE_PROGRESS_SPACE_V1 !== 'false',
   /** Full-screen пространство «Мой план». Default on; =false → старое меню/home MyPlanPanel. */

@@ -121,9 +121,9 @@ describe('normalizeTutorExplain', () => {
     expect(answer?.examplesEn).toEqual(['a', 'b'])
   })
 
-  it('maps how_to_say to secondary cheatsheet', () => {
-    expect(cheatsheetVisibilityForAnswerKind('how_to_say')).toBe('secondary')
-    expect(cheatsheetVisibilityForAnswerKind('orthography')).toBe('secondary')
+  it('maps how_to_say/orthography to hidden cheatsheet (Wave0)', () => {
+    expect(cheatsheetVisibilityForAnswerKind('how_to_say')).toBe('hidden')
+    expect(cheatsheetVisibilityForAnswerKind('orthography')).toBe('hidden')
     expect(cheatsheetVisibilityForAnswerKind('grammar')).toBe('primary')
   })
 

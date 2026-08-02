@@ -7,6 +7,7 @@ import {
 import { getReferenceLessonTopics, isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
 import {
   findReferenceTopicCandidates,
+  pickReferenceSearchSubmitHit,
   pickStrongReferenceHit,
 } from '@/lib/reference/findReferenceTopicCandidates'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
@@ -118,5 +119,11 @@ describe('findReferenceTopicCandidates', () => {
   it('pickStrongReferenceHit returns single candidate', () => {
     const hit = pickStrongReferenceHit([{ lessonId: '4', title: 'I am', score: 120, reason: 'i am' }])
     expect(hit?.lessonId).toBe('4')
+  })
+
+  it('pickReferenceSearchSubmitHit opens known lesson hit', () => {
+    const hits = findReferenceTopicCandidates("it's time", 'adult', 5)
+    const submit = pickReferenceSearchSubmitHit(hits)
+    expect(submit?.lessonId).toBe('1')
   })
 })

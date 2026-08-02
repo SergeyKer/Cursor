@@ -85,6 +85,8 @@ interface SlideOutMenuProps {
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
   /** Открыть шпаргалку справочника. */
   onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
+  onOpenSyllabusTopic?: (topicKey: string) => void | Promise<void>
+  onGenerateReferenceSheet?: (query: string) => void | Promise<void>
   /** Full-screen Progress space. */
   onOpenProgressSpace?: () => void
   /** Full-screen My Plan space. */
@@ -202,6 +204,8 @@ export default function SlideOutMenu({
   engvoVoiceMode = false,
   onOpenLearningLesson,
   onOpenReferenceTopic,
+  onOpenSyllabusTopic,
+  onGenerateReferenceSheet,
   onOpenProgressSpace,
   onOpenMyPlanSpace,
   onOpenTutorChat,
@@ -407,6 +411,8 @@ export default function SlideOutMenu({
         onCloseMenu={open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}
         onOpenReferenceTopic={onOpenReferenceTopic}
+        onOpenSyllabusTopic={onOpenSyllabusTopic}
+        onGenerateReferenceSheet={onGenerateReferenceSheet}
         onOpenProgressSpace={onOpenProgressSpace}
         onOpenMyPlanSpace={onOpenMyPlanSpace}
         onOpenTutorChat={onOpenTutorChat}

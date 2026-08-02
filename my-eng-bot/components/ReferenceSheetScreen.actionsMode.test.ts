@@ -46,4 +46,9 @@ describe('resolveReferenceActionsMode', () => {
       'back-only'
     )
   })
+
+  it('defaults to back-only when relatedLessonId is null', () => {
+    const noLesson = { ...sheetWithPractice, relatedLessonId: null }
+    expect(resolveReferenceActionsMode(noLesson, undefined, vi.fn(), vi.fn())).toBe('back-only')
+  })
 })

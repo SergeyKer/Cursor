@@ -22,7 +22,7 @@ export type TutorTriageResult =
 /**
  * Drives post-Explain chips (esp. шпаргалка).
  * grammar/contrast/form → primary cheatsheet; translate → hidden;
- * how_to_say/orthography → secondary or hidden.
+ * how_to_say/orthography → hidden (Wave0).
  */
 export type TutorAnswerKind =
   | 'grammar'

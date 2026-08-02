@@ -15,7 +15,8 @@ export interface ReferenceSheet {
   traps: string[]
   examples: LessonIntroExample[]
   selfCheck: string | null
-  relatedLessonId: string
+  /** Lesson CTA only when non-null. */
+  relatedLessonId: string | null
 }
 
 export type ReferenceTopicCatalogItem = LessonTopicCatalogItem & {

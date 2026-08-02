@@ -47,8 +47,13 @@ import type { CatalogBrowseIntent } from '@/lib/reference/types'
 import { getReferenceLessonTopics, isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
 import {
   findReferenceTopicCandidates,
-  pickStrongReferenceHit,
+  pickReferenceSearchSubmitHit,
 } from '@/lib/reference/findReferenceTopicCandidates'
+import {
+  findSyllabusTopicCandidates,
+  isSyllabusTopicOpenable,
+  listSyllabusTopicsByLevel,
+} from '@/lib/reference/syllabus'
 import {
   resolveLessonCardMedal, type LessonCardMedalDisplay,
 } from '@/lib/lessonFooter'
@@ -206,6 +211,8 @@ export type LessonsPanel =
   | 'theoryTagLevels'
   /** Теория по теме: шаг 2 - список уроков выбранного уровня (как экран A1/A2 по CEFR). */
   | 'theoryTagLessons'
+  | 'referenceSyllabusThemes'
+  | 'referenceSyllabusLessons'
   | 'a1'
   | 'a2'
   | 'practice'
@@ -342,6 +349,8 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   theoryGrammarCategories: 'Темы',
   theoryTagLevels: 'Теория · уровень по теме',
   theoryTagLessons: 'Теория · урок по теме',
+  referenceSyllabusThemes: 'Темы',
+  referenceSyllabusLessons: 'Уроки',
   a1: 'A1',
   a2: 'A2',
   practice: 'По урокам',
@@ -560,6 +569,10 @@ export interface MenuSectionPanelsProps {
   onOpenLearningLesson?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
   /** Открыть шпаргалку справочника по теме урока. */
   onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void | Promise<void>
+  /** Открыть тему syllabus: локальный лист или planned/soon. */
+  onOpenSyllabusTopic?: (topicKey: string) => void | Promise<void>
+  /** Сгенерировать шпаргалку для miss поиска, только при staging flag. */
+  onGenerateReferenceSheet?: (query: string) => void | Promise<void>
   /** Full-screen пространство Прогресс (progressSpaceV1). */
   onOpenProgressSpace?: () => void
   /** Full-screen пространство Мой план (myPlanSpaceV1). */
@@ -692,6 +705,8 @@ export default function MenuSectionPanels({
   onAiChatPanelChange,
   onOpenLearningLesson,
   onOpenReferenceTopic,
+  onOpenSyllabusTopic,
+  onGenerateReferenceSheet,
   onOpenProgressSpace,
   onOpenMyPlanSpace,
   onOpenTutorChat,
@@ -818,6 +833,9 @@ export default function MenuSectionPanels({
   const a2PracticeTopicCopy = PRACTICE_TOPICS_BY_AUDIENCE[settings.audience]
   const [catalogBrowseIntent, setCatalogBrowseIntent] = React.useState<CatalogBrowseIntent>('lesson')
   const [referenceHubSearchQuery, setReferenceHubSearchQuery] = React.useState('')
+  const [referenceHubSearchMiss, setReferenceHubSearchMiss] = React.useState<string | null>(null)
+  const [referenceSyllabusLevel, setReferenceSyllabusLevel] = React.useState<LessonCatalogLevel | null>(null)
+  const [referenceTopicSearchQuery, setReferenceTopicSearchQuery] = React.useState('')
   const isReferenceBrowse = featureFlags.referenceV1 && catalogBrowseIntent === 'reference'
 
   const a2TheoryItems = React.useMemo(() => {
@@ -926,6 +944,18 @@ export default function MenuSectionPanels({
     if (!isReferenceBrowse || !referenceHubSearchQuery.trim()) return []
     return findReferenceTopicCandidates(referenceHubSearchQuery, settings.audience, 8)
   }, [isReferenceBrowse, referenceHubSearchQuery, settings.audience])
+  const referenceSyllabusThemes = React.useMemo(
+    () => (referenceSyllabusLevel ? listSyllabusTopicsByLevel(referenceSyllabusLevel) : []),
+    [referenceSyllabusLevel]
+  )
+  const referenceSyllabusLessons = React.useMemo(
+    () => referenceSyllabusThemes.filter((topic) => Boolean(topic.lessonId)),
+    [referenceSyllabusThemes]
+  )
+  const referenceTopicBrowseHits = React.useMemo(() => {
+    if (!isReferenceBrowse || !referenceTopicSearchQuery.trim()) return []
+    return findSyllabusTopicCandidates(referenceTopicSearchQuery, 12)
+  }, [isReferenceBrowse, referenceTopicSearchQuery])
   const theoryTopicLessonsByLevel = React.useMemo(
     () => groupTheoryLessonsByLevel(theoryTopicLessonsFlat),
     [theoryTopicLessonsFlat]
@@ -1528,6 +1558,15 @@ export default function MenuSectionPanels({
         setLessonsPanel('theoryCefrLevels')
         return
       }
+      if (lessonsPanel === 'referenceSyllabusLessons') {
+        setLessonsPanel('referenceSyllabusThemes')
+        return
+      }
+      if (lessonsPanel === 'referenceSyllabusThemes') {
+        setReferenceSyllabusLevel(null)
+        setLessonsPanel('theoryCefrLevels')
+        return
+      }
       if (lessonsPanel === 'theoryTagLessons') {
         setLessonsPanel('theoryTagLevels')
         return
@@ -1829,6 +1868,18 @@ export default function MenuSectionPanels({
       }
       if (isReferenceBrowse) {
         if (lessonsPanel === 'theory') return REFERENCE_COPY.hubTitle
+        if (lessonsPanel === 'theoryCefrLevels') return REFERENCE_COPY.byLevelLabel
+        if (lessonsPanel === 'referenceSyllabusThemes') {
+          return referenceSyllabusLevel
+            ? `${referenceSyllabusLevel} · ${REFERENCE_COPY.themesSectionTitle}`
+            : REFERENCE_COPY.themesSectionTitle
+        }
+        if (lessonsPanel === 'referenceSyllabusLessons') {
+          return referenceSyllabusLevel
+            ? `${referenceSyllabusLevel} · ${REFERENCE_COPY.lessonsSectionTitle}`
+            : REFERENCE_COPY.lessonsSectionTitle
+        }
+        if (lessonsPanel === 'theoryGrammarCategories') return REFERENCE_COPY.byTopicLabel
         if (lessonsPanel === 'theoryTagLevels') return REFERENCE_COPY.tagLevelsTitle
         if (lessonsPanel === 'theoryTagLessons') return REFERENCE_COPY.tagLessonsTitle
       }
@@ -1857,6 +1908,8 @@ export default function MenuSectionPanels({
     (lessonsPanel === 'a1' ||
       lessonsPanel === 'a2' ||
       lessonsPanel === 'theoryGrammarCategories' ||
+      lessonsPanel === 'referenceSyllabusThemes' ||
+      lessonsPanel === 'referenceSyllabusLessons' ||
       lessonsPanel === 'theoryTagLevels' ||
       lessonsPanel === 'theoryTagLessons' ||
       lessonsPanel === 'tutor')
@@ -2736,20 +2789,77 @@ export default function MenuSectionPanels({
                     <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('reference-hub-search')}>
                       Поиск
                     </label>
-                    <input
-                      id={pid('reference-hub-search')}
-                      type="text"
-                      value={referenceHubSearchQuery}
-                      onChange={(e) => setReferenceHubSearchQuery(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key !== 'Enter' || !onOpenReferenceTopic) return
-                        const strong = pickStrongReferenceHit(referenceHubSearchHits)
-                        if (!strong) return
-                        void onOpenReferenceTopic(strong.lessonId, 'theory', buildLearningLessonMeta())
-                      }}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
-                      placeholder={REFERENCE_COPY.searchPlaceholder}
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        id={pid('reference-hub-search')}
+                        type="text"
+                        value={referenceHubSearchQuery}
+                        onChange={(e) => {
+                          setReferenceHubSearchQuery(e.target.value)
+                          setReferenceHubSearchMiss(null)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key !== 'Enter' || !onOpenReferenceTopic) return
+                          e.preventDefault()
+                          const q = referenceHubSearchQuery.trim()
+                          if (!q) {
+                            setReferenceHubSearchMiss(REFERENCE_COPY.searchNeedQuery)
+                            return
+                          }
+                          const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
+                          if (!hit) {
+                            setReferenceHubSearchMiss(
+                              onGenerateReferenceSheet && featureFlags.referenceGenerate
+                                ? REFERENCE_COPY.searchGenerateHint
+                                : referenceHubSearchHits.length > 0
+                                  ? REFERENCE_COPY.searchMissHint
+                                  : REFERENCE_COPY.searchEmpty
+                            )
+                            if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
+                              void onGenerateReferenceSheet(q)
+                            }
+                            return
+                          }
+                          setReferenceHubSearchMiss(null)
+                          void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
+                        }}
+                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+                        placeholder={REFERENCE_COPY.searchPlaceholder}
+                      />
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[14px] font-medium text-[var(--text)]"
+                        onClick={() => {
+                          if (!onOpenReferenceTopic) return
+                          const q = referenceHubSearchQuery.trim()
+                          if (!q) {
+                            setReferenceHubSearchMiss(REFERENCE_COPY.searchNeedQuery)
+                            return
+                          }
+                          const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
+                          if (!hit) {
+                            setReferenceHubSearchMiss(
+                              onGenerateReferenceSheet && featureFlags.referenceGenerate
+                                ? REFERENCE_COPY.searchGenerateHint
+                                : referenceHubSearchHits.length > 0
+                                  ? REFERENCE_COPY.searchMissHint
+                                  : REFERENCE_COPY.searchEmpty
+                            )
+                            if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
+                              void onGenerateReferenceSheet(q)
+                            }
+                            return
+                          }
+                          setReferenceHubSearchMiss(null)
+                          void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
+                        }}
+                      >
+                        {REFERENCE_COPY.searchSubmit}
+                      </button>
+                    </div>
+                    {referenceHubSearchMiss ? (
+                      <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{referenceHubSearchMiss}</p>
+                    ) : null}
                     {referenceHubSearchQuery.trim() ? (
                       referenceHubSearchHits.length > 0 ? (
                         <div className={MENU_GROUP_OUTER}>
@@ -2760,15 +2870,16 @@ export default function MenuSectionPanels({
                                 label={hit.title}
                                 onClick={() => {
                                   if (!onOpenReferenceTopic) return
+                                  setReferenceHubSearchMiss(null)
                                   void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
                                 }}
                               />
                             ))}
                           </div>
                         </div>
-                      ) : (
+                      ) : !referenceHubSearchMiss ? (
                         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{REFERENCE_COPY.searchEmpty}</p>
-                      )
+                      ) : null
                     ) : null}
                   </div>
                 ) : null}
@@ -2781,12 +2892,114 @@ export default function MenuSectionPanels({
                     <MenuNavRow
                       label={isReferenceBrowse ? REFERENCE_COPY.byTopicLabel : 'По теме'}
                       onClick={() => {
+                        if (isReferenceBrowse) {
+                          setReferenceTopicSearchQuery('')
+                          setLessonsPanel('theoryGrammarCategories')
+                          return
+                        }
                         setTheoryTagsSearchQuery('')
                         setTheoryTopicLaunch(null)
                         setSelectedTheoryTopicLessonId(null)
                         setLessonsPanel('theoryGrammarCategories')
                       }}
                     />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'referenceSyllabusThemes' && referenceSyllabusLevel && (
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
+                  <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                    <p className="text-[13px] font-medium text-[var(--text-muted)]">
+                      {REFERENCE_COPY.themesSectionTitle}
+                    </p>
+                    <LessonListDensitySwitcher value={lessonListDensity} onChange={setLessonListDensity} />
+                  </div>
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {referenceSyllabusThemes.map((topic) => {
+                        const openable = isSyllabusTopicOpenable(topic)
+                        return (
+                          <A2LessonChoiceRow
+                            key={topic.topicKey}
+                            label={topic.titleRu}
+                            subtitle={topic.status === 'planned' ? 'Скоро' : topic.titleEn}
+                            description={topic.teaser}
+                            density={lessonListDensity}
+                            medalDisplay={null}
+                            rewardIcons={null}
+                            selected={false}
+                            enabled={openable}
+                            onClick={
+                              openable
+                                ? () => {
+                                    if (topic.lessonId && onOpenReferenceTopic) {
+                                      void onOpenReferenceTopic(topic.lessonId, 'theory', {
+                                        catalogBrowseIntent: 'reference',
+                                        theoryTagBrowseLevel: referenceSyllabusLevel,
+                                      })
+                                      return
+                                    }
+                                    void onOpenSyllabusTopic?.(topic.topicKey)
+                                  }
+                                : undefined
+                            }
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className={`${MENU_GROUP_OUTER} mt-3`}>
+                    <div className={MENU_GROUP_CLASS}>
+                      <MenuNavRow
+                        label={REFERENCE_COPY.lessonsSectionTitle}
+                        onClick={() => setLessonsPanel('referenceSyllabusLessons')}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'referenceSyllabusLessons' && referenceSyllabusLevel && (
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
+                  <div className="mb-2 flex items-center justify-between gap-2 px-1">
+                    <p className="text-[13px] font-medium text-[var(--text-muted)]">
+                      {REFERENCE_COPY.lessonsSectionTitle}
+                    </p>
+                    <LessonListDensitySwitcher value={lessonListDensity} onChange={setLessonListDensity} />
+                  </div>
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {referenceSyllabusLessons.map((topic) => (
+                        <A2LessonChoiceRow
+                          key={topic.topicKey}
+                          label={topic.titleRu}
+                          subtitle={topic.titleEn}
+                          description={topic.teaser}
+                          density={lessonListDensity}
+                          medalDisplay={null}
+                          rewardIcons={null}
+                          selected={false}
+                          enabled={isSyllabusTopicOpenable(topic)}
+                          onClick={
+                            topic.lessonId && onOpenReferenceTopic
+                              ? () =>
+                                  void onOpenReferenceTopic(topic.lessonId!, 'theory', {
+                                    catalogBrowseIntent: 'reference',
+                                    theoryTagBrowseLevel: referenceSyllabusLevel,
+                                  })
+                              : undefined
+                          }
+                        />
+                      ))}
+                      {referenceSyllabusLessons.length === 0 ? (
+                        <p className="px-3 py-2 text-[13px] text-[var(--text-muted)]">Скоро</p>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2800,7 +3013,13 @@ export default function MenuSectionPanels({
                       key={level.id}
                       label={level.label}
                       onClick={
-                        level.id === 'A2'
+                        isReferenceBrowse &&
+                        (level.id === 'A1' || level.id === 'A2' || level.id === 'B1' || level.id === 'B2')
+                          ? () => {
+                              setReferenceSyllabusLevel(level.id as LessonCatalogLevel)
+                              setLessonsPanel('referenceSyllabusThemes')
+                            }
+                          : level.id === 'A2'
                           ? () => {
                               setTheoryLessonSourceNav('cef_levels')
                               setLessonsPanel('a2')
@@ -2818,7 +3037,66 @@ export default function MenuSectionPanels({
               </div>
             )}
 
-            {lessonsPanel === 'theoryGrammarCategories' && (
+            {lessonsPanel === 'theoryGrammarCategories' && isReferenceBrowse && (
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
+                  <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                    <label className="block text-[13px] font-medium text-[var(--text-muted)]" htmlFor={pid('reference-topic-search')}>
+                      Поиск темы
+                    </label>
+                    <input
+                      id={pid('reference-topic-search')}
+                      type="text"
+                      value={referenceTopicSearchQuery}
+                      onChange={(e) => setReferenceTopicSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+                      placeholder="Например: вопросы или present"
+                    />
+                  </div>
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {(referenceTopicSearchQuery.trim()
+                        ? referenceTopicBrowseHits.map((hit) => hit.topic)
+                        : listSyllabusTopicsByLevel('A1').concat(
+                            listSyllabusTopicsByLevel('A2'),
+                            listSyllabusTopicsByLevel('B1'),
+                            listSyllabusTopicsByLevel('B2')
+                          )).map((topic) => {
+                        const openable = isSyllabusTopicOpenable(topic)
+                        return (
+                          <A2LessonChoiceRow
+                            key={`${topic.level}-${topic.topicKey}`}
+                            label={topic.titleRu}
+                            subtitle={`${topic.level} · ${topic.status === 'planned' ? 'Скоро' : topic.titleEn}`}
+                            description={topic.teaser}
+                            density={lessonListDensity}
+                            medalDisplay={null}
+                            rewardIcons={null}
+                            selected={false}
+                            enabled={openable}
+                            onClick={
+                              openable
+                                ? () => {
+                                    if (topic.lessonId && onOpenReferenceTopic) {
+                                      void onOpenReferenceTopic(topic.lessonId, 'theory', {
+                                        catalogBrowseIntent: 'reference',
+                                      })
+                                      return
+                                    }
+                                    void onOpenSyllabusTopic?.(topic.topicKey)
+                                  }
+                                : undefined
+                            }
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {lessonsPanel === 'theoryGrammarCategories' && !isReferenceBrowse && (
               <div className={lessonMenuPanelShellClass}>
                 <div className={lessonMenuListRegionClass}>
                   <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">

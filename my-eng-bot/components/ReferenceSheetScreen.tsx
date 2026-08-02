@@ -55,6 +55,7 @@ export function resolveReferenceActionsMode(
   onStartPractice: (() => void) | undefined
 ): ReferenceActionsMode {
   if (actionsMode) return actionsMode
+  if (!sheet.relatedLessonId?.trim()) return 'back-only'
   if (sheet.hasPractice && onStartPractice && onStartLesson) return 'lesson+practice'
   if (onStartLesson) return 'lesson'
   return 'back-only'

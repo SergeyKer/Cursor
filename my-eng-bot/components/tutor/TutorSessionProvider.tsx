@@ -2,12 +2,13 @@
 
 import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
-import { resolveReviewChipTopic } from '@/lib/languageNote/resolveReviewChipTopic'
-import type { TutorExplainAnswer } from '@/lib/tutor/types'
 import {
-  stashTutorReturnContext,
-  type TutorReturnContextSnapshot,
-} from '@/lib/tutor/tutorReturnContext'
+  abandonCheatsheetGenerate,
+  resolveTutorCheatsheetOpen,
+} from '@/lib/tutor/resolveTutorCheatsheetOpen'
+import { generateReferenceSheet } from '@/lib/reference/generateReferenceSheet'
+import type { TutorExplainAnswer } from '@/lib/tutor/types'
+import type { TutorReturnContextSnapshot } from '@/lib/tutor/tutorReturnContext'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 import type { AiProvider, Audience, LevelId } from '@/lib/types'
 
@@ -29,7 +30,7 @@ type TutorSessionContextValue = {
   openCheatsheet: (params: {
     answer: TutorExplainAnswer
     snapshot: Omit<TutorReturnContextSnapshot, 'savedAt'>
-  }) => TutorCheatsheetResult
+  }) => Promise<TutorCheatsheetResult>
 }
 
 const TutorSessionContext = createContext<TutorSessionContextValue | null>(null)
@@ -37,54 +38,48 @@ const TutorSessionContext = createContext<TutorSessionContextValue | null>(null)
 export type TutorSessionProviderProps = {
   children: React.ReactNode
   settings: TutorSessionSettings
-  /** Open catalog reference sheet and return via from:'tutor'. */
-  onOpenLocalReference: (lessonId: string) => void | Promise<void>
+  /** Open catalog reference sheet; return false if open failed. */
+  onOpenLocalReference: (lessonId: string) => boolean | void | Promise<boolean | void>
+  /** Open a generated, back-only reference sheet. */
+  onOpenGeneratedReference?: (sheet: import('@/lib/reference/types').ReferenceSheet) => void | Promise<void>
 }
 
 export function TutorSessionProvider({
   children,
   settings,
   onOpenLocalReference,
+  onOpenGeneratedReference,
 }: TutorSessionProviderProps) {
   const openCheatsheet = useCallback(
-    (params: {
+    async (params: {
       answer: TutorExplainAnswer
       snapshot: Omit<TutorReturnContextSnapshot, 'savedAt'>
-    }): TutorCheatsheetResult => {
-      if (!featureFlags.referenceV1) {
-        return { kind: 'unavailable', message: TUTOR_CHAT_COPY.cheatsheetUnavailable }
-      }
-      if (params.answer.cheatsheetVisibility === 'hidden') {
+    }): Promise<TutorCheatsheetResult> => {
+      const result = resolveTutorCheatsheetOpen({
+        answer: params.answer,
+        snapshot: params.snapshot,
+        openLocalReference: (lessonId) => {
+          void onOpenLocalReference(lessonId)
+        },
+      })
+      if (result.kind === 'needs_generate') {
+        const generated = await generateReferenceSheet({
+          query: result.query,
+          level: settings.level,
+          audience: settings.audience,
+          provider: settings.provider,
+          openAiChatPreset: settings.openAiChatPreset,
+        })
+        if (generated.kind === 'generated' && onOpenGeneratedReference) {
+          await onOpenGeneratedReference(generated.sheet)
+          return { kind: 'opened' }
+        }
+        abandonCheatsheetGenerate()
         return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
       }
-
-      const hint = params.answer.topicAnchor.lessonIdHint?.trim() || null
-      if (hint) {
-        stashTutorReturnContext(params.snapshot)
-        void onOpenLocalReference(hint)
-        return { kind: 'opened' }
-      }
-
-      const chipTitle =
-        params.answer.topicAnchor.title ||
-        params.answer.title ||
-        params.answer.topicAnchor.canonicalKey
-      const resolved = resolveReviewChipTopic({
-        chipTitle,
-        noteLessonId: hint,
-      })
-
-      if (resolved.kind === 'local') {
-        stashTutorReturnContext(params.snapshot)
-        void onOpenLocalReference(resolved.lessonId)
-        return { kind: 'opened' }
-      }
-
-      // Generate path: Phase 2 soft-miss until dedicated tutor generate wiring lands.
-      // Plan allows generate for real topics; allowlist miss is an expected soft miss.
-      return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
+      return result
     },
-    [onOpenLocalReference]
+    [onOpenGeneratedReference, onOpenLocalReference, settings]
   )
 
   const value = useMemo<TutorSessionContextValue>(

@@ -530,6 +530,10 @@ import {
   isIntroSuitableForReference,
 } from '@/lib/reference/buildReferenceSheet'
 import type { ReferenceSheet } from '@/lib/reference/types'
+import { canOpenLocalReferenceLesson } from '@/lib/reference/canOpenLocalReference'
+import { resolveOpenReferenceSheet } from '@/lib/reference/openReferenceSheet'
+import { generateReferenceSheet } from '@/lib/reference/generateReferenceSheet'
+import { getSyllabusTopicByKey } from '@/lib/reference/syllabus'
 import {
   consumeOpenReferenceLessonId,
   readReferenceLessonIdFromSearch,
@@ -5221,8 +5225,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const openRuntimeReferenceFromChip = useCallback(
-    (sheet: ReferenceSheet) => {
-      setReferenceLaunchFrom('chat')
+    (sheet: ReferenceSheet, from: 'chat' | 'menu' = 'chat') => {
+      setReferenceLaunchFrom(from)
       setRuntimeReferenceSheet({ ...sheet, hasPractice: false })
       lessonMenuLaunchSurfaceRef.current = 'slide'
       menuLessonGenerateCleanupRef.current?.()
@@ -5264,6 +5268,48 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       bumpFooterSessionContext()
     },
     [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
+  )
+
+  const openSyllabusTopic = useCallback(
+    async (topicKey: string) => {
+      const topic = getSyllabusTopicByKey(topicKey)
+      if (!topic) return
+      if (topic.lessonId) {
+        await openReferenceTopic(topic.lessonId, 'theory', { catalogBrowseIntent: 'reference' })
+        return
+      }
+      const resolved = resolveOpenReferenceSheet({ topicKey: topic.topicKey })
+      if (resolved.kind === 'prebuilt') {
+        openRuntimeReferenceFromChip(resolved.sheet)
+        return
+      }
+      setMenuLessonBgError('Эта тема скоро появится в справочнике.')
+    },
+    [openReferenceTopic, openRuntimeReferenceFromChip]
+  )
+
+  const generateReferenceFromMenu = useCallback(
+    async (query: string) => {
+      const result = await generateReferenceSheet({
+        query,
+        level: settings.level,
+        audience: settings.audience,
+        provider: settings.provider,
+        openAiChatPreset: settings.openAiChatPreset,
+      })
+      if (result.kind === 'generated') {
+        openRuntimeReferenceFromChip(result.sheet, 'menu')
+      } else {
+        setMenuLessonBgError('Не удалось собрать шпаргалку. Уточни тему и попробуй ещё раз.')
+      }
+    },
+    [
+      openRuntimeReferenceFromChip,
+      settings.audience,
+      settings.level,
+      settings.openAiChatPreset,
+      settings.provider,
+    ]
   )
 
   const backFromReferenceToChat = useCallback(() => {
@@ -10310,13 +10356,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         provider: settings.provider,
         openAiChatPreset: settings.openAiChatPreset,
       }}
-      onOpenLocalReference={(lessonId) => {
-        void openReferenceTopic(
+      onOpenLocalReference={async (lessonId) => {
+        if (!canOpenLocalReferenceLesson(lessonId)) return false
+        await openReferenceTopic(
           lessonId,
           'summary',
           { catalogBrowseIntent: 'reference' },
           { from: 'tutor', clearMessages: false }
         )
+        return true
+      }}
+      onOpenGeneratedReference={async (sheet) => {
+        openRuntimeReferenceFromChip(sheet)
       }}
     >
     <div
@@ -10823,13 +10874,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                         : backToLessonList
                   }
                   onStartLesson={
-                    referenceActionsMode === 'back-only'
+                    referenceActionsMode === 'back-only' || !activeReferenceSheet.relatedLessonId
                       ? undefined
                       : () => {
+                          const lessonId = activeReferenceSheet.relatedLessonId
+                          if (!lessonId) return
                           setReferenceLaunchFrom(null)
                           setChatMessagesSnapshotForReference(null)
                           void openLearningLesson(
-                            activeReferenceSheet.relatedLessonId,
+                            lessonId,
                             lessonMenuContext?.lessonsPanel ?? 'a2',
                             {
                               ...(lessonMenuContext
@@ -10849,13 +10902,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                         }
                   }
                   onStartPractice={
-                    referenceActionsMode === 'back-only' || !activeReferenceSheet.hasPractice
+                    referenceActionsMode === 'back-only' || !activeReferenceSheet.hasPractice || !activeReferenceSheet.relatedLessonId
                       ? undefined
                       : () => {
+                          const lessonId = activeReferenceSheet.relatedLessonId
+                          if (!lessonId) return
                           setReferenceLaunchFrom(null)
                           setChatMessagesSnapshotForReference(null)
                           void openPracticeSession({
-                            lessonId: activeReferenceSheet.relatedLessonId,
+                            lessonId,
                             mode: 'challenge',
                             entrySource: 'menu',
                           })
@@ -11190,6 +11245,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onGoHome={goToStartScreen}
         onOpenLearningLesson={openOrContinueLearningLesson}
         onOpenReferenceTopic={openReferenceTopic}
+        onOpenSyllabusTopic={openSyllabusTopic}
+        onGenerateReferenceSheet={generateReferenceFromMenu}
         onOpenProgressSpace={openProgressSpace}
         onOpenMyPlanSpace={openMyPlanSpace}
         onOpenTutorChat={openTutorChat}

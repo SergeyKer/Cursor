@@ -34,6 +34,7 @@ import {
   pickIdleFaq,
   recordShownFaqIds,
 } from '@/lib/tutor/localFaq'
+import { lookupLocalExplainPack } from '@/lib/tutor/localExplain/lookup'
 import { localTutorTriage, resolvePendingTriageFollowUp } from '@/lib/tutor/localTriage'
 import type { TutorSchoolPhotoResult } from '@/lib/tutor/normalizeSchoolPhoto'
 import { matchTutorGate } from '@/lib/tutor/tutorGate'
@@ -179,6 +180,7 @@ export default function TutorChatPanel({
   const restoredRef = useRef(false)
   const pendingTriageDoneRef = useRef(false)
   const autoSubmitDoneRef = useRef(false)
+  const cheatsheetInflightRef = useRef(false)
 
   const inviteKey = useMemo(() => resolveTutorInviteKey(thread), [thread])
   const voice = useLessonVoiceInput({ inviteKey, speechMode: 'mix' })
@@ -345,14 +347,35 @@ export default function TutorChatPanel({
       setBusy(true)
       const hadLastExplain = lastExplain != null
       const prevCanonicalKey = lastExplain?.topicAnchor.canonicalKey
+      const audience = session?.settings.audience ?? 'adult'
       try {
+        // Wave0 GP: local pack before network (skip on follow-up topicContext).
+        if (!topicContext) {
+          const localAnswer = lookupLocalExplainPack(query, audience)
+          if (localAnswer) {
+            setLastExplain(localAnswer)
+            setAnchorQuery(localAnswer.topicAnchor.title || query)
+            setPostExplainChips(true)
+            setTriageChips([])
+            append('assistant', formatExplainBubble(localAnswer), localAnswer)
+            const newKey = localAnswer.topicAnchor.canonicalKey
+            if (!prevCanonicalKey || prevCanonicalKey !== newKey) {
+              recordTutorCuriosity({
+                topicTitle: localAnswer.topicAnchor.title || localAnswer.title,
+                questionRu: query,
+                canonicalKey: newKey,
+              })
+            }
+            return
+          }
+        }
         const response = await fetch('/api/tutor-explain', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             query,
             ...(topicContext ? { topicContext } : {}),
-            audience: session?.settings.audience ?? 'adult',
+            audience,
             level: session?.settings.level ?? 'a2',
             provider: session?.settings.provider ?? 'openai',
             openAiChatPreset: session?.settings.openAiChatPreset,
@@ -1064,11 +1087,19 @@ export default function TutorChatPanel({
             append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
             return
           }
-          const result = session.openCheatsheet({
-            answer: lastExplain,
-            snapshot: buildSnapshot(),
-          })
-          if (result.kind !== 'opened') append('assistant', result.message)
+          if (cheatsheetInflightRef.current) return
+          cheatsheetInflightRef.current = true
+          void (async () => {
+            try {
+              const result = await session.openCheatsheet({
+                answer: lastExplain,
+                snapshot: buildSnapshot(),
+              })
+              if (result.kind !== 'opened') append('assistant', result.message)
+            } finally {
+              cheatsheetInflightRef.current = false
+            }
+          })()
           return
         }
         return
@@ -1087,11 +1118,19 @@ export default function TutorChatPanel({
           append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
           return
         }
-        const result = session.openCheatsheet({
-          answer: lastExplain,
-          snapshot: buildSnapshot(),
-        })
-        if (result.kind !== 'opened') append('assistant', result.message)
+        if (cheatsheetInflightRef.current) return
+        cheatsheetInflightRef.current = true
+        void (async () => {
+          try {
+            const result = await session.openCheatsheet({
+              answer: lastExplain,
+              snapshot: buildSnapshot(),
+            })
+            if (result.kind !== 'opened') append('assistant', result.message)
+          } finally {
+            cheatsheetInflightRef.current = false
+          }
+        })()
       }
     },
     [

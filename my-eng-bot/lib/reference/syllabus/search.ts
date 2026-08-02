@@ -1,0 +1,102 @@
+import { normalizeFaqText } from '@/lib/tutor/localFaq/normalizeFaq'
+import {
+  getReferenceSyllabusTopics,
+  listOpenableSyllabusTopics,
+} from '@/lib/reference/syllabus/topics'
+import type { ReferenceSyllabusTopic } from '@/lib/reference/syllabus/types'
+import { isSyllabusTopicOpenable } from '@/lib/reference/syllabus/types'
+
+function scoreNeedle(haystack: string, needle: string): number {
+  if (!needle || !haystack) return 0
+  if (haystack === needle) return 120
+  if (haystack.startsWith(needle)) return 100
+  if (haystack.includes(needle)) return 70
+  return 0
+}
+
+function topicSearchBlob(topic: ReferenceSyllabusTopic): string {
+  return normalizeFaqText(
+    [topic.topicKey, topic.titleRu, topic.titleEn, topic.teaser, ...topic.searchAliases].join(' ')
+  )
+}
+
+export type SyllabusSearchHit = {
+  topic: ReferenceSyllabusTopic
+  score: number
+}
+
+/** Search all syllabus rows (including planned) for discovery / future browse. */
+export function findSyllabusTopicCandidates(
+  query: string,
+  limit = 8
+): SyllabusSearchHit[] {
+  const norm = normalizeFaqText(query)
+  if (!norm || norm.length < 2) return []
+
+  const scored: SyllabusSearchHit[] = []
+  for (const topic of getReferenceSyllabusTopics()) {
+    const blob = topicSearchBlob(topic)
+    let score = scoreNeedle(blob, norm)
+    for (const alias of topic.searchAliases) {
+      const a = normalizeFaqText(alias)
+      score = Math.max(score, scoreNeedle(a, norm), scoreNeedle(blob, a) > 0 && norm === a ? 120 : 0)
+      if (a && (norm === a || a.includes(norm) || norm.includes(a))) {
+        score = Math.max(score, norm === a ? 120 : 80)
+      }
+    }
+    const keyNorm = normalizeFaqText(topic.topicKey.replace(/_/g, ' '))
+    score = Math.max(score, scoreNeedle(keyNorm, norm))
+    if (score >= 40) scored.push({ topic, score })
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score || a.topic.titleRu.localeCompare(b.topic.titleRu, 'ru'))
+    .slice(0, Math.max(1, limit))
+}
+
+/** Openable syllabus → lessonId hits for hub search merge. */
+export function findOpenableSyllabusLessonHits(
+  query: string,
+  limit = 8
+): Array<{ lessonId: string; title: string; score: number; topicKey: string }> {
+  const norm = normalizeFaqText(query)
+  if (!norm || norm.length < 2) return []
+
+  const out: Array<{ lessonId: string; title: string; score: number; topicKey: string }> = []
+  for (const hit of findSyllabusTopicCandidates(query, limit * 2)) {
+    if (!isSyllabusTopicOpenable(hit.topic) || !hit.topic.lessonId) continue
+    out.push({
+      lessonId: hit.topic.lessonId,
+      title: hit.topic.titleEn || hit.topic.titleRu,
+      score: hit.score,
+      topicKey: hit.topic.topicKey,
+    })
+  }
+
+  // Prefer openable list if candidate search missed short tokens mapped only via aliases
+  if (out.length === 0) {
+    for (const topic of listOpenableSyllabusTopics()) {
+      for (const alias of topic.searchAliases) {
+        const a = normalizeFaqText(alias)
+        if (!a) continue
+        if (norm === a || a.startsWith(norm) || norm.startsWith(a)) {
+          out.push({
+            lessonId: topic.lessonId!,
+            title: topic.titleEn || topic.titleRu,
+            score: norm === a ? 120 : 90,
+            topicKey: topic.topicKey,
+          })
+        }
+      }
+    }
+  }
+
+  const byLesson = new Map<string, (typeof out)[number]>()
+  for (const row of out) {
+    const prev = byLesson.get(row.lessonId)
+    if (!prev || row.score > prev.score) byLesson.set(row.lessonId, row)
+  }
+  return [...byLesson.values()]
+    .sort((a, b) => b.score - a.score)
+    .slice(0, Math.max(1, limit))
+}
