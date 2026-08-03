@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildMicroStrongFinaleText,
   microFinaleRememberPrefix,
+  pickMicroFinaleAskMore,
   pickTutorIdleBullets,
   pickTutorIdleExamples,
   TUTOR_CHAT_COPY,
@@ -40,6 +41,7 @@ describe('TUTOR_CHAT_COPY', () => {
     ]
     for (const line of gateLines) {
       expect(line).not.toContain('мне не нужно')
+      expect(line).not.toMatch(/[—–]/)
     }
     expect(TUTOR_CHAT_COPY.loadingMicro).toContain('проверку')
     expect(TUTOR_CHAT_COPY.microUnsuitable.length).toBeGreaterThan(10)
@@ -54,6 +56,9 @@ describe('TUTOR_CHAT_COPY', () => {
     expect(TUTOR_CHAT_COPY.idleExampleBank.length).toBeGreaterThanOrEqual(3)
     expect(TUTOR_CHAT_COPY.idleExamplesHeading.length).toBeGreaterThan(5)
     expect(TUTOR_CHAT_COPY.idleExamplesHeading).toBe('Часто спрашивают')
+    for (const line of TUTOR_CHAT_COPY.idleBulletBank) {
+      expect(line).not.toMatch(/[—–]/)
+    }
   })
 
   it('has photo attach chooser copy', () => {
@@ -84,10 +89,15 @@ describe('TUTOR_CHAT_COPY', () => {
   })
 
   it('builds micro finale copy by score', () => {
-    expect(TUTOR_CHAT_COPY.microFinaleStrong(4, 5)).toBe('4 из 5 — отлично.')
-    expect(TUTOR_CHAT_COPY.microFinaleAskMore).toContain('по этой теме')
+    expect(TUTOR_CHAT_COPY.microFinaleStrong(4, 5)).toBe('4 из 5 - отлично!')
+    expect(TUTOR_CHAT_COPY.microFinaleAskMoreAdult).toHaveLength(10)
+    expect(TUTOR_CHAT_COPY.microFinaleAskMoreChild).toHaveLength(10)
+    expect(new Set(TUTOR_CHAT_COPY.microFinaleAskMoreAdult).size).toBe(10)
+    expect(new Set(TUTOR_CHAT_COPY.microFinaleAskMoreChild).size).toBe(10)
     expect(TUTOR_CHAT_COPY.microFinaleMid(2, 5)).toContain('пробелы')
     expect(TUTOR_CHAT_COPY.microFinaleWeak(0, 5)).toContain('сложная')
+    expect(TUTOR_CHAT_COPY.microFinaleMid(2, 5)).toContain(' - ')
+    expect(TUTOR_CHAT_COPY.microFinaleWeak(0, 5)).toContain(' - ')
   })
 
   it('remember prefix matches audience', () => {
@@ -96,32 +106,43 @@ describe('TUTOR_CHAT_COPY', () => {
     expect(microFinaleRememberPrefix()).toBe('Запомните:')
   })
 
+  it('picks ask-more CTA stably by seed and audience', () => {
+    const adultA = pickMicroFinaleAskMore('adult', 7)
+    const adultB = pickMicroFinaleAskMore('adult', 7)
+    expect(adultA).toBe(adultB)
+    expect(TUTOR_CHAT_COPY.microFinaleAskMoreAdult).toContain(adultA)
+    const child = pickMicroFinaleAskMore('child', 7)
+    expect(TUTOR_CHAT_COPY.microFinaleAskMoreChild).toContain(child)
+    expect(child).toMatch(/спрашивай|пиши|спроси|Напиши|Захочешь/)
+  })
+
   it('builds strong micro finale with remember then ask-more', () => {
     const remember =
       'Сколько объектов – столько и глаголов: «are» для множественного, «is» для единственного.'
-    expect(
-      buildMicroStrongFinaleText({
-        correct: 3,
-        total: 3,
-        audience: 'adult',
-        rememberRu: remember,
-      })
-    ).toBe(
-      `3 из 3 — отлично. Запомните: ${remember}\n\nМожно спросить ещё по этой теме в поле ниже.`
-    )
+    const text = buildMicroStrongFinaleText({
+      correct: 3,
+      total: 3,
+      audience: 'adult',
+      rememberRu: remember,
+      seed: 11,
+    })
+    const askMore = pickMicroFinaleAskMore('adult', 11)
+    expect(text).toBe(`3 из 3 - отлично!\nЗапомните: ${remember}\n\n${askMore}`)
     expect(
       buildMicroStrongFinaleText({
         correct: 3,
         total: 3,
         audience: 'child',
         rememberRu: remember,
+        seed: 11,
       })
     ).toContain('Запомни:')
   })
 
-  it('builds strong micro finale without remember as one line', () => {
+  it('builds strong micro finale without remember with blank line before CTA', () => {
+    const askMore = pickMicroFinaleAskMore('adult', 3)
     expect(
-      buildMicroStrongFinaleText({ correct: 3, total: 3, audience: 'adult' })
-    ).toBe('3 из 3 — отлично. Можно спросить ещё по этой теме в поле ниже.')
+      buildMicroStrongFinaleText({ correct: 3, total: 3, audience: 'adult', seed: 3 })
+    ).toBe(`3 из 3 - отлично!\n\n${askMore}`)
   })
 })

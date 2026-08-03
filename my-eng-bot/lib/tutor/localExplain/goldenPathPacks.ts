@@ -1,7 +1,7 @@
 import type { LocalExplainPack } from '@/lib/tutor/localExplain/types'
 
 /**
- * Wave0 golden path: ≥1 FAQ pack × lessons 1–4.
+ * Wave0 golden path: ≥1 FAQ pack × lessons 1-4.
  * lessonIdHint must open via buildReferenceSheetByLessonId.
  */
 export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
@@ -17,12 +17,12 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
       answerKind: 'grammar',
       title: "It's time to / It's time for",
       paragraphs: [
-        "It's — про обстановку: холодно, темно, поздно. Не про человека.",
-        "It's time to + глагол — пора сделать: It's time to go.",
-        "It's time for + событие — пора обеда, урока: It's time for lunch.",
+        "It's - про обстановку: холодно, темно, поздно. Не про человека.",
+        "It's time to + глагол - пора сделать: It's time to go.",
+        "It's time for + событие - пора обеда, урока: It's time for lunch.",
       ],
       examplesEn: ["It's cold.", "It's time to sleep.", "It's time for dinner."],
-      rememberRu: "Обстановка — It's; действие — time to; событие — time for.",
+      rememberRu: "Обстановка - It's; действие - time to; событие - time for.",
       topicAnchor: {
         title: "It's / It's time to",
         canonicalKey: 'its_time_to',
@@ -42,14 +42,14 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
     ],
     answer: {
       answerKind: 'contrast',
-      title: 'Who …? — кто делает / кого спрашивают',
+      title: 'Who …? - кто делает / кого спрашивают',
       paragraphs: [
-        'Who saw you? — Who = подлежащее: кто видел. Глагол часто с -s, без did.',
-        'Who did you see? — Who = дополнение: кого ты видел. Нужен did + глагол без -s.',
+        'Who saw you? - Who = подлежащее: кто видел. Глагол часто с -s, без did.',
+        'Who did you see? - Who = дополнение: кого ты видел. Нужен did + глагол без -s.',
         'В ответе на Who likes… тоже часто -s: Anna likes tea.',
       ],
       examplesEn: ['Who likes music?', 'Who saw you?', 'Who did you see?'],
-      rememberRu: 'Who как подлежащее — без did; Who как объект — с did.',
+      rememberRu: 'Who как подлежащее - без did; Who как объект - с did.',
       contrastPair: ['Who saw you?', 'Who did you see?'],
       topicAnchor: {
         title: 'Who ...?',
@@ -73,7 +73,7 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
       title: 'Встроенный вопрос: прямой порядок слов',
       paragraphs: [
         'Снаружи своя фраза (I know / She asked / Do you know).',
-        'Внутри после what/where — обычный порядок: what she likes, where I lived — без does/did внутри.',
+        'Внутри после what/where - обычный порядок: what she likes, where I lived - без does/did внутри.',
         'Ошибка: I know what does she like. Верно: I know what she likes.',
       ],
       examplesEn: [
@@ -81,7 +81,7 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
         'She asked where I lived.',
         'Do you know where he lives?',
       ],
-      rememberRu: 'Внутри встроенного куска — не прямой вопрос, а обычный порядок слов.',
+      rememberRu: 'Внутри встроенного куска - не прямой вопрос, а обычный порядок слов.',
       topicAnchor: {
         title: 'I know what…',
         canonicalKey: 'embedded_questions',
@@ -103,9 +103,9 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
       answerKind: 'form',
       title: 'I am / I am from',
       paragraphs: [
-        'Про себя — всегда I am, не I is и не I are.',
+        'Про себя - всегда I am, не I is и не I are.',
         'После am одно: имя, откуда или профессия: I am Anna / I am from Moscow / I am a teacher.',
-        "I'm — то же, что I am; в речи так чаще.",
+        "I'm - то же, что I am; в речи так чаще.",
       ],
       examplesEn: ['I am Anna.', 'I am from Russia.', 'I am a student.'],
       rememberRu: "Про себя через I am (часто I'm): кто, откуда, кем.",
@@ -130,12 +130,12 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
       answerKind: 'grammar',
       title: 'Возраст: I am … years old',
       paragraphs: [
-        'Возраст в английском — через be, не через have: I am 20 years old.',
+        'Возраст в английском - через be, не через have: I am 20 years old.',
         'Калька с русского «мне 20 лет / у меня 20 лет» даёт ошибку I have 20 years.',
         'Можно короче: I am 20. Про другого: She is 18 years old.',
       ],
       examplesEn: ['I am 20 years old.', 'I am 25 years old.', 'She is 18 years old.'],
-      rememberRu: 'Возраст — I am … years old, не I have … years.',
+      rememberRu: 'Возраст - I am … years old, не I have … years.',
       contrastPair: ['I have 20 years', 'I am 20 years old'],
       topicAnchor: {
         title: 'Возраст: I am … years old',

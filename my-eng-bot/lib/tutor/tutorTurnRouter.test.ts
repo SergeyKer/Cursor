@@ -7,7 +7,7 @@ const ppExplain: TutorExplainAnswer = {
   title: 'Present Perfect vs Past Simple',
   paragraphs: [
     'Present Perfect нужен, когда важен результат сейчас.',
-    'Past Simple — когда есть точная дата в прошлом.',
+    'Past Simple - когда есть точная дата в прошлом.',
   ],
   examplesEn: ['I have lost my keys.', 'I lost my keys yesterday.'],
   rememberRu: 'Есть результат сейчас → Perfect.',

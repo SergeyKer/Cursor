@@ -1,14 +1,14 @@
 import type { LocalFaqEntry } from '@/lib/tutor/localFaq/types'
 
-/** A2 FAQ pool (198 items) — generated */
+/** A2 FAQ pool (198 items) - generated */
 export const LOCAL_FAQ_A2: readonly LocalFaqEntry[] = [
   {
     id: "a2.adjectives.131",
     level: "a2",
     topicKey: "adjectives",
     genre: "grammar",
-    questionRu: "Почему порядок прилагательных: opinion – size – age – colour…?",
-    aliases: ["порядок прилагательных: opinion – size – age – colour…"],
+    questionRu: "Почему порядок прилагательных: opinion - size - age - colour…?",
+    aliases: ["порядок прилагательных: opinion - size - age - colour…"],
     enNeedles: [],
     popularity: 55,
     idleEligible: false,
@@ -1723,8 +1723,8 @@ export const LOCAL_FAQ_A2: readonly LocalFaqEntry[] = [
     level: "a2",
     topicKey: "used_to",
     genre: "grammar",
-    questionRu: "Почему «I’m used to getting up early» — другое значение?",
-    aliases: ["«i’m used to getting up early» — другое значение","i’m used to getting up early"],
+    questionRu: "Почему «I’m used to getting up early» - другое значение?",
+    aliases: ["«i’m used to getting up early» - другое значение","i’m used to getting up early"],
     enNeedles: ["i’m used to getting up early"],
     popularity: 65,
     idleEligible: true,
@@ -1921,8 +1921,8 @@ export const LOCAL_FAQ_A2: readonly LocalFaqEntry[] = [
     level: "a2",
     topicKey: "word_order",
     genre: "grammar",
-    questionRu: "Почему «You should have told me» (уже A2–B1 граница)?",
-    aliases: ["«you should have told me» (уже a2–b1 граница)","you should have told me"],
+    questionRu: "Почему «You should have told me» (уже A2-B1 граница)?",
+    aliases: ["«you should have told me» (уже a2-b1 граница)","you should have told me"],
     enNeedles: ["you should have told me"],
     popularity: 55,
     idleEligible: false,
@@ -2108,8 +2108,8 @@ export const LOCAL_FAQ_A2: readonly LocalFaqEntry[] = [
     level: "a2",
     topicKey: "word_order",
     genre: "grammar",
-    questionRu: "Почему «I’m fine» — самый частый ответ?",
-    aliases: ["«i’m fine» — самый частый ответ","i’m fine"],
+    questionRu: "Почему «I’m fine» - самый частый ответ?",
+    aliases: ["«i’m fine» - самый частый ответ","i’m fine"],
     enNeedles: ["i’m fine"],
     popularity: 55,
     idleEligible: false,

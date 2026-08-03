@@ -1,13 +1,27 @@
 /** Shared string helpers for tutor chat normalize (no zod). */
 
+/** Em/en dash → hyphen (same convention as practice UI). */
+export function normalizeTutorEmDashes(text: string): string {
+  return text.replace(/[—–]/gu, '-')
+}
+
 export function compactText(value: unknown, maxLength = 280): string {
   if (typeof value !== 'string') return ''
-  return value.replace(/\s+/g, ' ').trim().slice(0, maxLength).trim()
+  return normalizeTutorEmDashes(value)
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
+    .trim()
 }
 
 export function compactParagraph(value: unknown, maxLength = 600): string {
   if (typeof value !== 'string') return ''
-  return value.replace(/\r\n/g, '\n').replace(/[ \t]+\n/g, '\n').trim().slice(0, maxLength).trim()
+  return normalizeTutorEmDashes(value)
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .trim()
+    .slice(0, maxLength)
+    .trim()
 }
 
 export function compactList(value: unknown, maxItems: number, maxLength = 280): string[] {

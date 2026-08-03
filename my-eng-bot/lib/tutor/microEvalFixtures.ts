@@ -15,8 +15,8 @@ export const MICRO_EVAL_FIXTURES: Array<{
       answerKind: 'contrast',
       title: 'Present Perfect vs Past Simple',
       paragraphs: [
-        'Perfect — есть связь с сейчас.',
-        'Past Simple — законченный момент в прошлом.',
+        'Perfect - есть связь с сейчас.',
+        'Past Simple - законченный момент в прошлом.',
       ],
       examplesEn: ['I have lost my keys.', 'I lost my keys yesterday.'],
       contrastPair: ['Present Perfect', 'Past Simple'],
@@ -92,11 +92,11 @@ export const MICRO_EVAL_FIXTURES: Array<{
       answerKind: 'grammar',
       title: 'Возраст: I am … years old',
       paragraphs: [
-        'Возраст — через be, не have.',
+        'Возраст - через be, не have.',
         'I am 20 years old, не I have 20 years.',
       ],
       examplesEn: ['I am 20 years old.', 'She is 18 years old.'],
-      rememberRu: 'Возраст — I am … years old.',
+      rememberRu: 'Возраст - I am … years old.',
       topicAnchor: {
         title: 'Возраст: I am … years old',
         canonicalKey: 'age_be',

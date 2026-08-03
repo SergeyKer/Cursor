@@ -64,7 +64,7 @@ export function buildTutorSchoolPhotoPrompt(level: string, audience: string): st
     '{',
     '  "status": "ok" | "rejected",',
     '  "reason": "not_en" | "blur" | "other",',
-    '  "messageRu": "если rejected — коротко по-русски",',
+    '  "messageRu": "если rejected - коротко по-русски",',
     '  "topics": ["English grammar topic 1", "topic 2"]',
     '}',
     'Правила:',

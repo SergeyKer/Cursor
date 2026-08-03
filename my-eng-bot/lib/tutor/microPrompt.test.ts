@@ -15,7 +15,7 @@ describe('buildTutorMicroSystemPrompt', () => {
     expect(prompt).toContain('form_one')
     expect(prompt).not.toContain('fill_one')
     expect(prompt).toMatch(/Mistakes|нельзя/i)
-    expect(prompt).toContain('3–5')
+    expect(prompt).toContain('3-5')
     expect(prompt).toContain('I really like pizza')
   })
 })

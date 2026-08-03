@@ -15,7 +15,7 @@ function ageAnswer(partial?: Partial<TutorExplainAnswer>): TutorExplainAnswer {
     title: 'Возраст',
     paragraphs: ['Возраст через be.'],
     examplesEn: ['I am 20 years old.', 'She is 18 years old.'],
-    rememberRu: 'Возраст — I am … years old.',
+    rememberRu: 'Возраст - I am … years old.',
     topicAnchor: {
       title: 'Возраст',
       canonicalKey: 'age_be',

@@ -1,3 +1,4 @@
+import { normalizeTutorEmDashes } from '@/lib/tutor/text'
 import { normalizeTutorQuery } from '@/lib/tutor/tutorIntent'
 
 /** Normalize for FAQ matching: quotes, apostrophes, case, interrogative strip optional. */
@@ -10,6 +11,7 @@ export function normalizeFaqText(raw: string): string {
     .replace(/[«»„“”]/g, '"')
     .replace(/[''`´’]/g, "'")
     .toLowerCase()
+  s = normalizeTutorEmDashes(s)
   s = s.replace(/[?？!！]+$/g, '').trim()
   s = s.replace(/\s+/g, ' ').trim()
   return s

@@ -101,7 +101,7 @@ describe('buildTutorMicroPackFromExplain', () => {
         title: 'Возраст',
         paragraphs: ['Возраст через be.', 'Не через have.'],
         examplesEn: ['I am 20 years old.', 'She is 18 years old.'],
-        rememberRu: 'Возраст — I am … years old.',
+        rememberRu: 'Возраст - I am … years old.',
         topicAnchor: {
           title: 'Возраст',
           canonicalKey: 'age_be',
@@ -135,7 +135,7 @@ describe('buildTutorMicroPackFromExplain', () => {
         paragraphs: ['Возраст через be.', 'Не через have.'],
         examplesEn: ['I am 20 years old.'],
         contrastPair: ['I have 20 years', 'I am 20 years old'],
-        rememberRu: 'Возраст — I am … years old.',
+        rememberRu: 'Возраст - I am … years old.',
         topicAnchor: { title: 'Возраст', canonicalKey: 'age_be', skillTagIds: ['present-simple'] },
       },
       { audience: 'adult' }
@@ -154,10 +154,10 @@ describe('buildTutorMicroPackFromExplain', () => {
       {
         answerKind: 'contrast',
         title: 'Will vs going to',
-        paragraphs: ['Will — решение сейчас.', 'Going to — план.'],
+        paragraphs: ['Will - решение сейчас.', 'Going to - план.'],
         examplesEn: ['I will call you.', 'I am going to call you.'],
         contrastPair: ['will', 'going to'],
-        rememberRu: 'План — going to.',
+        rememberRu: 'План - going to.',
         topicAnchor: { title: 'Will vs going to', canonicalKey: 'will_going_to' },
       },
       { audience: 'adult' }

@@ -10,6 +10,18 @@ import {
   buildOpenTutorAction,
   normalizeTutorCardViewModel,
 } from '@/lib/tutor'
+import { compactParagraph, compactText, normalizeTutorEmDashes } from '@/lib/tutor/text'
+
+describe('tutor text dash normalize', () => {
+  it('maps em and en dashes to hyphen', () => {
+    expect(normalizeTutorEmDashes('a — b – c')).toBe('a - b - c')
+  })
+
+  it('compactText and compactParagraph normalize dashes', () => {
+    expect(compactText('Past Simple — когда есть дата')).toBe('Past Simple - когда есть дата')
+    expect(compactParagraph("It's — про обстановку.")).toBe("It's - про обстановку.")
+  })
+})
 
 describe('normalizeTutorTriage', () => {
   it('accepts A with query', () => {
@@ -47,8 +59,8 @@ describe('normalizeTutorExplain', () => {
     title: 'Present Perfect vs Past Simple',
     paragraphs: [
       'Present Perfect нужен, когда важен результат сейчас, а не точная дата.',
-      'Past Simple — когда действие закончилось в известное время в прошлом.',
-      'Сигналы: already / yet / ever — чаще Perfect; yesterday / in 2010 — Simple.',
+      'Past Simple - когда действие закончилось в известное время в прошлом.',
+      'Сигналы: already / yet / ever - чаще Perfect; yesterday / in 2010 - Simple.',
     ],
     examplesEn: ['I have lost my keys.', 'I lost my keys yesterday.'],
     contrastPair: ['Present Perfect', 'Past Simple'],
@@ -60,7 +72,7 @@ describe('normalizeTutorExplain', () => {
     },
   }
 
-  it('normalizes child fixture (2–5 paragraphs, 1–2 examples)', () => {
+  it('normalizes child fixture (2-5 paragraphs, 1-2 examples)', () => {
     const answer = normalizeTutorExplain(childFixture, { audience: 'child' })
     expect(answer).not.toBeNull()
     expect(answer?.paragraphs.length).toBeGreaterThanOrEqual(2)

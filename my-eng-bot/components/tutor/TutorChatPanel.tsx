@@ -1,6 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type AnimationEvent,
+} from 'react'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
@@ -15,9 +24,21 @@ import { useTutorSessionOptional } from '@/components/tutor/TutorSessionProvider
 import {
   CHAT_COMPOSER_STACK_TOP_CLASS,
   DIALOG_COMPOSER_PADDING_BOTTOM,
+  getChatComposerStackLayout,
 } from '@/lib/chatComposerMetrics'
 import { recordTutorMicroWrongSignal } from '@/lib/learningMemory/record'
-import { LESSON_SCROLL_VIEWPORT_CLASS, scheduleScrollAfterLayout } from '@/lib/lessonFeedScroll'
+import {
+  findLessonFeedLastMessageRow,
+  isLessonFeedOverflowing,
+  LESSON_SCROLL_VIEWPORT_CLASS,
+  resolveLessonScrollBehavior,
+  scheduleScrollAfterLayout,
+  scrollLessonFeedToAlignLastAssistantBubbleTop,
+  scrollLessonFeedToMax,
+} from '@/lib/lessonFeedScroll'
+import { LESSON_BUBBLE_ENTER_MS } from '@/lib/lessonRevealTiming'
+import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
+import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
@@ -68,6 +89,20 @@ import {
 } from '@/lib/sttClient'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
+import {
+  isTutorMicroRevealAborted,
+  TUTOR_MICRO_BUBBLE_HOLD_MS,
+  TUTOR_MICRO_TYPING_HOLD_MS,
+  waitTutorMicroReveal,
+} from '@/lib/tutor/microRevealTiming'
+import { shouldPinTutorFeedToTop } from '@/lib/tutor/shouldPinTutorFeedToTop'
+import {
+  isTutorMicroChoiceFrozen,
+  resolveTutorMicroChipsResetKey,
+  shouldShowTutorMicroOptions,
+} from '@/lib/tutor/tutorMicroChoicePanel'
+
+const TUTOR_FEED_ENTER_FALLBACK_MS = LESSON_BUBBLE_ENTER_MS + 50
 
 type ThreadRole = 'user' | 'assistant'
 
@@ -78,7 +113,11 @@ type ThreadMessage = {
   explain?: TutorExplainAnswer
 }
 
-type MicroPhase = 'idle' | 'active' | 'finale'
+type MicroPhase = 'idle' | 'revealing' | 'active' | 'finale'
+
+function isTutorMicroLocked(phase: MicroPhase): boolean {
+  return phase === 'revealing' || phase === 'active'
+}
 
 export type TutorChatPanelProps = {
   initialPrefill?: string
@@ -161,17 +200,27 @@ export default function TutorChatPanel({
   const [lastExplain, setLastExplain] = useState<TutorExplainAnswer | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadingMicro, setLoadingMicro] = useState(false)
+  /** After «Закрепить 2 мин»: exit pin-top immediately (survives loadingMicro→revealing gap). */
+  const [microTailMode, setMicroTailMode] = useState(false)
   const [microPhase, setMicroPhase] = useState<MicroPhase>('idle')
+  const [microTypingVisible, setMicroTypingVisible] = useState(false)
   const answeringMicroRef = useRef(false)
+  const microRevealAbortRef = useRef<AbortController | null>(null)
   const [microPack, setMicroPack] = useState<TutorMicroPack | null>(null)
   const [microIndex, setMicroIndex] = useState(0)
   const [microCorrectCount, setMicroCorrectCount] = useState(0)
+  /** Answer snapshot for freeze/highlight; null during opening reveal. */
+  const [microReveal, setMicroReveal] = useState<{
+    chosenText: string
+    correct: boolean
+  } | null>(null)
   const [pendingTriageQuery, setPendingTriageQuery] = useState<string | null>(null)
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const [isMobileAttach, setIsMobileAttach] = useState(false)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
+  const [feedEnterReady, setFeedEnterReady] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -181,6 +230,16 @@ export default function TutorChatPanel({
   const pendingTriageDoneRef = useRef(false)
   const autoSubmitDoneRef = useRef(false)
   const cheatsheetInflightRef = useRef(false)
+
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const feedMessageIds = useMemo(() => thread.map((message) => message.id), [thread])
+  const feedTailEnter = useLessonFeedTailEnter({
+    scrollContainerRef: scrollRef,
+    messageIds: feedMessageIds,
+    prefersReducedMotion,
+    enabled: feedEnterReady,
+    scrollOnNewMessage: false,
+  })
 
   const inviteKey = useMemo(() => resolveTutorInviteKey(thread), [thread])
   const voice = useLessonVoiceInput({ inviteKey, speechMode: 'mix' })
@@ -261,7 +320,7 @@ export default function TutorChatPanel({
     [voice]
   )
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (restoredRef.current) return
     restoredRef.current = true
     const snap = consumeTutorReturnContext()
@@ -280,13 +339,103 @@ export default function TutorChatPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restore once on mount
   }, [])
 
+  // Intervening commit: hook syncs prevMessageCount while enabled=false, then enable enter.
   useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    return scheduleScrollAfterLayout(() => {
-      el.scrollTop = el.scrollHeight
+    setFeedEnterReady(true)
+  }, [])
+
+  const pinFeedToTop =
+    shouldPinTutorFeedToTop(thread, lastExplain) && !microTailMode
+
+  const pinTutorFeedViewport = useCallback(() => {
+    const container = scrollRef.current
+    if (!container) return
+
+    if (pinFeedToTop) {
+      container.scrollTop = 0
+      return
+    }
+
+    const behavior = resolveLessonScrollBehavior({
+      prefersReducedMotion,
+      reason: 'new_message',
     })
-  }, [thread, busy])
+
+    // Learning Chat branching: service/typing → toMax; last assistant → align top; else toMax.
+    const serviceRow = container.querySelector<HTMLElement>('[data-feed-service-status]')
+    if (serviceRow) {
+      if (isLessonFeedOverflowing(container)) {
+        scrollLessonFeedToMax(container, behavior)
+      }
+      return
+    }
+
+    const last = findLessonFeedLastMessageRow(container)
+    if (last?.getAttribute('data-role') === 'assistant') {
+      scrollLessonFeedToAlignLastAssistantBubbleTop(container, behavior)
+      return
+    }
+
+    if (isLessonFeedOverflowing(container)) {
+      scrollLessonFeedToMax(container, behavior)
+    }
+  }, [pinFeedToTop, prefersReducedMotion])
+
+  const finishTutorFeedEnter = useCallback(
+    (messageId: string) => {
+      feedTailEnter.markEnterFinished(messageId)
+      scheduleScrollAfterLayout(pinTutorFeedViewport)
+    },
+    [feedTailEnter, pinTutorFeedViewport]
+  )
+
+  const handleTutorFeedAnimationEnd = useCallback(
+    (messageId: string, event: AnimationEvent<HTMLDivElement>) => {
+      if (event.animationName !== 'lessonSlideIn') return
+      if (event.target !== event.currentTarget) return
+      finishTutorFeedEnter(messageId)
+    },
+    [finishTutorFeedEnter]
+  )
+
+  useEffect(() => {
+    if (!feedEnterReady || prefersReducedMotion) return
+    const entering = thread.find((msg) => {
+      const enterClass =
+        msg.role === 'user'
+          ? feedTailEnter.getUserEnterClass(msg.id)
+          : feedTailEnter.getAssistantEnterClass(msg.id)
+      return enterClass !== ''
+    })
+    if (!entering) return
+    const timer = window.setTimeout(() => {
+      finishTutorFeedEnter(entering.id)
+    }, TUTOR_FEED_ENTER_FALLBACK_MS)
+    return () => window.clearTimeout(timer)
+  }, [feedEnterReady, feedTailEnter, finishTutorFeedEnter, prefersReducedMotion, thread])
+
+  useLayoutEffect(() => {
+    if (!feedEnterReady) return
+    return scheduleScrollAfterLayout(pinTutorFeedViewport)
+  }, [feedEnterReady, loadingMicro, microPhase, microTailMode, pinTutorFeedViewport, thread.length])
+
+  useEffect(() => {
+    if (!busy && !microTypingVisible) return
+    return scheduleScrollAfterLayout(() => {
+      const el = scrollRef.current
+      if (!el) return
+      if (pinFeedToTop) {
+        el.scrollTop = 0
+        return
+      }
+      if (!isLessonFeedOverflowing(el)) return
+      const behavior = resolveLessonScrollBehavior({
+        prefersReducedMotion,
+        reason: 'new_message',
+      })
+      scrollLessonFeedToMax(el, behavior)
+    })
+  }, [busy, microTypingVisible, pinFeedToTop, prefersReducedMotion])
 
   useDialogFeedKeyboardScroll(scrollRef, true)
 
@@ -332,13 +481,32 @@ export default function TutorChatPanel({
     [lastExplain, nextId, onPromoteToSpace, thread]
   )
 
+  const beginMicroReveal = useCallback((): AbortSignal => {
+    microRevealAbortRef.current?.abort()
+    const controller = new AbortController()
+    microRevealAbortRef.current = controller
+    return controller.signal
+  }, [])
+
   const abortMicro = useCallback(() => {
+    microRevealAbortRef.current?.abort()
+    microRevealAbortRef.current = null
+    setMicroTypingVisible(false)
     setMicroPhase('idle')
     setMicroPack(null)
     setMicroIndex(0)
     setMicroCorrectCount(0)
+    setMicroReveal(null)
     setLoadingMicro(false)
+    setMicroTailMode(false)
     answeringMicroRef.current = false
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      microRevealAbortRef.current?.abort()
+      microRevealAbortRef.current = null
+    }
   }, [])
 
   const runExplain = useCallback(
@@ -429,7 +597,7 @@ export default function TutorChatPanel({
 
   const analyzeSchoolPhoto = useCallback(
     async (imageDataUrl: string) => {
-      if (busy || microPhase === 'active') return
+      if (busy || isTutorMicroLocked(microPhase)) return
       setBusy(true)
       const photoUserId = nextId()
       const photoUserMsg: ThreadMessage = {
@@ -580,7 +748,7 @@ export default function TutorChatPanel({
   )
 
   const handlePaperclipClick = useCallback(() => {
-    if (busy || microPhase === 'active' || voice.isVoiceActive) return
+    if (busy || isTutorMicroLocked(microPhase) || voice.isVoiceActive) return
     setAttachMenuOpen((open) => !open)
   }, [busy, microPhase, voice.isVoiceActive])
 
@@ -625,7 +793,7 @@ export default function TutorChatPanel({
   }, [])
 
   useEffect(() => {
-    if (busy || microPhase === 'active' || voice.isVoiceActive) {
+    if (busy || isTutorMicroLocked(microPhase) || voice.isVoiceActive) {
       setAttachMenuOpen(false)
     }
   }, [busy, microPhase, voice.isVoiceActive])
@@ -640,7 +808,7 @@ export default function TutorChatPanel({
   }, [attachMenuOpen])
 
   const handleMicClick = useCallback(() => {
-    if (busy || microPhase === 'active') return
+    if (busy || isTutorMicroLocked(microPhase)) return
     voice.resetMicAnimation()
     if (voice.listening) {
       voice.stopListening()
@@ -802,7 +970,7 @@ export default function TutorChatPanel({
 
   const handleSubmit = useCallback(() => {
     const text = draft.trim()
-    if (!text || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) return
+    if (!text || busy || isTutorMicroLocked(microPhase) || voice.isVoiceActive || voice.listening) return
 
     if (embeddedInMenu && onPromoteToSpace && !lastExplain) {
       setDraftSynced('')
@@ -828,7 +996,7 @@ export default function TutorChatPanel({
   const handleExampleSelect = useCallback(
     (item: TutorIdleExampleItem) => {
       const trimmed = item.questionRu.trim()
-      if (!trimmed || busy || microPhase === 'active' || voice.isVoiceActive || voice.listening) {
+      if (!trimmed || busy || isTutorMicroLocked(microPhase) || voice.isVoiceActive || voice.listening) {
         return
       }
       // Same substitution as pre-FAQ: promote → pendingTriageQuery → handleUserTurn (not pendingFaqId shortcut).
@@ -864,27 +1032,70 @@ export default function TutorChatPanel({
     [anchorQuery, append, busy, runExplain, triageChips]
   )
 
+  const pauseMicroReveal = useCallback(
+    async (signal: AbortSignal) => {
+      if (prefersReducedMotion) return
+      setMicroTypingVisible(false)
+      await waitTutorMicroReveal(TUTOR_MICRO_BUBBLE_HOLD_MS, signal)
+      setMicroTypingVisible(true)
+      await waitTutorMicroReveal(TUTOR_MICRO_TYPING_HOLD_MS, signal)
+      setMicroTypingVisible(false)
+    },
+    [prefersReducedMotion]
+  )
+
+  const revealMicroOpening = useCallback(
+    async (pack: TutorMicroPack) => {
+      const signal = beginMicroReveal()
+      const firstPrompt = pack.items[0]?.promptRu
+      if (!firstPrompt) return
+
+      setMicroPack(pack)
+      setMicroIndex(0)
+      setMicroCorrectCount(0)
+      setMicroReveal(null)
+      setMicroPhase('revealing')
+      setPostExplainChips(false)
+      setTriageChips([])
+
+      try {
+        if (prefersReducedMotion) {
+          append('assistant', TUTOR_CHAT_COPY.microStart)
+          append('assistant', firstPrompt)
+          setMicroPhase('active')
+          return
+        }
+
+        setMicroTypingVisible(true)
+        await waitTutorMicroReveal(TUTOR_MICRO_TYPING_HOLD_MS, signal)
+        setMicroTypingVisible(false)
+        append('assistant', TUTOR_CHAT_COPY.microStart)
+        await pauseMicroReveal(signal)
+        append('assistant', firstPrompt)
+        setMicroPhase('active')
+      } catch (error) {
+        if (isTutorMicroRevealAborted(error)) return
+        throw error
+      } finally {
+        setMicroTypingVisible(false)
+      }
+    },
+    [append, beginMicroReveal, pauseMicroReveal, prefersReducedMotion]
+  )
+
   const startMicro = useCallback(async () => {
     if (!lastExplain) {
       append('assistant', TUTOR_CHAT_COPY.microUnavailable)
       return
     }
-    if (busy || microPhase === 'active') return
-
-    const activate = (pack: TutorMicroPack) => {
-      setMicroPack(pack)
-      setMicroIndex(0)
-      setMicroCorrectCount(0)
-      setMicroPhase('active')
-      setPostExplainChips(false)
-      setTriageChips([])
-      append('assistant', `${TUTOR_CHAT_COPY.microStart}\n\n${pack.items[0]!.promptRu}`)
-    }
+    if (busy || isTutorMicroLocked(microPhase)) return
 
     const failSoft = (unsuitable: boolean) => {
       append('assistant', unsuitable ? TUTOR_CHAT_COPY.microUnsuitable : TUTOR_CHAT_COPY.microFailed)
       setPostExplainChips(true)
       setMicroPhase('idle')
+      setMicroReveal(null)
+      setMicroTypingVisible(false)
     }
 
     if (!featureFlags.tutorMicroLlmV1) {
@@ -894,6 +1105,7 @@ export default function TutorChatPanel({
 
     setBusy(true)
     setLoadingMicro(true)
+    setMicroTailMode(true)
     setPostExplainChips(false)
     try {
       const response = await fetch('/api/tutor-micro', {
@@ -921,17 +1133,21 @@ export default function TutorChatPanel({
         failSoft(llmPack === null)
         return
       }
-      activate(resolved.pack)
-    } catch {
+      setBusy(false)
+      setLoadingMicro(false)
+      await revealMicroOpening(resolved.pack)
+    } catch (error) {
+      if (isTutorMicroRevealAborted(error)) return
       failSoft(false)
     } finally {
       setBusy(false)
       setLoadingMicro(false)
     }
-  }, [anchorQuery, append, busy, lastExplain, microPhase, session])
+  }, [anchorQuery, append, busy, lastExplain, microPhase, revealMicroOpening, session])
 
   const finishMicro = useCallback(
     (pack: TutorMicroPack, correctCount: number) => {
+      setMicroReveal(null)
       setMicroPhase('finale')
       setMicroPack(pack)
       const total = pack.items.length
@@ -953,6 +1169,7 @@ export default function TutorChatPanel({
       }
       append('assistant', finaleText)
       setPostExplainChips(false)
+      setMicroTypingVisible(false)
     },
     [append, lastExplain, session]
   )
@@ -962,49 +1179,70 @@ export default function TutorChatPanel({
       if (microPhase !== 'active' || !microPack || !lastExplain) return
       if (answeringMicroRef.current) return
       answeringMicroRef.current = true
-      try {
-        const item: TutorMicroItem | undefined = microPack.items[microIndex]
-        if (!item) return
-        const chosen = item.options[optionIndex] ?? ''
-        append('user', chosen)
-        const correct = optionIndex === item.correctIndex
-        const newCorrectCount = correct ? microCorrectCount + 1 : microCorrectCount
-        if (correct) {
-          setMicroCorrectCount(newCorrectCount)
-          append('assistant', TUTOR_CHAT_COPY.microCorrect)
-        } else {
-          const right = item.options[item.correctIndex] ?? ''
-          append('assistant', `${TUTOR_CHAT_COPY.microWrong} ${right}`)
-          recordTutorMicroWrongSignal({
-            skillTagId: item.skillTagId,
-            topicTitle: lastExplain.topicAnchor.title || lastExplain.title,
-            userAnswer: chosen,
-            correctAnswer: right,
-            canonicalKey: lastExplain.topicAnchor.canonicalKey,
-            lessonIdHint: lastExplain.topicAnchor.lessonIdHint,
-          })
-        }
-        const next = microIndex + 1
-        if (next >= microPack.items.length) {
-          finishMicro(microPack, newCorrectCount)
-          return
-        }
-        setMicroIndex(next)
-        append('assistant', microPack.items[next]!.promptRu)
-      } finally {
-        queueMicrotask(() => {
-          answeringMicroRef.current = false
+
+      const item: TutorMicroItem | undefined = microPack.items[microIndex]
+      if (!item) {
+        answeringMicroRef.current = false
+        return
+      }
+
+      const chosen = item.options[optionIndex] ?? ''
+      append('user', chosen)
+      const correct = optionIndex === item.correctIndex
+      const newCorrectCount = correct ? microCorrectCount + 1 : microCorrectCount
+      if (correct) {
+        setMicroCorrectCount(newCorrectCount)
+        append('assistant', TUTOR_CHAT_COPY.microCorrect)
+      } else {
+        const right = item.options[item.correctIndex] ?? ''
+        append('assistant', `${TUTOR_CHAT_COPY.microWrong} ${right}`)
+        recordTutorMicroWrongSignal({
+          skillTagId: item.skillTagId,
+          topicTitle: lastExplain.topicAnchor.title || lastExplain.title,
+          userAnswer: chosen,
+          correctAnswer: right,
+          canonicalKey: lastExplain.topicAnchor.canonicalKey,
+          lessonIdHint: lastExplain.topicAnchor.lessonIdHint,
         })
       }
+
+      const next = microIndex + 1
+      const pack = microPack
+
+      void (async () => {
+        try {
+          setMicroReveal({ chosenText: chosen, correct })
+          setMicroPhase('revealing')
+          const signal = beginMicroReveal()
+          await pauseMicroReveal(signal)
+
+          if (next >= pack.items.length) {
+            finishMicro(pack, newCorrectCount)
+            return
+          }
+
+          setMicroReveal(null)
+          setMicroIndex(next)
+          append('assistant', pack.items[next]!.promptRu)
+          setMicroPhase('active')
+        } catch (error) {
+          if (isTutorMicroRevealAborted(error)) return
+        } finally {
+          setMicroTypingVisible(false)
+          answeringMicroRef.current = false
+        }
+      })()
     },
     [
       append,
+      beginMicroReveal,
       finishMicro,
       lastExplain,
       microCorrectCount,
       microIndex,
       microPack,
       microPhase,
+      pauseMicroReveal,
     ]
   )
 
@@ -1029,7 +1267,9 @@ export default function TutorChatPanel({
     ...(onDone ? [{ id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone } satisfies TutorComposerChip] : []),
   ]
 
-  const activeMicroItem = microPhase === 'active' ? microPack?.items[microIndex] : null
+  const hasMicroReveal = microReveal != null
+  const showMicroOptions = shouldShowTutorMicroOptions(microPhase, hasMicroReveal)
+  const activeMicroItem = showMicroOptions ? microPack?.items[microIndex] : null
   const microOptionChips: TutorComposerChip[] =
     activeMicroItem?.options.map((labelRu, index) => ({
       id: `opt_${index}`,
@@ -1039,7 +1279,7 @@ export default function TutorChatPanel({
   const primaryChips: TutorComposerChip[] =
     microPhase === 'finale'
       ? finaleChips
-      : microPhase === 'active'
+      : showMicroOptions
         ? microOptionChips
         : postExplainChips
           ? [
@@ -1054,6 +1294,8 @@ export default function TutorChatPanel({
 
   const handlePrimaryChip = useCallback(
     (chipId: string) => {
+      if (microPhase === 'revealing') return
+
       if (microPhase === 'active') {
         if (!chipId.startsWith('opt_')) return
         const idx = Number(chipId.slice(4))
@@ -1139,9 +1381,26 @@ export default function TutorChatPanel({
     ]
   )
 
-  const composerLocked = busy || microPhase === 'active'
-  const chipsDisabled = busy
-  const chipsMode = microPhase === 'active' ? 'micro' : 'nav'
+  const isMicroLocked = isTutorMicroLocked(microPhase)
+  const composerLocked = busy || isMicroLocked
+  const chipsDisabled = busy || microPhase === 'revealing'
+  const chipsMode = isMicroLocked ? 'micro' : 'nav'
+  const microChoiceFrozen = isTutorMicroChoiceFrozen(microPhase, hasMicroReveal)
+  const microWrongChoiceText =
+    microReveal && !microReveal.correct ? microReveal.chosenText : null
+  const microChipsResetKey = resolveTutorMicroChipsResetKey(
+    microPhase,
+    microPack?.items[microIndex]?.id,
+    microIndex,
+    hasMicroReveal
+  )
+  const threadComposerStackLayout = getChatComposerStackLayout(isMicroLocked)
+  const threadComposerStackStyle = threadComposerStackLayout.style
+    ? {
+        ...threadComposerStackLayout.style,
+        paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
+      }
+    : undefined
   const composerValue = voice.isVoiceActive || voice.listening ? voice.displayText : draft
   const showVoiceOverlay = voice.isVoiceActive && composerValue.length > 0
   const rawVoiceStatusMessage = voice.voiceStatusMessage ?? ''
@@ -1323,6 +1582,7 @@ export default function TutorChatPanel({
                   className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3`}
                 >
                   {thread.map((msg, index) => {
+                    if (!feedTailEnter.isMessageVisible(msg.id)) return null
                     const position = getBubblePosition(
                       thread[index - 1]?.role,
                       msg.role,
@@ -1330,6 +1590,10 @@ export default function TutorChatPanel({
                     )
                     const isBubbleEnd =
                       index === thread.length - 1 || thread[index + 1]?.role !== msg.role
+                    const enterClass =
+                      msg.role === 'user'
+                        ? feedTailEnter.getUserEnterClass(msg.id)
+                        : feedTailEnter.getAssistantEnterClass(msg.id)
                     return (
                       <ChatBubbleFrame
                         key={msg.id}
@@ -1338,7 +1602,8 @@ export default function TutorChatPanel({
                         data-message-index={index}
                         data-role={msg.role}
                         rowClassName={isBubbleEnd ? 'mb-2.5' : 'mb-0.5'}
-                        className="lesson-enter"
+                        className={enterClass}
+                        onAnimationEnd={(event) => handleTutorFeedAnimationEnd(msg.id, event)}
                       >
                         <p className="min-w-0 whitespace-pre-wrap break-words text-[15px] leading-[1.45] font-normal">
                           {msg.text}
@@ -1346,13 +1611,19 @@ export default function TutorChatPanel({
                       </ChatBubbleFrame>
                     )
                   })}
-                  {busy ? (
-                    <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
+                  {busy || microTypingVisible ? (
+                    <div
+                      dir="ltr"
+                      className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}
+                      data-feed-service-status
+                    >
                       <EngvoFeedServiceTypingText
                         text={
                           loadingMicro
                             ? TUTOR_CHAT_COPY.loadingMicro
-                            : TUTOR_CHAT_COPY.loadingExplain
+                            : microTypingVisible
+                              ? TUTOR_CHAT_COPY.typingStatus
+                              : TUTOR_CHAT_COPY.loadingExplain
                         }
                       />
                     </div>
@@ -1361,8 +1632,8 @@ export default function TutorChatPanel({
               </DialogGlassScrollHost>
 
               <DialogComposerStack
-                className={CHAT_COMPOSER_STACK_TOP_CLASS}
-                style={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
+                className={threadComposerStackLayout.verticalClass}
+                style={threadComposerStackStyle}
               >
                 <TutorComposer
                   value={composerValue}
@@ -1372,6 +1643,9 @@ export default function TutorChatPanel({
                   chips={primaryChips}
                   onChipSelect={handlePrimaryChip}
                   chipsMode={chipsMode}
+                  chipsResetKey={microChipsResetKey}
+                  microChoiceFrozen={microChoiceFrozen}
+                  wrongChoiceText={microWrongChoiceText}
                   composerLocked={composerLocked}
                   chipsDisabled={chipsDisabled}
                   readOnly={voice.isInputLocked}

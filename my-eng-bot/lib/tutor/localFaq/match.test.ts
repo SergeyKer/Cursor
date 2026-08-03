@@ -9,6 +9,13 @@ describe('localFaq normalize', () => {
     expect(normalizeFaqText('Почему «I’m»?')).toContain("i'm")
   })
 
+  it('normalizes em and en dashes to hyphen', () => {
+    expect(normalizeFaqText('What is she like? — другой вопрос')).toBe(
+      normalizeFaqText('What is she like? - другой вопрос')
+    )
+    expect(normalizeFaqText('a – b')).toBe(normalizeFaqText('a - b'))
+  })
+
   it('detects EN error utterances', () => {
     expect(looksLikeEnErrorUtterance(normalizeFaqText('I has a car'))).toBe(true)
     expect(looksLikeEnErrorUtterance(normalizeFaqText('I havee got car'))).toBe(true)
@@ -28,6 +35,13 @@ describe('matchLocalFaq', () => {
   it('matches paraphrase / alias', () => {
     const m = matchLocalFaq('чем отличаются a и an?', 'a1')
     expect(m?.entry.id).toBe('a1.articles.016')
+  })
+
+  it('matches when query uses em dash and data uses hyphen', () => {
+    const withEm = matchLocalFaq('Почему «What is she like?» — другой вопрос?', 'a1')
+    const withHyphen = matchLocalFaq('Почему «What is she like?» - другой вопрос?', 'a1')
+    expect(withEm?.entry.id).toBe('a1.еще_полезные_микро_вопросы_a1.170')
+    expect(withHyphen?.entry.id).toBe(withEm?.entry.id)
   })
 
   it('matches by id', () => {
