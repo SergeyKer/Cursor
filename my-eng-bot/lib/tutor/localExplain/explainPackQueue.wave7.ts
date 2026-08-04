@@ -207,11 +207,12 @@ export const EXPLAIN_PACK_QUEUE_WAVE7: readonly ExplainPackStub[] = [
     packId: 'gp-quantifiers-040-a-little-milk',
     faqIds: ["a2.quantifiers.040"],
     matchQueries: [
+      "Когда мало молока — «a little milk», а когда мало яблок — «a few apples»?",
       "Чем «a little milk» отличается от «a few apples»?",
       "Почему «a little milk» и «a few apples»?",
       "a little milk",
     ],
-    contrastPairHint: ["a little milk", "a little milk"],
+    contrastPairHint: ["a little milk", "a few apples"],
     status: 'pending',
   },
   {
@@ -229,22 +230,24 @@ export const EXPLAIN_PACK_QUEUE_WAVE7: readonly ExplainPackStub[] = [
     packId: 'gp-quantifiers-042-some',
     faqIds: ["a2.quantifiers.042"],
     matchQueries: [
+      "Когда «I’ve got some milk», а когда «Have you got any milk?» / «I haven’t got any»?",
       "Когда «some», а когда «any»?",
       "Почему «some» в предложениях, «any» в вопросах и отрицаниях?",
-      "some",
+      "i’ve got some milk",
     ],
-    contrastPairHint: ["some", "some"],
+    contrastPairHint: ["some", "any"],
     status: 'pending',
   },
   {
     packId: 'gp-quantifiers-043-how-much',
     faqIds: ["a2.quantifiers.043"],
     matchQueries: [
+      "Когда «How much money?», а когда «How many people?»?",
       "Когда «How much…?», а когда «How many…?»?",
       "Почему «How much is it?» и «How many are there?»?",
-      "how much…?",
+      "how much money?",
     ],
-    contrastPairHint: ["how much…?", "how much…?"],
+    contrastPairHint: ["how much money?", "how many people?"],
     status: 'pending',
   },
   {

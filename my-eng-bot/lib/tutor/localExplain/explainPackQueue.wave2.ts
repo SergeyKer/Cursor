@@ -105,6 +105,7 @@ export const EXPLAIN_PACK_QUEUE_WAVE2: readonly ExplainPackStub[] = [
     packId: 'gp-b1-gerunds-057-remember',
     faqIds: ['b1.gerunds_infinitives.057'],
     matchQueries: [
+      'Когда «I remember locking the door», а когда «I remembered to lock the door»?',
       'Чем «I remember locking the door» отличается от «I remembered to lock the door»?',
       'Почему «I remember locking the door» vs «I remembered to lock the door»?',
       'i remember locking the door',

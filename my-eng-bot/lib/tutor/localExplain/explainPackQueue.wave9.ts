@@ -397,11 +397,12 @@ export const EXPLAIN_PACK_QUEUE_WAVE9: readonly ExplainPackStub[] = [
     packId: 'gp-mistakes-104-according-to-me',
     faqIds: ["b2.mistakes.104"],
     matchQueries: [
+      "Почему в тексте «According to me» слабее, чем «In my opinion» / «From my point of view»?",
       "Почему «According to me» странно, а «In my opinion» — нормально?",
       "Почему «According to me» звучит неестественно?",
       "according to me",
     ],
-    contrastPairHint: ["according to me", "according to me"],
+    contrastPairHint: ["according to me", "in my opinion"],
     status: 'pending',
   },
   {

@@ -64,11 +64,12 @@ export const EXPLAIN_PACK_QUEUE_WAVE8: readonly ExplainPackStub[] = [
     packId: 'gp-common-errors-still-made-at-b1-166-according-to-me',
     faqIds: ["b1.common_errors_still_made_at_b1.166"],
     matchQueries: [
+      "Почему вместо «According to me» почти всегда берут «In my opinion»?",
       "Почему вместо «According to me» лучше «In my opinion»?",
       "Почему «According to me» лучше заменить?",
       "according to me",
     ],
-    contrastPairHint: ["according to me", "according to me"],
+    contrastPairHint: ["according to me", "in my opinion"],
     status: 'pending',
   },
   {

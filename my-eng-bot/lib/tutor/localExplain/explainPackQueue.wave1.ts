@@ -165,6 +165,7 @@ export const EXPLAIN_PACK_QUEUE_WAVE1: readonly ExplainPackStub[] = [
     packId: 'gp-b1-mistakes-112',
     faqIds: ['b1.mistakes.112'],
     matchQueries: [
+      'Почему после suggest говорят «She suggested going» или «that we go», а не «She suggested me to go»?',
       'Почему «She suggested going», а не «She suggested me to go»?',
       'Почему нельзя «She suggested me to go»?',
       'she suggested me to go',
