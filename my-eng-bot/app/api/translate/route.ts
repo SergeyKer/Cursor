@@ -93,16 +93,16 @@ function parseTranslateContext(raw: unknown): TranslateContext {
   return raw === 'engvo' ? 'engvo' : 'default'
 }
 
-/** Короткий промпт для фонового перевода реплик Engvo (звонок, A0–A1). */
+/** Фоновый полный EN→RU для реплик звонка Engvo (prefetch / кнопка перевода). */
 function buildSystemPromptEnToRuEngvoCall(params: { audience: 'child' | 'adult' }): string {
   const form =
     params.audience === 'child'
       ? 'Use informal ты only. '
       : 'Use polite вы. '
   return (
-    'Translate one short English line from a live voice English lesson (CEFR A0–A1). ' +
+    'Translate the entire English text from a live voice English lesson into Russian. ' +
     form +
-    'Natural conversational Russian in Cyrillic only. Keep it brief (one or two short sentences). ' +
+    'Natural conversational Russian in Cyrillic only. Translate every sentence fully: do not summarize, omit, or paraphrase away any sentence. Preserve order and meaning. ' +
     'No explanations, quotes, or English fragments. ' +
     RUSSIAN_EN_TO_RU_SHORT_HINTS
   )
@@ -191,8 +191,7 @@ export async function POST(req: NextRequest) {
         : translateContext === 'engvo'
           ? buildSystemPromptEnToRuEngvoCall({ audience })
           : buildSystemPromptEnToRu({ audience, learnerContext: learnerContextEnToRu })
-    const maxTokens =
-      translateContext === 'engvo' ? Math.min(120, Math.max(32, text.length * 4)) : 300
+    const maxTokens = 300
     const messages = [
       { role: 'system', content: system },
       { role: 'user', content: text },
