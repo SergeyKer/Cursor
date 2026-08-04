@@ -260,16 +260,18 @@ export default function TutorComposer({
         <button
           type="submit"
           disabled={!canSend}
-          className="chat-input-inline-send-button"
+          className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] touch-manipulation items-center justify-center rounded-full p-0 font-semibold text-[var(--accent-text)]"
+          style={{ background: 'var(--chat-send-bg)' }}
           title={TUTOR_CHAT_COPY.send}
           aria-label={TUTOR_CHAT_COPY.send}
         >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="h-7 w-7" fill="none">
             <path
+              d="M21.4 11.6C21.7 11.8 21.7 12.2 21.4 12.4L5.9 19.4C5.2 19.7 4.4 19.2 4.5 18.4L5.3 14.2C5.4 13.9 5.6 13.6 5.9 13.5L12.8 12L5.9 10.5C5.6 10.4 5.4 10.1 5.3 9.8L4.5 5.6C4.4 4.8 5.2 4.3 5.9 4.6L21.4 11.6Z"
+              stroke="#FFFFFF"
+              strokeWidth="1.6"
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2}
-              d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
             />
           </svg>
         </button>

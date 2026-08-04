@@ -1072,10 +1072,11 @@ html[data-theme='glass1'] {
   --accent: var(--accent-color);
   --shadow-soft: 0 4px 14px rgba(34, 197, 94, 0.14);
   --shadow-glow: 0 0 12px rgba(34, 197, 94, 0.22);
-  --bubble-user-bg: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+  /* White on #34d399/#10b981 fails WCAG (~1.9–2.5:1); both stops ≥4.5:1 */
+  --bubble-user-bg: linear-gradient(135deg, #15803d 0%, #166534 100%);
   --bubble-user-text: #ffffff;
-  --chat-user-bubble: linear-gradient(135deg, #34d399 0%, #10b981 100%);
-  --chat-user-bubble-border: rgba(34, 197, 94, 0.45);
+  --chat-user-bubble: linear-gradient(135deg, #15803d 0%, #166534 100%);
+  --chat-user-bubble-border: rgba(22, 101, 52, 0.55);
   --chat-user-text: #ffffff;
   --chat-label-praise: #16a34a;
   --chat-label-main: #166534;

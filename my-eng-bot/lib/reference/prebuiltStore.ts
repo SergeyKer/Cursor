@@ -38,136 +38,216 @@ function seed(
 const PREBUILT_SHEETS: Record<string, PrebuiltSheetSeed> = {
   to_be: seed(
     'Глагол to be',
-    'I am, you are, she is.',
+    'Кто я / какой я — через am, is, are. Форма под подлежащее.',
     'A1',
-    ['Use am, is, or are to describe a person or thing.', 'The form agrees with the subject.'],
-    ['I am …', 'he / she / it is …; you / we / they are …'],
-    ['Do not use is with I.'],
-    [{ en: 'They are ready.', ru: 'Они готовы.', note: 'plural subject' }],
-    'Who is the subject?'
+    [
+      'Про себя — I am. Не I is и не I are.',
+      'he / she / it — is; you / we / they — are.',
+    ],
+    ['I am + … → I am ready.', 'he / she / it is + … → She is busy.', 'you / we / they are + … → They are ready.'],
+    ['Не I is ready — а I am ready.'],
+    [{ en: 'They are ready.', ru: 'Они готовы.', note: 'Много людей — are' }],
+    'Кто делает? I → am; he/she/it → is; you/we/they → are.'
   ),
   have_got: seed(
     'Have / have got',
-    'I have a bike. I’ve got a bike.',
+    'Have / have got — «у меня есть». Смысл один, формы две.',
     'A1',
-    ['Have and have got both show possession.', 'Use has / has got with he, she, and it.'],
-    ['I / you / we / they have + noun.', 'He / she / it has + noun.'],
-    ['Do not say “I have got” with do in the same question.'],
     [
-      { en: 'Have you got a pen?', ru: 'У тебя есть ручка?', note: 'question' },
-      { en: 'She has a new phone.', ru: 'У неё новый телефон.', note: 'third person' },
+      'Have и have got — одно и то же: «у меня есть».',
+      'С he / she / it — has / has got. Не have.',
     ],
-    'Ask: Have you got a …?'
+    [
+      'I / you / we / they have + noun → I have a bike.',
+      'He / she / it has + noun → She has a phone.',
+      'Have you got + noun? → Have you got a pen?',
+    ],
+    [
+      'Не Do you have got…? — а Have you got…?',
+      'Не Do you have got…? — а Do you have…?',
+    ],
+    [
+      { en: 'Have you got a pen?', ru: 'У тебя есть ручка?', note: 'Спросить, есть ли ручка' },
+      { en: 'She has a new phone.', ru: 'У неё новый телефон.', note: 'У неё есть' },
+    ],
+    'Нужно «у тебя есть…?» — Have you got a …? Без do рядом с have got.'
   ),
   articles: seed(
     'Articles a / an / the',
-    'A dog is outside. The dog is friendly.',
+    'a / an — один новый; the — уже понятно, о чём речь.',
     'A1',
-    ['Use a / an for one non-specific thing.', 'Use the when the listener knows which thing.'],
-    ['a + consonant sound: a book.', 'an + vowel sound: an apple.'],
-    ['Do not use a with plural or uncountable nouns.'],
-    [{ en: 'I need an umbrella.', ru: 'Мне нужен зонт.', note: 'vowel sound' }],
-    'Is this one new thing or a known thing?'
+    [
+      'a / an — про одну вещь, которую ещё не выделяли.',
+      'the — когда собеседник уже знает, какую именно.',
+      'an — перед гласным звуком: an apple, an hour.',
+    ],
+    ['a + consonant sound → a book.', 'an + vowel sound → an apple.', 'the + known thing → the dog.'],
+    [
+      'Не a books — а books / the books.',
+      'Не a apple — а an apple.',
+    ],
+    [{ en: 'I need an umbrella.', ru: 'Мне нужен зонт.', note: 'Гласный звук — an' }],
+    'Это «какой-то один» или «тот самый»? Первый раз — a/an; уже ясно какой — the.'
   ),
   there_is: seed(
     'There is / there are',
-    'There is one chair. There are two chairs.',
+    'There is / there are — «есть / находятся». Число смотри на существительное.',
     'A1',
-    ['There is introduces one thing.', 'There are introduces more than one thing.'],
-    ['There is + singular noun.', 'There are + plural noun.'],
-    ['The verb agrees with the noun after there.'],
-    [{ en: 'There are two cups on the table.', ru: 'На столе две чашки.', note: 'plural' }],
-    'Look around: what is there?'
+    [
+      'Одна вещь — There is. Несколько — There are.',
+      'Глагол согласуй с тем, что после there: a chair → is; two chairs → are.',
+    ],
+    ['There is + singular → There is a chair.', 'There are + plural → There are two chairs.'],
+    [
+      'Не There is two cups — а There are two cups.',
+      'Не There are a chair — а There is a chair.',
+    ],
+    [{ en: 'There are two cups on the table.', ru: 'На столе две чашки.', note: 'Две — are' }],
+    'Сколько предметов после there? Один — is, больше — are.'
   ),
   can_ability: seed(
     'Can — умение и просьба',
-    'I can swim. Can you help?',
+    'Can — умею или вежливая просьба. После can — голый глагол, без to.',
     'A1',
-    ['Can shows ability or a simple request.', 'The verb after can has no to.'],
-    ['Subject + can + base verb.', 'Can + subject + base verb?'],
-    ['Do not add -s after can: She can, not she cans.'],
-    [{ en: 'Can you open the window?', ru: 'Ты можешь открыть окно?', note: 'request' }],
-    'What can you do?'
+    [
+      'Can — «умею» или «можешь…?» (просьба).',
+      'После can глагол без to: can swim, не can to swim.',
+    ],
+    ['Subject + can + base → I can swim.', 'Can + subject + base? → Can you help?'],
+    [
+      'Не She cans swim — а She can swim.',
+      'Не I can to swim — а I can swim.',
+    ],
+    [{ en: 'Can you open the window?', ru: 'Ты можешь открыть окно?', note: 'Просьба' }],
+    'Хочешь сказать «умею / можешь?» — can + глагол без to.'
   ),
   would_like: seed(
     'Would like',
-    'I’d like a coffee.',
+    'I’d like — вежливое «хочу». Мягче, чем want.',
     'A1',
-    ['Would like is a polite way to say what you want.', 'Use a noun or to + verb after would like.'],
-    ['I’d like + noun.', 'I’d like to + verb.'],
-    ['Do not use want and would like together.'],
-    [{ en: 'I’d like to book a room.', ru: 'Я хотел бы забронировать номер.', note: 'polite request' }],
-    'What would you like?'
+    [
+      'I’d like — вежливо сказать, чего хочешь.',
+      'После would like — существительное или to + глагол.',
+    ],
+    ["I’d like + noun → I’d like a coffee.", "I’d like to + verb → I’d like to book a room."],
+    [
+      'Не I want would like… — а I’d like…',
+      'Не I’d like go — а I’d like to go.',
+    ],
+    [{ en: 'I’d like to book a room.', ru: 'Я хотел бы забронировать номер.', note: 'Вежливая просьба' }],
+    'Нужно вежливо «хочу» — I’d like … или I’d like to …'
   ),
   possessive_s: seed(
     'Притяжательный ’s',
-    'Anna’s book means the book belongs to Anna.',
+    '’s после человека — «чей»: Anna’s book = книга Анны.',
     'A1',
-    ['Use ’s to show who owns or relates to something.'],
-    ['person + ’s + thing.', 'plural ending in s + apostrophe: friends’ house.'],
-    ['The apostrophe is not the same as a plural ending.'],
-    [{ en: 'This is my brother’s room.', ru: 'Это комната моего брата.', note: 'ownership' }],
-    'Whose thing is it?'
+    [
+      'Человек + ’s + вещь — чья это вещь.',
+      'Множественное на -s: апостроф после s — friends’ house.',
+    ],
+    ["person + ’s + thing → Anna’s book.", "plural -s + ’ → friends’ house."],
+    [
+      'Не Annas book — а Anna’s book.',
+      'Не the book of Anna (в простой речи) — а Anna’s book.',
+    ],
+    [{ en: 'This is my brother’s room.', ru: 'Это комната моего брата.', note: 'Чья комната' }],
+    'Чей предмет? Имя + ’s + вещь.'
   ),
   object_pronouns: seed(
     'Объектные местоимения',
-    'Use me, him, her, us, and them after a verb or preposition.',
+    'После глагола/предлога — me, him, her, us, them. Не I / he.',
     'A1',
-    ['Object pronouns receive the action.', 'They usually follow a verb or preposition.'],
-    ['verb + me / him / her / us / them.', 'preposition + object pronoun.'],
-    ['Do not use I or he after a verb as the object.'],
-    [{ en: 'Please call me tomorrow.', ru: 'Позвони мне завтра.', note: 'object' }],
-    'Who receives the action?'
+    [
+      'Кому делают или о ком говорят после глагола — object pronoun.',
+      'То же после предлога: for me, with them.',
+    ],
+    ['verb + me / him / her / us / them → Call me.', 'preposition + object → for her.'],
+    [
+      'Не Call I tomorrow — а Call me tomorrow.',
+      'Не This is for he — а This is for him.',
+    ],
+    [{ en: 'Please call me tomorrow.', ru: 'Позвони мне завтра.', note: 'После глагола — me' }],
+    'После глагола или предлога: me / him / her / us / them — не I / he.'
   ),
   frequency_adverbs: seed(
     'How often / частота',
-    'Always, usually, sometimes, and never show frequency.',
+    'always / usually / sometimes / never — как часто. Место зависит от глагола.',
     'A1',
-    ['Frequency adverbs usually go before the main verb.', 'With be, they usually go after be.'],
-    ['I usually work here.', 'She is always ready.'],
-    ['Do not put the adverb in the same position with every verb.'],
-    [{ en: 'We often eat at home.', ru: 'Мы часто едим дома.', note: 'main verb' }],
-    'How often does it happen?'
+    [
+      'Перед основным глаголом: I usually work.',
+      'С be — после be: She is always ready.',
+    ],
+    ['I + adverb + verb → I usually work here.', 'be + adverb → She is always ready.'],
+    [
+      'Не I am usually work — а I usually work.',
+      'Не She always is ready — а She is always ready.',
+    ],
+    [{ en: 'We often eat at home.', ru: 'Мы часто едим дома.', note: 'Перед основным глаголом' }],
+    'Есть be? Наречие после be. Нет — перед основным глаголом.'
   ),
   past_simple: seed(
     'Прошедшее простое',
-    'Past Simple tells what happened and finished in the past.',
+    'Past Simple — сделал и закончил. Время в прошлом уже закрыто.',
     'A2',
-    ['Use the past form for finished past actions.', 'Use did for questions and negatives.'],
-    ['I worked yesterday.', 'Did you work yesterday?'],
-    ['After did, use the base verb: did go, not did went.'],
-    [{ en: 'I saw her last week.', ru: 'Я видел её на прошлой неделе.', note: 'finished past' }],
-    'When did it happen?'
+    [
+      'Говоришь про законченное в прошлом — past-форма глагола.',
+      'Вопрос и отрицание через did; после did — база: did go, не did went.',
+    ],
+    ['I + past → I worked yesterday.', 'Did + subject + base? → Did you work yesterday?'],
+    [
+      'Не Did you went…? — а Did you go…?',
+      'Не I go yesterday — а I went yesterday.',
+    ],
+    [{ en: 'I saw her last week.', ru: 'Я видел её на прошлой неделе.', note: 'Уже закончилось' }],
+    'Есть вчера / в 2020 / last week — скорее Past Simple, не Present Perfect.'
   ),
   present_perfect_experience: seed(
     'Present Perfect — опыт',
-    'Have you ever been to London?',
+    'Present Perfect — опыт к сейчас. Точная дата не важна.',
     'A2',
-    ['Present Perfect links a past experience to now.', 'Use it when the exact finished time is not important.'],
-    ['have / has + past participle.', 'Have you ever + past participle?'],
-    ['Use Past Simple with a finished time: yesterday, in 2020.'],
-    [{ en: 'She has never tried sushi.', ru: 'Она никогда не пробовала суши.', note: 'life experience' }],
-    'Have you ever done it?'
+    [
+      'Опыт в жизни без точной даты — have / has + V3.',
+      'Есть yesterday / in 2020 / last year — бери Past Simple.',
+    ],
+    ['have / has + V3 → She has tried sushi.', 'Have you ever + V3? → Have you ever been to London?'],
+    [
+      'Не I have seen her yesterday — а I saw her yesterday.',
+      'Не Did you ever been…? — а Have you ever been…?',
+    ],
+    [{ en: 'She has never tried sushi.', ru: 'Она никогда не пробовала суши.', note: 'Опыт в жизни' }],
+    'Нужна точная дата в прошлом? Past Simple. Нет даты, просто опыт — Present Perfect.'
   ),
   future: seed(
     'Будущее: will / going to',
-    'Use will for a decision now and going to for a plan.',
+    'will — решил сейчас; going to — план уже был.',
     'A2',
-    ['Will often expresses a new decision or prediction.', 'Going to presents an existing plan or clear sign.'],
-    ['I’ll + base verb.', 'I’m going to + base verb.'],
-    ['Do not use going to without a form of be.'],
-    [{ en: 'I’m going to call him tonight.', ru: 'Я собираюсь позвонить ему сегодня вечером.', note: 'plan' }],
-    'Was the plan made before now?'
+    [
+      'will — новое решение или прогноз: I’ll call you.',
+      'going to — план заранее или явный признак: I’m going to call him.',
+    ],
+    ["I’ll + base → I’ll help you.", "I’m going to + base → I’m going to call him."],
+    [
+      'Не I going to call — а I’m going to call.',
+      'Не I will to go — а I will go.',
+    ],
+    [{ en: 'I’m going to call him tonight.', ru: 'Я собираюсь позвонить ему сегодня вечером.', note: 'План заранее' }],
+    'План уже был до разговора? going to. Решил только что? will.'
   ),
   should_advice: seed(
     'Should — совет',
-    'You should take a break.',
+    'should — мягкий совет, не приказ. После should — голый глагол.',
     'A2',
-    ['Should gives advice, not a strong order.', 'The verb after should stays in the base form.'],
-    ['Subject + should + base verb.', 'Should I + base verb?'],
-    ['Do not add to or -s after should.'],
-    [{ en: 'You should check the address.', ru: 'Тебе стоит проверить адрес.', note: 'advice' }],
-    'What would be a helpful idea?'
+    [
+      'should — «стоит / лучше бы». Не жёсткий must.',
+      'После should — базовая форма: should go, не should to go / should goes.',
+    ],
+    ['Subject + should + base → You should rest.', 'Should + subject + base? → Should I call?'],
+    [
+      'Не You should to check — а You should check.',
+      'Не She shoulds go — а She should go.',
+    ],
+    [{ en: 'You should check the address.', ru: 'Тебе стоит проверить адрес.', note: 'Мягкий совет' }],
+    'Даёшь совет — should + глагол без to и без -s.'
   ),
 }
 

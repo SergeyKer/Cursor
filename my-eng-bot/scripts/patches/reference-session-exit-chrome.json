@@ -1,0 +1,34 @@
+[
+  [
+    "  const openRuntimeReferenceFromChip = useCallback(\n    (sheet: ReferenceSheet, from: 'chat' | 'menu' = 'chat') => {",
+    "  const openRuntimeReferenceFromChip = useCallback(\n    (sheet: ReferenceSheet, from: 'chat' | 'menu' | 'tutor' = 'chat') => {"
+  ],
+  [
+    "      if (resolved.kind === 'prebuilt') {\n        openRuntimeReferenceFromChip(resolved.sheet)\n        return\n      }",
+    "      if (resolved.kind === 'prebuilt') {\n        openRuntimeReferenceFromChip(resolved.sheet, 'menu')\n        return\n      }"
+  ],
+  [
+    "    isVocabularyHubActive,\n    isAccentActive,\n  })\n  const sessionExitKind = resolveSessionExitKind({\n    isStructuredLessonActive,\n    activeStructuredLessonStatus,\n    isPracticeActive,\n    translationChatActive,\n    translationSessionStatus: rewardsState.translationSession?.status ?? null,\n    dialogueChatActive,\n    dialogueSessionStatus: rewardsState.dialogueSession?.status ?? null,\n    communicationChatActive,\n    communicationSessionStatus: rewardsState.communicationSession?.status ?? null,\n    isVocabularyHubActive,\n    isAccentActive,\n  })",
+    "    isVocabularyHubActive,\n    isAccentActive,\n    isReferenceSheetActive,\n  })\n  const sessionExitKind = resolveSessionExitKind({\n    isStructuredLessonActive,\n    activeStructuredLessonStatus,\n    isPracticeActive,\n    translationChatActive,\n    translationSessionStatus: rewardsState.translationSession?.status ?? null,\n    dialogueChatActive,\n    dialogueSessionStatus: rewardsState.dialogueSession?.status ?? null,\n    communicationChatActive,\n    communicationSessionStatus: rewardsState.communicationSession?.status ?? null,\n    isVocabularyHubActive,\n    isAccentActive,\n    isReferenceSheetActive,\n  })"
+  ],
+  [
+    "  useEffect(() => {\n    if (menuOpen && sessionExitConfirmOpen) {\n      setSessionExitConfirmOpen(false)\n    }\n  }, [menuOpen, sessionExitConfirmOpen])",
+    "  useEffect(() => {\n    if (menuOpen && sessionExitConfirmOpen) {\n      setSessionExitConfirmOpen(false)\n    }\n  }, [menuOpen, sessionExitConfirmOpen])\n\n  useEffect(() => {\n    if (isReferenceSheetActive && sessionExitConfirmOpen) {\n      setSessionExitConfirmOpen(false)\n    }\n  }, [isReferenceSheetActive, sessionExitConfirmOpen])"
+  ],
+  [
+    "  const isLessonHeaderContext =\n    isLessonIntroActive ||\n    isLessonTipsActive ||\n    isLessonBriefingActive ||\n    isStructuredLessonActive ||\n    isTutorLessonPending",
+    "  const isLessonHeaderContext =\n    isLessonIntroActive ||\n    isLessonTipsActive ||\n    isLessonBriefingActive ||\n    isStructuredLessonActive ||\n    isTutorLessonPending ||\n    isReferenceSheetActive"
+  ],
+  [
+    "  const footerDisplaySessionMeter =\n    footerHydrated && translationChatActive\n      ? translationFooterView?.sessionMeter ?? null\n      : footerHydrated && dialogueChatActive\n        ? dialogueFooterView?.sessionMeter ?? null\n        : footerHydrated && communicationChatActive\n          ? communicationFooterView?.sessionMeter ?? null\n          : null",
+    "  const footerDisplaySessionMeter =\n    footerHydrated && !isReferenceSheetActive && translationChatActive\n      ? translationFooterView?.sessionMeter ?? null\n      : footerHydrated && !isReferenceSheetActive && dialogueChatActive\n        ? dialogueFooterView?.sessionMeter ?? null\n        : footerHydrated && !isReferenceSheetActive && communicationChatActive\n          ? communicationFooterView?.sessionMeter ?? null\n          : null"
+  ],
+  [
+    "  const hasCommunicationHeaderControls =\n    dialogStarted &&\n    settings.mode === 'communication' &&\n    !isProgressSpaceActive &&\n    !isMyPlanSpaceActive &&\n    !isTutorChatSpaceActive &&\n    !isLessonActive &&\n    !isPracticeActive &&\n    !engvoVoiceMode",
+    "  const hasCommunicationHeaderControls =\n    dialogStarted &&\n    settings.mode === 'communication' &&\n    !isProgressSpaceActive &&\n    !isMyPlanSpaceActive &&\n    !isTutorChatSpaceActive &&\n    !isLessonActive &&\n    !isPracticeActive &&\n    !isReferenceSheetActive &&\n    !engvoVoiceMode"
+  ],
+  [
+    "      onOpenGeneratedReference={async (sheet) => {\n        openRuntimeReferenceFromChip(sheet)\n      }}",
+    "      onOpenGeneratedReference={async (sheet) => {\n        openRuntimeReferenceFromChip(sheet, 'tutor')\n      }}"
+  ]
+]

@@ -19,6 +19,7 @@ const base = {
   communicationSessionStatus: null as string | null,
   isVocabularyHubActive: false,
   isAccentActive: false,
+  isReferenceSheetActive: false,
 }
 
 describe('shouldShowSessionExitControl', () => {
@@ -186,6 +187,50 @@ describe('shouldShowSessionExitControl', () => {
       })
     ).toBe(false)
   })
+
+  it('hides all mid-cycle exits on reference sheet', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
+        isReferenceSheetActive: true,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        dialogueChatActive: true,
+        dialogueSessionStatus: 'in_progress',
+        isReferenceSheetActive: true,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        communicationChatActive: true,
+        communicationSessionStatus: 'in_progress',
+        isReferenceSheetActive: true,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        isPracticeActive: true,
+        practiceSessionStatus: 'active',
+        practiceFlowState: 'active',
+        isReferenceSheetActive: true,
+      })
+    ).toBe(false)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        isStructuredLessonActive: true,
+        activeStructuredLessonStatus: 'idle',
+        isReferenceSheetActive: true,
+      })
+    ).toBe(false)
+  })
 })
 
 describe('resolveSessionExitKind', () => {
@@ -249,6 +294,25 @@ describe('resolveSessionExitKind', () => {
         dialogueChatActive: true,
         dialogueSessionStatus: 'in_progress',
         isVocabularyHubActive: true,
+      })
+    ).toBe(null)
+  })
+
+  it('returns null on reference even when lesson/chat mid would apply', () => {
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        isStructuredLessonActive: true,
+        activeStructuredLessonStatus: 'idle',
+        isReferenceSheetActive: true,
+      })
+    ).toBe(null)
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        translationChatActive: true,
+        translationSessionStatus: 'in_progress',
+        isReferenceSheetActive: true,
       })
     ).toBe(null)
   })

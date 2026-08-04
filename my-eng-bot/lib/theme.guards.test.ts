@@ -102,6 +102,22 @@ describe('glass theme CSS guards', () => {
     }
   })
 
+  it('keeps glass1 user-bubble dark enough for white text (≥4.5:1)', () => {
+    const glass1Block = css.match(/html\[data-theme='glass1'\] \{[\s\S]*?\n\}/)?.[0]
+    expect(glass1Block).toBeTruthy()
+    expect(glass1Block).toContain(
+      '--chat-user-bubble: linear-gradient(135deg, #15803d 0%, #166534 100%)'
+    )
+    expect(glass1Block).toContain(
+      '--bubble-user-bg: linear-gradient(135deg, #15803d 0%, #166534 100%)'
+    )
+    expect(glass1Block).toContain('--chat-user-text: #ffffff')
+    expect(glass1Block).not.toMatch(/--chat-user-bubble:[^;]*#34d399/)
+    expect(glass1Block).not.toMatch(/--chat-user-bubble:[^;]*#10b981/)
+    expect(glass1Block).not.toMatch(/--bubble-user-bg:[^;]*#34d399/)
+    expect(glass1Block).not.toMatch(/--bubble-user-bg:[^;]*#10b981/)
+  })
+
   it('registers every theme id in ALL_THEME_IDS at least once in globals.css', () => {
     for (const themeId of ALL_THEME_IDS) {
       expect(css).toContain(`data-theme='${themeId}'`)

@@ -349,7 +349,7 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   theoryGrammarCategories: 'Темы',
   theoryTagLevels: 'Теория · уровень по теме',
   theoryTagLessons: 'Теория · урок по теме',
-  referenceSyllabusThemes: 'Темы',
+  referenceSyllabusThemes: 'A1',
   referenceSyllabusLessons: 'Уроки',
   a1: 'A1',
   a2: 'A2',
@@ -1179,6 +1179,13 @@ export default function MenuSectionPanels({
       }
     }
 
+    if (
+      initialLessonsPanel === 'referenceSyllabusThemes' ||
+      initialLessonsPanel === 'referenceSyllabusLessons'
+    ) {
+      setReferenceSyllabusLevel(initialLessonMenuContext.theoryTagBrowseLevel ?? null)
+    }
+
     const selectedLessonId = initialLessonMenuContext.selectedLessonId ?? null
     if (selectedLessonId) {
       if (initialLessonsPanel === 'a1') {
@@ -1875,14 +1882,10 @@ export default function MenuSectionPanels({
         if (lessonsPanel === 'theory') return REFERENCE_COPY.hubTitle
         if (lessonsPanel === 'theoryCefrLevels') return REFERENCE_COPY.byLevelLabel
         if (lessonsPanel === 'referenceSyllabusThemes') {
-          return referenceSyllabusLevel
-            ? `${referenceSyllabusLevel} · ${REFERENCE_COPY.themesSectionTitle}`
-            : REFERENCE_COPY.themesSectionTitle
+          return referenceSyllabusLevel ?? LESSONS_PANEL_TITLE.referenceSyllabusThemes
         }
         if (lessonsPanel === 'referenceSyllabusLessons') {
-          return referenceSyllabusLevel
-            ? `${referenceSyllabusLevel} · ${REFERENCE_COPY.lessonsSectionTitle}`
-            : REFERENCE_COPY.lessonsSectionTitle
+          return REFERENCE_COPY.lessonsSectionTitle
         }
         if (lessonsPanel === 'theoryGrammarCategories') return REFERENCE_COPY.byTopicLabel
         if (lessonsPanel === 'theoryTagLevels') return REFERENCE_COPY.tagLevelsTitle
@@ -1924,7 +1927,9 @@ export default function MenuSectionPanels({
     (lessonsPanel === 'a1' ||
       lessonsPanel === 'a2' ||
       lessonsPanel === 'theoryTagLessons' ||
-      lessonsPanel === 'practiceLevelTopics')
+      lessonsPanel === 'practiceLevelTopics' ||
+      lessonsPanel === 'referenceSyllabusThemes' ||
+      lessonsPanel === 'referenceSyllabusLessons')
 
   const panelScrollAreaEnter =
     'menu-panel-view-enter pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
@@ -2916,12 +2921,6 @@ export default function MenuSectionPanels({
             {lessonsPanel === 'referenceSyllabusThemes' && referenceSyllabusLevel && (
               <div className={lessonMenuPanelShellClass}>
                 <div className={lessonMenuListRegionClass}>
-                  <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                    <p className="text-[13px] font-medium text-[var(--text-muted)]">
-                      {REFERENCE_COPY.themesSectionTitle}
-                    </p>
-                    <LessonListDensitySwitcher value={lessonListDensity} onChange={setLessonListDensity} />
-                  </div>
                   <div className={MENU_GROUP_OUTER}>
                     <div className={MENU_GROUP_CLASS}>
                       {referenceSyllabusThemes.map((topic) => {
@@ -2941,7 +2940,7 @@ export default function MenuSectionPanels({
                               openable
                                 ? () => {
                                     if (topic.lessonId && onOpenReferenceTopic) {
-                                      void onOpenReferenceTopic(topic.lessonId, 'theory', {
+                                      void onOpenReferenceTopic(topic.lessonId, 'referenceSyllabusThemes', {
                                         catalogBrowseIntent: 'reference',
                                         theoryTagBrowseLevel: referenceSyllabusLevel,
                                       })
@@ -2971,12 +2970,6 @@ export default function MenuSectionPanels({
             {lessonsPanel === 'referenceSyllabusLessons' && referenceSyllabusLevel && (
               <div className={lessonMenuPanelShellClass}>
                 <div className={lessonMenuListRegionClass}>
-                  <div className="mb-2 flex items-center justify-between gap-2 px-1">
-                    <p className="text-[13px] font-medium text-[var(--text-muted)]">
-                      {REFERENCE_COPY.lessonsSectionTitle}
-                    </p>
-                    <LessonListDensitySwitcher value={lessonListDensity} onChange={setLessonListDensity} />
-                  </div>
                   <div className={MENU_GROUP_OUTER}>
                     <div className={MENU_GROUP_CLASS}>
                       {referenceSyllabusLessons.map((topic) => (
@@ -2993,7 +2986,7 @@ export default function MenuSectionPanels({
                           onClick={
                             topic.lessonId && onOpenReferenceTopic
                               ? () =>
-                                  void onOpenReferenceTopic(topic.lessonId!, 'theory', {
+                                  void onOpenReferenceTopic(topic.lessonId!, 'referenceSyllabusLessons', {
                                     catalogBrowseIntent: 'reference',
                                     theoryTagBrowseLevel: referenceSyllabusLevel,
                                   })
@@ -3083,7 +3076,7 @@ export default function MenuSectionPanels({
                               openable
                                 ? () => {
                                     if (topic.lessonId && onOpenReferenceTopic) {
-                                      void onOpenReferenceTopic(topic.lessonId, 'theory', {
+                                      void onOpenReferenceTopic(topic.lessonId, 'theoryGrammarCategories', {
                                         catalogBrowseIntent: 'reference',
                                       })
                                       return

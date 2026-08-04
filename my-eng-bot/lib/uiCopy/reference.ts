@@ -5,7 +5,6 @@ export const REFERENCE_COPY = {
   hubTitle: 'Справочник',
   byLevelLabel: 'По уровню',
   byTopicLabel: 'По теме',
-  themesSectionTitle: 'Темы',
   lessonsSectionTitle: 'Уроки',
   tagLevelsTitle: 'Уровень по теме',
   tagLessonsTitle: 'Тема по тегу',

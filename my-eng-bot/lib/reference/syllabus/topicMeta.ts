@@ -331,7 +331,7 @@ export const SYLLABUS_TOPIC_META: Record<string, SyllabusTopicMeta> = {
   object_pronouns: {
     titleRu: 'Объектные местоимения',
     titleEn: 'Object pronouns',
-    teaser: 'me / him / her / us / them.',
+    teaser: 'После глагола — me / him / her, не I / he.',
     aliases: ['me him her', 'object pronoun'],
     level: 'A1',
   },

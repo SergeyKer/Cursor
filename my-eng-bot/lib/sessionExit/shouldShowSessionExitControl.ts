@@ -27,6 +27,8 @@ export type ShouldShowSessionExitControlInput = {
   /** Overlay hubs that keep dialogStarted + stuck mode (no ×). */
   isVocabularyHubActive?: boolean
   isAccentActive?: boolean
+  /** Reading sheet: never SessionExit (unlike mid-cycle lesson/chat). */
+  isReferenceSheetActive?: boolean
 }
 
 export type ResolveSessionExitKindInput = {
@@ -41,6 +43,7 @@ export type ResolveSessionExitKindInput = {
   communicationSessionStatus?: string | null
   isVocabularyHubActive?: boolean
   isAccentActive?: boolean
+  isReferenceSheetActive?: boolean
 }
 
 function isChatMidSession(
@@ -54,10 +57,11 @@ function isChatMidSession(
 /**
  * × в шапке в locked mid-cycle: урок, практика, translation/dialogue/communication in_progress.
  * Не показывать на intro/briefing/finale, при открытом меню, на Engvo call,
- * vocabulary/accent overlays и completed chat-сессиях (там chips).
+ * vocabulary/accent/reference overlays и completed chat-сессиях (там chips).
  */
 export function shouldShowSessionExitControl(input: ShouldShowSessionExitControlInput): boolean {
   if (input.menuOpen) return false
+  if (input.isReferenceSheetActive) return false
 
   const overlaysBlocked = Boolean(input.isVocabularyHubActive || input.isAccentActive)
 
@@ -94,6 +98,8 @@ export function shouldShowSessionExitControl(input: ShouldShowSessionExitControl
 }
 
 export function resolveSessionExitKind(input: ResolveSessionExitKindInput): SessionExitKind | null {
+  if (input.isReferenceSheetActive) return null
+
   const overlaysBlocked = Boolean(input.isVocabularyHubActive || input.isAccentActive)
 
   if (input.isStructuredLessonActive && input.activeStructuredLessonStatus !== 'completed') {

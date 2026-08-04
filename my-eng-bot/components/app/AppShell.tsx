@@ -4838,6 +4838,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setRetryMessage(null)
     setSettingsAtLastSend(null)
     setEngvoBootstrapServiceStatusVisible(false)
+    // Сбрасываем снимок меню: намеренный выход в Engvo-звонок, не «закрыли меню после правок чата».
+    menuOpenSnapshotRef.current = null
     setDialogStarted(true)
     setEngvoVoiceMode(true)
     setEngvoCallPhase('idle')
@@ -5092,6 +5094,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
+      // Сбрасываем снимок меню: намеренный выход в урок, не «закрыли меню после правок чата».
+      menuOpenSnapshotRef.current = null
       setDialogStarted(true)
       setMenuOpen(false)
       setHomeMenuView('lessons')
@@ -5181,6 +5185,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
+      // Сбрасываем снимок меню: намеренный выход в справочник, не «закрыли меню после правок чата».
+      menuOpenSnapshotRef.current = null
       setDialogStarted(true)
       setMenuOpen(false)
       setHomeMenuView('lessons')
@@ -5225,7 +5231,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const openRuntimeReferenceFromChip = useCallback(
-    (sheet: ReferenceSheet, from: 'chat' | 'menu' = 'chat') => {
+    (sheet: ReferenceSheet, from: 'chat' | 'menu' | 'tutor' = 'chat') => {
       setReferenceLaunchFrom(from)
       setRuntimeReferenceSheet({ ...sheet, hasPractice: false })
       lessonMenuLaunchSurfaceRef.current = 'slide'
@@ -5245,6 +5251,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
+      // Сбрасываем снимок меню: намеренный выход в справочник с chip, не «закрыли меню после правок чата».
+      menuOpenSnapshotRef.current = null
       setDialogStarted(true)
       setMenuOpen(false)
       setLoading(false)
@@ -5265,6 +5273,30 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLessonExtraTipsState(null)
       setActiveLearningLessonId(null)
       setLastStructuredLessonGlobalDelta(0)
+      if (from === 'menu') {
+        setHomeMenuView('lessons')
+        setLessonMenuContext((prev) => {
+          const panel =
+            prev?.catalogBrowseIntent === 'reference' &&
+            prev.lessonsPanel &&
+            prev.lessonsPanel !== 'summary'
+              ? prev.lessonsPanel
+              : 'theory'
+          return {
+            menuView: 'lessons',
+            lessonsPanel: panel,
+            selectedLessonId: prev?.selectedLessonId ?? null,
+            activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,
+            activeTheoryTagId: prev?.activeTheoryTagId ?? null,
+            theorySearchQuery: prev?.theorySearchQuery ?? null,
+            activeTheoryTagIds: prev?.activeTheoryTagIds ?? null,
+            theoryLessonSource: prev?.theoryLessonSource ?? null,
+            theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,
+            practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+            catalogBrowseIntent: 'reference',
+          }
+        })
+      }
       bumpFooterSessionContext()
     },
     [abandonPracticeSession, bumpFooterSessionContext, menuOpen]
@@ -5280,7 +5312,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
       const resolved = resolveOpenReferenceSheet({ topicKey: topic.topicKey })
       if (resolved.kind === 'prebuilt') {
-        openRuntimeReferenceFromChip(resolved.sheet)
+        openRuntimeReferenceFromChip(resolved.sheet, 'menu')
         return
       }
       setMenuLessonBgError('Эта тема скоро появится в справочнике.')
@@ -5358,6 +5390,76 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMenuOpen(false)
     setHomeMenuView('root')
   }, [bumpFooterSessionContext, cleanupEngvoRuntime])
+
+  const openMyPlanSpace = useCallback(() => {
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setProgressSpaceActive(false)
+    setMyPlanSpaceActive(true)
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('root')
+  }, [resetStructuredLessonSession])
+
+  const backFromReferenceToMenu = useCallback(() => {
+    const fromMyPlan = openedFromMyPlanRef.current
+    if (fromMyPlan) openedFromMyPlanRef.current = false
+    reviewChipNavEpochRef.current += 1
+    setReviewChipNavPending(false)
+    setRuntimeReferenceSheet(null)
+    setReferenceLaunchFrom(null)
+    setChatMessagesSnapshotForReference(null)
+    firstMessageRequestIdRef.current += 1
+    firstMessageInFlightRef.current = false
+    setDialogStarted(false)
+    setMessages([])
+    setSettingsAtLastSend(null)
+    setLoading(false)
+    setRetryMessage(null)
+    setForceNextMicLang(null)
+    setLoadingTranslationIndex(null)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    setEngvoVoiceMode(false)
+    setEngvoCallPhase('idle')
+    setEngvoErrorText(null)
+    setFooterTransitionText(null)
+    bumpFooterSessionContext()
+    setLessonMenuContext((prev) => {
+      const panel =
+        prev?.catalogBrowseIntent === 'reference' &&
+        prev.lessonsPanel &&
+        prev.lessonsPanel !== 'summary'
+          ? prev.lessonsPanel
+          : 'theory'
+      return {
+        menuView: 'lessons',
+        lessonsPanel: panel,
+        selectedLessonId: prev?.selectedLessonId ?? null,
+        activeGrammarCategoryId: prev?.activeGrammarCategoryId ?? null,
+        activeTheoryTagId: prev?.activeTheoryTagId ?? null,
+        theorySearchQuery: prev?.theorySearchQuery ?? null,
+        activeTheoryTagIds: prev?.activeTheoryTagIds ?? null,
+        theoryLessonSource: prev?.theoryLessonSource ?? null,
+        theoryTagBrowseLevel: prev?.theoryTagBrowseLevel ?? null,
+        practiceTheoryTagFilterId: prev?.practiceTheoryTagFilterId ?? null,
+        catalogBrowseIntent: 'reference',
+      }
+    })
+    resetStructuredLessonSession({ keepLessonMenuContext: true })
+    setHomeMenuView('root')
+    if (fromMyPlan) {
+      if (featureFlags.myPlanSpaceV1) {
+        openMyPlanSpace()
+        return
+      }
+      openMenuAt('myPlan')
+      return
+    }
+    restoreLessonMenuOnNextOpenRef.current = true
+    setMenuOpen(true)
+  }, [bumpFooterSessionContext, cleanupEngvoRuntime, openMenuAt, openMyPlanSpace, resetStructuredLessonSession])
 
   const showReviewChipError = useCallback(() => {
     setRewardPopupText(LANGUAGE_NOTE_COPY.reviewChipError)
@@ -5479,6 +5581,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         firstMessageRequestIdRef.current += 1
         firstMessageInFlightRef.current = false
         suppressSettingsChangeBannerRef.current = true
+        // Сбрасываем снимок меню: намеренный выход в новый вариант урока, не «закрыли меню после правок чата».
+        menuOpenSnapshotRef.current = null
         setDialogStarted(true)
         setMenuOpen(false)
         setHomeMenuView('lessons')
@@ -5954,6 +6058,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setActiveAccentLessonId(lessonId ?? null)
     setAccentLessonRequestKey((value) => value + 1)
     setAccentTrainerActive(true)
+    // Сбрасываем снимок меню: намеренный выход в произношение, не «закрыли меню после правок чата».
+    menuOpenSnapshotRef.current = null
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
@@ -5965,6 +6071,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setAdaptiveFooterView(null)
     setVocabularyByLevelActive(false)
     setVocabularyWorldsActive(true)
+    // Сбрасываем снимок меню: намеренный выход в слова, не «закрыли меню после правок чата».
+    menuOpenSnapshotRef.current = null
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
@@ -5976,6 +6084,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(true)
+    // Сбрасываем снимок меню: намеренный выход в слова по уровню, не «закрыли меню после правок чата».
+    menuOpenSnapshotRef.current = null
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
@@ -6000,18 +6110,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('root')
     setMenuOpen(true)
   }, [])
-
-  const openMyPlanSpace = useCallback(() => {
-    resetStructuredLessonSession()
-    setAdaptiveFooterView(null)
-    setVocabularyWorldsActive(false)
-    setVocabularyByLevelActive(false)
-    setProgressSpaceActive(false)
-    setMyPlanSpaceActive(true)
-    setDialogStarted(true)
-    setMenuOpen(false)
-    setHomeMenuView('root')
-  }, [resetStructuredLessonSession])
 
   const exitTranslationSessionTo = useCallback(
     (target: 'myPlan' | 'practice') => {
@@ -6675,6 +6773,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
+      // Сбрасываем снимок меню: намеренный выход из практики в урок, не «закрыли меню после правок чата».
+      menuOpenSnapshotRef.current = null
       setDialogStarted(true)
       setMenuOpen(false)
       setHomeMenuView('lessons')
@@ -6727,6 +6827,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLoading(false)
       setSearchingInternet(false)
       setRetryMessage(null)
+      // Сбрасываем снимок меню: намеренный выход из практики в чат (иначе wipe сотрёт seed).
+      menuOpenSnapshotRef.current = null
       setDialogStarted(true)
       setMenuOpen(false)
     },
@@ -8274,6 +8376,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
     isVocabularyHubActive,
     isAccentActive,
+    isReferenceSheetActive,
   })
   const sessionExitKind = resolveSessionExitKind({
     isStructuredLessonActive,
@@ -8287,6 +8390,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
     isVocabularyHubActive,
     isAccentActive,
+    isReferenceSheetActive,
   })
 
   useEffect(() => {
@@ -8298,6 +8402,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setSessionExitConfirmOpen(false)
     }
   }, [menuOpen, sessionExitConfirmOpen])
+
+  useEffect(() => {
+    if (isReferenceSheetActive && sessionExitConfirmOpen) {
+      setSessionExitConfirmOpen(false)
+    }
+  }, [isReferenceSheetActive, sessionExitConfirmOpen])
 
   const openSessionExitConfirm = useCallback(() => {
     if (!showSessionExitControl || !sessionExitKind) return
@@ -8668,7 +8778,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isLessonTipsActive ||
     isLessonBriefingActive ||
     isStructuredLessonActive ||
-    isTutorLessonPending
+    isTutorLessonPending ||
+    isReferenceSheetActive
   const headerLessonTopicTitle =
     activeLessonTitle ?? (isTutorLessonPending ? pendingTutorLessonTitle : null)
 
@@ -9731,11 +9842,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && translationChatActive
+    footerHydrated && !isReferenceSheetActive && translationChatActive
       ? translationFooterView?.sessionMeter ?? null
-      : footerHydrated && dialogueChatActive
+      : footerHydrated && !isReferenceSheetActive && dialogueChatActive
         ? dialogueFooterView?.sessionMeter ?? null
-        : footerHydrated && communicationChatActive
+        : footerHydrated && !isReferenceSheetActive && communicationChatActive
           ? communicationFooterView?.sessionMeter ?? null
           : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
@@ -10206,6 +10317,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     !isTutorChatSpaceActive &&
     !isLessonActive &&
     !isPracticeActive &&
+    !isReferenceSheetActive &&
     !engvoVoiceMode
   const headerTitleMaxWidthClass = getAppHeaderTitleMaxWidthClass({
     dialogStarted,
@@ -10363,7 +10475,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         return true
       }}
       onOpenGeneratedReference={async (sheet) => {
-        openRuntimeReferenceFromChip(sheet)
+        openRuntimeReferenceFromChip(sheet, 'tutor')
       }}
     >
     <div
@@ -10878,7 +10990,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       ? backFromReferenceToChat
                       : referenceLaunchFrom === 'tutor'
                         ? backFromReferenceToTutor
-                        : backToLessonList
+                        : backFromReferenceToMenu
                   }
                   onStartLesson={
                     referenceActionsMode === 'back-only' || !activeReferenceSheet.relatedLessonId
