@@ -1,0 +1,1723 @@
+{
+  "catalog": 584,
+  "rawDupeGroups": 89,
+  "signalGroups": 78,
+  "crossLevel": 54,
+  "sameLevel": 24,
+  "noiseGroups": 11,
+  "groups": [
+    {
+      "n": 1,
+      "en": "How are you?",
+      "key": "how are you?",
+      "levels": "a1+a2",
+      "count": 5,
+      "crossLevel": true,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.147 [a1] | a1.еще_полезные_микро_вопросы_a1.148 [a1] | a1.to_be.011 [a1] | a1.to_be.012 [a1] | a2.word_order.192 [a2]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.147",
+          "level": "a1",
+          "q": "Чем «How are you?» отличается от «How’s it going?»?"
+        },
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.148",
+          "level": "a1",
+          "q": "Когда после «How are you?» отвечают «I’m fine, and you?»?"
+        },
+        {
+          "id": "a1.to_be.011",
+          "level": "a1",
+          "q": "Почему «How are you?», а не «How you are?»?"
+        },
+        {
+          "id": "a1.to_be.012",
+          "level": "a1",
+          "q": "Когда на «How are you?» отвечают «I’m fine, thanks»?"
+        },
+        {
+          "id": "a2.word_order.192",
+          "level": "a2",
+          "q": "Почему на «How are you?» часто отвечают «I’m fine»?"
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "en": "According to me",
+      "key": "according to me",
+      "levels": "b1+b2",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "b1.common_errors_still_made_at_b1.166 [b1] | b1.mistakes.115 [b1] | b2.mistakes.104 [b2]",
+      "chips": [
+        {
+          "id": "b1.common_errors_still_made_at_b1.166",
+          "level": "b1",
+          "q": "Почему вместо «According to me» лучше «In my opinion»?"
+        },
+        {
+          "id": "b1.mistakes.115",
+          "level": "b1",
+          "q": "Почему «According to me» странно, а «In my opinion» — нормально?"
+        },
+        {
+          "id": "b2.mistakes.104",
+          "level": "b2",
+          "q": "Почему «According to me» странно, а «In my opinion» — нормально?"
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "en": "always",
+      "key": "always",
+      "levels": "a1+b1",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a1.adverbs_time.108 [a1] | a1.adverbs_time.109 [a1] | b1.present_perfect_continuous.010 [b1]",
+      "chips": [
+        {
+          "id": "a1.adverbs_time.108",
+          "level": "a1",
+          "q": "Куда ставят «always» в «I always get up early»?"
+        },
+        {
+          "id": "a1.adverbs_time.109",
+          "level": "a1",
+          "q": "Куда ставят «always» при «be»: «She is always late»?"
+        },
+        {
+          "id": "b1.present_perfect_continuous.010",
+          "level": "b1",
+          "q": "Когда «always» + Perfect Continuous звучит как раздражение: «He’s always been…»?"
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "en": "because",
+      "key": "because",
+      "levels": "a1+a2",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a1.базовые_союзы_и_связь_идеи.111 [a1] | a1.базовые_союзы_и_связь_идеи.114 [a1] | a2.connectors.077 [a2]",
+      "chips": [
+        {
+          "id": "a1.базовые_союзы_и_связь_идеи.111",
+          "level": "a1",
+          "q": "Зачем нужны союзы «and», «but», «or», «so», «because»?"
+        },
+        {
+          "id": "a1.базовые_союзы_и_связь_идеи.114",
+          "level": "a1",
+          "q": "Когда причину дают через «because»: «I’m tired because I work a lot»?"
+        },
+        {
+          "id": "a2.connectors.077",
+          "level": "a2",
+          "q": "Чем «because» отличается от «so»?"
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "en": "good at",
+      "key": "good at",
+      "levels": "a2+b1",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a2.adjectives.134 [a2] | a2.prepositions.094 [a2,idle] | b1.prepositions.090 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.adjectives.134",
+          "level": "a2",
+          "q": "Почему «good at» в «She’s good at maths»?"
+        },
+        {
+          "id": "a2.prepositions.094",
+          "level": "a2",
+          "q": "Почему правильно говорить с предлогом: «interested in», «good at», «afraid of»?"
+        },
+        {
+          "id": "b1.prepositions.090",
+          "level": "b1",
+          "q": "Почему правильно говорить с предлогом: «good at», «bad at», «surprised at/by»?"
+        }
+      ]
+    },
+    {
+      "n": 6,
+      "en": "I have a car",
+      "key": "i have a car",
+      "levels": "a1",
+      "count": 3,
+      "crossLevel": false,
+      "ids": "a1.articles.028 [a1] | a1.have_got.093 [a1,idle] | a1.have_got.096 [a1,idle]",
+      "chips": [
+        {
+          "id": "a1.articles.028",
+          "level": "a1",
+          "q": "Когда «I have a car», а не «I have the car» (просто факт наличия)?"
+        },
+        {
+          "id": "a1.have_got.093",
+          "level": "a1",
+          "q": "Чем «I have a car» отличается от «I’ve got a car»?"
+        },
+        {
+          "id": "a1.have_got.096",
+          "level": "a1",
+          "q": "Чем «I have breakfast» отличается от «I have a car»?"
+        }
+      ]
+    },
+    {
+      "n": 7,
+      "en": "I saw him yesterday",
+      "key": "i saw him yesterday",
+      "levels": "a2",
+      "count": 3,
+      "crossLevel": false,
+      "ids": "a2.mistakes.103 [a2,idle] | a2.past_simple.008 [a2] | a2.past_simple.009 [a2,idle]",
+      "chips": [
+        {
+          "id": "a2.mistakes.103",
+          "level": "a2",
+          "q": "Почему «I saw him yesterday», а не «I have seen him yesterday»?"
+        },
+        {
+          "id": "a2.past_simple.008",
+          "level": "a2",
+          "q": "Почему Past Simple, если действие уже закончилось: «I saw him yesterday»?"
+        },
+        {
+          "id": "a2.past_simple.009",
+          "level": "a2",
+          "q": "Почему «I saw him yesterday», а не «I have seen him yesterday»?"
+        }
+      ]
+    },
+    {
+      "n": 8,
+      "en": "I work every day",
+      "key": "i work every day",
+      "levels": "a1",
+      "count": 3,
+      "crossLevel": false,
+      "ids": "a1.present_continuous.042 [a1] | a1.present_simple.031 [a1,idle] | a1.present_simple.035 [a1]",
+      "chips": [
+        {
+          "id": "a1.present_continuous.042",
+          "level": "a1",
+          "q": "Когда «I work every day», а когда «I am working now»?"
+        },
+        {
+          "id": "a1.present_simple.031",
+          "level": "a1",
+          "q": "Почему «I work», но «She works»?"
+        },
+        {
+          "id": "a1.present_simple.035",
+          "level": "a1",
+          "q": "Почему Present Simple для привычек и фактов: «I work every day»?"
+        }
+      ]
+    },
+    {
+      "n": 9,
+      "en": "In my opinion",
+      "key": "in my opinion",
+      "levels": "b1+b2",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "b1.common_errors_still_made_at_b1.166 [b1] | b1.mistakes.115 [b1] | b2.mistakes.104 [b2]",
+      "chips": [
+        {
+          "id": "b1.common_errors_still_made_at_b1.166",
+          "level": "b1",
+          "q": "Почему вместо «According to me» лучше «In my opinion»?"
+        },
+        {
+          "id": "b1.mistakes.115",
+          "level": "b1",
+          "q": "Почему «According to me» странно, а «In my opinion» — нормально?"
+        },
+        {
+          "id": "b2.mistakes.104",
+          "level": "b2",
+          "q": "Почему «According to me» странно, а «In my opinion» — нормально?"
+        }
+      ]
+    },
+    {
+      "n": 10,
+      "en": "Neither do I",
+      "key": "neither do i",
+      "levels": "a2+b1",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a2.agreement.088 [a2] | a2.agreement.089 [a2] | b1.agreement.094 [b1]",
+      "chips": [
+        {
+          "id": "a2.agreement.088",
+          "level": "a2",
+          "q": "Когда соглашаются в отрицании «и я тоже нет»: «Neither do I» / «Nor do I»?"
+        },
+        {
+          "id": "a2.agreement.089",
+          "level": "a2",
+          "q": "Почему в «So am I» / «Neither do I» повторяется вспомогательный глагол?"
+        },
+        {
+          "id": "b1.agreement.094",
+          "level": "b1",
+          "q": "Когда «So do I», а когда «Neither do I»?"
+        }
+      ]
+    },
+    {
+      "n": 11,
+      "en": "She suggested going",
+      "key": "she suggested going",
+      "levels": "a2+b1",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a2.mistakes.105 [a2,idle] | a2.mistakes.171 [a2] | b1.mistakes.112 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.mistakes.105",
+          "level": "a2",
+          "q": "Почему «She suggested going», а не «She suggested me to go»?"
+        },
+        {
+          "id": "a2.mistakes.171",
+          "level": "a2",
+          "q": "Когда «She suggested going» / «She suggested that we go»?"
+        },
+        {
+          "id": "b1.mistakes.112",
+          "level": "b1",
+          "q": "Почему «She suggested going», а не «She suggested me to go»?"
+        }
+      ]
+    },
+    {
+      "n": 12,
+      "en": "that",
+      "key": "that",
+      "levels": "a1+a2+b1",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.097 [a1] | a2.relative_clauses.073 [a2] | b1.relative_clauses.053 [b1,idle]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.097",
+          "level": "a1",
+          "q": "Чем «this» отличается от «that»?"
+        },
+        {
+          "id": "a2.relative_clauses.073",
+          "level": "a2",
+          "q": "Когда в «the book (that) I bought» можно опустить who/which/that?"
+        },
+        {
+          "id": "b1.relative_clauses.053",
+          "level": "b1",
+          "q": "Почему после запятой «who/which», а не «that»: «My brother, who…»?"
+        }
+      ]
+    },
+    {
+      "n": 13,
+      "en": "What do you do?",
+      "key": "what do you do?",
+      "levels": "a1+a2",
+      "count": 3,
+      "crossLevel": true,
+      "ids": "a1.вопросы_и_порядок_слов.050 [a1] | a1.еще_полезные_микро_вопросы_a1.143 [a1] | a2.functional.113 [a2]",
+      "chips": [
+        {
+          "id": "a1.вопросы_и_порядок_слов.050",
+          "level": "a1",
+          "q": "Почему «What do you do?» часто значит «Кем ты работаешь?»?"
+        },
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.143",
+          "level": "a1",
+          "q": "Чем «What’s your job?» отличается от «What do you do?»?"
+        },
+        {
+          "id": "a2.functional.113",
+          "level": "a2",
+          "q": "Что значит «What do you do?»?"
+        }
+      ]
+    },
+    {
+      "n": 14,
+      "en": "a few apples",
+      "key": "a few apples",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.101 [a1] | a2.quantifiers.040 [a2]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.101",
+          "level": "a1",
+          "q": "Чем «a little milk» отличается от «a few apples»?"
+        },
+        {
+          "id": "a2.quantifiers.040",
+          "level": "a2",
+          "q": "Чем «a little milk» отличается от «a few apples»?"
+        }
+      ]
+    },
+    {
+      "n": 15,
+      "en": "a little milk",
+      "key": "a little milk",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.101 [a1] | a2.quantifiers.040 [a2]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.101",
+          "level": "a1",
+          "q": "Чем «a little milk» отличается от «a few apples»?"
+        },
+        {
+          "id": "a2.quantifiers.040",
+          "level": "a2",
+          "q": "Чем «a little milk» отличается от «a few apples»?"
+        }
+      ]
+    },
+    {
+      "n": 16,
+      "en": "a university",
+      "key": "a university",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.articles.016 [a1,idle] | a1.articles.017 [a1,idle]",
+      "chips": [
+        {
+          "id": "a1.articles.016",
+          "level": "a1",
+          "q": "Когда говорить «a», а когда «an»?"
+        },
+        {
+          "id": "a1.articles.017",
+          "level": "a1",
+          "q": "Почему «a university», хотя слово начинается на гласную букву?"
+        }
+      ]
+    },
+    {
+      "n": 17,
+      "en": "afraid of",
+      "key": "afraid of",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.prepositions.094 [a2,idle] | b1.prepositions.087 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.prepositions.094",
+          "level": "a2",
+          "q": "Почему правильно говорить с предлогом: «interested in», «good at», «afraid of»?"
+        },
+        {
+          "id": "b1.prepositions.087",
+          "level": "b1",
+          "q": "Почему правильно говорить с предлогом: «interested in», «keen on», «fond of», «afraid of», «proud of»?"
+        }
+      ]
+    },
+    {
+      "n": 18,
+      "en": "at the weekend",
+      "key": "at the weekend",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.162 [a1] | a1.adverbs_time.110 [a1]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.162",
+          "level": "a1",
+          "q": "Когда британское «at the weekend», а когда американское «on the weekend»?"
+        },
+        {
+          "id": "a1.adverbs_time.110",
+          "level": "a1",
+          "q": "Чем «every day» отличается от «once a week» / «at the weekend»?"
+        }
+      ]
+    },
+    {
+      "n": 19,
+      "en": "by car",
+      "key": "by car",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.предлоги.072 [a1] | a2.prepositions.096 [a2,idle]",
+      "chips": [
+        {
+          "id": "a1.предлоги.072",
+          "level": "a1",
+          "q": "Почему «by car», но «on the bus» / «on the train»?"
+        },
+        {
+          "id": "a2.prepositions.096",
+          "level": "a2",
+          "q": "Почему правильно говорить с предлогом: «by car», «on foot», «by myself»?"
+        }
+      ]
+    },
+    {
+      "n": 20,
+      "en": "Can you help me?",
+      "key": "can you help me?",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.modals.085 [a1,idle] | a1.modals.086 [a1,idle]",
+      "chips": [
+        {
+          "id": "a1.modals.085",
+          "level": "a1",
+          "q": "Почему «Can you help me?» звучит как вежливая просьба?"
+        },
+        {
+          "id": "a1.modals.086",
+          "level": "a1",
+          "q": "Почему «Could you help me?» вежливее, чем «Can you help me?»?"
+        }
+      ]
+    },
+    {
+      "n": 21,
+      "en": "depend on",
+      "key": "depend on",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.prepositions.095 [a2,idle] | b1.prepositions.088 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.prepositions.095",
+          "level": "a2",
+          "q": "Почему правильно говорить с предлогом: «depend on», «listen to», «wait for»?"
+        },
+        {
+          "id": "b1.prepositions.088",
+          "level": "b1",
+          "q": "Почему правильно говорить с предлогом: «depend on», «rely on», «congratulate on», «insist on»?"
+        }
+      ]
+    },
+    {
+      "n": 22,
+      "en": "English is spoken here",
+      "key": "english is spoken here",
+      "levels": "a2",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a2.passive_causative.084 [a2] | a2.passive_causative.086 [a2]",
+      "chips": [
+        {
+          "id": "a2.passive_causative.084",
+          "level": "a2",
+          "q": "Что значит «English is spoken here»?"
+        },
+        {
+          "id": "a2.passive_causative.086",
+          "level": "a2",
+          "q": "Почему в «English is spoken here» часто не говорят by whom (кто именно)?"
+        }
+      ]
+    },
+    {
+      "n": 23,
+      "en": "find out",
+      "key": "find out",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.phrasal_verbs.146 [a2] | b1.phrasal_verbs.101 [b1]",
+      "chips": [
+        {
+          "id": "a2.phrasal_verbs.146",
+          "level": "a2",
+          "q": "Чем отличаются «find out», «give up», «go on»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.101",
+          "level": "b1",
+          "q": "Чем отличаются «find out», «figure out», «work out»?"
+        }
+      ]
+    },
+    {
+      "n": 24,
+      "en": "get up",
+      "key": "get up",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.phrasal_verbs.142 [a2] | b1.phrasal_verbs.098 [b1]",
+      "chips": [
+        {
+          "id": "a2.phrasal_verbs.142",
+          "level": "a2",
+          "q": "Чем отличаются «get up», «wake up», «go out», «come back»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.098",
+          "level": "b1",
+          "q": "Почему у get / take / put / go / look / come так много фразовых вроде «get up», «take off»?"
+        }
+      ]
+    },
+    {
+      "n": 25,
+      "en": "give up",
+      "key": "give up",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.phrasal_verbs.146 [a2] | b1.phrasal_verbs.099 [b1]",
+      "chips": [
+        {
+          "id": "a2.phrasal_verbs.146",
+          "level": "a2",
+          "q": "Чем отличаются «find out», «give up», «go on»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.099",
+          "level": "b1",
+          "q": "Чем отличаются «give up», «make up», «take up», «put up with»?"
+        }
+      ]
+    },
+    {
+      "n": 26,
+      "en": "go on",
+      "key": "go on",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.phrasal_verbs.146 [a2] | b1.phrasal_verbs.102 [b1]",
+      "chips": [
+        {
+          "id": "a2.phrasal_verbs.146",
+          "level": "a2",
+          "q": "Чем отличаются «find out», «give up», «go on»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.102",
+          "level": "b1",
+          "q": "Чем отличаются «carry on», «go on», «keep on»?"
+        }
+      ]
+    },
+    {
+      "n": 27,
+      "en": "He doesn’t like",
+      "key": "he doesn't like",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.mistakes.138 [a1] | a1.present_simple.034 [a1]",
+      "chips": [
+        {
+          "id": "a1.mistakes.138",
+          "level": "a1",
+          "q": "Почему «He doesn’t like», а не «He don’t like»?"
+        },
+        {
+          "id": "a1.present_simple.034",
+          "level": "a1",
+          "q": "Почему «I don’t like…», но «He doesn’t like…»?"
+        }
+      ]
+    },
+    {
+      "n": 28,
+      "en": "He told me to wait",
+      "key": "he told me to wait",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.reported_speech.140 [a2] | b1.reported_speech.041 [b1]",
+      "chips": [
+        {
+          "id": "a2.reported_speech.140",
+          "level": "a2",
+          "q": "Почему после told: «He told me to wait»?"
+        },
+        {
+          "id": "b1.reported_speech.041",
+          "level": "b1",
+          "q": "В какой ситуации говорят «He told me to wait»?"
+        }
+      ]
+    },
+    {
+      "n": 29,
+      "en": "Help yourself",
+      "key": "help yourself",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.183 [a1] | a2.functional.164 [a2]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.183",
+          "level": "a1",
+          "q": "Когда угощают и говорят «Help yourself»?"
+        },
+        {
+          "id": "a2.functional.164",
+          "level": "a2",
+          "q": "Что значит «Help yourself»?"
+        }
+      ]
+    },
+    {
+      "n": 30,
+      "en": "How many…?",
+      "key": "how many?",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.100 [a1] | a2.quantifiers.043 [a2]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.100",
+          "level": "a1",
+          "q": "Когда «How much…?», а когда «How many…?»?"
+        },
+        {
+          "id": "a2.quantifiers.043",
+          "level": "a2",
+          "q": "Когда «How much…?», а когда «How many…?»?"
+        }
+      ]
+    },
+    {
+      "n": 31,
+      "en": "How much…?",
+      "key": "how much?",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.100 [a1] | a2.quantifiers.043 [a2]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.100",
+          "level": "a1",
+          "q": "Когда «How much…?», а когда «How many…?»?"
+        },
+        {
+          "id": "a2.quantifiers.043",
+          "level": "a2",
+          "q": "Когда «How much…?», а когда «How many…?»?"
+        }
+      ]
+    },
+    {
+      "n": 32,
+      "en": "How’s it going?",
+      "key": "how's it going?",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.147 [a1] | a2.functional.114 [a2]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.147",
+          "level": "a1",
+          "q": "Чем «How are you?» отличается от «How’s it going?»?"
+        },
+        {
+          "id": "a2.functional.114",
+          "level": "a2",
+          "q": "Что значит «How’s it going?»?"
+        }
+      ]
+    },
+    {
+      "n": 33,
+      "en": "I agree",
+      "key": "i agree",
+      "levels": "a1+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.mistakes.136 [a1] | b1.mistakes.114 [b1,idle]",
+      "chips": [
+        {
+          "id": "a1.mistakes.136",
+          "level": "a1",
+          "q": "Почему «I agree», а не «I am agree»?"
+        },
+        {
+          "id": "b1.mistakes.114",
+          "level": "b1",
+          "q": "Почему «I agree», а не «I’m agreed»?"
+        }
+      ]
+    },
+    {
+      "n": 34,
+      "en": "I always get up early",
+      "key": "i always get up early",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.adverbs_time.108 [a1] | a2.word_order.090 [a2]",
+      "chips": [
+        {
+          "id": "a1.adverbs_time.108",
+          "level": "a1",
+          "q": "Куда ставят «always» в «I always get up early»?"
+        },
+        {
+          "id": "a2.word_order.090",
+          "level": "a2",
+          "q": "Почему «I always get up early», но «She is always late» (после be)?"
+        }
+      ]
+    },
+    {
+      "n": 35,
+      "en": "I am working now",
+      "key": "i am working now",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.present_continuous.038 [a1] | a1.present_continuous.042 [a1]",
+      "chips": [
+        {
+          "id": "a1.present_continuous.038",
+          "level": "a1",
+          "q": "Когда говорят «I am working now»?"
+        },
+        {
+          "id": "a1.present_continuous.042",
+          "level": "a1",
+          "q": "Когда «I work every day», а когда «I am working now»?"
+        }
+      ]
+    },
+    {
+      "n": 36,
+      "en": "I can swim",
+      "key": "i can swim",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.modals.084 [a1,idle] | a2.modals.053 [a2]",
+      "chips": [
+        {
+          "id": "a1.modals.084",
+          "level": "a1",
+          "q": "Почему «I can swim», а не «I can to swim»?"
+        },
+        {
+          "id": "a2.modals.053",
+          "level": "a2",
+          "q": "Чем на A2 «could» дополняет «I can swim»?"
+        }
+      ]
+    },
+    {
+      "n": 37,
+      "en": "I go to school",
+      "key": "i go to school",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.предлоги.070 [a1] | a1.articles.024 [a1]",
+      "chips": [
+        {
+          "id": "a1.предлоги.070",
+          "level": "a1",
+          "q": "Почему «I go to school», но «I go home» без to?"
+        },
+        {
+          "id": "a1.articles.024",
+          "level": "a1",
+          "q": "Когда «I go to school», а когда «I go to the school»?"
+        }
+      ]
+    },
+    {
+      "n": 38,
+      "en": "I have seen him yesterday",
+      "key": "i have seen him yesterday",
+      "levels": "a2",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a2.mistakes.103 [a2,idle] | a2.past_simple.009 [a2,idle]",
+      "chips": [
+        {
+          "id": "a2.mistakes.103",
+          "level": "a2",
+          "q": "Почему «I saw him yesterday», а не «I have seen him yesterday»?"
+        },
+        {
+          "id": "a2.past_simple.009",
+          "level": "a2",
+          "q": "Почему «I saw him yesterday», а не «I have seen him yesterday»?"
+        }
+      ]
+    },
+    {
+      "n": 39,
+      "en": "I like pizza",
+      "key": "i like pizza",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.articles.021 [a1] | a1.present_simple.036 [a1]",
+      "chips": [
+        {
+          "id": "a1.articles.021",
+          "level": "a1",
+          "q": "Когда «I like pizza», а когда «I like the pizza»?"
+        },
+        {
+          "id": "a1.present_simple.036",
+          "level": "a1",
+          "q": "Почему «I like pizza», а не «I am like pizza»?"
+        }
+      ]
+    },
+    {
+      "n": 40,
+      "en": "I must go",
+      "key": "i must go",
+      "levels": "a2",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a2.mistakes.104 [a2,idle] | a2.modals.047 [a2,idle]",
+      "chips": [
+        {
+          "id": "a2.mistakes.104",
+          "level": "a2",
+          "q": "Почему «I must go», а не «I must to go»?"
+        },
+        {
+          "id": "a2.modals.047",
+          "level": "a2",
+          "q": "Что значит «I must go»?"
+        }
+      ]
+    },
+    {
+      "n": 41,
+      "en": "I remember locking the door",
+      "key": "i remember locking the door",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.gerunds_infinitives.059 [a2] | b1.gerunds_infinitives.057 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.gerunds_infinitives.059",
+          "level": "a2",
+          "q": "Чем «I remember locking the door» отличается от «I remembered to lock the door»?"
+        },
+        {
+          "id": "b1.gerunds_infinitives.057",
+          "level": "b1",
+          "q": "Чем «I remember locking the door» отличается от «I remembered to lock the door»?"
+        }
+      ]
+    },
+    {
+      "n": 42,
+      "en": "I remembered to lock the door",
+      "key": "i remembered to lock the door",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.gerunds_infinitives.059 [a2] | b1.gerunds_infinitives.057 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.gerunds_infinitives.059",
+          "level": "a2",
+          "q": "Чем «I remember locking the door» отличается от «I remembered to lock the door»?"
+        },
+        {
+          "id": "b1.gerunds_infinitives.057",
+          "level": "b1",
+          "q": "Чем «I remember locking the door» отличается от «I remembered to lock the door»?"
+        }
+      ]
+    },
+    {
+      "n": 43,
+      "en": "I’ve lost my keys",
+      "key": "i've lost my keys",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.present_perfect.024 [a2] | b1.past_simple.001 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.present_perfect.024",
+          "level": "a2",
+          "q": "Почему «I’ve lost my keys», если из‑за этого сейчас нельзя открыть дверь?"
+        },
+        {
+          "id": "b1.past_simple.001",
+          "level": "b1",
+          "q": "Когда «I’ve lost my keys», а когда «I lost my keys»?"
+        }
+      ]
+    },
+    {
+      "n": 44,
+      "en": "If I were you…",
+      "key": "if i were you",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.156 [a2] | b1.conditionals.022 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.word_order.156",
+          "level": "a2",
+          "q": "Когда советуют через «If I were you…»?"
+        },
+        {
+          "id": "b1.conditionals.022",
+          "level": "b1",
+          "q": "Почему в «If I were you…» почти всегда were?"
+        }
+      ]
+    },
+    {
+      "n": 45,
+      "en": "in hospital",
+      "key": "in hospital",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.articles.025 [a1] | a2.articles.148 [a2,idle]",
+      "chips": [
+        {
+          "id": "a1.articles.025",
+          "level": "a1",
+          "q": "Чем британское «in hospital» отличается от американского «in the hospital»?"
+        },
+        {
+          "id": "a2.articles.148",
+          "level": "a2",
+          "q": "Почему без the: «in hospital», «at university», «in bed»?"
+        }
+      ]
+    },
+    {
+      "n": 46,
+      "en": "in July",
+      "key": "in july",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.предлоги.069 [a1] | a1.time_numbers.130 [a1]",
+      "chips": [
+        {
+          "id": "a1.предлоги.069",
+          "level": "a1",
+          "q": "Почему «on Monday», но «in July», «at 5 o’clock»?"
+        },
+        {
+          "id": "a1.time_numbers.130",
+          "level": "a1",
+          "q": "Почему год и месяц с «in»: «in 2025», «in July», а не «on» / «at»?"
+        }
+      ]
+    },
+    {
+      "n": 47,
+      "en": "interested in",
+      "key": "interested in",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.prepositions.094 [a2,idle] | b1.prepositions.087 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.prepositions.094",
+          "level": "a2",
+          "q": "Почему правильно говорить с предлогом: «interested in», «good at», «afraid of»?"
+        },
+        {
+          "id": "b1.prepositions.087",
+          "level": "b1",
+          "q": "Почему правильно говорить с предлогом: «interested in», «keen on», «fond of», «afraid of», «proud of»?"
+        }
+      ]
+    },
+    {
+      "n": 48,
+      "en": "It’s worth it",
+      "key": "it's worth it",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.193 [a2] | b1.more_grammar_points.135 [b1]",
+      "chips": [
+        {
+          "id": "a2.word_order.193",
+          "level": "a2",
+          "q": "Что значит «It’s worth seeing» / «It’s worth it»?"
+        },
+        {
+          "id": "b1.more_grammar_points.135",
+          "level": "b1",
+          "q": "В какой ситуации говорят «It’s worth seeing» / «It’s worth it»?"
+        }
+      ]
+    },
+    {
+      "n": 49,
+      "en": "It’s worth seeing",
+      "key": "it's worth seeing",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.193 [a2] | b1.more_grammar_points.135 [b1]",
+      "chips": [
+        {
+          "id": "a2.word_order.193",
+          "level": "a2",
+          "q": "Что значит «It’s worth seeing» / «It’s worth it»?"
+        },
+        {
+          "id": "b1.more_grammar_points.135",
+          "level": "b1",
+          "q": "В какой ситуации говорят «It’s worth seeing» / «It’s worth it»?"
+        }
+      ]
+    },
+    {
+      "n": 50,
+      "en": "look after",
+      "key": "look after",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.phrasal_verbs.143 [a2] | b1.phrasal_verbs.100 [b1]",
+      "chips": [
+        {
+          "id": "a2.phrasal_verbs.143",
+          "level": "a2",
+          "q": "Чем «look for» отличается от «look after» / «look at»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.100",
+          "level": "b1",
+          "q": "Чем отличаются «look forward to», «look after», «look into», «look up»?"
+        }
+      ]
+    },
+    {
+      "n": 51,
+      "en": "look forward to",
+      "key": "look forward to",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.mistakes.106 [a2,idle] | b1.phrasal_verbs.100 [b1]",
+      "chips": [
+        {
+          "id": "a2.mistakes.106",
+          "level": "a2",
+          "q": "Почему «look forward to» + -ing: «I look forward to meeting you»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.100",
+          "level": "b1",
+          "q": "Чем отличаются «look forward to», «look after», «look into», «look up»?"
+        }
+      ]
+    },
+    {
+      "n": 52,
+      "en": "Make yourself at home",
+      "key": "make yourself at home",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.180 [a1] | a2.functional.165 [a2]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.180",
+          "level": "a1",
+          "q": "Когда говорят «Make yourself at home»?"
+        },
+        {
+          "id": "a2.functional.165",
+          "level": "a2",
+          "q": "Что значит «Make yourself at home»?"
+        }
+      ]
+    },
+    {
+      "n": 53,
+      "en": "Nice to meet you",
+      "key": "nice to meet you",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.173 [a1] | a1.functional.116 [a1]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.173",
+          "level": "a1",
+          "q": "Когда при знакомстве говорят «Nice to meet you»?"
+        },
+        {
+          "id": "a1.functional.116",
+          "level": "a1",
+          "q": "Что значит «Nice to meet you»?"
+        }
+      ]
+    },
+    {
+      "n": 54,
+      "en": "No, I can’t",
+      "key": "no, i can't",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.отрицания_и_краткие_ответы.054 [a1] | a1.modals.088 [a1]",
+      "chips": [
+        {
+          "id": "a1.отрицания_и_краткие_ответы.054",
+          "level": "a1",
+          "q": "Когда коротко отвечают «Yes, I can» / «No, I can’t»?"
+        },
+        {
+          "id": "a1.modals.088",
+          "level": "a1",
+          "q": "Когда на can отвечают коротко «Yes, I can» / «No, I can’t»?"
+        }
+      ]
+    },
+    {
+      "n": 55,
+      "en": "On foot",
+      "key": "on foot",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.166 [a1,idle] | a2.prepositions.096 [a2,idle]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.166",
+          "level": "a1",
+          "q": "Почему «On foot», а не «by foot»?"
+        },
+        {
+          "id": "a2.prepositions.096",
+          "level": "a2",
+          "q": "Почему правильно говорить с предлогом: «by car», «on foot», «by myself»?"
+        }
+      ]
+    },
+    {
+      "n": 56,
+      "en": "people are",
+      "key": "people are",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.plurals.081 [a1,idle] | a2.mistakes.110 [a2]",
+      "chips": [
+        {
+          "id": "a1.plurals.081",
+          "level": "a1",
+          "q": "Почему «people are», а не «people is»?"
+        },
+        {
+          "id": "a2.mistakes.110",
+          "level": "a2",
+          "q": "Почему «People are…», «The police are…» во множественном?"
+        }
+      ]
+    },
+    {
+      "n": 57,
+      "en": "She is always late",
+      "key": "she is always late",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.adverbs_time.109 [a1] | a2.word_order.090 [a2]",
+      "chips": [
+        {
+          "id": "a1.adverbs_time.109",
+          "level": "a1",
+          "q": "Куда ставят «always» при «be»: «She is always late»?"
+        },
+        {
+          "id": "a2.word_order.090",
+          "level": "a2",
+          "q": "Почему «I always get up early», но «She is always late» (после be)?"
+        }
+      ]
+    },
+    {
+      "n": 58,
+      "en": "She said she was tired",
+      "key": "she said she was tired",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.reported_speech.139 [a2] | b1.reported_speech.038 [b1]",
+      "chips": [
+        {
+          "id": "a2.reported_speech.139",
+          "level": "a2",
+          "q": "Почему при пересказе «She said she was tired», а не оставляют is?"
+        },
+        {
+          "id": "b1.reported_speech.038",
+          "level": "b1",
+          "q": "Почему при пересказе «She said she was tired», а не is?"
+        }
+      ]
+    },
+    {
+      "n": 59,
+      "en": "She suggested me to go",
+      "key": "she suggested me to go",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.mistakes.105 [a2,idle] | b1.mistakes.112 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.mistakes.105",
+          "level": "a2",
+          "q": "Почему «She suggested going», а не «She suggested me to go»?"
+        },
+        {
+          "id": "b1.mistakes.112",
+          "level": "b1",
+          "q": "Почему «She suggested going», а не «She suggested me to go»?"
+        }
+      ]
+    },
+    {
+      "n": 60,
+      "en": "She works",
+      "key": "she works",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.present_simple.029 [a1,idle] | a1.present_simple.031 [a1,idle]",
+      "chips": [
+        {
+          "id": "a1.present_simple.029",
+          "level": "a1",
+          "q": "Почему «She works», а не «She work»?"
+        },
+        {
+          "id": "a1.present_simple.031",
+          "level": "a1",
+          "q": "Почему «I work», но «She works»?"
+        }
+      ]
+    },
+    {
+      "n": 61,
+      "en": "She’s been to the shop",
+      "key": "she's been to the shop",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.153 [a2,idle] | b1.past_simple.004 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.word_order.153",
+          "level": "a2",
+          "q": "Чем «She’s gone to the shop» отличается от «She’s been to the shop»?"
+        },
+        {
+          "id": "b1.past_simple.004",
+          "level": "b1",
+          "q": "Когда «She’s gone to the shop», когда «She’s been to the shop»?"
+        }
+      ]
+    },
+    {
+      "n": 62,
+      "en": "She’s gone to the shop",
+      "key": "she's gone to the shop",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.153 [a2,idle] | b1.past_simple.004 [b1,idle]",
+      "chips": [
+        {
+          "id": "a2.word_order.153",
+          "level": "a2",
+          "q": "Чем «She’s gone to the shop» отличается от «She’s been to the shop»?"
+        },
+        {
+          "id": "b1.past_simple.004",
+          "level": "b1",
+          "q": "Когда «She’s gone to the shop», когда «She’s been to the shop»?"
+        }
+      ]
+    },
+    {
+      "n": 63,
+      "en": "since",
+      "key": "since",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.present_perfect.022 [a2] | b1.time_reason_clauses.152 [b1]",
+      "chips": [
+        {
+          "id": "a2.present_perfect.022",
+          "level": "a2",
+          "q": "Чем «for» отличается от «since» в Present Perfect?"
+        },
+        {
+          "id": "b1.time_reason_clauses.152",
+          "level": "b1",
+          "q": "Когда «since» = с тех пор, а когда = поскольку?"
+        }
+      ]
+    },
+    {
+      "n": 64,
+      "en": "So am I",
+      "key": "so am i",
+      "levels": "a2",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a2.agreement.087 [a2] | a2.agreement.089 [a2]",
+      "chips": [
+        {
+          "id": "a2.agreement.087",
+          "level": "a2",
+          "q": "Когда соглашаются «и я тоже» через «So am I»?"
+        },
+        {
+          "id": "a2.agreement.089",
+          "level": "a2",
+          "q": "Почему в «So am I» / «Neither do I» повторяется вспомогательный глагол?"
+        }
+      ]
+    },
+    {
+      "n": 65,
+      "en": "so that",
+      "key": "so that",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.connectors.078 [a2] | b1.so_such.097 [b1]",
+      "chips": [
+        {
+          "id": "a2.connectors.078",
+          "level": "a2",
+          "q": "Что значит «so that»?"
+        },
+        {
+          "id": "b1.so_such.097",
+          "level": "b1",
+          "q": "Когда «so… that», а когда «such… that»?"
+        }
+      ]
+    },
+    {
+      "n": 66,
+      "en": "some",
+      "key": "some",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.099 [a1] | a2.quantifiers.042 [a2]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.099",
+          "level": "a1",
+          "q": "Когда «some», а когда «any»?"
+        },
+        {
+          "id": "a2.quantifiers.042",
+          "level": "a2",
+          "q": "Когда «some», а когда «any»?"
+        }
+      ]
+    },
+    {
+      "n": 67,
+      "en": "Take care!",
+      "key": "take care!",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.191 [a1] | a2.word_order.196 [a2]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.191",
+          "level": "a1",
+          "q": "Когда говорят «Take care!»?"
+        },
+        {
+          "id": "a2.word_order.196",
+          "level": "a2",
+          "q": "Когда «Be careful!», а когда «Take care!»?"
+        }
+      ]
+    },
+    {
+      "n": 68,
+      "en": "take off",
+      "key": "take off",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.phrasal_verbs.145 [a2] | b1.phrasal_verbs.098 [b1]",
+      "chips": [
+        {
+          "id": "a2.phrasal_verbs.145",
+          "level": "a2",
+          "q": "Чем отличаются «pick up», «put down», «take off», «put on»?"
+        },
+        {
+          "id": "b1.phrasal_verbs.098",
+          "level": "b1",
+          "q": "Почему у get / take / put / go / look / come так много фразовых вроде «get up», «take off»?"
+        }
+      ]
+    },
+    {
+      "n": 69,
+      "en": "Thank you",
+      "key": "thank you",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.149 [a1] | a1.еще_полезные_микро_вопросы_a1.150 [a1]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.149",
+          "level": "a1",
+          "q": "Когда «Thank you», а когда «Thanks»?"
+        },
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.150",
+          "level": "a1",
+          "q": "Когда в ответ на «Thank you» говорят «You’re welcome» / «No problem»?"
+        }
+      ]
+    },
+    {
+      "n": 70,
+      "en": "The book was written in 1948",
+      "key": "the book was written in 1948",
+      "levels": "b1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "b1.passive_causative.045 [b1] | b1.passive_causative.049 [b1]",
+      "chips": [
+        {
+          "id": "b1.passive_causative.045",
+          "level": "b1",
+          "q": "В какой ситуации говорят «The book was written in 1948»?"
+        },
+        {
+          "id": "b1.passive_causative.049",
+          "level": "b1",
+          "q": "В какой ситуации в пассиве не говорят by…: «The book was written in 1948»?"
+        }
+      ]
+    },
+    {
+      "n": 71,
+      "en": "The thing is…",
+      "key": "the thing is",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.functional.125 [a2] | b1.final_mixed_block.181 [b1]",
+      "chips": [
+        {
+          "id": "a2.functional.125",
+          "level": "a2",
+          "q": "Что значит «The thing is…»?"
+        },
+        {
+          "id": "b1.final_mixed_block.181",
+          "level": "b1",
+          "q": "В какой ситуации начинают мысль «The thing is…»?"
+        }
+      ]
+    },
+    {
+      "n": 72,
+      "en": "There’s no point in waiting",
+      "key": "there's no point in waiting",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.194 [a2] | b1.more_grammar_points.134 [b1]",
+      "chips": [
+        {
+          "id": "a2.word_order.194",
+          "level": "a2",
+          "q": "Что значит «There’s no point in waiting»?"
+        },
+        {
+          "id": "b1.more_grammar_points.134",
+          "level": "b1",
+          "q": "В какой ситуации говорят «There’s no point in waiting»?"
+        }
+      ]
+    },
+    {
+      "n": 73,
+      "en": "very",
+      "key": "very",
+      "levels": "a1+a2",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a1.указательные_и_количественные_слова.102 [a1] | a2.word_order.091 [a2]",
+      "chips": [
+        {
+          "id": "a1.указательные_и_количественные_слова.102",
+          "level": "a1",
+          "q": "Почему «very» ставят перед прилагательным: «very big», «very good»?"
+        },
+        {
+          "id": "a2.word_order.091",
+          "level": "a2",
+          "q": "Зачем усилители «very», «really», «quite»?"
+        }
+      ]
+    },
+    {
+      "n": 74,
+      "en": "What does she look like?",
+      "key": "what does she look like?",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.169 [a1] | a1.еще_полезные_микро_вопросы_a1.170 [a1]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.169",
+          "level": "a1",
+          "q": "Почему про внешность спрашивают именно «What does she look like?»?"
+        },
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.170",
+          "level": "a1",
+          "q": "Чем «What is she like?» отличается от «What does she look like?»?"
+        }
+      ]
+    },
+    {
+      "n": 75,
+      "en": "Yes, I am",
+      "key": "yes, i am",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.to_be.013 [a1] | a1.to_be.014 [a1]",
+      "chips": [
+        {
+          "id": "a1.to_be.013",
+          "level": "a1",
+          "q": "Почему на вопрос с be короткий ответ — «Yes, I am» / «No, I’m not», а не голое «Yes» / «No»?"
+        },
+        {
+          "id": "a1.to_be.014",
+          "level": "a1",
+          "q": "Почему в коротком ответе «Yes, I am», а не «Yes, I’m»?"
+        }
+      ]
+    },
+    {
+      "n": 76,
+      "en": "Yes, I can",
+      "key": "yes, i can",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.отрицания_и_краткие_ответы.054 [a1] | a1.modals.088 [a1]",
+      "chips": [
+        {
+          "id": "a1.отрицания_и_краткие_ответы.054",
+          "level": "a1",
+          "q": "Когда коротко отвечают «Yes, I can» / «No, I can’t»?"
+        },
+        {
+          "id": "a1.modals.088",
+          "level": "a1",
+          "q": "Когда на can отвечают коротко «Yes, I can» / «No, I can’t»?"
+        }
+      ]
+    },
+    {
+      "n": 77,
+      "en": "Yes, please",
+      "key": "yes, please",
+      "levels": "a1",
+      "count": 2,
+      "crossLevel": false,
+      "ids": "a1.еще_полезные_микро_вопросы_a1.182 [a1] | a1.functional.118 [a1]",
+      "chips": [
+        {
+          "id": "a1.еще_полезные_микро_вопросы_a1.182",
+          "level": "a1",
+          "q": "Почему вежливо отвечают «Yes, please» / «No, thanks»?"
+        },
+        {
+          "id": "a1.functional.118",
+          "level": "a1",
+          "q": "Когда «Yes, please», а когда «No, thank you»?"
+        }
+      ]
+    },
+    {
+      "n": 78,
+      "en": "You should have told me",
+      "key": "you should have told me",
+      "levels": "a2+b1",
+      "count": 2,
+      "crossLevel": true,
+      "ids": "a2.word_order.155 [a2] | b1.modals.036 [b1]",
+      "chips": [
+        {
+          "id": "a2.word_order.155",
+          "level": "a2",
+          "q": "Что значит упрёк «You should have told me»?"
+        },
+        {
+          "id": "b1.modals.036",
+          "level": "b1",
+          "q": "В какой ситуации говорят «You should have told me»?"
+        }
+      ]
+    }
+  ]
+}

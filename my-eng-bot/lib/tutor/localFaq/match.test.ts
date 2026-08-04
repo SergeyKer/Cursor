@@ -49,6 +49,19 @@ describe('matchLocalFaq', () => {
     expect(m?.entry.id).toBe('a1.mistakes.131')
   })
 
+  it('matches wave1 contrast canon exact and old нельзя via alias', () => {
+    const exact = matchLocalFaq(
+      'Почему «I am 20 years old», а не «I have 20 years»?',
+      'a1'
+    )
+    expect(exact?.entry.id).toBe('a1.mistakes.131')
+    expect(exact?.reason).toBe('exact')
+
+    const alias = matchLocalFaq('Почему нельзя «I have 20 years»?', 'a1')
+    expect(alias?.entry.id).toBe('a1.mistakes.131')
+    expect(alias?.reason).toBe('alias')
+  })
+
   it('misses EN error sentences (no false FAQ hit)', () => {
     expect(matchLocalFaq('I has a car', 'a1')).toBeNull()
     expect(matchLocalFaq('I havee got car', 'a2')).toBeNull()

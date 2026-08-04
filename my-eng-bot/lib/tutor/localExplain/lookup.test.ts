@@ -44,6 +44,12 @@ describe('localExplain golden path packs', () => {
     const byText = lookupLocalExplainPack('Почему нельзя «I have 20 years»?', 'adult')
     expect(byText?.topicAnchor.canonicalKey).toBe('age_be')
     expect(byText?.contrastPair?.[1]).toContain('I am 20 years old')
+
+    const byNew = lookupLocalExplainPack(
+      'Почему «I am 20 years old», а не «I have 20 years»?',
+      'adult'
+    )
+    expect(byNew?.topicAnchor.canonicalKey).toBe('age_be')
   })
 
   it('resolves It’s time FAQ question to lesson 1', () => {

@@ -122,6 +122,7 @@ export const GOLDEN_PATH_EXPLAIN_PACKS: readonly LocalExplainPack[] = [
     id: 'gp-mistakes-age-be',
     faqIds: ['a1.mistakes.131'],
     matchQueries: [
+      'Почему «I am 20 years old», а не «I have 20 years»?',
       'Почему нельзя «I have 20 years»?',
       'i have 20 years',
       'почему нельзя i have 20 years',

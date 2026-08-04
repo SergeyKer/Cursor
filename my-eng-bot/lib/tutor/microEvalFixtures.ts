@@ -86,7 +86,7 @@ export const MICRO_EVAL_FIXTURES: Array<{
   },
   {
     id: 'grammar_age_mistake',
-    userQuestion: 'Почему нельзя «I have 20 years»?',
+    userQuestion: 'Почему «I am 20 years old», а не «I have 20 years»?',
     expectOfferLocal: true,
     answer: {
       answerKind: 'grammar',
