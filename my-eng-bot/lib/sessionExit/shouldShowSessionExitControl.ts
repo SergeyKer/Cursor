@@ -29,6 +29,8 @@ export type ShouldShowSessionExitControlInput = {
   isAccentActive?: boolean
   /** Reading sheet: never SessionExit (unlike mid-cycle lesson/chat). */
   isReferenceSheetActive?: boolean
+  /** Tutor «Закрепить 2 мин» mid-cycle (caller must AND with tutorChatSpaceActive). */
+  tutorMicroLocked?: boolean
 }
 
 export type ResolveSessionExitKindInput = {
@@ -44,6 +46,8 @@ export type ResolveSessionExitKindInput = {
   isVocabularyHubActive?: boolean
   isAccentActive?: boolean
   isReferenceSheetActive?: boolean
+  /** Tutor «Закрепить 2 мин» mid-cycle (caller must AND with tutorChatSpaceActive). */
+  tutorMicroLocked?: boolean
 }
 
 function isChatMidSession(
@@ -55,7 +59,8 @@ function isChatMidSession(
 }
 
 /**
- * × в шапке в locked mid-cycle: урок, практика, translation/dialogue/communication in_progress.
+ * × в шапке в locked mid-cycle: урок, практика, translation/dialogue/communication in_progress,
+ * tutor «Закрепить 2 мин».
  * Не показывать на intro/briefing/finale, при открытом меню, на Engvo call,
  * vocabulary/accent/reference overlays и completed chat-сессиях (там chips).
  */
@@ -91,9 +96,15 @@ export function shouldShowSessionExitControl(input: ShouldShowSessionExitControl
     input.communicationSessionStatus,
     overlaysBlocked
   )
+  const tutorLocked = Boolean(input.tutorMicroLocked)
 
   return (
-    lessonLocked || practiceLocked || translationLocked || dialogueLocked || communicationLocked
+    lessonLocked ||
+    practiceLocked ||
+    translationLocked ||
+    dialogueLocked ||
+    communicationLocked ||
+    tutorLocked
   )
 }
 
@@ -117,5 +128,6 @@ export function resolveSessionExitKind(input: ResolveSessionExitKindInput): Sess
   ) {
     return 'communication'
   }
+  if (input.tutorMicroLocked) return 'tutor'
   return null
 }

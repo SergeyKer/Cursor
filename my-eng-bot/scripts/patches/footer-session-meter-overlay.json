@@ -1,0 +1,10 @@
+[
+  [
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    (isPracticeActive && practiceFooterLive) ||\n    translationChatActive ||\n    dialogueChatActive ||\n    communicationChatActive\n      ? null\n      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)\n",
+    "  const footerSessionMeterBlocked =\n    isReferenceSheetActive ||\n    isStructuredLessonActive ||\n    isPracticeActive ||\n    isLessonIntroActive ||\n    isLessonTipsActive ||\n    isLessonBriefingActive ||\n    isAccentActive ||\n    isVocabularyHubActive\n  const footerSessionMeterChatActive =\n    !footerSessionMeterBlocked &&\n    (translationChatActive || dialogueChatActive || communicationChatActive)\n  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    (isPracticeActive && practiceFooterLive) ||\n    footerSessionMeterChatActive\n      ? null\n      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)\n"
+  ],
+  [
+    "  const footerDisplaySessionMeter =\n    footerHydrated && !isReferenceSheetActive && translationChatActive\n      ? translationFooterView?.sessionMeter ?? null\n      : footerHydrated && !isReferenceSheetActive && dialogueChatActive\n        ? dialogueFooterView?.sessionMeter ?? null\n        : footerHydrated && !isReferenceSheetActive && communicationChatActive\n          ? communicationFooterView?.sessionMeter ?? null\n          : null\n",
+    "  const footerDisplaySessionMeter =\n    footerHydrated && !footerSessionMeterBlocked && translationChatActive\n      ? translationFooterView?.sessionMeter ?? null\n      : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive\n        ? dialogueFooterView?.sessionMeter ?? null\n        : footerHydrated && !footerSessionMeterBlocked && communicationChatActive\n          ? communicationFooterView?.sessionMeter ?? null\n          : null\n"
+  ]
+]

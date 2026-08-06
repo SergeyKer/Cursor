@@ -185,6 +185,79 @@ describe('buildLessonFeedMessages - sentence_puzzle order', () => {
       text: '🟢 Все три предложения собраны.',
     })
   })
+
+  it('keeps puzzle lesson after completed prior steps, not unshifted to feed head', () => {
+    const priorStep = {
+      stepNumber: 4,
+      bubbles: [{ type: 'task', content: 'Скажи кто ты.' }],
+      exercise: { type: 'fill_text', correctAnswer: 'I am a student' },
+    } as LessonData['steps'][number]
+
+    const completedEntries: LessonTimelineEntry[] = [
+      {
+        stepIndex: 3,
+        submittedAnswer: 'I am a student',
+        feedback: { type: 'success', message: 'Верно. Шаг 4 из 7.' },
+        isCurrent: false,
+        step: priorStep,
+      },
+    ]
+
+    const currentEntry: LessonTimelineEntry = {
+      stepIndex: 4,
+      submittedAnswer: 'I am from Russia',
+      feedback: null,
+      isCurrent: true,
+      step: makePuzzleStep(5),
+    }
+
+    const attemptEntries: LessonTimelineEntry[] = [
+      {
+        stepIndex: 4,
+        submittedAnswer: "I'm happy",
+        feedback: { type: 'success', message: 'Верно. Следующий пазл (2 из 3).' },
+        isCurrent: false,
+        step: makePuzzleStep(5),
+      },
+    ]
+
+    const timeline = buildActiveStepTimeline(
+      completedEntries,
+      currentEntry,
+      attemptEntries,
+      'sentence_puzzle'
+    )
+
+    const messages = buildLessonFeedMessages({
+      timeline,
+      status: 'checking',
+      showCheckingStatusLine: true,
+      showAdvancingStatusLine: false,
+      isAdvancingToNextStep: false,
+      isAdvancingToNextVariant: false,
+    })
+
+    expect(messages[0]).toMatchObject({ kind: 'lesson', isHistorical: true })
+    const currentPuzzleLessonIndex = messages.findIndex(
+      (message) => message.kind === 'lesson' && !message.isHistorical
+    )
+    expect(currentPuzzleLessonIndex).toBeGreaterThan(0)
+    expect(messageTexts(messages)).toEqual([
+      'lesson',
+      'answer:I am a student',
+      'success:🟢 Верно. Шаг 4 из 7.',
+      'lesson',
+      "answer:I'm happy",
+      'success:🟢 Верно. Следующий пазл (2 из 3).',
+      'answer:I am from Russia',
+      `service:${LESSON_CHECKING_MESSAGE}`,
+    ])
+    expect(messages.at(-1)).toMatchObject({
+      kind: 'status',
+      text: LESSON_CHECKING_MESSAGE,
+      tone: 'service',
+    })
+  })
 })
 
 describe('buildLessonFeedMessages - non-puzzle regression', () => {

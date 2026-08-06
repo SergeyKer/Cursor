@@ -8,6 +8,7 @@ import {
   LESSON_CHECKING_REVEAL_MS,
   LESSON_SUCCESS_HOLD_MS,
   LESSON_VALIDATION_DELAY_MS,
+  shouldBlockLessonAnswerSubmit,
 } from '@/lib/lessonAnswerPanelLock'
 import { PRACTICE_FEEDBACK_MS } from '@/lib/practice/practiceAnswerPanelLock'
 import { PRACTICE_ANSWER_REVEAL_MS, PRACTICE_CHECKING_MS } from '@/lib/practice/practiceAnswerPanelLock'
@@ -64,6 +65,15 @@ describe('isLessonChoiceInteractionDisabled', () => {
     expect(isLessonChoiceInteractionDisabled('checking', undefined)).toBe(true)
     expect(isLessonChoiceInteractionDisabled('feedback', 'error')).toBe(false)
     expect(isLessonChoiceInteractionDisabled('feedback', 'success')).toBe(true)
+  })
+})
+
+describe('shouldBlockLessonAnswerSubmit', () => {
+  it('blocks checking and success-hold, allows idle and error feedback', () => {
+    expect(shouldBlockLessonAnswerSubmit('checking', undefined)).toBe(true)
+    expect(shouldBlockLessonAnswerSubmit('feedback', 'success')).toBe(true)
+    expect(shouldBlockLessonAnswerSubmit('feedback', 'error')).toBe(false)
+    expect(shouldBlockLessonAnswerSubmit('idle', undefined)).toBe(false)
   })
 })
 

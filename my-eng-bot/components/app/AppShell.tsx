@@ -1149,6 +1149,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)
   const [tutorChatSpaceActive, setTutorChatSpaceActive] = useState(false)
   const [tutorChatAutoSubmitInitial, setTutorChatAutoSubmitInitial] = useState(false)
+  const [tutorMicroSessionExitLocked, setTutorMicroSessionExitLocked] = useState(false)
   const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
@@ -6217,6 +6218,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setProgressSpaceActive(false)
     setMyPlanSpaceActive(false)
     setTutorChatSpaceActive(false)
+    setTutorMicroSessionExitLocked(false)
     setTutorChatMountKey((k) => k + 1)
     setDialogStarted(false)
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'tutor' })
@@ -8361,6 +8363,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     !progressSpaceActive &&
     !tutorChatSpaceActive
 
+  const tutorMicroLocked = tutorChatSpaceActive && tutorMicroSessionExitLocked
+
   const showSessionExitControl = shouldShowSessionExitControl({
     menuOpen,
     isStructuredLessonActive,
@@ -8377,6 +8381,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isVocabularyHubActive,
     isAccentActive,
     isReferenceSheetActive,
+    tutorMicroLocked,
   })
   const sessionExitKind = resolveSessionExitKind({
     isStructuredLessonActive,
@@ -8391,6 +8396,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isVocabularyHubActive,
     isAccentActive,
     isReferenceSheetActive,
+    tutorMicroLocked,
   })
 
   useEffect(() => {
@@ -8408,6 +8414,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setSessionExitConfirmOpen(false)
     }
   }, [isReferenceSheetActive, sessionExitConfirmOpen])
+
+  useEffect(() => {
+    if (sessionExitConfirmOpen && !sessionExitKind) {
+      setSessionExitConfirmOpen(false)
+    }
+  }, [sessionExitConfirmOpen, sessionExitKind])
 
   const openSessionExitConfirm = useCallback(() => {
     if (!showSessionExitControl || !sessionExitKind) return
@@ -8448,6 +8460,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         exitDialogueSessionTo('myPlan')
       } else if (kind === 'communication') {
         exitCommunicationSessionTo('myPlan')
+      } else if (kind === 'tutor') {
+        exitTutorChatSpace()
       }
     } finally {
       window.setTimeout(() => {
@@ -8461,6 +8475,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     exitCommunicationSessionTo,
     exitDialogueSessionTo,
     exitTranslationSessionTo,
+    exitTutorChatSpace,
     sessionExitKind,
   ])
 
@@ -9725,12 +9740,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     activeStructuredLessonIsFinale,
   ])
 
+  const footerSessionMeterBlocked =
+    isReferenceSheetActive ||
+    isStructuredLessonActive ||
+    isPracticeActive ||
+    isLessonIntroActive ||
+    isLessonTipsActive ||
+    isLessonBriefingActive ||
+    isAccentActive ||
+    isVocabularyHubActive
+  const footerSessionMeterChatActive =
+    !footerSessionMeterBlocked &&
+    (translationChatActive || dialogueChatActive || communicationChatActive)
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
     (isPracticeActive && practiceFooterLive) ||
-    translationChatActive ||
-    dialogueChatActive ||
-    communicationChatActive
+    footerSessionMeterChatActive
       ? null
       : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
@@ -9842,11 +9867,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && !isReferenceSheetActive && translationChatActive
+    footerHydrated && !footerSessionMeterBlocked && translationChatActive
       ? translationFooterView?.sessionMeter ?? null
-      : footerHydrated && !isReferenceSheetActive && dialogueChatActive
+      : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive
         ? dialogueFooterView?.sessionMeter ?? null
-        : footerHydrated && !isReferenceSheetActive && communicationChatActive
+        : footerHydrated && !footerSessionMeterBlocked && communicationChatActive
           ? communicationFooterView?.sessionMeter ?? null
           : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
@@ -10829,6 +10854,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     initialPrefill={tutorChatPrefill}
                     autoSubmitInitial={tutorChatAutoSubmitInitial}
                     onDone={exitTutorChatSpace}
+                    onSessionExitGuardChange={setTutorMicroSessionExitLocked}
                   />
                 ) : isMyPlanSpaceActive ? (
                   <MyPlanSheetScreen

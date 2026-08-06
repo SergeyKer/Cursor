@@ -20,6 +20,7 @@ const base = {
   isVocabularyHubActive: false,
   isAccentActive: false,
   isReferenceSheetActive: false,
+  tutorMicroLocked: false,
 }
 
 describe('shouldShowSessionExitControl', () => {
@@ -230,6 +231,32 @@ describe('shouldShowSessionExitControl', () => {
         isReferenceSheetActive: true,
       })
     ).toBe(false)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        tutorMicroLocked: true,
+        isReferenceSheetActive: true,
+      })
+    ).toBe(false)
+  })
+
+  it('shows for tutor micro mid-cycle', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        tutorMicroLocked: true,
+      })
+    ).toBe(true)
+  })
+
+  it('hides tutor micro when menu is open', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        menuOpen: true,
+        tutorMicroLocked: true,
+      })
+    ).toBe(false)
   })
 })
 
@@ -315,5 +342,32 @@ describe('resolveSessionExitKind', () => {
         isReferenceSheetActive: true,
       })
     ).toBe(null)
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        tutorMicroLocked: true,
+        isReferenceSheetActive: true,
+      })
+    ).toBe(null)
+  })
+
+  it('returns tutor when micro locked and no higher priority mid-cycle', () => {
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        tutorMicroLocked: true,
+      })
+    ).toBe('tutor')
+  })
+
+  it('prefers lesson over tutor when both could apply', () => {
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        isStructuredLessonActive: true,
+        activeStructuredLessonStatus: 'idle',
+        tutorMicroLocked: true,
+      })
+    ).toBe('lesson')
   })
 })

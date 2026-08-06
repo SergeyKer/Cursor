@@ -12,6 +12,7 @@ import {
   TRUNCATE_X_CLASS,
 } from '@/lib/emojiText'
 import { splitFooterStaticSegments } from '@/lib/footerStaticSegments'
+import { resolveFooterBottomMode } from '@/lib/footerBottomMode'
 import type { FooterSheetSource } from '@/lib/footerSheet'
 import type {
   LessonFooterAccountSegment,
@@ -173,9 +174,14 @@ export default function AppFooter({
 }: AppFooterProps) {
   const topLine = formatFooterDynamicLine(normalizeFooterText(dynamicText))
   const bottomLine = normalizeFooterText(staticText)
-  const hasLessonSegments = (lessonFooterSegments?.length ?? 0) > 0
-  const hasSessionMeter = Boolean(sessionMeter && sessionMeter.target > 0)
-  const lessonFooterMode = hasLessonSegments && !hasSessionMeter
+  const bottomMode = resolveFooterBottomMode({
+    lessonFooterSegments,
+    sessionMeter,
+    staticText: bottomLine,
+  })
+  const lessonFooterMode = bottomMode === 'lesson'
+  const hasSessionMeter = bottomMode === 'sessionMeter'
+  const hasLessonSegments = lessonFooterMode
   const hasAccountSegments = (lessonFooterAccountSegments?.length ?? 0) > 0
   const bottomSegments =
     lessonFooterMode || hasSessionMeter ? [] : splitFooterStaticSegments(bottomLine)
@@ -202,7 +208,7 @@ export default function AppFooter({
       hasSessionMeter ||
       Boolean(lessonFooterAccount))
   const showVariantProgress = Boolean(
-    !hasSessionMeter && variantProgress && variantProgress.total > 1 && showFooterContent
+    !hasSessionMeter && !lessonFooterMode && variantProgress && variantProgress.total > 1 && showFooterContent
   )
   const presentation = resolveFooterPresentation({
     audience,
@@ -304,48 +310,7 @@ export default function AppFooter({
               className={`app-footer-body__row-inner gap-2 ${presentation.bottomLineRowClassName} ${presentation.bottomLineClassName}`}
               suppressHydrationWarning
             >
-              {hasSessionMeter ? (
-                <div
-                  className="live-footer-stats-row flex min-w-0 flex-1 items-center gap-3 overflow-visible whitespace-nowrap tabular-nums sm:gap-4"
-                  title={bottomLineTitle}
-                >
-                  <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-start gap-1.5 overflow-visible sm:w-[6.5rem]">
-                    <span className={FOOTER_STAT_GLYPH_CLASS} aria-hidden>
-                      ⭐
-                    </span>
-                    <span className={`tabular-nums ${FOOTER_STAT_VALUE_CLASS}`}>+{meterXp} XP</span>
-                  </span>
-                  <span className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[0.875rem] leading-none sm:text-base">
-                    <span className="shrink-0 tabular-nums" aria-hidden>
-                      0
-                    </span>
-                    <span
-                      className="relative top-px h-[0.65em] w-full max-w-[7.5rem] min-w-[2.5rem] overflow-hidden rounded-full bg-slate-200 sm:max-w-[9rem]"
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={meterTarget}
-                      aria-valuenow={Math.min(meterCurrent, meterTarget)}
-                      aria-label={`Прогресс сессии ${meterCurrent} из ${meterTarget}`}
-                    >
-                      <span
-                        className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
-                        style={{ width: `${meterFill}%` }}
-                      />
-                    </span>
-                    <span className="shrink-0 tabular-nums" aria-hidden>
-                      {meterTarget}
-                    </span>
-                  </span>
-                  <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-center overflow-visible sm:w-[6.5rem]">
-                    <span
-                      key={normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
-                      className={`session-meter-status-enter ${TRUNCATE_X_CLASS} ${FOOTER_STAT_VALUE_CLASS}`}
-                    >
-                      {normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
-                    </span>
-                  </span>
-                </div>
-              ) : lessonFooterMode ? (
+              {lessonFooterMode ? (
                 <>
                   <div
                     className="live-footer-stats-row flex min-w-0 flex-1 items-center justify-between gap-0.5 overflow-visible tabular-nums sm:gap-1.5"
@@ -393,6 +358,47 @@ export default function AppFooter({
                     </div>
                   ) : null}
                 </>
+              ) : hasSessionMeter ? (
+                <div
+                  className="live-footer-stats-row flex min-w-0 flex-1 items-center gap-3 overflow-visible whitespace-nowrap tabular-nums sm:gap-4"
+                  title={bottomLineTitle}
+                >
+                  <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-start gap-1.5 overflow-visible sm:w-[6.5rem]">
+                    <span className={FOOTER_STAT_GLYPH_CLASS} aria-hidden>
+                      ⭐
+                    </span>
+                    <span className={`tabular-nums ${FOOTER_STAT_VALUE_CLASS}`}>+{meterXp} XP</span>
+                  </span>
+                  <span className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 text-[0.875rem] leading-none sm:text-base">
+                    <span className="shrink-0 tabular-nums" aria-hidden>
+                      0
+                    </span>
+                    <span
+                      className="relative top-px h-[0.65em] w-full max-w-[7.5rem] min-w-[2.5rem] overflow-hidden rounded-full bg-slate-200 sm:max-w-[9rem]"
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={meterTarget}
+                      aria-valuenow={Math.min(meterCurrent, meterTarget)}
+                      aria-label={`Прогресс сессии ${meterCurrent} из ${meterTarget}`}
+                    >
+                      <span
+                        className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                        style={{ width: `${meterFill}%` }}
+                      />
+                    </span>
+                    <span className="shrink-0 tabular-nums" aria-hidden>
+                      {meterTarget}
+                    </span>
+                  </span>
+                  <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-center overflow-visible sm:w-[6.5rem]">
+                    <span
+                      key={normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
+                      className={`session-meter-status-enter ${TRUNCATE_X_CLASS} ${FOOTER_STAT_VALUE_CLASS}`}
+                    >
+                      {normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
+                    </span>
+                  </span>
+                </div>
               ) : bottomSegments.length > 0 ? (
                 <div
                   className="grid min-w-0 flex-1 items-center gap-1 overflow-visible whitespace-nowrap tabular-nums sm:gap-2"

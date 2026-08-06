@@ -2,11 +2,7 @@
 
 import { useState } from 'react'
 import FlowInfoCard from '@/components/FlowInfoCard'
-import {
-  APP_BTN_PRIMARY_INLINE,
-  APP_BTN_PRIMARY_LARGE,
-  APP_BTN_SECONDARY_INLINE_MUTED,
-} from '@/lib/homeCtaStyles'
+import { APP_BTN_NEUTRAL_WHITE_LARGE, APP_BTN_PRIMARY_LARGE } from '@/lib/homeCtaStyles'
 import { COIN_ERROR_FORGIVENESS_COST } from '@/lib/lessonCoinForgiveness'
 import type { LessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 
@@ -95,12 +91,20 @@ export default function LessonCoinForgivenessComposerConfirm({
       ) : processing ? (
         <p className="text-[13px] italic text-slate-600">{copy.processing}</p>
       ) : (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={APP_BTN_PRIMARY_INLINE} onClick={handleConfirm}>
-            {copy.confirmYes}
-          </button>
-          <button type="button" className={APP_BTN_SECONDARY_INLINE_MUTED} onClick={onDecline}>
+        <div className="flex flex-row gap-2">
+          <button
+            type="button"
+            className={`${APP_BTN_NEUTRAL_WHITE_LARGE} flex-1`}
+            onClick={onDecline}
+          >
             {copy.decline}
+          </button>
+          <button
+            type="button"
+            className={`${APP_BTN_PRIMARY_LARGE} flex-1`}
+            onClick={handleConfirm}
+          >
+            {copy.confirmYes}
           </button>
         </div>
       )}

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
 import { choiceChipTextsMatch } from '@/utils/validateAnswer';
+import { shouldFireLessonChoiceAutoSelect } from '@/lib/lessonForgivenessAutofill';
 
 interface Choice {
   text: string;
@@ -108,17 +109,31 @@ export default function LessonChoiceChips({
 
   const onChooseRef = useRef(onChoose);
   onChooseRef.current = onChoose;
+  // null (not current nonce): chips remount after Continue with a fresh nonce — must still fire once.
+  const consumedAutoSelectNonceRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (disabled || !autoSelectText) return;
-    const matchedChoice = choices.find((choice) => getChoiceText(choice) === autoSelectText);
+    if (
+      !shouldFireLessonChoiceAutoSelect({
+        disabled,
+        autoSelectText,
+        autoSelectNonce,
+        consumedNonce: consumedAutoSelectNonceRef.current,
+      })
+    ) {
+      return;
+    }
+    const text = autoSelectText;
+    if (!text) return;
+    const matchedChoice = choices.find((choice) => getChoiceText(choice) === text);
     if (!matchedChoice) return;
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-    setSelected(autoSelectText);
-    onChooseRef.current(autoSelectText, getChoiceCorrectness(matchedChoice));
+    consumedAutoSelectNonceRef.current = autoSelectNonce;
+    setSelected(text);
+    onChooseRef.current(text, getChoiceCorrectness(matchedChoice));
   }, [autoSelectNonce, autoSelectText, choices, disabled]);
 
   const handleSelect = (choice: ChoiceInput, event: MouseEvent<HTMLButtonElement>) => {

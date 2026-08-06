@@ -61,4 +61,30 @@ describe('chrome footer layout guards', () => {
     expect(css).not.toMatch(/--app-footer-bg:\s*var\(--app-header-bg\)/)
     expect(css).not.toMatch(/--app-footer-backdrop-filter:\s*var\(--app-header-backdrop-filter\)/)
   })
+
+  it('sessionMeter is blocked by lesson/practice overlays and static uses that gate', () => {
+    const source = readProjectFile('components/app/AppShell.tsx')
+    expect(source).toMatch(/const footerSessionMeterBlocked =/)
+    expect(source).toMatch(/isStructuredLessonActive/)
+    expect(source).toMatch(/isPracticeActive/)
+    expect(source).toMatch(/isLessonIntroActive/)
+    expect(source).toMatch(/isLessonTipsActive/)
+    expect(source).toMatch(/isLessonBriefingActive/)
+    expect(source).toMatch(/footerDisplaySessionMeter =[\s\S]*!footerSessionMeterBlocked/)
+    expect(source).toMatch(/footerSessionMeterChatActive/)
+    expect(source).toMatch(
+      /footerStaticText =[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
+    )
+    expect(source).not.toMatch(
+      /footerStaticText =[\s\S]*translationChatActive \|\|[\s\S]*dialogueChatActive \|\|[\s\S]*communicationChatActive[\s\S]*\? null/
+    )
+  })
+
+  it('AppFooter prefers lesson segments over sessionMeter via resolveFooterBottomMode', () => {
+    const source = readProjectFile('components/AppFooter.tsx')
+    expect(source).toContain("from '@/lib/footerBottomMode'")
+    expect(source).toContain('resolveFooterBottomMode')
+    expect(source).toMatch(/const lessonFooterMode = bottomMode === 'lesson'/)
+    expect(source).toMatch(/const hasSessionMeter = bottomMode === 'sessionMeter'/)
+  })
 })

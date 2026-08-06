@@ -7,7 +7,11 @@ import LessonStepBubble from '@/components/lesson/LessonStepBubble'
 import PracticeBriefingScreen from '@/components/practice/PracticeBriefingScreen'
 import PracticeFinale from '@/components/practice/PracticeFinale'
 import PracticeQuestionRenderer from '@/components/practice/PracticeQuestionRenderer'
-import { APP_BTN_PRIMARY_LARGE, APP_BTN_SECONDARY_LARGE } from '@/lib/homeCtaStyles'
+import {
+  APP_BTN_NEUTRAL_WHITE_LARGE,
+  APP_BTN_PRIMARY_LARGE,
+  APP_BTN_SECONDARY_LARGE,
+} from '@/lib/homeCtaStyles'
 import { buildPracticeFeedMessages } from '@/lib/practice/buildPracticeFeedMessages'
 import {
   isPracticeAnswerPanelLocked,
@@ -1429,20 +1433,22 @@ export default function PracticeScreen({
             ? forgivenessCopy.confirmBody(Math.max(0, forgivenessBalance - 1))
             : forgivenessCopy.zeroBalanceBody}
         </p>
-        <button
-          type="button"
-          className={APP_BTN_PRIMARY_LARGE}
-          onClick={() => onConfirmCoinForgiveness?.()}
-        >
-          {forgivenessCopy.confirm}
-        </button>
-        <button
-          type="button"
-          className={APP_BTN_SECONDARY_LARGE}
-          onClick={onCancelCoinForgiveness}
-        >
-          {forgivenessCopy.decline}
-        </button>
+        <div className="flex flex-row gap-2">
+          <button
+            type="button"
+            className={`${APP_BTN_NEUTRAL_WHITE_LARGE} flex-1`}
+            onClick={onCancelCoinForgiveness}
+          >
+            {forgivenessCopy.decline}
+          </button>
+          <button
+            type="button"
+            className={`${APP_BTN_PRIMARY_LARGE} flex-1`}
+            onClick={() => onConfirmCoinForgiveness?.()}
+          >
+            {forgivenessCopy.confirm}
+          </button>
+        </div>
       </section>
     ) : forgivenessAppliedAckActive ? (
       <section className="space-y-2 rounded-xl border border-green-200 bg-green-50 px-3 py-3 text-green-800">

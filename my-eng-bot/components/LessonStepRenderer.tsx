@@ -105,6 +105,7 @@ import LessonCoinForgivenessBubbleButton from '@/components/LessonCoinForgivenes
 import LessonCoinForgivenessComposerConfirm from '@/components/LessonCoinForgivenessComposerConfirm'
 import type { LessonCoinAward } from '@/lib/coinAwards'
 import { COIN_ERROR_FORGIVENESS_COST, resolveCoinForgivenessBubbleMode } from '@/lib/lessonCoinForgiveness'
+import { shouldFireLessonTextAutofill } from '@/lib/lessonForgivenessAutofill'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import type { LessonIntroPanelKind } from '@/lib/lessonIntroBlockPanelState'
 import {
@@ -438,6 +439,7 @@ export default function LessonStepRenderer({
   const coinForgivenessAppliedBalance =
     forgivenessAppliedBalanceAfter ?? Math.max(0, coinBalance - COIN_ERROR_FORGIVENESS_COST)
   const forgivenessSubmitPendingRef = useRef(false)
+  const consumedForgivenessAutofillNonceRef = useRef(0)
   const currentVariantIndex = exercise?.currentVariantIndex ?? 0
   const postLesson = currentStep?.stepType === 'completion' ? currentStep.postLesson ?? null : null
 
@@ -650,8 +652,18 @@ export default function LessonStepRenderer({
   const { resetVoiceInput, setDraftText } = lessonVoiceInput
 
   useEffect(() => {
-    if (!forgivenessAutofillNonce || !forgivenessAutofillAnswer) return
+    if (
+      !shouldFireLessonTextAutofill({
+        autofillAnswer: forgivenessAutofillAnswer,
+        autofillNonce: forgivenessAutofillNonce,
+        consumedNonce: consumedForgivenessAutofillNonceRef.current,
+      })
+    ) {
+      return
+    }
     const answer = forgivenessAutofillAnswer
+    if (!answer) return
+    consumedForgivenessAutofillNonceRef.current = forgivenessAutofillNonce
     setDraftText(answer)
     const timer = window.setTimeout(() => {
       onAnswerRef.current(answer, { attemptIndexOverride: 0 })

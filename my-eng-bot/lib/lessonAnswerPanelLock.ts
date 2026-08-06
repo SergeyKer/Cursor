@@ -66,3 +66,11 @@ export function isLessonChoiceInteractionDisabled(
     isLessonChoicePanelFrozen(status, feedbackType, isRevealInProgress)
   )
 }
+
+/** Повторный submit во время checking / success-hold (sticky autofill / double tap). */
+export function shouldBlockLessonAnswerSubmit(
+  status: LessonStatus,
+  feedbackType: LessonAnswerFeedbackType | undefined
+): boolean {
+  return status === 'checking' || (status === 'feedback' && feedbackType === 'success')
+}

@@ -45,6 +45,7 @@ import {
 import {
   LESSON_SUCCESS_HOLD_MS,
   LESSON_VALIDATION_DELAY_MS,
+  shouldBlockLessonAnswerSubmit,
 } from '@/lib/lessonAnswerPanelLock'
 import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import {
@@ -259,6 +260,11 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     setIsAdvancingToNextVariant(false)
   }, [])
 
+  const clearForgivenessAutofill = useCallback(() => {
+    setForgivenessAutofillAnswer(null)
+    setForgivenessAutofillChoice(null)
+  }, [])
+
   const clearTimers = useCallback(() => {
     timeoutRefs.current.forEach((timeoutId) => clearTimeout(timeoutId))
     timeoutRefs.current = []
@@ -448,6 +454,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     (nextStepIndex: number) => {
       if (!lesson || totalSteps === 0) return
       clearTimers()
+      clearForgivenessAutofill()
       const boundedIndex = Math.min(Math.max(nextStepIndex, 0), totalSteps - 1)
       setPhase('lesson')
       setCurrentStep(boundedIndex)
@@ -463,19 +470,20 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
       setPuzzleSubAdvanceToken(0)
       setStatus('idle')
     },
-    [lesson, totalSteps, clearTimers]
+    [lesson, totalSteps, clearTimers, clearForgivenessAutofill]
   )
 
   const goToFinale = useCallback(() => {
     if (!lesson || !finale) return
     clearTimers()
+    clearForgivenessAutofill()
     setPhase('finale')
     setExerciseErrors(0)
     setCurrentVariantIndex(0)
     setPuzzleSubAdvanceToken(0)
     setFeedback(null)
     setStatus('completed')
-  }, [clearTimers, finale, lesson])
+  }, [clearTimers, clearForgivenessAutofill, finale, lesson])
 
   const goToNext = useCallback(() => {
     goToStep(currentStep + 1)
@@ -501,6 +509,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
 
   const clearCurrentStepTransientState = useCallback(() => {
     clearAdvanceFlags()
+    clearForgivenessAutofill()
     setSubmittedAnswersByStep((current) => {
       if (!(currentStep in current)) return current
       const next = { ...current }
@@ -515,7 +524,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     })
     setFeedback(null)
     setStatus(isFinale ? 'completed' : 'idle')
-  }, [clearAdvanceFlags, currentStep, isFinale])
+  }, [clearAdvanceFlags, clearForgivenessAutofill, currentStep, isFinale])
 
   const beginLessonCheckingPhase = useCallback(
     (submittedAnswer: string, onAfterDelay: () => void) => {
@@ -541,12 +550,14 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
   const handleAnswer = useCallback(
     (answer: string, answerOptions?: LessonAnswerOptions) => {
       if (!lesson || !rawStep?.exercise || !activeExercise) return
+      if (shouldBlockLessonAnswerSubmit(status, feedback?.type)) return
       const baseExercise = rawStep.exercise
       const exercise = activeExercise
       const variants = baseExercise.variants ?? []
       const trimmedAnswer = answer.trim()
       if (!trimmedAnswer || /^\/(?:[\w-]+)(?:\s.*)?$/.test(trimmedAnswer)) return
 
+      clearForgivenessAutofill()
       beginLessonCheckingPhase(trimmedAnswer, () => {
         const isCorrect = validateAnswer(trimmedAnswer, exercise)
         if (isCorrect) {
@@ -671,7 +682,10 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
       currentStep,
       totalSteps,
       finale,
+      status,
+      feedback?.type,
       beginLessonCheckingPhase,
+      clearForgivenessAutofill,
       goToStep,
       goToFinale,
       currentVariantIndex,
@@ -723,8 +737,10 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
           }
     ) => {
       if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return
+      if (shouldBlockLessonAnswerSubmit(status, feedback?.type)) return
 
       const submittedAnswer = params.submittedAnswer.trim()
+      clearForgivenessAutofill()
       beginLessonCheckingPhase(submittedAnswer, () => {
         const puzzleSubTotal = rawStep.exercise?.puzzleVariants?.length ?? 0
         const message =
@@ -779,12 +795,13 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
         setStatus('feedback')
       })
     },
-    [awardPuzzleSubStep, beginLessonCheckingPhase, currentStep, lesson, rawStep]
+    [awardPuzzleSubStep, beginLessonCheckingPhase, clearForgivenessAutofill, currentStep, feedback?.type, lesson, rawStep, status]
   )
 
   const requestCoinForgiveness = useCallback(() => {
+    if (forgivenessUsedThisRun) return
     setForgivenessConfirmPending(true)
-  }, [])
+  }, [forgivenessUsedThisRun])
 
   const declineForgivenessOfferThisRun = useCallback(() => {
     setForgivenessConfirmPending(false)
@@ -818,6 +835,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
   const applyCoinErrorForgiveness = useCallback(
     (balanceAfterSpend?: number): boolean => {
       if (!lesson || !rawStep?.exercise || !activeExercise) return false
+      if (forgivenessUsedThisRun) return false
       if (status !== 'feedback' || feedback?.type !== 'error') return false
       if (exerciseErrors !== 1) return false
       if (!isCoinForgivenessStep(rawStep.stepNumber)) return false
@@ -854,6 +872,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
       activeExercise,
       exerciseErrors,
       feedback?.type,
+      forgivenessUsedThisRun,
       lesson,
       puzzleProgress?.subIndex,
       rawStep,
@@ -877,8 +896,10 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
       taskTotal?: number
     }) => {
       if (!lesson || !rawStep?.exercise || isFinale) return
+      if (shouldBlockLessonAnswerSubmit(status, feedback?.type)) return
       const submitted = options?.submittedAnswer?.trim() || rawStep.exercise.correctAnswer
 
+      clearForgivenessAutofill()
       beginLessonCheckingPhase(submitted, () => {
         const variants = rawStep.exercise?.variants ?? []
         const puzzleVariants = rawStep.exercise?.puzzleVariants ?? []
@@ -935,8 +956,10 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     },
     [
       beginLessonCheckingPhase,
+      clearForgivenessAutofill,
       currentStep,
       currentVariantIndex,
+      feedback?.type,
       finale,
       goToFinale,
       goToStep,
@@ -945,6 +968,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
       lesson,
       rawStep,
       scheduleSuccessAdvance,
+      status,
       totalSteps,
     ]
   )

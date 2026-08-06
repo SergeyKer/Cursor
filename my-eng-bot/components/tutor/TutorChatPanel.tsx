@@ -96,6 +96,7 @@ import {
   waitTutorMicroReveal,
 } from '@/lib/tutor/microRevealTiming'
 import { shouldPinTutorFeedToTop } from '@/lib/tutor/shouldPinTutorFeedToTop'
+import { needsTutorMicroSessionExitGuard } from '@/lib/tutor/needsTutorMicroSessionExitGuard'
 import {
   isTutorMicroChoiceFrozen,
   resolveTutorMicroChipsResetKey,
@@ -129,6 +130,8 @@ export type TutorChatPanelProps = {
   onPromoteToSpace?: () => void
   /** MyPlan: submit initialPrefill once on mount (space only). */
   autoSubmitInitial?: boolean
+  /** Mid-cycle «Закрепить 2 мин» — SessionExit confirm in AppShell. */
+  onSessionExitGuardChange?: (locked: boolean) => void
 }
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
@@ -190,6 +193,7 @@ export default function TutorChatPanel({
   embeddedInMenu = false,
   onPromoteToSpace,
   autoSubmitInitial = false,
+  onSessionExitGuardChange,
 }: TutorChatPanelProps) {
   const session = useTutorSessionOptional()
   const [draft, setDraft] = useState(initialPrefill)
@@ -418,6 +422,14 @@ export default function TutorChatPanel({
     if (!feedEnterReady) return
     return scheduleScrollAfterLayout(pinTutorFeedViewport)
   }, [feedEnterReady, loadingMicro, microPhase, microTailMode, pinTutorFeedViewport, thread.length])
+
+  useEffect(() => {
+    const locked = needsTutorMicroSessionExitGuard({ loadingMicro, microPhase })
+    onSessionExitGuardChange?.(locked)
+    return () => {
+      onSessionExitGuardChange?.(false)
+    }
+  }, [loadingMicro, microPhase, onSessionExitGuardChange])
 
   useEffect(() => {
     if (!busy && !microTypingVisible) return

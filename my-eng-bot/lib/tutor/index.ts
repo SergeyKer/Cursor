@@ -98,3 +98,5 @@ export {
   listTutorCuriosity,
   clearTutorCuriosityForTests,
 } from '@/lib/tutor/curiosityStore'
+export { needsTutorMicroSessionExitGuard } from '@/lib/tutor/needsTutorMicroSessionExitGuard'
+export type { TutorMicroSessionExitPhase } from '@/lib/tutor/needsTutorMicroSessionExitGuard'

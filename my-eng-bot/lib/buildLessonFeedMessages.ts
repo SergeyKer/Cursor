@@ -117,25 +117,14 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
   } = params
 
   const messages: LessonFeedMessage[] = []
-  const deferredPuzzleCurrentTailMessages: LessonFeedMessage[] = []
-  const deferredPuzzleCurrentLessonHead: LessonFeedMessage[] = []
+  const deferredPuzzleCurrentMessages: LessonFeedMessage[] = []
   const attemptOrdinalByEntryIndex = buildAttemptOrdinalMaps(timeline)
 
   timeline.forEach((entry, entryIndex) => {
     const messageBaseId = buildLessonFeedMessageBaseId(entry, entryIndex, entry.stepIndex)
     const isPuzzleStep = entry.step.exercise?.type === 'sentence_puzzle'
     const deferInFlightPuzzleMessages = isPuzzleStep && entry.isCurrent
-    const pushMessage = (message: LessonFeedMessage) => {
-      if (!deferInFlightPuzzleMessages) {
-        messages.push(message)
-        return
-      }
-      if (message.kind === 'lesson') {
-        deferredPuzzleCurrentLessonHead.push(message)
-        return
-      }
-      deferredPuzzleCurrentTailMessages.push(message)
-    }
+    const target = deferInFlightPuzzleMessages ? deferredPuzzleCurrentMessages : messages
 
     const skipPuzzleHistoryLessonBubble = isPuzzleStep && !entry.isCurrent
     const shouldHideCurrentLessonBubblesValue = shouldHideCurrentLessonBubbles({
@@ -158,8 +147,9 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
       ? []
       : bubblesWithVariantQuestion
 
+    // Puzzle lesson stays in timeline order; only answer/checking/feedback defer to the tail.
     if (bubbles.length > 0 && !skipPuzzleHistoryLessonBubble) {
-      pushMessage({
+      messages.push({
         id: `lesson-${messageBaseId}`,
         role: 'assistant',
         kind: 'lesson',
@@ -174,7 +164,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
         historyAttemptOrdinal: attemptOrdinal,
         timeline,
       })
-      pushMessage({
+      target.push({
         id: buildLessonAnswerMessageId(entry.step.stepNumber, answerAttemptNumber),
         role: 'user',
         kind: 'answer',
@@ -183,7 +173,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
     }
 
     if (entry.isCurrent && status === 'checking' && showCheckingStatusLine && entry.step.exercise) {
-      pushMessage({
+      target.push({
         id: `checking-${messageBaseId}`,
         role: 'assistant',
         kind: 'status',
@@ -219,7 +209,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
         tone: feedbackTone,
         attemptNumber: feedbackAttemptNumber,
       })
-      pushMessage({
+      target.push({
         id: `feedback-${messageBaseId}-${entry.feedback.type}`,
         role: 'assistant',
         kind: 'status',
@@ -238,7 +228,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
       showAdvancingStatusLine
     ) {
       if (isAdvancingToNextStep) {
-        pushMessage({
+        target.push({
           id: `advancing-step-${messageBaseId}`,
           role: 'assistant',
           kind: 'status',
@@ -246,7 +236,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
           tone: 'service',
         })
       } else if (isAdvancingToNextVariant) {
-        pushMessage({
+        target.push({
           id: `advancing-variant-${messageBaseId}`,
           role: 'assistant',
           kind: 'status',
@@ -257,8 +247,7 @@ export function buildLessonFeedMessages(params: BuildLessonFeedMessagesParams): 
     }
   })
 
-  messages.unshift(...deferredPuzzleCurrentLessonHead)
-  messages.push(...deferredPuzzleCurrentTailMessages)
+  messages.push(...deferredPuzzleCurrentMessages)
 
   return messages
 }
