@@ -17,6 +17,10 @@ export type TutorReturnContextSnapshot = {
   lastExplainCanonicalKey?: string | null
   /** After menu→space promote: run triage once on mount. */
   pendingTriageQuery?: string | null
+  /** First-hop follow-up chip already used or superseded by a user turn. */
+  followUpNudgeConsumed?: boolean
+  /** True after first successful in-scope Explain (not gate/D/OOS). */
+  followUpNudgeArmed?: boolean
 }
 
 function isExplainLike(value: unknown): value is TutorExplainAnswer {
@@ -47,6 +51,8 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
       thread: data.thread,
       lastExplain,
       ...(pending !== undefined ? { pendingTriageQuery: pending } : {}),
+      followUpNudgeConsumed: data.followUpNudgeConsumed === true,
+      followUpNudgeArmed: data.followUpNudgeArmed === true,
     }
   } catch {
     return null

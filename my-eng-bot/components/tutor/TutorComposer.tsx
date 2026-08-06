@@ -64,6 +64,8 @@ export type TutorComposerProps = {
   onPaperclipClick?: () => void
   chips?: TutorComposerChip[]
   onChipSelect?: (chipId: string) => void
+  /** Post-explain one-hop follow-up suggestion (nav mode only; hidden during micro). */
+  followUpChip?: TutorComposerChip | null
   /** Micro = larger choice chips; nav = compact pills. Both use practice idle colors + enter. */
   chipsMode?: 'micro' | 'nav'
   /** Remount micro chip row so enter animation replays between questions. */
@@ -101,6 +103,7 @@ export default function TutorComposer({
   onPaperclipClick,
   chips = [],
   onChipSelect,
+  followUpChip = null,
   chipsMode = 'nav',
   chipsResetKey,
   microChoiceFrozen = false,
@@ -183,6 +186,24 @@ export default function TutorComposer({
         </div>
       ) : null}
 
+      {followUpChip ? (
+        <div
+          className="flex w-full min-w-0 flex-wrap justify-end gap-1.5 px-0.5"
+          role="group"
+          aria-label="Подсказка вопроса"
+        >
+          <button
+            key={`follow-up-${followUpChip.labelRu}`}
+            type="button"
+            disabled={chipsDisabled}
+            onClick={() => onChipSelect?.(followUpChip.id)}
+            className="lesson-choice-chip lesson-choice-chip-enter max-w-[min(100%,22rem)] shrink-0 break-words touch-manipulation rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-left text-[15px] font-normal leading-[1.5] text-blue-700 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 [@media(hover:hover)]:hover:bg-blue-100 disabled:opacity-50"
+          >
+            {followUpChip.labelRu}
+          </button>
+        </div>
+      ) : null}
+
       <form
         ref={formRef}
         onSubmit={handleSubmit}
@@ -220,9 +241,9 @@ export default function TutorComposer({
               </span>
               <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute inset-x-0 z-[2] flex items-center px-0.5 text-[15px] leading-snug ${
+                className={`pointer-events-none absolute inset-x-0 z-[2] flex items-center px-4 text-[15px] leading-snug ${
                   voiceStatusIsDanger ? 'text-red-600' : 'text-[var(--text-muted)]'
-                } ${getChatComposerOverlayVerticalClass(Boolean(menuDock))}`}
+                } ${getChatComposerOverlayVerticalClass(voiceWebMetricsActive)}`}
               >
                 {iosChromeVoiceStatusMessage}
               </span>
@@ -237,27 +258,29 @@ export default function TutorComposer({
             rows={1}
             readOnly={readOnly || composerLocked}
             aria-label="Текст вопроса"
-            className={`relative z-[1] block w-full resize-none border-0 bg-transparent px-0.5 ${CHAT_COMPOSER_TYPO_CLASS} text-[var(--text)] outline-none placeholder:text-[var(--text-muted)] placeholder:transition-colors focus:placeholder:text-transparent ${getChatComposerTextareaVerticalClass(Boolean(menuDock))} ${
+            className={`chat-input-field relative z-[1] min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 pr-12 outline-none ${CHAT_COMPOSER_TYPO_CLASS} placeholder:text-[var(--text-muted)] placeholder:transition-colors focus:placeholder:text-transparent ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} ${
               showVoiceOverlay || iosChromeVoiceStatusMessage
                 ? 'caret-transparent text-transparent placeholder:text-transparent'
-                : ''
+                : 'text-[var(--text)]'
             }`}
+            style={{ maxHeight: INPUT_MAX_HEIGHT_PX }}
           />
+          <div className="pointer-events-none absolute inset-y-0 right-2 z-10 flex items-center">
+            <button
+              type="button"
+              disabled={paperclipDisabled || composerLocked}
+              onClick={() => {
+                if (paperclipDisabled || composerLocked) return
+                onPaperclipClick?.()
+              }}
+              className={`${TUTOR_PAPERCLIP_BUTTON_CLASS} pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)] shadow-none disabled:opacity-50`}
+              title="Прикрепить"
+              aria-label="Прикрепить"
+            >
+              <PaperclipIcon />
+            </button>
+          </div>
         </div>
-
-        <button
-          type="button"
-          disabled={paperclipDisabled || composerLocked}
-          onClick={() => {
-            if (paperclipDisabled || composerLocked) return
-            onPaperclipClick?.()
-          }}
-          className={TUTOR_PAPERCLIP_BUTTON_CLASS}
-          title="Прикрепить"
-          aria-label="Прикрепить"
-        >
-          <PaperclipIcon />
-        </button>
 
         <button
           type="submit"

@@ -11,6 +11,8 @@ export type TutorTriageKind = 'A' | 'B' | 'C' | 'D'
 export type TutorComposerChip = {
   id: string
   labelRu: string
+  /** If set, chip action uses this instead of labelRu (e.g. follow-up without «Например:»). */
+  submitText?: string
 }
 
 export type TutorTriageResult =

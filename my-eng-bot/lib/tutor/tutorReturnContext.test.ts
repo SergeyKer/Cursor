@@ -38,15 +38,30 @@ describe('tutorReturnContext', () => {
     expect(consumeTutorReturnContext()).toBeNull()
   })
 
-  it('preserves pendingTriageQuery through stash/consume', () => {
+  it('preserves followUpNudgeConsumed through stash/consume', () => {
+    stashTutorReturnContext({
+      draft: '',
+      anchorQuery: 'x',
+      postExplainChips: true,
+      followUpNudgeConsumed: true,
+      followUpNudgeArmed: true,
+      thread: [{ id: '1', role: 'user', text: 'hi' }],
+      lastExplain: sampleExplain,
+    })
+    const snap = consumeTutorReturnContext()
+    expect(snap?.followUpNudgeConsumed).toBe(true)
+    expect(snap?.followUpNudgeArmed).toBe(true)
+  })
+
+  it('defaults followUpNudgeConsumed to false when missing', () => {
     stashTutorReturnContext({
       draft: '',
       anchorQuery: null,
       postExplainChips: false,
-      thread: [{ id: 'u1', role: 'user', text: 'Почему «I am busy», а не «I busy»?' }],
-      pendingTriageQuery: 'Почему «I am busy», а не «I busy»?',
+      thread: [],
     })
     const snap = consumeTutorReturnContext()
-    expect(snap?.pendingTriageQuery).toBe('Почему «I am busy», а не «I busy»?')
+    expect(snap?.followUpNudgeConsumed).toBe(false)
+    expect(snap?.followUpNudgeArmed).toBe(false)
   })
 })

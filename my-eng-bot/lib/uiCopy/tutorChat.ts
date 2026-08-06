@@ -33,6 +33,22 @@ export const FOLLOW_UP_CONTINUE_BANK = {
   other: [] as string[],
 } as const
 
+/** Chip-only deepeners / exit (must stay CONTINUE-safe via routeTutorTurn). */
+export const FOLLOW_UP_CHIP_BANK = {
+  exit: 'Напиши ещё примеры',
+  angles: ['А в отрицании?', 'А в вопросе?', 'Можно короткий пример?'],
+} as const
+
+export const FOLLOW_UP_CHIP_BANK_BY_KIND = {
+  contrast: FOLLOW_UP_CHIP_BANK.angles,
+  grammar: FOLLOW_UP_CHIP_BANK.angles,
+  form: FOLLOW_UP_CHIP_BANK.angles,
+  how_to_say: ['Можно короткий пример?'] as readonly string[],
+  orthography: [] as readonly string[],
+  translate: [] as readonly string[],
+  other: [] as readonly string[],
+} as const
+
 const MICRO_FINALE_ASK_MORE_ADULT = [
   'Остались вопросы по теме - спрашивайте!',
   'Если что-то непонятно - пишите ниже, разберём.',

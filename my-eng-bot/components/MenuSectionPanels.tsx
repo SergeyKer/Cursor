@@ -76,6 +76,16 @@ import { getGrammarCategoryById } from '@/lib/grammarTaxonomy'
 import { getAllTheoryTagsForMenu, getTheoryTagById } from '@/lib/lessonTheoryTags'
 import { findPracticeTopicCandidatesByMenuKeys, type PracticeTopicCandidate } from '@/lib/lessonTopicSearch'
 import { getTheoryLessonsForTagIdsUnion, groupTheoryLessonsByLevel } from '@/lib/theoryLessonsByTagIds'
+import {
+  buildLevelProgressSummary,
+  initialExpandedForProfile,
+  pickDefaultExpandLevel,
+  resolveCefrAccordionRestore,
+  resolveTagAccordionRestore,
+  settingsLevelToCefr,
+  toggleExpandedLevel,
+  type CefrMenuLevel,
+} from '@/lib/menu/cefrLevelAccordion'
 import { findTheoryTagCandidatesGlobally } from '@/lib/theoryTagSearch'
 import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
@@ -837,6 +847,13 @@ export default function MenuSectionPanels({
   const [referenceHubSearchFocused, setReferenceHubSearchFocused] = React.useState(false)
   const [referenceSyllabusLevel, setReferenceSyllabusLevel] = React.useState<LessonCatalogLevel | null>(null)
   const [referenceTopicSearchQuery, setReferenceTopicSearchQuery] = React.useState('')
+  const [expandedCefrLesson, setExpandedCefrLesson] = React.useState<Set<CefrMenuLevel>>(() =>
+    initialExpandedForProfile(settings.level)
+  )
+  const [expandedCefrReference, setExpandedCefrReference] = React.useState<Set<CefrMenuLevel>>(() =>
+    initialExpandedForProfile(settings.level)
+  )
+  const [expandedTagBrowse, setExpandedTagBrowse] = React.useState<Set<CefrMenuLevel>>(() => new Set())
   const isReferenceBrowse = featureFlags.referenceV1 && catalogBrowseIntent === 'reference'
 
   React.useEffect(() => {
@@ -934,6 +951,35 @@ export default function MenuSectionPanels({
     [resolveMenuVariantCtaForLesson, selectedA2LessonId]
   )
 
+  const a1LevelProgressSummary = React.useMemo(
+    () =>
+      buildLevelProgressSummary(
+        a1TheoryItems.map((item) => item.id),
+        lessonProgressMap
+      ),
+    [a1TheoryItems, lessonProgressMap]
+  )
+  const a2LevelProgressSummary = React.useMemo(
+    () =>
+      buildLevelProgressSummary(
+        a2TheoryItems.map((item) => item.id),
+        lessonProgressMap
+      ),
+    [a2TheoryItems, lessonProgressMap]
+  )
+
+  const expandedCefrLevels = isReferenceBrowse ? expandedCefrReference : expandedCefrLesson
+  const toggleCefrLevelExpanded = React.useCallback(
+    (level: CefrMenuLevel) => {
+      if (isReferenceBrowse) {
+        setExpandedCefrReference((prev) => toggleExpandedLevel(prev, level))
+        return
+      }
+      setExpandedCefrLesson((prev) => toggleExpandedLevel(prev, level))
+    },
+    [isReferenceBrowse]
+  )
+
   const theoryTagsAlphabetical = React.useMemo(
     () => [...getAllTheoryTagsForMenu()].sort((a, b) => a.menuLabelRu.localeCompare(b.menuLabelRu, 'ru')),
     []
@@ -973,13 +1019,65 @@ export default function MenuSectionPanels({
 
   const [theoryTagBrowseLevel, setTheoryTagBrowseLevel] = React.useState<LessonCatalogLevel | null>(null)
 
+  // Initialize tag accordion expand when entering levels with a launch (do not clear browse level).
   React.useEffect(() => {
     if (lessonsPanel !== 'theoryTagLevels') return
-    setTheoryTagBrowseLevel(null)
-  }, [lessonsPanel])
+    if (!theoryTopicLaunch?.tagIds.length) return
+    if (theoryLevelsWithLessons.length === 0) {
+      setExpandedTagBrowse(new Set())
+      return
+    }
+    setExpandedTagBrowse((prev) => {
+      if (prev.size > 0) {
+        const stillValid = [...prev].filter((lvl) =>
+          theoryLevelsWithLessons.includes(lvl as LessonCatalogLevel)
+        )
+        if (stillValid.length > 0) return new Set(stillValid as CefrMenuLevel[])
+      }
+      const preferred = settingsLevelToCefr(settings.level)
+      const available = theoryLevelsWithLessons.filter(
+        (lvl): lvl is CefrMenuLevel => lvl === 'A1' || lvl === 'A2' || lvl === 'B1' || lvl === 'B2'
+      )
+      const pick = pickDefaultExpandLevel(preferred, available)
+      return pick ? new Set<CefrMenuLevel>([pick]) : new Set()
+    })
+  }, [lessonsPanel, theoryTopicLaunch, theoryLevelsWithLessons, settings.level])
 
   React.useEffect(() => {
-    if (lessonsPanel !== 'theoryTagLessons' || !theoryTopicLaunch?.tagIds.length || !theoryTagBrowseLevel) return
+    if (lessonsPanel !== 'theoryTagLevels' || !theoryTopicLaunch?.tagIds.length) return
+    if (expandedTagBrowse.size === 0) return
+    const ordered = theoryLevelsWithLessons.filter((lvl) =>
+      expandedTagBrowse.has(lvl as CefrMenuLevel)
+    )
+    const focusLevel = (ordered[0] ?? null) as LessonCatalogLevel | null
+    if (!focusLevel) return
+    const list = theoryTopicLessonsByLevel[focusLevel] ?? []
+    if (list.length === 0) {
+      setSelectedTheoryTopicLessonId(null)
+      return
+    }
+    setSelectedTheoryTopicLessonId((prev) => {
+      if (prev) {
+        for (const lvl of expandedTagBrowse) {
+          const rows = theoryTopicLessonsByLevel[lvl as LessonCatalogLevel] ?? []
+          if (rows.some((l) => l.id === prev)) return prev
+        }
+      }
+      return list[0]!.id
+    })
+    setTheoryTagBrowseLevel(focusLevel)
+  }, [
+    lessonsPanel,
+    theoryTopicLaunch,
+    theoryTopicLessonsByLevel,
+    theoryLevelsWithLessons,
+    expandedTagBrowse,
+  ])
+
+  // Legacy leaf: keep auto-select when old theoryTagLessons panel is restored.
+  React.useEffect(() => {
+    if (lessonsPanel !== 'theoryTagLessons' || !theoryTopicLaunch?.tagIds.length || !theoryTagBrowseLevel)
+      return
     const list = theoryTopicLessonsByLevel[theoryTagBrowseLevel] ?? []
     if (list.length === 0) {
       setSelectedTheoryTopicLessonId(null)
@@ -1175,6 +1273,7 @@ export default function MenuSectionPanels({
         (initialLessonsPanel === 'a1' || initialLessonsPanel === 'a2')
       ) {
         setTheoryTagBrowseLevel(initialLessonsPanel === 'a1' ? 'A1' : 'A2')
+        // Temporary leaf; tagRestore below remaps to theoryTagLevels accordion.
         setLessonsPanel('theoryTagLessons')
       }
     }
@@ -1186,12 +1285,68 @@ export default function MenuSectionPanels({
       setReferenceSyllabusLevel(initialLessonMenuContext.theoryTagBrowseLevel ?? null)
     }
 
+    const tagRestore = resolveTagAccordionRestore({
+      lessonsPanel: initialLessonsPanel,
+      theoryLessonSource: initialLessonMenuContext.theoryLessonSource,
+      theoryTagBrowseLevel: initialLessonMenuContext.theoryTagBrowseLevel,
+      selectedLessonId: initialLessonMenuContext.selectedLessonId,
+    })
+    // Prefer tag remap when source is tag_browse (overrides temporary theoryTagLessons leaf above).
+    if (tagRestore) {
+      setLessonsPanel(tagRestore.lessonsPanel)
+      if (tagRestore.expand) {
+        setExpandedTagBrowse(new Set([tagRestore.expand]))
+        setTheoryTagBrowseLevel(tagRestore.expand)
+      }
+      if (tagIds.length > 0) {
+        setTheoryTopicLaunch({ tagIds, searchQuery: q })
+        setActiveTheoryTagId(initialLessonMenuContext.activeTheoryTagId ?? tagIds[0] ?? null)
+      }
+    }
+
+    const cefrRestore = resolveCefrAccordionRestore({
+      lessonsPanel: initialLessonsPanel,
+      theoryLessonSource: initialLessonMenuContext.theoryLessonSource,
+      theoryTagBrowseLevel: initialLessonMenuContext.theoryTagBrowseLevel,
+      selectedLessonId: initialLessonMenuContext.selectedLessonId,
+    })
+    // CEFR remap only when tag did not claim the restore.
+    if (!tagRestore && cefrRestore) {
+      setLessonsPanel(cefrRestore.lessonsPanel)
+      if (cefrRestore.expand) {
+        const expandSet = new Set<CefrMenuLevel>([cefrRestore.expand])
+        if (initialLessonMenuContext.catalogBrowseIntent === 'reference') {
+          setExpandedCefrReference(expandSet)
+        } else {
+          setExpandedCefrLesson(expandSet)
+        }
+      }
+    } else if (
+      !tagRestore &&
+      initialLessonsPanel === 'theoryCefrLevels' &&
+      initialLessonMenuContext.theoryTagBrowseLevel
+    ) {
+      const expand = initialLessonMenuContext.theoryTagBrowseLevel
+      if (expand === 'A1' || expand === 'A2' || expand === 'B1' || expand === 'B2') {
+        const expandSet = new Set<CefrMenuLevel>([expand])
+        if (initialLessonMenuContext.catalogBrowseIntent === 'reference') {
+          setExpandedCefrReference(expandSet)
+        } else {
+          setExpandedCefrLesson(expandSet)
+        }
+      }
+    }
+
     const selectedLessonId = initialLessonMenuContext.selectedLessonId ?? null
     if (selectedLessonId) {
-      if (initialLessonsPanel === 'a1') {
+      if (tagRestore) {
+        setSelectedTheoryTopicLessonId(selectedLessonId)
+      } else if (initialLessonsPanel === 'a1') {
         setSelectedA1LessonId(selectedLessonId)
+        if (cefrRestore) setSelectedA2LessonId(null)
       } else if (initialLessonsPanel === 'a2') {
         setSelectedA2LessonId(selectedLessonId)
+        if (cefrRestore) setSelectedA1LessonId(null)
       } else if (initialLessonsPanel === 'theoryTagLessons') {
         setSelectedTheoryTopicLessonId(selectedLessonId)
       } else if (initialLessonsPanel === 'practice' && !activePracticeMenuSnapshot) {
@@ -1559,11 +1714,15 @@ export default function MenuSectionPanels({
     if (menuView === 'lessons' && lessonsPanel !== 'summary') {
       if (lessonsPanel === 'a1' || lessonsPanel === 'a2') {
         if (theoryLessonSourceNav === 'tag_browse') {
-          setTheoryTagBrowseLevel(lessonsPanel === 'a1' ? 'A1' : 'A2')
-          setLessonsPanel('theoryTagLessons')
+          const lvl = lessonsPanel === 'a1' ? 'A1' : 'A2'
+          setTheoryTagBrowseLevel(lvl)
+          setExpandedTagBrowse(new Set([lvl]))
+          setLessonsPanel('theoryTagLevels')
           return
         }
         if (theoryLessonSourceNav === 'cef_levels') {
+          const lvl = lessonsPanel === 'a1' ? 'A1' : 'A2'
+          setExpandedCefrLesson((prev) => new Set([...prev, lvl]))
           setLessonsPanel('theoryCefrLevels')
           return
         }
@@ -1587,6 +1746,8 @@ export default function MenuSectionPanels({
         setTheoryTopicLaunch(null)
         setSelectedTheoryTopicLessonId(null)
         setActiveTheoryTagId(null)
+        setTheoryTagBrowseLevel(null)
+        setExpandedTagBrowse(new Set())
         setLessonsPanel('theoryGrammarCategories')
         return
       }
@@ -1913,7 +2074,8 @@ export default function MenuSectionPanels({
   const lessonsUsesInnerScrollLayout =
     !homeLayout &&
     menuView === 'lessons' &&
-    (lessonsPanel === 'a1' ||
+    (lessonsPanel === 'theoryCefrLevels' ||
+      lessonsPanel === 'a1' ||
       lessonsPanel === 'a2' ||
       lessonsPanel === 'theoryGrammarCategories' ||
       lessonsPanel === 'referenceSyllabusThemes' ||
@@ -1924,8 +2086,10 @@ export default function MenuSectionPanels({
 
   const showLessonListDensitySwitcher =
     menuView === 'lessons' &&
-    (lessonsPanel === 'a1' ||
+    (lessonsPanel === 'theoryCefrLevels' ||
+      lessonsPanel === 'a1' ||
       lessonsPanel === 'a2' ||
+      lessonsPanel === 'theoryTagLevels' ||
       lessonsPanel === 'theoryTagLessons' ||
       lessonsPanel === 'practiceLevelTopics' ||
       lessonsPanel === 'referenceSyllabusThemes' ||
@@ -1964,7 +2128,13 @@ export default function MenuSectionPanels({
       candidate = { lessonId: selectedA2LessonId, panel: 'a2' }
     } else if (lessonsPanel === 'a1' && selectedA1LessonId) {
       candidate = { lessonId: selectedA1LessonId, panel: 'a1' }
-    } else if (lessonsPanel === 'theoryTagLessons' && selectedTheoryTopicLessonId) {
+    } else if (lessonsPanel === 'theoryCefrLevels' && (selectedA1LessonId || selectedA2LessonId)) {
+      if (selectedA1LessonId) candidate = { lessonId: selectedA1LessonId, panel: 'a1' }
+      else if (selectedA2LessonId) candidate = { lessonId: selectedA2LessonId, panel: 'a2' }
+    } else if (
+      (lessonsPanel === 'theoryTagLessons' || lessonsPanel === 'theoryTagLevels') &&
+      selectedTheoryTopicLessonId
+    ) {
       const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
       const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
       candidate = { lessonId: selectedTheoryTopicLessonId, panel }
@@ -3004,34 +3174,222 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'theoryCefrLevels' && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  {THEORY_LEVELS.map((level) => (
-                    <LessonLevelRow
-                      key={level.id}
-                      label={level.label}
-                      onClick={
-                        isReferenceBrowse &&
-                        (level.id === 'A1' || level.id === 'A2' || level.id === 'B1' || level.id === 'B2')
-                          ? () => {
-                              setReferenceSyllabusLevel(level.id as LessonCatalogLevel)
-                              setLessonsPanel('referenceSyllabusThemes')
-                            }
-                          : level.id === 'A2'
-                          ? () => {
-                              setTheoryLessonSourceNav('cef_levels')
-                              setLessonsPanel('a2')
-                            }
-                          : level.id === 'A1'
-                            ? () => {
-                                setTheoryLessonSourceNav('cef_levels')
-                                setLessonsPanel('a1')
+              <div className={lessonMenuPanelShellClass}>
+                <div className={lessonMenuListRegionClass}>
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      {THEORY_LEVELS.map((levelRow) => {
+                        const levelId = levelRow.id as CefrMenuLevel
+                        const expandableLesson = levelId === 'A1' || levelId === 'A2'
+                        const expandable =
+                          isReferenceBrowse
+                            ? levelId === 'A1' ||
+                              levelId === 'A2' ||
+                              levelId === 'B1' ||
+                              levelId === 'B2'
+                            : expandableLesson
+                        const expanded = expandable && expandedCefrLevels.has(levelId)
+                        const summaryLabel = !isReferenceBrowse
+                          ? levelId === 'A1'
+                            ? a1LevelProgressSummary.label
+                            : levelId === 'A2'
+                              ? a2LevelProgressSummary.label
+                              : null
+                          : null
+                        const lessonItems =
+                          levelId === 'A1' ? a1TheoryItems : levelId === 'A2' ? a2TheoryItems : []
+                        const syllabusTopics = isReferenceBrowse
+                          ? listSyllabusTopicsByLevel(levelId as LessonCatalogLevel)
+                          : []
+                        const bodyId = pid(`cefr-level-body-${levelId}`)
+
+                        return (
+                          <div key={levelId}>
+                            <CefrLevelAccordionHeader
+                              label={levelRow.label}
+                              expanded={expanded}
+                              expandable={expandable}
+                              summaryLabel={summaryLabel}
+                              controlsId={bodyId}
+                              onToggle={
+                                expandable
+                                  ? () => {
+                                      if (!isReferenceBrowse) setTheoryLessonSourceNav('cef_levels')
+                                      toggleCefrLevelExpanded(levelId)
+                                    }
+                                  : undefined
                               }
-                            : undefined
-                      }
-                    />
-                  ))}
+                            />
+                            {expanded ? (
+                              <div id={bodyId} role="region" aria-label={levelRow.label}>
+                                {isReferenceBrowse
+                                  ? syllabusTopics.map((topic) => {
+                                      const openable = isSyllabusTopicOpenable(topic)
+                                      return (
+                                        <A2LessonChoiceRow
+                                          key={`${levelId}-${topic.topicKey}`}
+                                          label={topic.titleRu}
+                                          subtitle={
+                                            topic.status === 'planned' ? 'Скоро' : topic.titleEn
+                                          }
+                                          description={topic.teaser}
+                                          density={lessonListDensity}
+                                          medalDisplay={null}
+                                          rewardIcons={null}
+                                          selected={false}
+                                          enabled={openable}
+                                          onClick={
+                                            openable
+                                              ? () => {
+                                                  if (topic.lessonId && onOpenReferenceTopic) {
+                                                    void onOpenReferenceTopic(
+                                                      topic.lessonId,
+                                                      'theoryCefrLevels',
+                                                      {
+                                                        catalogBrowseIntent: 'reference',
+                                                        theoryTagBrowseLevel: levelId as LessonCatalogLevel,
+                                                      }
+                                                    )
+                                                    return
+                                                  }
+                                                  void onOpenSyllabusTopic?.(topic.topicKey)
+                                                }
+                                              : undefined
+                                          }
+                                        />
+                                      )
+                                    })
+                                  : lessonItems.map((item) => (
+                                      <A2LessonChoiceRow
+                                        key={item.id}
+                                        label={item.label}
+                                        subtitle={item.short}
+                                        description={item.long}
+                                        density={lessonListDensity}
+                                        medalDisplay={resolveLessonCardMedal(
+                                          lessonProgressMap[item.id]
+                                        )}
+                                        rewardIcons={resolveLessonMenuRewardIconsFromProgress(
+                                          item.id,
+                                          lessonProgressMap[item.id]
+                                        )}
+                                        selected={
+                                          item.enabled &&
+                                          (levelId === 'A1'
+                                            ? selectedA1LessonId === item.id
+                                            : selectedA2LessonId === item.id)
+                                        }
+                                        enabled={item.enabled}
+                                        onClick={
+                                          item.enabled
+                                            ? () => {
+                                                setTheoryLessonSourceNav('cef_levels')
+                                                setGenerateLessonError(null)
+                                                if (levelId === 'A1') {
+                                                  setSelectedA1LessonId(item.id)
+                                                  setSelectedA2LessonId(null)
+                                                } else {
+                                                  setSelectedA2LessonId(item.id)
+                                                  setSelectedA1LessonId(null)
+                                                }
+                                              }
+                                            : undefined
+                                        }
+                                      />
+                                    ))}
+                              </div>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
+                {!isReferenceBrowse && (selectedA1LessonId || selectedA2LessonId) ? (
+                  <div className={lessonMenuFooterRegionClass}>
+                    {selectedA1LessonId ? (
+                      <LessonMenuVariantDualCta
+                        layout={a1LessonCtaLayout}
+                        selectedLessonId={selectedA1LessonId}
+                        generatingLessonId={generatingLessonId}
+                        canOpen={Boolean(onOpenLearningLesson && selectedA1LessonId)}
+                        canGenerate={Boolean(
+                          onGenerateLearningLesson && selectedA1LessonId && !generatingLessonId
+                        )}
+                        onOpen={() => {
+                          if (!onOpenLearningLesson || !selectedA1LessonId) return
+                          void onOpenLearningLesson(
+                            selectedA1LessonId,
+                            'a1',
+                            buildLearningLessonMeta()
+                          )
+                        }}
+                        onGenerate={async () => {
+                          if (!onGenerateLearningLesson || !selectedA1LessonId || generatingLessonId)
+                            return
+                          setGenerateLessonError(null)
+                          setGeneratingLessonId(selectedA1LessonId)
+                          try {
+                            await onGenerateLearningLesson(
+                              selectedA1LessonId,
+                              'a1',
+                              buildLearningLessonMeta()
+                            )
+                          } catch (error) {
+                            const message =
+                              error instanceof Error
+                                ? error.message
+                                : 'Не удалось сгенерировать урок через LLM.'
+                            setGenerateLessonError(message)
+                          } finally {
+                            setGeneratingLessonId(null)
+                          }
+                        }}
+                        generateError={generateLessonError}
+                      />
+                    ) : selectedA2LessonId ? (
+                      <LessonMenuVariantDualCta
+                        layout={a2LessonCtaLayout}
+                        selectedLessonId={selectedA2LessonId}
+                        generatingLessonId={generatingLessonId}
+                        canOpen={Boolean(onOpenLearningLesson && selectedA2LessonId)}
+                        canGenerate={Boolean(
+                          onGenerateLearningLesson && selectedA2LessonId && !generatingLessonId
+                        )}
+                        onOpen={() => {
+                          if (!onOpenLearningLesson || !selectedA2LessonId) return
+                          void onOpenLearningLesson(
+                            selectedA2LessonId,
+                            'a2',
+                            buildLearningLessonMeta()
+                          )
+                        }}
+                        onGenerate={async () => {
+                          if (!onGenerateLearningLesson || !selectedA2LessonId || generatingLessonId)
+                            return
+                          setGenerateLessonError(null)
+                          setGeneratingLessonId(selectedA2LessonId)
+                          try {
+                            await onGenerateLearningLesson(
+                              selectedA2LessonId,
+                              'a2',
+                              buildLearningLessonMeta()
+                            )
+                          } catch (error) {
+                            const message =
+                              error instanceof Error
+                                ? error.message
+                                : 'Не удалось сгенерировать урок через LLM.'
+                            setGenerateLessonError(message)
+                          } finally {
+                            setGeneratingLessonId(null)
+                          }
+                        }}
+                        generateError={generateLessonError}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             )}
 
@@ -3199,20 +3557,160 @@ export default function MenuSectionPanels({
                   ) : (
                     <div className={MENU_GROUP_OUTER}>
                       <div className={MENU_GROUP_CLASS}>
-                        {theoryLevelsWithLessons.map((lvl) => (
-                          <LessonLevelRow
-                            key={lvl}
-                            label={THEORY_LEVELS.find((r) => r.id === lvl)?.label ?? `${lvl}`}
-                            onClick={() => {
-                              setTheoryTagBrowseLevel(lvl)
-                              setLessonsPanel('theoryTagLessons')
-                            }}
-                          />
-                        ))}
+                        {theoryLevelsWithLessons.map((lvl) => {
+                          const levelId = lvl as CefrMenuLevel
+                          const expanded = expandedTagBrowse.has(levelId)
+                          const lessons = theoryTopicLessonsByLevel[lvl] ?? []
+                          const bodyId = pid(`tag-level-body-${levelId}`)
+                          const summary = !isReferenceBrowse
+                            ? buildLevelProgressSummary(
+                                lessons.map((l) => l.id),
+                                lessonProgressMap
+                              ).label
+                            : null
+                          return (
+                            <div key={lvl}>
+                              <CefrLevelAccordionHeader
+                                label={THEORY_LEVELS.find((r) => r.id === lvl)?.label ?? `${lvl}`}
+                                expanded={expanded}
+                                expandable
+                                summaryLabel={summary}
+                                controlsId={bodyId}
+                                onToggle={() => {
+                                  setTheoryLessonSourceNav('tag_browse')
+                                  setExpandedTagBrowse((prev) => toggleExpandedLevel(prev, levelId))
+                                }}
+                              />
+                              {expanded ? (
+                                <div id={bodyId} role="region" aria-label={String(lvl)}>
+                                  {lessons.map((lesson) => {
+                                    const topicCopy = a2PracticeTopicCopy[lesson.id]
+                                    return (
+                                      <A2LessonChoiceRow
+                                        key={lesson.id}
+                                        label={lesson.title}
+                                        subtitle={topicCopy?.short}
+                                        description={topicCopy?.long}
+                                        density={lessonListDensity}
+                                        medalDisplay={
+                                          isReferenceBrowse
+                                            ? null
+                                            : resolveLessonCardMedal(lessonProgressMap[lesson.id])
+                                        }
+                                        rewardIcons={
+                                          isReferenceBrowse
+                                            ? null
+                                            : resolveLessonMenuRewardIconsFromProgress(
+                                                lesson.id,
+                                                lessonProgressMap[lesson.id]
+                                              )
+                                        }
+                                        selected={Boolean(
+                                          lesson.enabled && selectedTheoryTopicLessonId === lesson.id
+                                        )}
+                                        enabled={lesson.enabled}
+                                        onClick={
+                                          lesson.enabled
+                                            ? () => {
+                                                setTheoryLessonSourceNav('tag_browse')
+                                                setTheoryTagBrowseLevel(lvl)
+                                                setSelectedTheoryTopicLessonId(lesson.id)
+                                                setGenerateLessonError(null)
+                                              }
+                                            : undefined
+                                        }
+                                      />
+                                    )
+                                  })}
+                                </div>
+                              ) : null}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
                 </div>
+                {theoryTopicLessonsFlat.length > 0 ? (
+                  <div className={lessonMenuFooterRegionClass}>
+                    {isReferenceBrowse ? (
+                      <button
+                        type="button"
+                        disabled={!onOpenReferenceTopic || !selectedTheoryTopicLessonId}
+                        onClick={() => {
+                          if (!onOpenReferenceTopic || !selectedTheoryTopicLessonId) return
+                          const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
+                          const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
+                          void onOpenReferenceTopic(
+                            selectedTheoryTopicLessonId,
+                            panel,
+                            buildLearningLessonMeta()
+                          )
+                        }}
+                        className={MENU_PRIMARY_CTA_CLASS}
+                      >
+                        {REFERENCE_COPY.topicCta}
+                      </button>
+                    ) : (
+                      <LessonMenuVariantDualCta
+                        layout={theoryTopicLessonCtaLayout}
+                        selectedLessonId={selectedTheoryTopicLessonId}
+                        generatingLessonId={generatingLessonId}
+                        canOpen={Boolean(onOpenLearningLesson && selectedTheoryTopicLessonId)}
+                        canGenerate={Boolean(
+                          onGenerateLearningLesson &&
+                            selectedTheoryTopicLessonId &&
+                            !generatingLessonId &&
+                            (() => {
+                              const m = selectedTheoryTopicLessonId
+                                ? getLessonTopicById(selectedTheoryTopicLessonId)
+                                : null
+                              return m?.level === 'A1' || m?.level === 'A2'
+                            })()
+                        )}
+                        onOpen={() => {
+                          if (!onOpenLearningLesson || !selectedTheoryTopicLessonId) return
+                          const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
+                          const panel: LessonsPanel = topicMeta?.level === 'A1' ? 'a1' : 'a2'
+                          void onOpenLearningLesson(
+                            selectedTheoryTopicLessonId,
+                            panel,
+                            buildLearningLessonMeta()
+                          )
+                        }}
+                        onGenerate={async () => {
+                          if (
+                            !onGenerateLearningLesson ||
+                            !selectedTheoryTopicLessonId ||
+                            generatingLessonId
+                          )
+                            return
+                          const topicMeta = getLessonTopicById(selectedTheoryTopicLessonId)
+                          if (topicMeta?.level !== 'A1' && topicMeta?.level !== 'A2') return
+                          const panel: LessonsPanel = topicMeta.level === 'A1' ? 'a1' : 'a2'
+                          setGenerateLessonError(null)
+                          setGeneratingLessonId(selectedTheoryTopicLessonId)
+                          try {
+                            await onGenerateLearningLesson(
+                              selectedTheoryTopicLessonId,
+                              panel,
+                              buildLearningLessonMeta()
+                            )
+                          } catch (error) {
+                            const message =
+                              error instanceof Error
+                                ? error.message
+                                : 'Не удалось сгенерировать урок через LLM.'
+                            setGenerateLessonError(message)
+                          } finally {
+                            setGeneratingLessonId(null)
+                          }
+                        }}
+                        generateError={generateLessonError}
+                      />
+                    )}
+                  </div>
+                ) : null}
               </div>
             ) : null}
 
@@ -4384,6 +4882,57 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
   )
 }
 
+function CefrLevelAccordionHeader({
+  label,
+  expanded,
+  expandable,
+  summaryLabel,
+  controlsId,
+  onToggle,
+}: {
+  label: string
+  expanded: boolean
+  expandable: boolean
+  summaryLabel?: string | null
+  controlsId?: string
+  onToggle?: () => void
+}) {
+  if (!expandable || !onToggle) {
+    return (
+      <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
+        <span className={MENU_ROW_LABEL_CLASS}>{label}</span>
+        <span className="flex shrink-0 items-center gap-2.5">
+          <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={expanded}
+      aria-controls={controlsId}
+      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
+    >
+      <span className={`min-w-0 flex-1 text-left ${MENU_ROW_LABEL_CLASS}`}>{label}</span>
+      <span className="flex shrink-0 items-center gap-2.5">
+        {summaryLabel ? (
+          <span className="text-[13px] leading-normal text-[var(--text-muted)] tabular-nums">
+            {summaryLabel}
+          </span>
+        ) : null}
+        {expanded ? (
+          <ChevronUpIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+        ) : (
+          <ChevronDownIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
+        )}
+      </span>
+    </button>
+  )
+}
+
 function LessonLevelRow({ label, onClick }: { label: string; onClick?: () => void }) {
   if (onClick) {
     return <MenuNavRow label={label} onClick={onClick} />
@@ -4958,6 +5507,22 @@ function ChevronRightIcon({ className }: { className?: string }) {
   return (
     <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  )
+}
+
+function ChevronDownIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+    </svg>
+  )
+}
+
+function ChevronUpIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
     </svg>
   )
 }

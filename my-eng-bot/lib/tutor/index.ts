@@ -66,11 +66,17 @@ export { bandFromMicroScore, tutorMicroScoreRatio } from '@/lib/tutor/microScore
 export { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
 export {
   buildTutorFollowUpPlaceholder,
+  buildTutorFollowUpChip,
   compressSiblingToFollowUpHint,
   resolveFollowUpTopicKey,
+  stripFollowUpPlaceholderPrefix,
   TUTOR_FOLLOW_UP_PLACEHOLDER_MAX,
+  TUTOR_FOLLOW_UP_CHIP_MAX,
 } from '@/lib/tutor/buildFollowUpPlaceholder'
-export type { BuildTutorFollowUpPlaceholderParams } from '@/lib/tutor/buildFollowUpPlaceholder'
+export type {
+  BuildTutorFollowUpPlaceholderParams,
+  BuildTutorFollowUpChipParams,
+} from '@/lib/tutor/buildFollowUpPlaceholder'
 export { buildTutorMicroPackFromExplain, inferContrastCorrectIndex } from '@/lib/tutor/buildMicroPack'
 export {
   buildAgeChoiceItems,

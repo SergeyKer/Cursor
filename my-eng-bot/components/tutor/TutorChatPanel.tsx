@@ -40,7 +40,9 @@ import { LESSON_BUBBLE_ENTER_MS } from '@/lib/lessonRevealTiming'
 import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
-import { buildTutorFollowUpPlaceholder } from '@/lib/tutor/buildFollowUpPlaceholder'
+import {
+  buildTutorFollowUpChip,
+} from '@/lib/tutor/buildFollowUpPlaceholder'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
@@ -202,6 +204,8 @@ export default function TutorChatPanel({
   const [triageChips, setTriageChips] = useState<TutorComposerChip[]>([])
   const [anchorQuery, setAnchorQuery] = useState<string | null>(null)
   const [postExplainChips, setPostExplainChips] = useState(false)
+  const [followUpNudgeConsumed, setFollowUpNudgeConsumed] = useState(false)
+  const [followUpNudgeArmed, setFollowUpNudgeArmed] = useState(false)
   const [lastExplain, setLastExplain] = useState<TutorExplainAnswer | null>(null)
   const [busy, setBusy] = useState(false)
   const [loadingMicro, setLoadingMicro] = useState(false)
@@ -274,26 +278,36 @@ export default function TutorChatPanel({
 
   const composerPlaceholder = useMemo(() => {
     const audience = session?.settings.audience === 'child' ? 'child' : 'adult'
-    const idle = tutorComposerPlaceholder(audience)
-    const canSmart =
-      lastExplain != null &&
-      !busy &&
-      triageChips.length === 0 &&
-      (microPhase === 'idle' || microPhase === 'finale')
-    if (!canSmart || !lastExplain) return idle
-    return (
-      buildTutorFollowUpPlaceholder({
-        answer: lastExplain,
-        level: session?.settings.level ?? 'a2',
-        audience,
-        excludeQuestionRu: anchorQuery,
-      }) ?? idle
-    )
+    return tutorComposerPlaceholder(audience)
+  }, [session?.settings.audience])
+
+  const followUpChip = useMemo((): TutorComposerChip | null => {
+    if (!followUpNudgeArmed || followUpNudgeConsumed || !postExplainChips || !lastExplain) {
+      return null
+    }
+    if (triageChips.length > 0) return null
+    if (microPhase !== 'idle' && microPhase !== 'finale') return null
+    const audience = session?.settings.audience === 'child' ? 'child' : 'adult'
+    const submitText = buildTutorFollowUpChip({
+      answer: lastExplain,
+      level: session?.settings.level ?? 'a2',
+      audience,
+      excludeQuestionRu: anchorQuery,
+    })
+    if (!submitText?.trim()) return null
+    const text = submitText.trim()
+    return {
+      id: 'follow_up',
+      labelRu: text,
+      submitText: text,
+    }
   }, [
     anchorQuery,
-    busy,
+    followUpNudgeArmed,
+    followUpNudgeConsumed,
     lastExplain,
     microPhase,
+    postExplainChips,
     session?.settings.audience,
     session?.settings.level,
     triageChips.length,
@@ -356,6 +370,8 @@ export default function TutorChatPanel({
     voice.setDraftText(snap.draft)
     setAnchorQuery(snap.anchorQuery)
     setPostExplainChips(snap.postExplainChips)
+    setFollowUpNudgeConsumed(snap.followUpNudgeConsumed === true)
+    setFollowUpNudgeArmed(snap.followUpNudgeArmed === true)
     setThread(snap.thread.map((m) => ({ id: m.id, role: m.role, text: m.text })))
     if (snap.lastExplain) {
       setLastExplain(snap.lastExplain)
@@ -491,10 +507,20 @@ export default function TutorChatPanel({
       draft,
       anchorQuery,
       postExplainChips,
+      followUpNudgeConsumed,
+      followUpNudgeArmed,
       thread: thread.map(({ id, role, text }) => ({ id, role, text })),
       ...(lastExplain ? { lastExplain } : {}),
     }
-  }, [anchorQuery, draft, lastExplain, postExplainChips, thread])
+  }, [
+    anchorQuery,
+    draft,
+    followUpNudgeArmed,
+    followUpNudgeConsumed,
+    lastExplain,
+    postExplainChips,
+    thread,
+  ])
 
   const promoteWithUserQuery = useCallback(
     (text: string, baseThread?: ThreadMessage[]) => {
@@ -506,6 +532,8 @@ export default function TutorChatPanel({
         draft: '',
         anchorQuery: null,
         postExplainChips: false,
+        followUpNudgeConsumed: false,
+        followUpNudgeArmed: false,
         thread: [...prior.map(({ id, role, text: t }) => ({ id, role, text: t })), userMsg],
         pendingTriageQuery: trimmed,
         ...(lastExplain ? { lastExplain } : {}),
@@ -559,6 +587,7 @@ export default function TutorChatPanel({
             setLastExplain(localAnswer)
             setAnchorQuery(localAnswer.topicAnchor.title || query)
             setPostExplainChips(true)
+            setFollowUpNudgeArmed(true)
             setTriageChips([])
             append('assistant', formatExplainBubble(localAnswer), localAnswer)
             const newKey = localAnswer.topicAnchor.canonicalKey
@@ -610,6 +639,7 @@ export default function TutorChatPanel({
         setLastExplain(answer)
         setAnchorQuery(answer.topicAnchor.title || query)
         setPostExplainChips(true)
+        setFollowUpNudgeArmed(true)
         setTriageChips([])
         append('assistant', formatExplainBubble(answer), answer)
         const newKey = answer.topicAnchor.canonicalKey
@@ -887,6 +917,10 @@ export default function TutorChatPanel({
       const text = rawText.trim()
       if (!text) return
 
+      if (followUpNudgeArmed) {
+        setFollowUpNudgeConsumed(true)
+      }
+
       const userAlreadyInThread = options?.userAlreadyInThread === true
       let threadForTurn = thread
       if (!userAlreadyInThread) {
@@ -971,6 +1005,7 @@ export default function TutorChatPanel({
       applyTriage,
       lastExplain,
       nextId,
+      followUpNudgeArmed,
       runExplain,
       session?.settings.level,
       thread,
@@ -1331,6 +1366,23 @@ export default function TutorChatPanel({
     (chipId: string) => {
       if (microPhase === 'revealing') return
 
+      if (chipId === 'follow_up') {
+        const text = (followUpChip?.submitText ?? followUpChip?.labelRu)?.trim()
+        if (
+          !text ||
+          busy ||
+          isTutorMicroLocked(microPhase) ||
+          voice.isVoiceActive ||
+          voice.listening
+        ) {
+          return
+        }
+        setFollowUpNudgeConsumed(true)
+        setDraftSynced('')
+        handleUserTurn(text, { userAlreadyInThread: false })
+        return
+      }
+
       if (microPhase === 'active') {
         if (!chipId.startsWith('opt_')) return
         const idx = Number(chipId.slice(4))
@@ -1406,20 +1458,27 @@ export default function TutorChatPanel({
       answerMicro,
       append,
       buildSnapshot,
+      busy,
+      followUpChip,
       handleChipSelect,
+      handleUserTurn,
       lastExplain,
       microPhase,
       onDone,
       postExplainChips,
       session,
+      setDraftSynced,
       startMicro,
+      voice.isVoiceActive,
+      voice.listening,
     ]
   )
 
   const isMicroLocked = isTutorMicroLocked(microPhase)
   const composerLocked = busy || isMicroLocked
-  const chipsDisabled = busy || microPhase === 'revealing'
+  const chipsDisabled = busy || microTypingVisible || microPhase === 'revealing'
   const chipsMode = isMicroLocked ? 'micro' : 'nav'
+  const threadFollowUpChip = chipsMode === 'micro' ? null : followUpChip
   const microChoiceFrozen = isTutorMicroChoiceFrozen(microPhase, hasMicroReveal)
   const microWrongChoiceText =
     microReveal && !microReveal.correct ? microReveal.chosenText : null
@@ -1677,6 +1736,7 @@ export default function TutorChatPanel({
                   placeholder={composerPlaceholder}
                   chips={primaryChips}
                   onChipSelect={handlePrimaryChip}
+                  followUpChip={threadFollowUpChip}
                   chipsMode={chipsMode}
                   chipsResetKey={microChipsResetKey}
                   microChoiceFrozen={microChoiceFrozen}

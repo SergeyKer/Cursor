@@ -40,6 +40,15 @@ describe('routeTutorTurn', () => {
     expect(routeTutorTurn({ query: 'проверь: I have went', lastExplain: ppExplain }).kind).toBe(
       'continue'
     )
+    expect(routeTutorTurn({ query: 'Напиши ещё примеры', lastExplain: ppExplain }).kind).toBe(
+      'continue'
+    )
+    expect(routeTutorTurn({ query: 'напиши еще примеры', lastExplain: ppExplain }).kind).toBe(
+      'continue'
+    )
+    expect(routeTutorTurn({ query: 'Можно короткий пример?', lastExplain: ppExplain }).kind).toBe(
+      'continue'
+    )
   })
 
   it('switches on new grammar (anti false-continue)', () => {
