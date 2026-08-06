@@ -3,7 +3,6 @@ import {
   type PracticeFooterContext,
 } from '@/lib/practice/practiceFooterCopy'
 import { resolvePracticeTargetQuestionCount } from '@/lib/practice/practiceSessionProgress'
-import { computePracticeMasterySnapshot } from '@/lib/practice/practiceMastery'
 import { resolvePracticeFooterTopLine } from '@/lib/practice/practiceCoach'
 import type { PracticeSession } from '@/types/practice'
 
@@ -19,17 +18,38 @@ export type PracticeFooterState =
   | 'completed'
   | 'error'
 
+export type PracticeSessionMeter = {
+  current: number
+  target: number
+  sessionXp: number
+  statusLabel: string
+  fillPercent: number
+}
+
 export interface PracticeFooterView {
   dynamicText: string
+  /** Legacy bottom line — AppShell must keep footerStaticText null when sessionMeter is shown. */
   staticText: string
+  sessionMeter: PracticeSessionMeter
   typingKey: string
 }
 
-function modeLabel(mode: PracticeSession['mode']): string {
-  if (mode === 'reference') return 'Эталон'
-  if (mode === 'relaxed') return 'Лёгкая'
-  if (mode === 'balanced') return 'Обычная'
-  return 'Челлендж'
+function practiceFillPercent(current: number, target: number): number {
+  const safeTarget = Math.max(1, Math.floor(target))
+  const safeCurrent = Math.max(0, Math.min(safeTarget, Math.floor(current)))
+  return Math.round((safeCurrent / safeTarget) * 100)
+}
+
+export function practiceStatusLabel(params: {
+  state: PracticeFooterState
+  remaining: number
+}): string {
+  if (params.state === 'completed') return '🏁'
+  if (params.state === 'correction' || params.state === 'feedback') {
+    // feedback with wrong-limit still uses 🎯; correction = retry
+    if (params.state === 'correction') return '🔁'
+  }
+  return `🎯${Math.max(0, Math.floor(params.remaining))}`
 }
 
 export function getPracticeFooterView(
@@ -51,15 +71,11 @@ export function getPracticeFooterView(
     ...footerContext,
   })
 
-  const total = resolvePracticeTargetQuestionCount(session)
-  const mastery = computePracticeMasterySnapshot(session)
-  const current = Math.min(session.currentIndex + 1, Math.max(1, total))
-  const staticText =
-    state === 'briefing'
-      ? `Практика ${modeLabel(session.mode)} | ${session.topic}`
-      : state === 'completed'
-        ? `Практика завершена | с первой попытки ${mastery.masteryScore}/${total}`
-        : `Практика ${modeLabel(session.mode)} | ${current}/${total} | ${session.xp === 0 ? '0' : `+${session.xp}`} | COMBO x${session.streak}`
+  const target = resolvePracticeTargetQuestionCount(session)
+  const answered = Math.max(0, session.answers.length)
+  const current = Math.min(answered, target)
+  const remaining = Math.max(0, target - current)
+  const sessionXp = Math.max(0, Math.floor(session.xp))
 
   const lastAnswer = session.answers.at(-1)
   const coach = resolvePracticeFooterTopLine({
@@ -89,13 +105,25 @@ export function getPracticeFooterView(
           ? `COMBO x${session.streak}. Отличный ритм.`
           : coach.text)
 
+  const statusLabel =
+    state === 'feedback' && footerContext.isWrongLimitAdvance
+      ? `🎯${remaining}`
+      : practiceStatusLabel({ state, remaining })
+
   const wrongAttemptsKey =
     state === 'correction' ? footerContext.wrongAttemptsOnCurrentQuestion : 0
   const wrongLimitKey = footerContext.isWrongLimitAdvance ? 'wrong-limit' : 'normal'
 
   return {
     dynamicText,
-    staticText,
-    typingKey: `practice-${session.id}-${state}-${session.currentIndex}-${session.streak}-${wrongAttemptsKey}-${wrongLimitKey}`,
+    staticText: '',
+    sessionMeter: {
+      current: state === 'briefing' ? 0 : current,
+      target,
+      sessionXp,
+      statusLabel: state === 'briefing' ? `🎯${target}` : statusLabel,
+      fillPercent: practiceFillPercent(state === 'briefing' ? 0 : current, target),
+    },
+    typingKey: `practice-${session.id}-${state}-${session.currentIndex}-${session.streak}-${wrongAttemptsKey}-${wrongLimitKey}-${current}`,
   }
 }

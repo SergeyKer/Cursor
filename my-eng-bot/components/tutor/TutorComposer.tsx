@@ -221,7 +221,7 @@ export default function TutorComposer({
               <span
                 aria-hidden="true"
                 className={`pointer-events-none absolute inset-x-0 z-[2] flex items-center px-0.5 text-[15px] leading-snug ${
-                  voiceStatusIsDanger ? 'text-red-600' : 'text-[var(--muted)]'
+                  voiceStatusIsDanger ? 'text-red-600' : 'text-[var(--text-muted)]'
                 } ${getChatComposerOverlayVerticalClass(Boolean(menuDock))}`}
               >
                 {iosChromeVoiceStatusMessage}
@@ -237,8 +237,10 @@ export default function TutorComposer({
             rows={1}
             readOnly={readOnly || composerLocked}
             aria-label="Текст вопроса"
-            className={`relative z-[1] block w-full resize-none border-0 bg-transparent px-0.5 ${CHAT_COMPOSER_TYPO_CLASS} text-[var(--text)] outline-none placeholder:text-[var(--muted)] ${getChatComposerTextareaVerticalClass(Boolean(menuDock))} ${
-              showVoiceOverlay || iosChromeVoiceStatusMessage ? 'caret-transparent text-transparent' : ''
+            className={`relative z-[1] block w-full resize-none border-0 bg-transparent px-0.5 ${CHAT_COMPOSER_TYPO_CLASS} text-[var(--text)] outline-none placeholder:text-[var(--text-muted)] placeholder:transition-colors focus:placeholder:text-transparent ${getChatComposerTextareaVerticalClass(Boolean(menuDock))} ${
+              showVoiceOverlay || iosChromeVoiceStatusMessage
+                ? 'caret-transparent text-transparent placeholder:text-transparent'
+                : ''
             }`}
           />
         </div>
@@ -280,7 +282,7 @@ export default function TutorComposer({
       {voiceStatusMessage ? (
         <p
           className={`px-0.5 text-[12px] leading-snug ${
-            voiceStatusIsDanger ? 'text-red-600' : 'text-[var(--muted)]'
+            voiceStatusIsDanger ? 'text-red-600' : 'text-[var(--text-muted)]'
           }`}
           role="status"
           aria-live="polite"

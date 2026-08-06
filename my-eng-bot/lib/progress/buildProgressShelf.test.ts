@@ -25,6 +25,7 @@ describe('buildProgressShelf', () => {
     expect(shelf.medals.silver).toBe(0)
     expect(shelf.medals.bronze).toBe(0)
     expect(shelf.lessonRows).toHaveLength(4)
+    expect(shelf.topicAwardRows.length).toBeGreaterThanOrEqual(4)
     expect(shelf.currencies.coins).toBeGreaterThanOrEqual(0)
     expect(shelf.opportunity).toBeNull()
   })

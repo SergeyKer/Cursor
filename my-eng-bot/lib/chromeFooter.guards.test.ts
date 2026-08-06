@@ -62,22 +62,30 @@ describe('chrome footer layout guards', () => {
     expect(css).not.toMatch(/--app-footer-backdrop-filter:\s*var\(--app-header-backdrop-filter\)/)
   })
 
-  it('sessionMeter is blocked by lesson/practice overlays and static uses that gate', () => {
+  it('sessionMeter is blocked by lesson overlays; practice uses meter and nulls static', () => {
     const source = readProjectFile('components/app/AppShell.tsx')
-    expect(source).toMatch(/const footerSessionMeterBlocked =/)
-    expect(source).toMatch(/isStructuredLessonActive/)
-    expect(source).toMatch(/isPracticeActive/)
-    expect(source).toMatch(/isLessonIntroActive/)
-    expect(source).toMatch(/isLessonTipsActive/)
-    expect(source).toMatch(/isLessonBriefingActive/)
-    expect(source).toMatch(/footerDisplaySessionMeter =[\s\S]*!footerSessionMeterBlocked/)
+    const blockedBlock = source.match(
+      /const footerSessionMeterBlocked =([\s\S]*?)const footerSessionMeterChatActive/
+    )?.[1]
+    expect(blockedBlock).toBeTruthy()
+    expect(blockedBlock).toMatch(/isStructuredLessonActive/)
+    expect(blockedBlock).toMatch(/isLessonIntroActive/)
+    expect(blockedBlock).toMatch(/isLessonTipsActive/)
+    expect(blockedBlock).toMatch(/isLessonBriefingActive/)
+    expect(blockedBlock).not.toMatch(/isPracticeActive/)
+    expect(source).toMatch(
+      /footerDisplaySessionMeter =[\s\S]*isPracticeActive[\s\S]*practiceFooterView\?\.sessionMeter/
+    )
     expect(source).toMatch(/footerSessionMeterChatActive/)
     expect(source).toMatch(
-      /footerStaticText =[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
+      /footerStaticText =[\s\S]*isPracticeActive \|\|[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
     )
     expect(source).not.toMatch(
       /footerStaticText =[\s\S]*translationChatActive \|\|[\s\S]*dialogueChatActive \|\|[\s\S]*communicationChatActive[\s\S]*\? null/
     )
+    expect(source).not.toMatch(/buildPracticeFooterLive/)
+    expect(source).not.toMatch(/const practiceFooterLive/)
+    expect(source).toMatch(/mapPracticeFlowToFooterState/)
   })
 
   it('AppFooter prefers lesson segments over sessionMeter via resolveFooterBottomMode', () => {

@@ -393,9 +393,12 @@ export default function AppFooter({
                   <span className="inline-flex w-[5.5rem] shrink-0 items-center justify-center overflow-visible sm:w-[6.5rem]">
                     <span
                       key={normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
-                      className={`session-meter-status-enter ${TRUNCATE_X_CLASS} ${FOOTER_STAT_VALUE_CLASS}`}
+                      className="session-meter-status-enter"
                     >
-                      {normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
+                      <EmojiLeadingStatText
+                        text={normalizeFooterText(sessionMeter!.statusLabel) || 'цель'}
+                        className={FOOTER_STAT_PAIR_CLASS}
+                      />
                     </span>
                   </span>
                 </div>

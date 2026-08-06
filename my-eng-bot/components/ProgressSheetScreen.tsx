@@ -27,6 +27,8 @@ import {
   type ProgressLaunchTarget,
 } from '@/lib/progress/progressActions'
 import { buildProgressStatusCopy } from '@/lib/progress/statusCopy'
+import { toggleTopicAwardExpanded } from '@/lib/progress/topicAwardRows'
+import ProgressTopicAwardsList from '@/components/progress/ProgressTopicAwardsList'
 import type { PracticeRewardOpportunity } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
@@ -70,17 +72,6 @@ const STATUS_INSET_LAUNCH_BTN = [
   'mt-3 flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
 ].join(' ')
 
-function medalLabel(
-  medal: string | null | undefined,
-  audience: ProgressAudience,
-  copy: ReturnType<typeof progressCopy>
-): string {
-  if (!medal || medal === '-' || medal === 'started') {
-    return medal === 'started' ? copy.medalStarted : copy.medalNotStarted
-  }
-  return String(medal)
-}
-
 export default function ProgressSheetScreen({
   rewardsState,
   settings,
@@ -96,6 +87,7 @@ export default function ProgressSheetScreen({
   const copy = progressCopy(audience)
   const scrollRef = useRef<HTMLDivElement>(null)
   const [detail, setDetail] = useState<ProgressDetailKind | null>(null)
+  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const shelf = useMemo(() => buildProgressShelf(rewardsState), [rewardsState, refreshKey])
@@ -182,6 +174,7 @@ export default function ProgressSheetScreen({
   const handleBack = () => {
     if (detail) {
       setDetail(null)
+      setExpandedLessonId(null)
       return
     }
     trackProgressEvent('progress_space_back', { audience })
@@ -207,7 +200,7 @@ export default function ProgressSheetScreen({
     ? null
     : `🥇 ${shelf.medals.gold} · 🥈 ${shelf.medals.silver} · 🥉 ${shelf.medals.bronze}${
         shelf.cupStats ? ` · 🏆 ${shelf.cupStats.cups}` : ''
-      }`
+      } · ${copy.lessonBadgesSummary} ${shelf.lessonBadgesEarned}`
 
   const overview = (
     <div className="w-full min-w-0 space-y-2.5">
@@ -579,52 +572,23 @@ export default function ProgressSheetScreen({
 
   const awardsDetail = (
     <div className="w-full min-w-0 space-y-2.5">
-      <ProgressCard title={copy.lessonsSection}>
-        <ul className="space-y-2">
-          {shelf.lessonRows.map((row) => (
-            <li key={row.lessonId} className="min-w-0 space-y-1">
-              <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
-                {row.topic}: {medalLabel(row.medal, audience, copy)}
-              </p>
-              {!row.notStarted ? (
-                <ProgressFooterButton
-                  variant="launch"
-                  label={copy.startLessonRow}
-                  disabled={practiceBusy}
-                  roundBottom={false}
-                  onClick={() =>
-                    void onLaunchTarget?.({ kind: 'lesson', lessonId: row.lessonId })
-                  }
-                />
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      </ProgressCard>
-      <ProgressCard title={copy.practiceSection}>
-        <ul className="space-y-2">
-          {shelf.practiceRows.map((row) => (
-            <li key={row.lessonId} className="min-w-0 space-y-1">
-              <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
-                {row.topic}
-                {row.badgeText ? ` · ${row.badgeText}` : ''}
-              </p>
-              <ProgressFooterButton
-                variant="launch"
-                label={copy.startPracticeRow}
-                disabled={practiceBusy}
-                roundBottom={false}
-                onClick={() =>
-                  void onLaunchTarget?.({
-                    kind: 'practice',
-                    lessonId: row.lessonId,
-                    mode: 'balanced',
-                  })
-                }
-              />
-            </li>
-          ))}
-        </ul>
+      <ProgressCard title={copy.awardsTitle}>
+        {shelf.cupStats ? (
+          <p className="emoji-line mb-2 text-[13px] text-[var(--text-muted)]">
+            🏆 {shelf.cupStats.cups}/{shelf.cupStats.withMedal || 0}
+          </p>
+        ) : null}
+        <ProgressTopicAwardsList
+          rows={shelf.topicAwardRows}
+          copy={copy}
+          expandedLessonId={expandedLessonId}
+          nearestBadge={shelf.nearestBadge}
+          practiceBusy={practiceBusy}
+          onToggle={(lessonId) =>
+            setExpandedLessonId((cur) => toggleTopicAwardExpanded(cur, lessonId))
+          }
+          onLaunch={(target) => void onLaunchTarget?.(target)}
+        />
       </ProgressCard>
     </div>
   )

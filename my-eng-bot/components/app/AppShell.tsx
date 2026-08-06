@@ -242,7 +242,7 @@ import type { AccentFooterView } from '@/components/branches/AccentBranch'
 import { getPracticeFooterView } from '@/lib/practice/practiceFooter'
 import { isPracticeWrongLimitAdvance } from '@/lib/practice/practiceFooterCopy'
 import type { PracticeChoiceCorrectionPhase } from '@/lib/practice/practiceChoiceCorrectionPhase'
-import { buildPracticeFooterLive, mapPracticeFlowToFooterState } from '@/lib/practice/practiceFooterLive'
+import { mapPracticeFlowToFooterState } from '@/lib/practice/practiceFooterLive'
 import { resolvePracticeCompletion } from '@/lib/practice/resolvePracticeCompletion'
 import { resolveCanEarnRingToday } from '@/lib/practice/resolvePostPracticeActions'
 import { pickBestPracticeRewardOpportunity } from '@/lib/practice/pickBestPracticeRewardOpportunity'
@@ -8871,20 +8871,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         }
       )
     : null
-  const practiceFooterLive = React.useMemo(() => {
-    if (!isPracticeActive || !practiceSession.session) return null
-    const lessonMedal = loadLessonProgress(practiceSession.session.lessonId)?.medal ?? null
-    const tier = resolvePracticeEconomyTier(lessonMedal)
-    const progress = getPracticeTopicProgress(practiceSession.session.lessonId)
-    return buildPracticeFooterLive({
-      session: practiceSession.session,
-      state: mapPracticeFlowToFooterState(practiceSession.state),
-      tier,
-      progress,
-      gemsPending: progress.gemsPending,
-    })
-  }, [isPracticeActive, practiceSession.session, practiceSession.state])
-
   React.useEffect(() => {
     if (lessonViewStage === 'intro') {
       setLastStructuredLessonGlobalDelta(0)
@@ -9743,7 +9729,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const footerSessionMeterBlocked =
     isReferenceSheetActive ||
     isStructuredLessonActive ||
-    isPracticeActive ||
     isLessonIntroActive ||
     isLessonTipsActive ||
     isLessonBriefingActive ||
@@ -9754,7 +9739,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (translationChatActive || dialogueChatActive || communicationChatActive)
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
-    (isPracticeActive && practiceFooterLive) ||
+    isPracticeActive ||
     footerSessionMeterChatActive
       ? null
       : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
@@ -9854,26 +9839,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const footerDisplayLessonSegments = footerHydrated
     ? isStructuredLessonActive
       ? structuredLessonFooterLive?.lessonSegments ?? null
-      : isPracticeActive
-        ? practiceFooterLive?.lessonSegments ?? null
-        : null
+      : null
     : null
   const footerDisplayLessonTitle = footerHydrated
     ? isStructuredLessonActive
       ? structuredLessonFooterLive?.lessonTitle ?? null
-      : isPracticeActive
-        ? practiceFooterLive?.lessonTitle ?? null
-        : null
+      : null
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && !footerSessionMeterBlocked && translationChatActive
-      ? translationFooterView?.sessionMeter ?? null
-      : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive
-        ? dialogueFooterView?.sessionMeter ?? null
-        : footerHydrated && !footerSessionMeterBlocked && communicationChatActive
-          ? communicationFooterView?.sessionMeter ?? null
-          : null
+    footerHydrated && isPracticeActive
+      ? practiceFooterView?.sessionMeter ?? null
+      : footerHydrated && !footerSessionMeterBlocked && translationChatActive
+        ? translationFooterView?.sessionMeter ?? null
+        : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive
+          ? dialogueFooterView?.sessionMeter ?? null
+          : footerHydrated && !footerSessionMeterBlocked && communicationChatActive
+            ? communicationFooterView?.sessionMeter ?? null
+            : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
   const abortLanguageNoteRequest = useCallback(() => {
     languageNoteAbortRef.current?.abort()

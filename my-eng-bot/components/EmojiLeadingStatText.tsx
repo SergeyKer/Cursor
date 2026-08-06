@@ -26,6 +26,16 @@ export default function EmojiLeadingStatText({
 }: EmojiLeadingStatTextProps) {
   const parts = splitLeadingEmoji(text)
   if (parts) {
+    const rest = parts.rest.trimStart()
+    const glyphClassName =
+      `${FOOTER_STAT_GLYPH_CLASS} ${footerStatGlyphNudgeClass(parts.emoji)} ${highlight}`.trim()
+    if (!rest) {
+      return (
+        <span className={`${glyphClassName} ${className}`.trim()} aria-hidden>
+          {parts.emoji}
+        </span>
+      )
+    }
     const textClassName =
       textClassNameOverride ??
       (allowTextShrink
@@ -35,13 +45,10 @@ export default function EmojiLeadingStatText({
       <span
         className={`inline-flex max-w-full min-w-0 items-center justify-start gap-2 overflow-visible ${className}`.trim()}
       >
-        <span
-          className={`${FOOTER_STAT_GLYPH_CLASS} ${footerStatGlyphNudgeClass(parts.emoji)} ${highlight}`.trim()}
-          aria-hidden
-        >
+        <span className={glyphClassName} aria-hidden>
           {parts.emoji}
         </span>
-        <span className={textClassName}>{parts.rest.trimStart()}</span>
+        <span className={textClassName}>{rest}</span>
       </span>
     )
   }

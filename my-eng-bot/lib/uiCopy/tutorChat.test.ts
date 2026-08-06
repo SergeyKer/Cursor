@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildMicroStrongFinaleText,
+  followUpPlaceholderPrefix,
   microFinaleRememberPrefix,
   pickMicroFinaleAskMore,
   pickTutorIdleBullets,
@@ -71,6 +72,11 @@ describe('TUTOR_CHAT_COPY', () => {
   it('composer placeholder matches audience', () => {
     expect(tutorComposerPlaceholder('child')).toBe('Спроси…')
     expect(tutorComposerPlaceholder('adult')).toBe('Спросите…')
+  })
+
+  it('follow-up placeholder prefix is stable', () => {
+    expect(followUpPlaceholderPrefix('adult')).toBe('Например: ')
+    expect(followUpPlaceholderPrefix('child')).toBe('Например: ')
   })
 
   it('picks three idle examples stably for a seed', () => {

@@ -18,7 +18,7 @@ describe('buildPracticeBriefingThesisLines', () => {
   it('orders challenge as goal → XP → forgiveness for child', () => {
     const challenge = buildPracticeBriefingThesisLines({ ...base, mode: 'challenge' })
     expect(challenge).toEqual([
-      '📝 Победа: 11 из 12 сразу правильно.',
+      '📝 Победа: 11/12 · сейчас 0/5.',
       '⭐ Ещё XP — если больше половины сразу правильно.',
       '💡 С 5-го шага 1 ошибку можно простить за 1 монету.',
     ])
@@ -31,7 +31,7 @@ describe('buildPracticeBriefingThesisLines', () => {
       audience: 'adult',
     })
     expect(challenge).toEqual([
-      '📝 Цель: 11 из 12 с первой попытки.',
+      '📝 Цель: 11/12 · сейчас 0/5.',
       '⭐ XP к уровню — если больше половины с первой попытки.',
       '💡 С 5-го шага 1 ошибку можно пропустить за 1🪙.',
     ])
@@ -73,6 +73,17 @@ describe('buildPracticeBriefingThesisLines', () => {
     expect(lines[0]).toContain('завтра снова')
     expect(lines[1]).toContain('XP ещё можно')
     expect(lines.join(' ')).not.toContain('простить за 1')
+  })
+
+  it('embeds current ring count in challenge goal when rings in progress', () => {
+    const lines = buildPracticeBriefingThesisLines({
+      ...base,
+      mode: 'challenge',
+      ringCount: 2,
+      audience: 'adult',
+      forgivenessEnabled: false,
+    })
+    expect(lines[0]).toBe('📝 Цель: 11/12 · сейчас 2/5.')
   })
 
   it('explains medal and daily-cap blockers', () => {

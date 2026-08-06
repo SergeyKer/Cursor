@@ -40,6 +40,7 @@ import { LESSON_BUBBLE_ENTER_MS } from '@/lib/lessonRevealTiming'
 import { useLessonFeedTailEnter } from '@/hooks/useLessonFeedTailEnter'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
+import { buildTutorFollowUpPlaceholder } from '@/lib/tutor/buildFollowUpPlaceholder'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
@@ -271,10 +272,32 @@ export default function TutorChatPanel({
     }))
   }, [sessionLevel])
 
-  const composerPlaceholder = useMemo(
-    () => tutorComposerPlaceholder(session?.settings.audience === 'child' ? 'child' : 'adult'),
-    [session?.settings.audience]
-  )
+  const composerPlaceholder = useMemo(() => {
+    const audience = session?.settings.audience === 'child' ? 'child' : 'adult'
+    const idle = tutorComposerPlaceholder(audience)
+    const canSmart =
+      lastExplain != null &&
+      !busy &&
+      triageChips.length === 0 &&
+      (microPhase === 'idle' || microPhase === 'finale')
+    if (!canSmart || !lastExplain) return idle
+    return (
+      buildTutorFollowUpPlaceholder({
+        answer: lastExplain,
+        level: session?.settings.level ?? 'a2',
+        audience,
+        excludeQuestionRu: anchorQuery,
+      }) ?? idle
+    )
+  }, [
+    anchorQuery,
+    busy,
+    lastExplain,
+    microPhase,
+    session?.settings.audience,
+    session?.settings.level,
+    triageChips.length,
+  ])
   const isIdle = thread.length === 0 && !busy
   const idleBullets = useMemo(
     () => (isIdle ? pickTutorIdleBullets(3) : []),

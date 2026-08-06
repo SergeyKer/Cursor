@@ -64,6 +64,13 @@ export { normalizeTutorSchoolPhoto, buildTutorSchoolPhotoPrompt } from '@/lib/tu
 export type { TutorSchoolPhotoResult, TutorSchoolPhotoRejectReason } from '@/lib/tutor/normalizeSchoolPhoto'
 export { bandFromMicroScore, tutorMicroScoreRatio } from '@/lib/tutor/microScore'
 export { buildTutorTopicContext } from '@/lib/tutor/buildTopicContext'
+export {
+  buildTutorFollowUpPlaceholder,
+  compressSiblingToFollowUpHint,
+  resolveFollowUpTopicKey,
+  TUTOR_FOLLOW_UP_PLACEHOLDER_MAX,
+} from '@/lib/tutor/buildFollowUpPlaceholder'
+export type { BuildTutorFollowUpPlaceholderParams } from '@/lib/tutor/buildFollowUpPlaceholder'
 export { buildTutorMicroPackFromExplain, inferContrastCorrectIndex } from '@/lib/tutor/buildMicroPack'
 export {
   buildAgeChoiceItems,

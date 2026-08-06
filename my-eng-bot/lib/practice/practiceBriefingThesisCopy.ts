@@ -99,10 +99,11 @@ function challengeGoalLine(params: PracticeBriefingThesisParams): string {
       '📝 Цель на сегодня уже закрыта — завтра снова.'
     )
   }
+  const rings = Math.max(0, Math.min(PRACTICE_RING_MAX, Math.floor(params.ringCount)))
   return byAudience(
     audience,
-    `📝 Победа: ${CHALLENGE_QUALIFYING_MASTERY} из ${CHALLENGE_SESSION_LENGTH} сразу правильно.`,
-    `📝 Цель: ${CHALLENGE_QUALIFYING_MASTERY} из ${CHALLENGE_SESSION_LENGTH} с первой попытки.`
+    `📝 Победа: ${CHALLENGE_QUALIFYING_MASTERY}/${CHALLENGE_SESSION_LENGTH} · сейчас ${rings}/${PRACTICE_RING_MAX}.`,
+    `📝 Цель: ${CHALLENGE_QUALIFYING_MASTERY}/${CHALLENGE_SESSION_LENGTH} · сейчас ${rings}/${PRACTICE_RING_MAX}.`
   )
 }
 

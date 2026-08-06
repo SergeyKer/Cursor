@@ -18,6 +18,7 @@ import {
 } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { getPracticeTopicProgress } from '@/lib/practice/practiceTopicProgressStorage'
 import { countTopicCupStats } from '@/lib/practice/topicCupStats'
+import { buildProgressTopicAwardRows, type ProgressTopicAwardRow } from '@/lib/progress/topicAwardRows'
 import { formatStreakProgressCopy, type StreakProgressCopy } from '@/lib/streakProgressCopy'
 import {
   createDefaultRewardsState,
@@ -66,6 +67,7 @@ export type ProgressShelf = {
   practiceBadgeDefinitionRows: ProgressBadgeDefinitionRow[]
   practiceRows: ProgressPracticeRow[]
   lessonRows: ProgressLessonRow[]
+  topicAwardRows: ProgressTopicAwardRow[]
   currencies: { coins: number; gems: number; tickets: number }
   opportunity: PracticeRewardOpportunity | null
   isEmptyShelf: boolean
@@ -146,6 +148,7 @@ export function buildProgressShelf(rewardsState: RewardsState | undefined): Prog
   })
 
   const opportunity = pickBestPracticeRewardOpportunity(lessonProgressRows)
+  const topicAwardRows = buildProgressTopicAwardRows()
   const isEmptyShelf =
     medals.gold + medals.silver + medals.bronze === 0 &&
     state.progress.dailyStreak === 0 &&
@@ -169,6 +172,7 @@ export function buildProgressShelf(rewardsState: RewardsState | undefined): Prog
     practiceBadgeDefinitionRows,
     practiceRows,
     lessonRows,
+    topicAwardRows,
     currencies: {
       coins: state.currencies.coins,
       gems: state.currencies.gems,

@@ -11,9 +11,8 @@ import {
 import { trackProgressEvent } from '@/lib/progress/analytics'
 import { buildProgressShelf } from '@/lib/progress/buildProgressShelf'
 import { buildProgressStatusCopy } from '@/lib/progress/statusCopy'
-import {
-  practiceBadgeRankEmoji,
-} from '@/lib/practice/practiceBadges'
+import { toggleTopicAwardExpanded } from '@/lib/progress/topicAwardRows'
+import ProgressTopicAwardsList from '@/components/progress/ProgressTopicAwardsList'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
 import {
@@ -60,6 +59,7 @@ export default function ProgressPanel({
   const copy = progressCopy(audience)
   const [shelfOpen, setShelfOpen] = useState(false)
   const [streakOpen, setStreakOpen] = useState(false)
+  const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null)
   const [shelfTracked, setShelfTracked] = useState(false)
 
   const shelf = useMemo(() => buildProgressShelf(rewardsState), [rewardsState])
@@ -222,155 +222,40 @@ export default function ProgressPanel({
           <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
             🥇 {shelf.medals.gold} · 🥈 {shelf.medals.silver} · 🥉 {shelf.medals.bronze}
             {shelf.cupStats ? ` · 🏆 ${shelf.cupStats.cups}` : ''}
-            {` · бейджи ${shelf.lessonBadgesEarned}`}
+            {` · ${copy.lessonBadgesSummary} ${shelf.lessonBadgesEarned}`}
           </p>
         )}
         <button
           type="button"
           className="mt-2 min-h-[44px] w-full rounded-md border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-left text-[13px] font-medium text-[var(--text)]"
           aria-expanded={shelfOpen}
-          onClick={() => (shelfOpen ? setShelfOpen(false) : openShelf())}
+          onClick={() => {
+            if (shelfOpen) {
+              setShelfOpen(false)
+              setExpandedLessonId(null)
+            } else {
+              openShelf()
+            }
+          }}
         >
           {shelfOpen ? copy.hideShelf : copy.showShelf}
         </button>
         {shelfOpen ? (
-          <div className="mt-3 space-y-3">
-            <div>
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">
-                {copy.practiceBadgesTitle}
+          <div className="mt-3">
+            {shelf.cupStats ? (
+              <p className="emoji-line mb-2 text-[13px] text-[var(--text-muted)]">
+                🏆 {shelf.cupStats.cups}/{shelf.cupStats.withMedal || 0}
               </p>
-              {shelf.nearestBadge ? (
-                <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
-                  {shelf.nearestBadge.emoji} {shelf.nearestBadge.line}
-                </p>
-              ) : (
-                <p className="mt-1 text-[13px] text-[var(--text-muted)]">{copy.allBadgeStepsDone}</p>
-              )}
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                Открыто {shelf.practiceBadgeStats.opened}/{shelf.practiceBadgeStats.total} · Золото{' '}
-                {shelf.practiceBadgeStats.gold}/{shelf.practiceBadgeStats.total}
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-2">
-                {shelf.practiceBadgeShelf.map((item) => (
-                  <li
-                    key={item.lessonId}
-                    className="flex min-w-[4.5rem] flex-col items-center rounded-md border border-[var(--border)]/70 bg-[var(--menu-control-bg)] px-2 py-1.5"
-                    title={item.currentName ?? item.nextName ?? item.topicTitle}
-                  >
-                    <span
-                      className={`emoji-line text-[1.35rem] leading-none ${
-                        item.rank === 0 ? 'opacity-40 grayscale' : ''
-                      }`}
-                    >
-                      {item.emoji}
-                    </span>
-                    <span className="mt-0.5 text-[11px] font-medium text-[var(--text)]">
-                      {practiceBadgeRankEmoji(item.rank)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <ul className="mt-2 space-y-1.5 text-[12px] text-[var(--text-muted)]">
-                {shelf.practiceBadgeDefinitionRows.map((row) => (
-                  <li key={`pb-${row.definition.lessonId}`}>
-                    <p className="font-medium text-[var(--text)]">
-                      {row.definition.emoji} {row.topic}
-                    </p>
-                    <p className="mt-0.5">
-                      {row.definition.ranks.map((name, index) => {
-                        const step = (index + 1) as 1 | 2 | 3
-                        const done = row.rank >= step
-                        return (
-                          <span key={name} className="mr-2 inline-block">
-                            {done ? '✓' : '·'} {name}
-                          </span>
-                        )
-                      })}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div>
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">
-                {copy.practiceTopicsTitle}
-              </p>
-              {shelf.cupStats ? (
-                <>
-                  <p className="emoji-line mt-1 text-[14px] font-semibold text-[var(--text)]">
-                    🏆 тем: {shelf.cupStats.cups}/{shelf.cupStats.withMedal || 0}
-                  </p>
-                  <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                    {audience === 'child'
-                      ? 'Кубок темы — золото в уроке и практика.'
-                      : 'Тема сдана 🏆 — золотая медаль в уроке и зачётные Челленджи.'}
-                  </p>
-                </>
-              ) : null}
-              {shelf.practiceRows.length === 0 ? (
-                <p className="mt-1 text-[13px] text-[var(--text-muted)]">{copy.needMedalFirst}</p>
-              ) : (
-                <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
-                  {shelf.practiceRows.map((row) => (
-                    <li
-                      key={`practice-${row.lessonId}`}
-                      className="flex items-center justify-between gap-2"
-                    >
-                      <span>{row.topic}</span>
-                      <span className="emoji-line shrink-0 font-medium text-[var(--text)]">
-                        {row.badgeText}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            <div>
-              <p className="text-[13px] font-medium text-[var(--text-muted)]">
-                {copy.lessonAwardsTitle}
-              </p>
-              <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
-                🥇 {shelf.medals.gold} · 🥈 {shelf.medals.silver} · 🥉 {shelf.medals.bronze} ·
-                Золото {shelf.medals.gold}/4
-              </p>
-              {shelf.cupStats ? (
-                <p className="emoji-line mt-1 text-[14px] text-[var(--text)]">
-                  Кубки тем: {shelf.cupStats.cups}/{shelf.cupStats.withMedal || 0}
-                </p>
-              ) : null}
-              <p className="mt-1 text-[13px] text-[var(--text-muted)]">
-                Бейджи: {shelf.lessonBadgesEarned}/{shelf.lessonBadgeTotal}
-              </p>
-              <ul className="mt-2 space-y-1 text-[12px] text-[var(--text-muted)]">
-                {shelf.lessonRows.map((row) => {
-                  if (row.notStarted) {
-                    return (
-                      <li key={row.lessonId}>
-                        {row.topic}: {audience === 'child' ? 'ещё не начат' : 'не начат'}
-                      </li>
-                    )
-                  }
-                  const medalLabel =
-                    row.medal === 'started'
-                      ? audience === 'child'
-                        ? 'начат'
-                        : 'начат'
-                      : row.medal === '-'
-                        ? '-'
-                        : String(row.medal)
-                  return (
-                    <li key={row.lessonId}>
-                      {row.topic}: {medalLabel}
-                      {audience === 'adult' ? ` · ${row.corePercent}% core` : ''}
-                      {audience === 'adult' ? row.cycleLabel : ''}
-                      {row.badgePart}
-                    </li>
-                  )
-                })}
-              </ul>
-            </div>
+            ) : null}
+            <ProgressTopicAwardsList
+              rows={shelf.topicAwardRows}
+              copy={copy}
+              expandedLessonId={expandedLessonId}
+              nearestBadge={shelf.nearestBadge}
+              onToggle={(lessonId) =>
+                setExpandedLessonId((cur) => toggleTopicAwardExpanded(cur, lessonId))
+              }
+            />
           </div>
         ) : null}
       </div>

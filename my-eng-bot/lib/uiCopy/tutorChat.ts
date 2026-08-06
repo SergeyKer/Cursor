@@ -14,6 +14,25 @@ export function tutorComposerPlaceholder(audience: TutorChatAudience = 'adult'):
   return COMPOSER_PLACEHOLDER[audience === 'child' ? 'child' : 'adult']
 }
 
+/** Prefix for post-explain follow-up placeholder hint. */
+export function followUpPlaceholderPrefix(_audience: TutorChatAudience = 'adult'): string {
+  return 'Например: '
+}
+
+/**
+ * CONTINUE-safe deepeners by answerKind (must match routeTutorTurn continue).
+ * Not triage B/C labels.
+ */
+export const FOLLOW_UP_CONTINUE_BANK = {
+  contrast: ['А в отрицании?', 'А в вопросе?', 'А пример?'],
+  grammar: ['А в отрицании?', 'А в вопросе?', 'А пример?'],
+  form: ['Можно пример?', 'Попроще', 'Почему?'],
+  how_to_say: ['Можно пример?'],
+  orthography: ['Можно пример?'],
+  translate: [] as string[],
+  other: [] as string[],
+} as const
+
 const MICRO_FINALE_ASK_MORE_ADULT = [
   'Остались вопросы по теме - спрашивайте!',
   'Если что-то непонятно - пишите ниже, разберём.',
