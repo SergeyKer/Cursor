@@ -44,6 +44,7 @@ import {
   buildTutorFollowUpChip,
 } from '@/lib/tutor/buildFollowUpPlaceholder'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
+import { shouldRetainLastExplainOnDeepen } from '@/lib/tutor/resolveContinueLastExplain'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
 import { chipsFromLabels } from '@/lib/tutor/normalizeTriage'
@@ -636,19 +637,29 @@ export default function TutorChatPanel({
           return
         }
         const answer = data.answer
-        setLastExplain(answer)
-        setAnchorQuery(answer.topicAnchor.title || query)
+        // CONTINUE deepen: keep strong lastExplain when model returns weak satellite
+        // (e.g. «Напиши ещё примеры» → how_to_say) so micro/cheatsheet chips stay.
+        const retain =
+          Boolean(topicContext) &&
+          lastExplain != null &&
+          shouldRetainLastExplainOnDeepen(lastExplain, answer)
+        if (!retain) {
+          setLastExplain(answer)
+          setAnchorQuery(answer.topicAnchor.title || query)
+        }
         setPostExplainChips(true)
         setFollowUpNudgeArmed(true)
         setTriageChips([])
         append('assistant', formatExplainBubble(answer), answer)
-        const newKey = answer.topicAnchor.canonicalKey
-        if (!prevCanonicalKey || prevCanonicalKey !== newKey) {
-          recordTutorCuriosity({
-            topicTitle: answer.topicAnchor.title || answer.title,
-            questionRu: query,
-            canonicalKey: newKey,
-          })
+        if (!retain) {
+          const newKey = answer.topicAnchor.canonicalKey
+          if (!prevCanonicalKey || prevCanonicalKey !== newKey) {
+            recordTutorCuriosity({
+              topicTitle: answer.topicAnchor.title || answer.title,
+              questionRu: query,
+              canonicalKey: newKey,
+            })
+          }
         }
       } catch {
         append('assistant', TUTOR_CHAT_COPY.explainFailed)

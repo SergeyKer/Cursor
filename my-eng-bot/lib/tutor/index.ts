@@ -90,6 +90,11 @@ export {
   isMicroAnswerKindEligible,
   isTutorMicroPackEligible,
 } from '@/lib/tutor/microEligible'
+export {
+  isWeakContinueAnswerKind,
+  resolveContinueLastExplain,
+  shouldRetainLastExplainOnDeepen,
+} from '@/lib/tutor/resolveContinueLastExplain'
 export { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
 export type { ResolveTutorMicroResult } from '@/lib/tutor/resolveMicroPack'
 export { buildTutorMicroSystemPrompt, buildTutorMicroUserPrompt } from '@/lib/tutor/microPrompt'
