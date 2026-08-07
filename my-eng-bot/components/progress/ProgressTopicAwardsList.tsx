@@ -5,6 +5,7 @@ import ProgressFooterButton from '@/components/progress/ProgressFooterButton'
 import type { ProgressTopicAwardRow } from '@/lib/progress/topicAwardRows'
 import {
   resolveTopicAwardLaunch,
+  type ProgressTopicAwardLaunchTarget,
   type ProgressTopicLaunchKind,
 } from '@/lib/progress/topicAwardRows'
 import type { ProgressCopy } from '@/lib/uiCopy/progress'
@@ -14,11 +15,7 @@ type ProgressTopicAwardsListProps = {
   copy: ProgressCopy
   expandedLessonId: string | null
   onToggle: (lessonId: string) => void
-  onLaunch?: (target: {
-    kind: 'lesson' | 'practice'
-    lessonId: string
-    mode?: 'balanced' | 'challenge'
-  }) => void
+  onLaunch?: (target: ProgressTopicAwardLaunchTarget) => void
   practiceBusy?: boolean
   nearestBadge?: { emoji: string; line: string } | null
 }

@@ -51,10 +51,15 @@ export function toggleTopicAwardExpanded(
 
 export type ProgressTopicLaunchKind = 'lesson' | 'practice' | 'challenge'
 
+/** Discriminated launch payload for topic-award CTAs (subset of ProgressLaunchTarget). */
+export type ProgressTopicAwardLaunchTarget =
+  | { kind: 'lesson'; lessonId: string }
+  | { kind: 'practice'; lessonId: string; mode: 'balanced' | 'challenge' }
+
 export function resolveTopicAwardLaunch(
   row: Pick<ProgressTopicAwardRow, 'lessonId' | 'showChallengeCta'>,
   kind: ProgressTopicLaunchKind
-): { kind: 'lesson' | 'practice'; lessonId: string; mode?: 'balanced' | 'challenge' } {
+): ProgressTopicAwardLaunchTarget {
   if (kind === 'lesson') return { kind: 'lesson', lessonId: row.lessonId }
   if (kind === 'challenge' && row.showChallengeCta) {
     return { kind: 'practice', lessonId: row.lessonId, mode: 'challenge' }
