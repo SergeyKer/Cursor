@@ -5,12 +5,14 @@ import {
   BALANCED_SESSION_LENGTH,
   CHALLENGE_QUALIFYING_MASTERY,
   CHALLENGE_SESSION_LENGTH,
-  PRACTICE_COIN_ERROR_FORGIVENESS_COST,
   PRACTICE_DAILY_GLOBAL_XP_CAP,
-  PRACTICE_FORGIVENESS_MIN_STEP,
   PRACTICE_RING_MAX,
 } from '@/lib/practice/practiceEconomyRules'
 import { practiceBadgeRankEmoji } from '@/lib/practice/practiceBadges'
+import {
+  buildChallengeBriefingCoinLine,
+  buildNonChallengeNoCoinsLine,
+} from '@/lib/practice/practiceCoinExplainCopy'
 import type { PracticeMode } from '@/types/practice'
 
 export type PracticeBriefingThesisParams = {
@@ -24,6 +26,7 @@ export type PracticeBriefingThesisParams = {
   pendingCup: boolean
   practiceGlobalXpToday: number
   audience: Audience
+  /** Kept for callers; Challenge briefing no longer shows forgiveness. */
   forgivenessEnabled?: boolean
   lessonId?: string
   badgeBriefingLine?: string | null
@@ -117,7 +120,6 @@ function balancedGoalLine(params: PracticeBriefingThesisParams): string {
       '📌 Цель откроется после медали урока.'
     )
   }
-  // Practice badge names replace 📌 Base; line already includes rank emoji from builder.
   if (params.badgeBriefingLine) {
     return params.badgeBriefingLine
   }
@@ -135,26 +137,6 @@ function balancedGoalLine(params: PracticeBriefingThesisParams): string {
   )
 }
 
-function challengeExtraLine(params: PracticeBriefingThesisParams): string | null {
-  if (params.tier === 0 || params.ringCount >= PRACTICE_RING_MAX) return null
-  if (params.lastQualifyingDayKey === params.todayKey) return null
-  if (params.pendingPracticeCoins > 0 || params.pendingCup) {
-    return byAudience(
-      params.audience,
-      '🪙 Монеты и кубок ждут золото в уроке.',
-      '🪙 Монеты и кубок ждут золотую медаль урока.'
-    )
-  }
-  if (params.forgivenessEnabled) {
-    return byAudience(
-      params.audience,
-      `💡 С ${PRACTICE_FORGIVENESS_MIN_STEP}-го шага 1 ошибку можно простить за ${PRACTICE_COIN_ERROR_FORGIVENESS_COST} монету.`,
-      `💡 С ${PRACTICE_FORGIVENESS_MIN_STEP}-го шага 1 ошибку можно пропустить за ${PRACTICE_COIN_ERROR_FORGIVENESS_COST}🪙.`
-    )
-  }
-  return null
-}
-
 export function buildPracticeBriefingThesisLines(
   params: PracticeBriefingThesisParams
 ): string[] {
@@ -163,40 +145,31 @@ export function buildPracticeBriefingThesisLines(
     params.badgeBriefingLine && params.tier > 0 ? params.badgeBriefingLine : null
 
   if (params.mode === 'reference') {
-    return [
-      xpLine(params, false),
-      byAudience(audience, '⚡ Здесь одно упражнение.', '⚡ Здесь проверка одного упражнения.'),
-    ]
+    return [xpLine(params, false), buildNonChallengeNoCoinsLine('reference', audience)]
   }
 
   if (params.mode === 'relaxed') {
-    const lines = [
-      xpLine(params, false),
-      params.tier > 0
-        ? byAudience(
-            audience,
-            '🌱 Это разминка — победы и кубка здесь нет.',
-            '🌱 Это разминка — цели и кубка здесь нет.'
-          )
-        : byAudience(
-            audience,
-            '🌱 Можно потренироваться.',
-            '🌱 Можно потренироваться — цели здесь нет.'
-          ),
-    ]
-    if (badgeLine) lines.push(badgeLine)
-    return lines.slice(0, 3)
+    return [xpLine(params, false), buildNonChallengeNoCoinsLine('relaxed', audience)].slice(0, 3)
   }
 
   if (params.mode === 'balanced') {
     const goal = balancedGoalLine(params)
-    return [goal, xpLine(params, true)].slice(0, 3)
+    const noCoins = buildNonChallengeNoCoinsLine('balanced', audience)
+    return [goal, noCoins, xpLine(params, true)].slice(0, 3)
   }
 
   const goal = challengeGoalLine(params)
   const lines = [goal, xpLine(params, true)]
-  const extra = challengeExtraLine(params)
-  if (badgeLine) lines.push(badgeLine)
-  else if (extra) lines.push(extra)
+  const coinLine = buildChallengeBriefingCoinLine({
+    tier: params.tier,
+    ringCount: params.ringCount,
+    lastQualifyingDayKey: params.lastQualifyingDayKey,
+    todayKey: params.todayKey,
+    pendingPracticeCoins: params.pendingPracticeCoins,
+    pendingCup: params.pendingCup,
+    audience: params.audience,
+  })
+  const third = coinLine ?? badgeLine
+  if (third) lines.push(third)
   return lines.slice(0, 3)
 }

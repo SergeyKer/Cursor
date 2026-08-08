@@ -98,6 +98,9 @@ function buildSpecialLine(params: PracticeFinaleSummaryParams): string | undefin
     return undefined
   }
 
+  if (params.cupAwarded > 0 && params.coinsAwarded > 0) {
+    return `🏆 Тема сдана · +${params.coinsAwarded} 🪙`
+  }
   if (params.cupAwarded > 0) return '🏆 Тема сдана!'
   if (params.coinsAwarded > 0) {
     const milestone = params.ringCount >= 5 ? '5-й' : '3-й'

@@ -34,6 +34,7 @@ import {
   MENU_PRIMARY_CTA_CLASS,
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
+import { buildPracticeModeEconomyBlurb } from '@/lib/practice/practiceCoinExplainCopy'
 import {
   DEFAULT_LESSON_LIST_DENSITY,
   normalizeMenuLabelKey,
@@ -421,25 +422,25 @@ const PRACTICE_MODE_OPTIONS: { id: PracticeMode; title: string; meta: string; de
     id: 'relaxed',
     title: 'Лёгкая',
     meta: '6 заданий',
-    description: 'Быстро вспомнить правило без перегруза.',
+    description: buildPracticeModeEconomyBlurb('relaxed'),
   },
   {
     id: 'balanced',
     title: 'Обычная',
     meta: '9 заданий',
-    description: 'Оптимальный вариант для закрепления.',
+    description: buildPracticeModeEconomyBlurb('balanced'),
   },
   {
     id: 'challenge',
     title: 'Челлендж',
     meta: '12 заданий',
-    description: 'Больше проверки и меньше подсказок.',
+    description: buildPracticeModeEconomyBlurb('challenge'),
   },
   {
     id: 'reference',
     title: 'Эталон',
     meta: '7 повторов',
-    description: 'Одно упражнение по кругу для отладки и полировки.',
+    description: buildPracticeModeEconomyBlurb('reference'),
   },
 ]
 

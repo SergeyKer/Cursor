@@ -35,7 +35,8 @@ const LESSON_COIN_FORGIVENESS_COPY: LessonCoinForgivenessCopy = {
   confirmBodyZeroBalance: 'Сейчас 0 монет. Чтобы не считать ошибку, нужна 1 монета.',
   confirmHintZeroBalance: 'Нажмите «Да, помочь» - подскажем, как заработать монеты.',
   zeroBalanceHelpTitle: 'Как получить монеты',
-  zeroBalanceHelpMessage: 'Монеты можно заработать за золотые медали.',
+  zeroBalanceHelpMessage:
+    'Монеты: золото урока · 3-й и 5-й зачёт Челленджа.',
   decline: 'Не сейчас',
   confirmYes: 'Да, помочь',
   processing: 'Списываем 1 монету…',
@@ -43,7 +44,7 @@ const LESSON_COIN_FORGIVENESS_COPY: LessonCoinForgivenessCopy = {
   appliedTitle: 'Монета списана',
   appliedBody: (balanceAfter) => `Списали 1 🪙. Осталось: ${balanceAfter}.`,
   appliedCorrectAnswerPreview: (answer) => `Правильный ответ: ${answer}`,
-  appliedGoldMedalHint: 'Монеты можно заработать за золотые медали.',
+  appliedGoldMedalHint: 'Монеты: золото урока · 3-й и 5-й зачёт Челленджа.',
   appliedContinue: 'Продолжить',
   exhaustedLabel: 'Уже использовано',
   spendFailed: 'Не удалось списать монету.',

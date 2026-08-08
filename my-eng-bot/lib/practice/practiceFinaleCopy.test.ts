@@ -69,6 +69,9 @@ describe('buildPracticeFinaleSummary', () => {
   it('prioritizes cup, coins and ring over near-miss copy', () => {
     expect(buildPracticeFinaleSummary({ ...base, cupAwarded: 1 }).specialLine).toContain('Тема сдана')
     expect(buildPracticeFinaleSummary({ ...base, coinsAwarded: 1 }).specialLine).toContain('+1')
+    expect(
+      buildPracticeFinaleSummary({ ...base, cupAwarded: 1, coinsAwarded: 2, ringCount: 5 }).specialLine
+    ).toBe('🏆 Тема сдана · +2 🪙')
     expect(buildPracticeFinaleSummary({ ...base, ringIncremented: true }).specialLine).toContain('Зачёт')
   })
 })

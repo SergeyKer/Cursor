@@ -89,8 +89,5 @@ Footer ticker при начислении: `Золотая медаль. +1 🪙
 
 - Паттерн как у `spendCoins` / `coins_spent`: баланс в чистой функции, event - ticker и `lastReward`.
 - Dedupe по `lessonId:runKey` в effect.
-- Практика (`practice_completed` effect) не меняется в v1.
 
-## Фаза 2 (не реализовано)
-
-Практика: Challenge 12 ≥90% → +1; кубок 5×90% → +2; skip ошибки в Challenge.
+Практика earn (v2, в проде): см. секцию «Earn (практика v2)» выше и [practice-economy-v2.md](./practice-economy-v2.md).

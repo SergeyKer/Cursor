@@ -7,7 +7,9 @@ describe('lessonCoinForgivenessCopy', () => {
     expect(copy.confirmTitleZeroBalance).toBe('Нет монет')
     expect(copy.confirmBodyZeroBalance).toContain('0 монет')
     expect(copy.zeroBalanceHelpTitle).toBe('Как получить монеты')
-    expect(copy.zeroBalanceHelpMessage).toBe('Монеты можно заработать за золотые медали.')
+    expect(copy.zeroBalanceHelpMessage).toBe(
+      'Монеты: золото урока · 3-й и 5-й зачёт Челленджа.'
+    )
   })
 
   it('provides applied ack copy', () => {
