@@ -66,9 +66,9 @@ function QuickTestFooterProgress({
         aria-valuemax={total}
         aria-label={staticLabel || `Шаг ${current} из ${total}`}
       >
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10">
+        <div className="ui-progress-track h-1.5 w-full overflow-hidden rounded-full bg-black/10">
           <div
-            className="h-full rounded-full bg-[var(--text-accent,#4f8fe8)] transition-[width] duration-300 motion-reduce:transition-none"
+            className="ui-progress-fill ui-progress-fill--text-accent h-full rounded-full transition-[width] duration-300 motion-reduce:transition-none"
             style={{ width: `${pct}%` }}
           />
         </div>

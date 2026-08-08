@@ -374,7 +374,7 @@ export default function AppFooter({
                       0
                     </span>
                     <span
-                      className="relative top-px h-[0.65em] w-full max-w-[7.5rem] min-w-[2.5rem] overflow-hidden rounded-full bg-slate-200 sm:max-w-[9rem]"
+                      className="ui-progress-track relative top-px h-[0.65em] w-full max-w-[7.5rem] min-w-[2.5rem] overflow-hidden rounded-full bg-slate-200 sm:max-w-[9rem]"
                       role="progressbar"
                       aria-valuemin={0}
                       aria-valuemax={meterTarget}
@@ -382,7 +382,7 @@ export default function AppFooter({
                       aria-label={`Прогресс сессии ${meterCurrent} из ${meterTarget}`}
                     >
                       <span
-                        className="block h-full rounded-full bg-emerald-500 transition-[width] duration-300 ease-out"
+                        className="ui-progress-fill ui-progress-fill--emerald block h-full rounded-full transition-[width] duration-300 ease-out"
                         style={{ width: `${meterFill}%` }}
                       />
                     </span>

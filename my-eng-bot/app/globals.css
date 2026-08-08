@@ -1290,6 +1290,31 @@ select.select-chevron {
   }
 }
 
+/* Volumetric pill progress: track inset + fill vertical gradient. Track bg stays on call site. */
+.ui-progress-track {
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.14),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ui-progress-fill {
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ui-progress-color, var(--accent)) 55%, white) 0%,
+    var(--ui-progress-color, var(--accent)) 42%,
+    color-mix(in srgb, var(--ui-progress-color, var(--accent)) 70%, black) 100%
+  );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.ui-progress-fill--emerald {
+  --ui-progress-color: #10b981;
+}
+
+.ui-progress-fill--text-accent {
+  --ui-progress-color: var(--text-accent, #4f8fe8);
+}
+
 @keyframes fadeInUp {
   from {
     opacity: 0;

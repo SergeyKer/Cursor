@@ -145,9 +145,9 @@ export default function ProgressPanel({
             <span className="inline-flex h-3.5 w-7 shrink-0 -translate-y-px items-center justify-center text-[17px] font-bold tabular-nums leading-none text-[var(--text)]">
               {shelf.level}
             </span>
-            <div className="h-3.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_28%,white)] ring-1 ring-[color-mix(in_srgb,var(--accent)_35%,transparent)]">
+            <div className="ui-progress-track h-3.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--accent)_28%,white)]">
               <div
-                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
+                className="ui-progress-fill h-full rounded-full transition-[width] duration-300"
                 style={{ width: `${xpPercent}%` }}
                 role="progressbar"
                 aria-valuenow={shelf.currentLevelXP}
@@ -279,9 +279,9 @@ export default function ProgressPanel({
         ))}
         {status.focusGoal && status.focusGoal.goalTarget > 0 ? (
           <div className="mt-2">
-            <div className="h-2 overflow-hidden rounded-full bg-[var(--menu-control-bg)]">
+            <div className="ui-progress-track h-2 overflow-hidden rounded-full bg-[var(--menu-control-bg)]">
               <div
-                className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
+                className="ui-progress-fill h-full rounded-full transition-[width] duration-300"
                 style={{ width: `${status.focusPercent}%` }}
                 role="progressbar"
                 aria-valuenow={status.focusGoal.goalProgress}
