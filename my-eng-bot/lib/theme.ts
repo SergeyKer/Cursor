@@ -6,7 +6,6 @@ export type Theme =
   | 'glass1'
   | 'glass2'
   | 'glass3'
-  | 'modern'
 
 export const THEME_STORAGE_KEY = 'myeng_theme'
 
@@ -21,7 +20,6 @@ const THEMES: Theme[] = [
   'glass1',
   'glass2',
   'glass3',
-  'modern',
 ]
 
 export const ALL_THEME_IDS: readonly Theme[] = THEMES

@@ -9,7 +9,6 @@ const ALL_THEMES: Theme[] = [
   'glass1',
   'glass2',
   'glass3',
-  'modern',
 ]
 
 describe('theme', () => {
@@ -23,6 +22,7 @@ describe('theme', () => {
     }
     expect(isTheme('unknown')).toBe(false)
     expect(isTheme('glass')).toBe(false)
+    expect(isTheme('modern')).toBe(false)
   })
 
   it('readStoredTheme falls back to bubble2 without window storage', () => {
@@ -35,6 +35,5 @@ describe('theme', () => {
     expect(isGlassTheme('glass3')).toBe(true)
     expect(isGlassTheme('bubble2')).toBe(false)
     expect(isGlassTheme('basic')).toBe(false)
-    expect(isGlassTheme('modern')).toBe(false)
   })
 })

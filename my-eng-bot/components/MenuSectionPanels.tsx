@@ -499,11 +499,6 @@ const THEME_OPTIONS: Array<{ id: Theme; name: string; description: string }> = [
     name: 'Glass3',
     description: 'Нейтральное стекло, прозрачные бабблы. Одна палитра для всех возрастов.',
   },
-  {
-    id: 'modern',
-    name: 'Modern',
-    description: 'Эксперимент: tactile 3D mic/send и усиленный объём на базе Basic.',
-  },
 ]
 
 const MENU_GROUP_CLASS =
@@ -1729,9 +1724,7 @@ export default function MenuSectionPanels({
               ? 'Glass2'
               : theme === 'glass3'
                 ? 'Glass3'
-                : theme === 'modern'
-                  ? 'Modern'
-                  : 'Basic'
+                : 'Basic'
   const engvoProviderLabel =
     ENGVO_PROVIDER_OPTIONS.find((p) => p.id === engvoProvider)?.label ?? 'ChatGPT'
   const customXaiVoices = React.useMemo(() => listEngvoCustomVoices(), [])

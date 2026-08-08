@@ -1527,18 +1527,19 @@ select.select-chevron {
 }
 
 .animate-wait {
+  opacity: 0.88;
   background-image: linear-gradient(
     250deg,
     transparent 12%,
-    rgba(255, 255, 255, 0.08) 38%,
-    rgba(255, 255, 255, 0.3) 52%,
-    rgba(255, 255, 255, 0.12) 72%,
+    rgba(255, 255, 255, 0.14) 38%,
+    rgba(255, 255, 255, 0.52) 52%,
+    rgba(255, 255, 255, 0.18) 72%,
     transparent 90%
   );
   background-size: 240% 240%;
   background-repeat: no-repeat;
   background-position: 140% 50%;
-  animation: wait-shimmer 3s linear infinite;
+  animation: wait-shimmer 9s linear infinite;
   will-change: background-position;
 }
 
@@ -1973,8 +1974,7 @@ html[data-theme='bubble1'],
 html[data-theme='bubble2'],
 html[data-theme='glass1'],
 html[data-theme='glass2'],
-html[data-theme='glass3'],
-html[data-theme='modern'] {
+html[data-theme='glass3'] {
   --footer-sheet-bg: #ffffff;
 }
 
@@ -2721,9 +2721,7 @@ html[data-theme='glass1'][data-audience],
 html[data-theme='glass2'],
 html[data-theme='glass2'][data-audience],
 html[data-theme='glass3'],
-html[data-theme='glass3'][data-audience],
-html[data-theme='modern'],
-html[data-theme='modern'][data-audience] {
+html[data-theme='glass3'][data-audience] {
   --chat-send-bg: linear-gradient(180deg, #60a5fa 0%, #3b82f6 55%, #2563eb 100%);
   --chat-send-text: #ffffff;
   --chat-send-shadow:
@@ -2746,38 +2744,6 @@ html[data-theme='modern'][data-audience] {
     0 2px 4px rgba(15, 23, 42, 0.06),
     0 8px 16px rgba(244, 63, 94, 0.32),
     inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-
-/* Modern-only: stronger feed/composer elevation + convex beads (not rolled out). */
-html[data-theme='modern'],
-html[data-theme='modern'][data-audience] {
-  --chat-user-bubble-shadow: 0 6px 16px rgba(15, 23, 42, 0.1);
-  --chat-user-bubble-inner-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-  --chat-assistant-bubble-shadow: 0 5px 14px rgba(15, 23, 42, 0.07);
-  --chat-composer-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
-  --chat-button-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
-  --chat-button-shadow-hover: 0 8px 18px rgba(59, 130, 246, 0.2);
-  --chat-section-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-  --chat-send-bg: linear-gradient(180deg, #93c5fd 0%, #3b82f6 52%, #1d4ed8 100%);
-  --chat-control-bg: linear-gradient(180deg, #6ee7b7 0%, #10b981 52%, #047857 100%);
-  --chat-control-hover: linear-gradient(180deg, #a7f3d0 0%, #34d399 100%);
-  --chat-call-bg: linear-gradient(180deg, #86efac 0%, #22c55e 52%, #15803d 100%);
-  --chat-hangup-bg: linear-gradient(180deg, #fda4af 0%, #f43f5e 52%, #be123c 100%);
-  --chat-send-shadow:
-    0 2px 4px rgba(15, 23, 42, 0.08),
-    0 10px 22px rgba(37, 99, 235, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -3px 6px rgba(30, 64, 175, 0.22);
-  --chat-call-shadow:
-    0 2px 4px rgba(15, 23, 42, 0.08),
-    0 10px 22px rgba(34, 197, 94, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -3px 6px rgba(21, 128, 61, 0.22);
-  --chat-hangup-shadow:
-    0 2px 4px rgba(15, 23, 42, 0.08),
-    0 10px 22px rgba(244, 63, 94, 0.4),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -3px 6px rgba(190, 18, 60, 0.22);
 }
 
 html:not([data-theme='basic']) .chat-action-button.chat-send-surface:active:not(:disabled) {
@@ -2863,53 +2829,6 @@ html:not([data-theme='basic']) .chat-action-button.chat-hangup-surface:active:no
     0 1px 2px rgba(15, 23, 42, 0.06),
     0 3px 8px rgba(244, 63, 94, 0.22),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-
-/* Modern-only: stronger bead chrome (after shared :not(basic) hardcodes). */
-html[data-theme='modern'] .chat-control-bead {
-  box-shadow:
-    0 2px 4px rgba(15, 23, 42, 0.08),
-    0 10px 22px rgba(16, 185, 129, 0.45);
-}
-
-html[data-theme='modern'] .chat-action-button.chat-control-surface,
-html[data-theme='modern'] .chat-action-button.chat-control-surface:hover:not(:disabled),
-html[data-theme='modern'] .chat-action-button.chat-control-surface:focus-visible:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.65),
-    inset 0 -3px 6px rgba(4, 120, 87, 0.2);
-}
-
-html[data-theme='modern'] .chat-action-button.chat-control-surface:active:not(:disabled) {
-  transform: translateY(1px) scale(0.98);
-  filter: brightness(0.96);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 4px rgba(4, 120, 87, 0.14);
-}
-
-html[data-theme='modern'] .chat-action-button.chat-send-surface:active:not(:disabled) {
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.08),
-    0 4px 10px rgba(37, 99, 235, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 4px rgba(30, 64, 175, 0.16);
-}
-
-html[data-theme='modern'] .chat-action-button.chat-call-surface:active:not(:disabled) {
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.08),
-    0 4px 10px rgba(34, 197, 94, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 4px rgba(21, 128, 61, 0.16);
-}
-
-html[data-theme='modern'] .chat-action-button.chat-hangup-surface:active:not(:disabled) {
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.08),
-    0 4px 10px rgba(244, 63, 94, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -2px 4px rgba(190, 18, 60, 0.16);
 }
 
 /* Chat feed wallpaper gradient + optional muted pattern overlay */

@@ -98,16 +98,7 @@ export default function VoiceMicButton({
         }}
       >
         {!suppressInviteChrome && micVisualState === 'wait' ? (
-          <span
-            aria-hidden="true"
-            className="animate-wait pointer-events-none absolute inset-0 rounded-full"
-            style={{
-              opacity: 0.82,
-              backgroundImage:
-                'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
-              animationDuration: '9s',
-            }}
-          />
+          <span aria-hidden="true" className="animate-wait pointer-events-none absolute inset-0 rounded-full" />
         ) : null}
         {finalizing ? (
           <MicFinalizeRing />
