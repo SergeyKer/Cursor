@@ -133,7 +133,7 @@ function presetCandidates(norm: string): ReferenceCandidate[] {
   return []
 }
 
-function candidateFromTopicKey(topicKey: string, whyRu: string): ReferenceCandidate | null {
+function candidateFromTopicKey(topicKey: string, whyRu: string): ReferenceCandidate {
   const sheet = getPrebuiltSheet(topicKey)
   if (sheet) {
     const lessonId = sheet.relatedLessonId?.trim()
@@ -235,7 +235,7 @@ export function resolveReferenceOpen(params: ReferenceOpenRequest): ReferenceRes
     ''
   if (canonical) {
     const fromKey = candidateFromTopicKey(canonical, 'Тема по ключу')
-    if (fromKey && fromKey.openKind !== 'generate') {
+    if (fromKey.openKind !== 'generate') {
       return { kind: 'open', candidate: fromKey }
     }
   }
@@ -266,7 +266,7 @@ export function resolveReferenceOpen(params: ReferenceOpenRequest): ReferenceRes
   for (const hit of syllabusHits) {
     if (hit.score < 70) continue
     const c = candidateFromTopicKey(hit.topic.topicKey, hit.topic.teaser)
-    if (c && c.openKind !== 'generate') openable.push(c)
+    if (c.openKind !== 'generate') openable.push(c)
   }
   const unique = dedupeCandidates(openable)
   if (unique.length === 1 && unique[0]) {
