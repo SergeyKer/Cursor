@@ -60,6 +60,7 @@ import {
   reconcileModeGoalSessions,
   saveRewardsState,
   formatGlobalFooterStats,
+  formatCompactFooterStats,
   formatModeGoalFooter,
   type RewardsState,
   spendCoins,
@@ -293,6 +294,7 @@ import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import TutorChatPanel from '@/components/tutor/TutorChatPanel'
 import { clearTutorReturnContext } from '@/lib/tutor/tutorReturnContext'
+import type { TutorFooterView } from '@/lib/tutor/tutorFooter'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -532,7 +534,11 @@ import {
 import type { ReferenceSheet } from '@/lib/reference/types'
 import { canOpenLocalReferenceLesson } from '@/lib/reference/canOpenLocalReference'
 import { resolveOpenReferenceSheet } from '@/lib/reference/openReferenceSheet'
-import { generateReferenceSheet } from '@/lib/reference/generateReferenceSheet'
+import {
+  openMenuReferenceCandidate,
+  resolveMenuReferenceSearch,
+} from '@/lib/reference/resolveMenuReferenceSearch'
+import type { ReferenceCandidate } from '@/lib/reference/resolveReferenceOpen'
 import { getSyllabusTopicByKey } from '@/lib/reference/syllabus'
 import {
   consumeOpenReferenceLessonId,
@@ -1150,6 +1156,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [tutorChatSpaceActive, setTutorChatSpaceActive] = useState(false)
   const [tutorChatAutoSubmitInitial, setTutorChatAutoSubmitInitial] = useState(false)
   const [tutorMicroSessionExitLocked, setTutorMicroSessionExitLocked] = useState(false)
+  const [tutorFooterView, setTutorFooterView] = useState<TutorFooterView | null>(null)
+  const tutorFooterSeqRef = React.useRef(0)
+  const handleTutorFooterViewChange = useCallback((view: TutorFooterView | null) => {
+    if (view == null) {
+      const seq = tutorFooterSeqRef.current
+      queueMicrotask(() => {
+        if (tutorFooterSeqRef.current === seq) setTutorFooterView(null)
+      })
+      return
+    }
+    tutorFooterSeqRef.current += 1
+    setTutorFooterView(view)
+  }, [])
   const [progressPracticeBusy, setProgressPracticeBusy] = useState(false)
   const [adaptiveFooterView, setAdaptiveFooterView] = useState<AdaptiveFooterView | null>(null)
   const [engvoVoiceMode, setEngvoVoiceMode] = useState(false)
@@ -1467,6 +1486,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [])
   const abandonCommunicationSession = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'communication_session_abandoned' }))
+  }, [])
+  const bumpTutorExplain = useCallback((canonicalKey: string) => {
+    setRewardsState((prev) =>
+      applyRewardsEvent(prev, { type: 'tutor_explain_resolved', canonicalKey })
+    )
+  }, [])
+  const bumpTutorMicroFinale = useCallback((canonicalKey: string) => {
+    setRewardsState((prev) =>
+      applyRewardsEvent(prev, { type: 'tutor_micro_finale_resolved', canonicalKey })
+    )
+  }, [])
+  const abandonTutorSession = useCallback(() => {
+    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'tutor_session_abandoned' }))
   }, [])
   const bumpEngvoGoal = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))
@@ -4727,6 +4759,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setProgressSpaceActive(false)
     setMyPlanSpaceActive(false)
     setTutorChatSpaceActive(false)
+    setTutorFooterView(null)
     clearTutorReturnContext()
     setAdaptiveFooterView(null)
     if (!options?.keepLessonMenuContext) {
@@ -5181,6 +5214,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setVocabularyWorldsActive(false)
       setVocabularyByLevelActive(false)
       setVocabularyFooterView(null)
+      setTutorFooterView(null)
       setAccentTrainerActive(false)
       setAccentFooterView(null)
       firstMessageRequestIdRef.current += 1
@@ -5247,6 +5281,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setVocabularyWorldsActive(false)
       setVocabularyByLevelActive(false)
       setVocabularyFooterView(null)
+      setTutorFooterView(null)
       setAccentTrainerActive(false)
       setAccentFooterView(null)
       firstMessageRequestIdRef.current += 1
@@ -5321,28 +5356,67 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [openReferenceTopic, openRuntimeReferenceFromChip]
   )
 
-  const generateReferenceFromMenu = useCallback(
+  const resolveReferenceSearchFromMenu = useCallback(
     async (query: string) => {
-      const result = await generateReferenceSheet({
+      return resolveMenuReferenceSearch({
         query,
-        level: settings.level,
         audience: settings.audience,
+        level: settings.level,
         provider: settings.provider,
         openAiChatPreset: settings.openAiChatPreset,
+        openLocalLesson: async (lessonId) => {
+          await openReferenceTopic(lessonId, 'theory', { catalogBrowseIntent: 'reference' })
+        },
+        openSheet: async (sheet) => {
+          openRuntimeReferenceFromChip(sheet, 'menu')
+        },
       })
-      if (result.kind === 'generated') {
-        openRuntimeReferenceFromChip(result.sheet, 'menu')
-      } else {
-        setMenuLessonBgError('Не удалось собрать шпаргалку. Уточни тему и попробуй ещё раз.')
-      }
     },
     [
+      openReferenceTopic,
       openRuntimeReferenceFromChip,
       settings.audience,
       settings.level,
       settings.openAiChatPreset,
       settings.provider,
     ]
+  )
+
+  const openReferenceCandidateFromMenu = useCallback(
+    async (candidate: ReferenceCandidate) => {
+      return openMenuReferenceCandidate({
+        candidate,
+        audience: settings.audience,
+        level: settings.level,
+        provider: settings.provider,
+        openAiChatPreset: settings.openAiChatPreset,
+        openLocalLesson: async (lessonId) => {
+          await openReferenceTopic(lessonId, 'theory', { catalogBrowseIntent: 'reference' })
+        },
+        openSheet: async (sheet) => {
+          openRuntimeReferenceFromChip(sheet, 'menu')
+        },
+      })
+    },
+    [
+      openReferenceTopic,
+      openRuntimeReferenceFromChip,
+      settings.audience,
+      settings.level,
+      settings.openAiChatPreset,
+      settings.provider,
+    ]
+  )
+
+  /** Legacy generate-only path (miss + flag); prefer resolveReferenceSearchFromMenu. */
+  const generateReferenceFromMenu = useCallback(
+    async (query: string) => {
+      const result = await resolveReferenceSearchFromMenu(query)
+      if (result.kind === 'miss') {
+        setMenuLessonBgError(result.message)
+      }
+    },
+    [resolveReferenceSearchFromMenu]
   )
 
   const backFromReferenceToChat = useCallback(() => {
@@ -6212,6 +6286,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     resetStructuredLessonSession()
+    setFooterSheetContext(null)
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
@@ -6239,6 +6314,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     resetStructuredLessonSession()
+    setFooterSheetContext(null)
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
@@ -6253,6 +6329,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const promoteTutorFromMenu = useCallback(() => {
     if (!featureFlags.tutorChatV1) return
+    abandonPracticeSession()
+    setFooterSheetContext(null)
     setTutorChatAutoSubmitInitial(false)
     setTutorChatPrefill('')
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
@@ -6261,7 +6339,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('root')
-  }, [])
+  }, [abandonPracticeSession])
 
   const exitTutorChatSpace = useCallback(() => {
     clearTutorReturnContext()
@@ -8890,6 +8968,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       isPracticeActive ? 'practice' : 'no-practice',
       isAccentActive ? 'accent' : 'no-accent',
       isVocabularyHubActive ? 'vocabulary' : 'no-vocabulary',
+      tutorChatSpaceActive || tutorFooterView ? 'tutor' : 'no-tutor',
       engvoVoiceMode ? 'engvo' : 'no-engvo',
     ].join('|')
     if (footerContextSignatureRef.current === null) {
@@ -8909,6 +8988,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isPracticeActive,
     isVocabularyHubActive,
     storageLoaded,
+    tutorChatSpaceActive,
+    tutorFooterView,
     settings.audience,
     settings.mode,
     lessonViewStage,
@@ -9390,6 +9471,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
     abandonCommunicationSession()
   }, [storageLoaded, communicationChatActive, abandonCommunicationSession])
+  React.useEffect(() => {
+    if (!storageLoaded) return
+    if (tutorChatSpaceActive) {
+      setRewardsState((prev) => {
+        const status = prev.tutorSession?.status
+        if (status === 'in_progress') return prev
+        return applyRewardsEvent(prev, { type: 'tutor_session_started' })
+      })
+      return
+    }
+    abandonTutorSession()
+  }, [storageLoaded, tutorChatSpaceActive, abandonTutorSession])
   const translationSessionExitChips = React.useMemo(
     () =>
       translationChatActive
@@ -9597,6 +9690,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     practiceSession.state === 'completed' || practiceSession.state === 'briefing'
       ? practiceRewardUi?.topLine ?? footerContextRewardTicker
       : null
+  const isTutorFooterActive = Boolean(tutorFooterView) || isTutorChatSpaceActive
+  const tutorSessionMeter =
+    tutorFooterView?.sessionMeter && tutorFooterView.sessionMeter.target > 0
+      ? tutorFooterView.sessionMeter
+      : null
   const footerDynamicText = isAccentActive
     ? resolveFooterWithStreakLayer(accentFooterView?.dynamicText ?? null)
     : isVocabularyHubActive
@@ -9604,6 +9702,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         vocabularyFooterView?.dynamicText ??
           (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
       )
+    : isTutorFooterActive
+    ? resolveFooterWithStreakLayer(tutorFooterView?.dynamicText ?? null)
     : isPracticeActive
     ? resolveFooterWithStreakLayer(
         practiceFooterView?.dynamicText ?? null,
@@ -9640,6 +9740,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
     ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')
+    : isTutorFooterActive
+    ? formatCompactFooterStats(rewardsState)
     : isPracticeActive
     ? practiceFooterView?.staticText ?? 'Практика'
     : isLessonIntroActive
@@ -9739,14 +9841,19 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (translationChatActive || dialogueChatActive || communicationChatActive)
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
+    Boolean(tutorSessionMeter) ||
     isPracticeActive ||
     footerSessionMeterChatActive
       ? null
-      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
+      : isTutorFooterActive
+        ? baseFooterStaticText
+        : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
     : isVocabularyHubActive
     ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'
+    : isTutorFooterActive
+    ? tutorFooterView?.typingKey ?? 'tutor-footer'
     : isPracticeActive
     ? practiceFooterView?.typingKey ?? 'practice-footer'
     : isLessonIntroActive
@@ -9775,6 +9882,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     ? accentFooterView?.tone ?? 'neutral'
     : isVocabularyHubActive
     ? 'support'
+    : isTutorFooterActive
+    ? 'neutral'
     : isPracticeActive
     ? practiceSession.state === 'correction' || practiceSession.state === 'briefing'
       ? 'hint'
@@ -9808,6 +9917,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const baseFooterVoiceEmphasis = isAccentActive
     ? accentFooterView?.emphasis ?? 'none'
     : isVocabularyHubActive
+    ? 'none'
+    : isTutorFooterActive
     ? 'none'
     : isPracticeActive
     ? practiceSession.state === 'completed'
@@ -9848,15 +9959,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && isPracticeActive
-      ? practiceFooterView?.sessionMeter ?? null
-      : footerHydrated && !footerSessionMeterBlocked && translationChatActive
-        ? translationFooterView?.sessionMeter ?? null
-        : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive
-          ? dialogueFooterView?.sessionMeter ?? null
-          : footerHydrated && !footerSessionMeterBlocked && communicationChatActive
-            ? communicationFooterView?.sessionMeter ?? null
-            : null
+    footerHydrated && tutorSessionMeter
+      ? tutorSessionMeter
+      : footerHydrated && isPracticeActive
+        ? practiceFooterView?.sessionMeter ?? null
+        : footerHydrated && !footerSessionMeterBlocked && translationChatActive
+          ? translationFooterView?.sessionMeter ?? null
+          : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive
+            ? dialogueFooterView?.sessionMeter ?? null
+            : footerHydrated && !footerSessionMeterBlocked && communicationChatActive
+              ? communicationFooterView?.sessionMeter ?? null
+              : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
   const abortLanguageNoteRequest = useCallback(() => {
     languageNoteAbortRef.current?.abort()
@@ -10838,6 +10951,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     autoSubmitInitial={tutorChatAutoSubmitInitial}
                     onDone={exitTutorChatSpace}
                     onSessionExitGuardChange={setTutorMicroSessionExitLocked}
+                    onFooterViewChange={handleTutorFooterViewChange}
+                    sessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
+                    onExplainSuccess={bumpTutorExplain}
+                    onMicroFinale={bumpTutorMicroFinale}
                   />
                 ) : isMyPlanSpaceActive ? (
                   <MyPlanSheetScreen
@@ -10994,6 +11111,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   key={`ref-${activeReferenceSheet.id}`}
                   sheet={activeReferenceSheet}
                   actionsMode={referenceActionsMode}
+                  readingMode={referenceLaunchFrom === 'tutor' ? 'cheatsheet' : 'lookup'}
                   onBack={
                     referenceLaunchFrom === 'chat'
                       ? backFromReferenceToChat
@@ -11375,6 +11493,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenReferenceTopic={openReferenceTopic}
         onOpenSyllabusTopic={openSyllabusTopic}
         onGenerateReferenceSheet={generateReferenceFromMenu}
+        onReferenceSearchSubmit={resolveReferenceSearchFromMenu}
+        onOpenReferenceSearchCandidate={openReferenceCandidateFromMenu}
         onOpenProgressSpace={openProgressSpace}
         onOpenMyPlanSpace={openMyPlanSpace}
         onOpenTutorChat={openTutorChat}
@@ -11395,6 +11515,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
+        onTutorFooterViewChange={handleTutorFooterViewChange}
+        tutorSessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
+        onTutorExplainSuccess={bumpTutorExplain}
+        onTutorMicroFinale={bumpTutorMicroFinale}
         onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
         lessonMenuContext={lessonMenuContext}
         restoreLessonMenuOnNextOpenRef={restoreLessonMenuOnNextOpenRef}

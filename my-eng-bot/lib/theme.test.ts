@@ -9,6 +9,7 @@ const ALL_THEMES: Theme[] = [
   'glass1',
   'glass2',
   'glass3',
+  'modern',
 ]
 
 describe('theme', () => {
@@ -34,5 +35,6 @@ describe('theme', () => {
     expect(isGlassTheme('glass3')).toBe(true)
     expect(isGlassTheme('bubble2')).toBe(false)
     expect(isGlassTheme('basic')).toBe(false)
+    expect(isGlassTheme('modern')).toBe(false)
   })
 })

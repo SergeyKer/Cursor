@@ -77,6 +77,20 @@ export type {
   BuildTutorFollowUpPlaceholderParams,
   BuildTutorFollowUpChipParams,
 } from '@/lib/tutor/buildFollowUpPlaceholder'
+export { alignExplainTopicToFaq } from '@/lib/tutor/alignExplainTopicToFaq'
+export type { AlignExplainTopicToFaqParams } from '@/lib/tutor/alignExplainTopicToFaq'
+export {
+  followUpLegacyFlags,
+  initialFollowUpHopState,
+  nextFollowUpHopState,
+  resolveFollowUpHopFromSnapshot,
+  visibleFollowUpHop,
+} from '@/lib/tutor/followUpHop'
+export type {
+  FollowUpHop,
+  FollowUpHopEvent,
+  FollowUpHopState,
+} from '@/lib/tutor/followUpHop'
 export { buildTutorMicroPackFromExplain, inferContrastCorrectIndex } from '@/lib/tutor/buildMicroPack'
 export {
   buildAgeChoiceItems,

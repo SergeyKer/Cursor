@@ -120,7 +120,7 @@ export default function TutorComposer({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
   const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
-  const isMicroChoicePanel = chipsMode === 'micro'
+  const isMicroChoicePanel = chipsMode === 'micro' && chips.length > 0
   const canSend =
     value.trim().length > 0 && !composerLocked && !listening && !finalizing && !isVoiceActive
 
@@ -150,7 +150,7 @@ export default function TutorComposer({
   if (isMicroChoicePanel) {
     const resetKey = chipsResetKey ?? 'micro'
     return (
-      <div className="flex w-full flex-col" aria-busy={chips.length === 0}>
+      <div className="flex w-full flex-col">
         <LessonChoiceChips
           choices={chips.map((chip) => chip.labelRu)}
           onChoose={(text) => {

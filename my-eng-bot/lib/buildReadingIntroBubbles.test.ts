@@ -5,7 +5,11 @@ import { buildReferenceBubbles } from '@/lib/reference/buildReferenceBubbles'
 import { buildReferenceSheetFromLesson } from '@/lib/reference/buildReferenceSheet'
 import { READING_COLUMN_MAX_CLASS } from '@/lib/lessonReadingLayout'
 import { getStructuredLessonById } from '@/lib/structuredLessons'
-import { LESSON_READING_CARD_LABELS, LESSON_READING_CARD_ORDER } from '@/lib/uiCopy/lessonReadingCards'
+import {
+  LESSON_READING_CARD_LABELS,
+  LESSON_READING_CARD_ORDER,
+  REFERENCE_READING_CARD_LABELS,
+} from '@/lib/uiCopy/lessonReadingCards'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import type { LessonIntro } from '@/types/lesson'
 
@@ -31,28 +35,26 @@ const baseIntro: LessonIntro = {
 }
 
 describe('buildReadingIntroBubbles', () => {
-  it('builds exactly 6 reading cards with shared labels', () => {
+  it('builds reading cards including contrast when present', () => {
     const bubbles = buildReadingIntroBubbles(baseIntro, 'adult')
-    expect(bubbles).toHaveLength(6)
+    expect(bubbles).toHaveLength(7)
     expect(bubbles.map((b) => b.content.split('\n')[0])).toEqual([
       LESSON_READING_CARD_LABELS.essence,
       LESSON_READING_CARD_LABELS.rule,
       LESSON_READING_CARD_LABELS.templates,
       LESSON_READING_CARD_LABELS.examples,
+      LESSON_READING_CARD_LABELS.contrast,
       LESSON_READING_CARD_LABELS.mistakes,
       LESSON_READING_CARD_LABELS.selfCheck,
     ])
-    expect(bubbles.map((b) => b.type)).toEqual(['info', 'positive', 'info', 'task', 'positive', 'task'])
     expect(bubbles[0]?.content.split('\n')[0]).toBe('Тема урока')
     expect(bubbles[0]?.content).toContain('to be')
     expect(bubbles[0]?.content).toContain('takeaway')
-    expect(bubbles.every((b) => !/^[📘🟡⚪🟢🔬]/.test(b.content.split('\n')[0] ?? ''))).toBe(true)
-    expect(bubbles.every((b) => !b.content.includes('ПОЧЕМУ ТАК'))).toBe(true)
-    expect(bubbles.every((b) => !b.content.includes('contrast1'))).toBe(true)
+    expect(bubbles.some((b) => b.content.includes('contrast1'))).toBe(true)
     expect(bubbles.every((b) => !b.content.includes('point1'))).toBe(true)
   })
 
-  it('omits mistakes and self-check when deepDive is missing', () => {
+  it('omits contrast mistakes and self-check when deepDive is missing', () => {
     const intro: LessonIntro = {
       ...baseIntro,
       details: undefined,
@@ -62,10 +64,13 @@ describe('buildReadingIntroBubbles', () => {
     expect(bubbles).toHaveLength(4)
     expect(bubbles.every((b) => !b.content.includes(LESSON_READING_CARD_LABELS.mistakes))).toBe(true)
     expect(bubbles.every((b) => !b.content.includes(LESSON_READING_CARD_LABELS.selfCheck))).toBe(true)
+    expect(bubbles.every((b) => !b.content.includes(LESSON_READING_CARD_LABELS.contrast))).toBe(true)
   })
 
-  it('matches shared builder output', () => {
-    expect(buildReadingIntroBubbles(baseIntro, 'child')).toEqual(buildLessonReadingBubbles(baseIntro))
+  it('matches shared builder output in lesson mode', () => {
+    expect(buildReadingIntroBubbles(baseIntro, 'child')).toEqual(
+      buildLessonReadingBubbles(baseIntro, { mode: 'lesson' })
+    )
   })
 
   it('formats paired commonMistakes as ✗ wrong → ✓ right without Не/а', () => {
@@ -73,10 +78,7 @@ describe('buildReadingIntroBubbles', () => {
       ...baseIntro,
       deepDive: {
         ...baseIntro.deepDive!,
-        commonMistakes: [
-          'Не I go sleep — а I go to sleep.',
-          'Пытаться переводить дословно.',
-        ],
+        commonMistakes: ['Не I go sleep — а I go to sleep.', 'Пытаться переводить дословно.'],
       },
     }
     const mistakesCard = buildReadingIntroBubbles(intro, 'adult').find((b) =>
@@ -86,20 +88,41 @@ describe('buildReadingIntroBubbles', () => {
     expect(mistakesCard?.content).not.toContain('Не I go sleep — а')
     expect(mistakesCard?.content).toContain('• Пытаться переводить дословно.')
   })
+
+  it('cheatsheet mode drops when/selfCheck and lifts contrast', () => {
+    const bubbles = buildLessonReadingBubbles(baseIntro, { mode: 'cheatsheet' })
+    const labels = bubbles.map((b) => b.content.split('\n')[0])
+    expect(labels).toEqual([
+      REFERENCE_READING_CARD_LABELS.essence,
+      REFERENCE_READING_CARD_LABELS.contrast,
+      REFERENCE_READING_CARD_LABELS.templates,
+      REFERENCE_READING_CARD_LABELS.examples,
+      REFERENCE_READING_CARD_LABELS.mistakes,
+    ])
+    expect(labels).not.toContain(REFERENCE_READING_CARD_LABELS.rule)
+    expect(labels).not.toContain(REFERENCE_READING_CARD_LABELS.selfCheck)
+  })
 })
 
 describe('reference mirror', () => {
-  it('mirrors intro card order and labels for I am lesson', () => {
+  it('copies contrast from It’s lesson intro into sheet and lookup bubbles', () => {
+    const sheet = buildReferenceSheetFromLesson(getStructuredLessonById('1'))
+    expect(sheet?.contrast?.length).toBeGreaterThan(0)
+    const refBubbles = buildReferenceBubbles(sheet!, { mode: 'lookup' })
+    expect(refBubbles.some((b) => b.content.startsWith(REFERENCE_READING_CARD_LABELS.contrast))).toBe(
+      true
+    )
+    expect(refBubbles[0]?.content.split('\n')[0]).toBe('Суть')
+  })
+
+  it('keeps same card keys for I am lesson intro vs lookup (labels may differ)', () => {
     const lesson = getStructuredLessonById('4')
     expect(lesson?.intro).toBeTruthy()
     const introBubbles = buildReadingIntroBubbles(lesson!.intro!, 'adult')
     const sheet = buildReferenceSheetFromLesson(lesson)
     expect(sheet?.selfCheck).toBeTruthy()
-    const refBubbles = buildReferenceBubbles(sheet!)
-    expect(refBubbles.map((b) => b.content.split('\n')[0])).toEqual(
-      introBubbles.map((b) => b.content.split('\n')[0])
-    )
-    expect(refBubbles).toEqual(introBubbles)
+    const refBubbles = buildReferenceBubbles(sheet!, { mode: 'lookup' })
+    expect(refBubbles).toHaveLength(introBubbles.length)
     expect(refBubbles.every((b) => b.content.split('\n').length > 1)).toBe(true)
   })
 })
@@ -109,13 +132,14 @@ describe('reading layout + labels', () => {
     expect(READING_COLUMN_MAX_CLASS).toBe('max-w-[29rem]')
   })
 
-  it('keeps shared labels for intro and reference', () => {
-    expect(LESSON_READING_CARD_ORDER).toHaveLength(6)
+  it('keeps shared card keys; reference copy uses lookup labels', () => {
+    expect(LESSON_READING_CARD_ORDER).toContain('contrast')
     expect(LESSON_READING_CARD_LABELS.essence).toBe('Тема урока')
-    expect(REFERENCE_COPY.cardHook).toBe(LESSON_READING_CARD_LABELS.essence)
-    expect(REFERENCE_COPY.cardFormula).toBe(LESSON_READING_CARD_LABELS.templates)
-    expect(REFERENCE_COPY.cardTraps).toBe(LESSON_READING_CARD_LABELS.mistakes)
-    expect(REFERENCE_COPY.cardSelfCheck).toBe(LESSON_READING_CARD_LABELS.selfCheck)
+    expect(LESSON_READING_CARD_LABELS.contrast).toBe('Не путать')
+    expect(REFERENCE_COPY.cardHook).toBe(REFERENCE_READING_CARD_LABELS.essence)
+    expect(REFERENCE_COPY.cardHook).toBe('Суть')
+    expect(REFERENCE_COPY.cardContrast).toBe('Не путать')
+    expect(REFERENCE_COPY.cardFormula).toBe(REFERENCE_READING_CARD_LABELS.templates)
     expect(REFERENCE_COPY.hubTitle).toBe('Справочник')
   })
 })

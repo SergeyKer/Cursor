@@ -23,6 +23,14 @@ import {
   createDefaultTranslationSession,
   type TranslationSessionState,
 } from '@/lib/translation/translationSessionEconomy'
+import {
+  TUTOR_SESSION_TTL_MS,
+  abandonTutorSessionSlice,
+  createDefaultTutorSession,
+  normalizeTutorKeyList,
+  rollTutorDailyXp,
+  type TutorSessionState,
+} from '@/lib/tutor/tutorSessionEconomy'
 
 export const REWARDS_STATE_KEY = 'myeng_state_v1'
 export const REWARDS_MIGRATIONS_KEY = 'myeng_rewards_migrations_v1'
@@ -242,10 +250,17 @@ export interface RewardsState {
   dialogueSession: DialogueSessionState
   /** Сессия общения: счётчик 8 + daily XP. Soft-default, без bump version. */
   communicationSession: CommunicationSessionState
+  /** Репетитор: daily XP + visit sessionXp. Soft-default, без bump version. */
+  tutorSession: TutorSessionState
   ui: RewardUiState
 }
 
-export type { TranslationSessionState, DialogueSessionState, CommunicationSessionState }
+export type {
+  TranslationSessionState,
+  DialogueSessionState,
+  CommunicationSessionState,
+  TutorSessionState,
+}
 
 const MODE_GOAL_SESSION_TTL_MS = 45 * 60 * 1000
 
@@ -312,6 +327,7 @@ export function createDefaultRewardsState(): RewardsState {
     translationSession: createDefaultTranslationSession(),
     dialogueSession: createDefaultDialogueSession(),
     communicationSession: createDefaultCommunicationSession(),
+    tutorSession: createDefaultTutorSession(),
     ui: {
       footerTicker: 'Готов к следующему шагу.',
       lastReward: null,
@@ -738,6 +754,73 @@ export function abandonCommunicationSessionState(state: RewardsState): RewardsSt
   }
 }
 
+export function normalizeTutorSession(
+  raw: unknown,
+  options?: { now?: Date; today?: string }
+): TutorSessionState {
+  const fallback = createDefaultTutorSession()
+  const today = options?.today ?? getTodayDateString()
+  const nowTs = (options?.now ?? new Date()).getTime()
+  if (!raw || typeof raw !== 'object') return fallback
+  const src = raw as Partial<TutorSessionState>
+  const status: TutorSessionState['status'] =
+    src.status === 'in_progress' || src.status === 'not_started' || src.status === 'abandoned'
+      ? src.status
+      : 'not_started'
+  const sessionXpAwarded =
+    typeof src.sessionXpAwarded === 'number' ? Math.max(0, Math.floor(src.sessionXpAwarded)) : 0
+  let session: TutorSessionState = rollTutorDailyXp(
+    {
+      sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
+      status,
+      sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
+      dailyXpAwarded:
+        typeof src.dailyXpAwarded === 'number' ? Math.max(0, Math.floor(src.dailyXpAwarded)) : 0,
+      dailyXpDate: typeof src.dailyXpDate === 'string' ? src.dailyXpDate : null,
+      awardedExplainKeys: normalizeTutorKeyList(src.awardedExplainKeys),
+      awardedMicroKeys: normalizeTutorKeyList(src.awardedMicroKeys),
+    },
+    today
+  )
+  if (session.status === 'in_progress' && session.sessionStartedAt) {
+    const started = parseDateOrNull(session.sessionStartedAt)
+    if (started && nowTs - started.getTime() > TUTOR_SESSION_TTL_MS) {
+      session = abandonTutorSessionSlice(session)
+    }
+  }
+  return session
+}
+
+export function startTutorSessionState(
+  state: RewardsState,
+  today: string = getTodayDateString()
+): RewardsState {
+  const rolled = rollTutorDailyXp(state.tutorSession, today)
+  return {
+    ...state,
+    tutorSession: {
+      ...rolled,
+      sessionXpAwarded: 0,
+      status: 'in_progress',
+      sessionStartedAt: new Date().toISOString(),
+    },
+  }
+}
+
+export function abandonTutorSessionState(state: RewardsState): RewardsState {
+  const session = rollTutorDailyXp(state.tutorSession, getTodayDateString())
+  if (
+    (session.status === 'not_started' || session.status === 'abandoned') &&
+    session.sessionXpAwarded === 0
+  ) {
+    return state.tutorSession === session ? state : { ...state, tutorSession: session }
+  }
+  return {
+    ...state,
+    tutorSession: abandonTutorSessionSlice(session),
+  }
+}
+
 function normalizeRewardsState(raw: unknown): RewardsState {
   const fallback = createDefaultRewardsState()
   if (!raw || typeof raw !== 'object') return fallback
@@ -808,6 +891,7 @@ function normalizeRewardsState(raw: unknown): RewardsState {
     communicationSession: normalizeCommunicationSession(
       (src as { communicationSession?: unknown }).communicationSession
     ),
+    tutorSession: normalizeTutorSession((src as { tutorSession?: unknown }).tutorSession),
     ui: {
       footerTicker: typeof src.ui?.footerTicker === 'string' ? src.ui.footerTicker : fallback.ui.footerTicker,
       lastReward:

@@ -2579,7 +2579,7 @@ export default function Chat({
                       type="button"
                       disabled={engvoCallInProgress || isLessonLoadingState}
                       onClick={engvo?.onStartCall}
-                      className="chat-action-button inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#22c55e] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(34,197,94,0.34)] transition-all duration-200 hover:scale-105 hover:bg-[#16a34a] active:scale-95 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-70 disabled:hover:scale-100 disabled:hover:bg-[#22c55e]"
+                      className="chat-action-button chat-call-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-xl leading-none transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-70 disabled:hover:scale-100"
                       aria-label="Поднять трубку"
                       title="Поднять трубку"
                     >
@@ -2623,7 +2623,7 @@ export default function Chat({
                       type="button"
                       onClick={engvo?.onHangUp}
                       disabled={!engvoCallInProgress}
-                      className="chat-action-button chat-send-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full bg-[#ef4444] p-0 text-xl leading-none shadow-[0_10px_24px_rgba(239,68,68,0.26)] transition-all duration-200 hover:scale-105 hover:bg-[#dc2626] active:scale-95 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-50 disabled:hover:scale-100"
+                      className="chat-action-button chat-hangup-surface inline-flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-full p-0 text-xl leading-none transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-red-300 disabled:opacity-50 disabled:hover:scale-100"
                       aria-label={sendButtonAriaLabel}
                       title="Положить трубку"
                     >

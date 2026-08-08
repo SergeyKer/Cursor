@@ -33,6 +33,7 @@ export function buildReferenceSheetFromLesson(lesson: LessonData | null | undefi
   const rule = resolveTheoryBlock(intro)?.bullets ?? []
   const formula = resolveHowBlock(intro)?.bullets ?? []
   const traps = normalizeBullets(intro.deepDive?.commonMistakes)
+  const contrast = normalizeBullets(intro.deepDive?.contrastNotes)
   const examples = (intro.quick.examples ?? []).filter((ex) => trimText(ex.en))
   const selfCheck = trimText(intro.deepDive?.selfCheckRule) || null
   const title = trimText(intro.topic) || catalog?.title || trimText(lesson.topic) || `Урок ${lesson.id}`
@@ -48,6 +49,7 @@ export function buildReferenceSheetFromLesson(lesson: LessonData | null | undefi
     rule,
     formula,
     traps,
+    contrast,
     examples,
     selfCheck,
     relatedLessonId: lesson.id,

@@ -61,6 +61,8 @@ const CEFR_GAP_KEYS = [
   'past_vs_present_perfect',
   'passive_basic',
   'reported_statements',
+  'get_become',
+  'get_up',
 ] as const
 
 

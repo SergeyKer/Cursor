@@ -11,6 +11,8 @@ describe('rewardsUiPolicy', () => {
     expect(rewardReasonAllowsDynamicTickerOverride('engvo_goal_progress')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('translation_step_resolved')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('dialogue_step_resolved')).toBe(false)
+    expect(rewardReasonAllowsDynamicTickerOverride('tutor_explain_resolved')).toBe(false)
+    expect(rewardReasonAllowsDynamicTickerOverride('tutor_micro_finale_resolved')).toBe(false)
     expect(rewardReasonAllowsDynamicTickerOverride('lesson_xp_awarded')).toBe(true)
   })
 

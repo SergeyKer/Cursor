@@ -64,4 +64,19 @@ describe('tutorReturnContext', () => {
     expect(snap?.followUpNudgeConsumed).toBe(false)
     expect(snap?.followUpNudgeArmed).toBe(false)
   })
+
+  it('preserves followUpHop through stash/consume', () => {
+    stashTutorReturnContext({
+      draft: '',
+      anchorQuery: 'x',
+      postExplainChips: true,
+      followUpHop: 2,
+      followUpNudgeArmed: true,
+      followUpNudgeConsumed: false,
+      thread: [{ id: '1', role: 'user', text: 'hi' }],
+      lastExplain: sampleExplain,
+    })
+    const snap = consumeTutorReturnContext()
+    expect(snap?.followUpHop).toBe(2)
+  })
 })

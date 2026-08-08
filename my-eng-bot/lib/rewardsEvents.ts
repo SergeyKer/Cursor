@@ -16,18 +16,28 @@ import {
   type TranslationStepOutcome,
 } from '@/lib/translation/translationSessionEconomy'
 import {
+  TUTOR_XP_EXPLAIN,
+  TUTOR_XP_MICRO_FINALE,
+  clampTutorDailyXp,
+  tutorExplainKey,
+  tutorMicroKey,
+} from '@/lib/tutor/tutorSessionEconomy'
+import {
   abandonCommunicationSessionState,
   abandonDialogueSessionState,
   abandonTranslationSessionState,
+  abandonTutorSessionState,
   awardGlobalXp,
   getTodayDateString,
   incrementModeGoal,
   normalizeCommunicationSession,
   normalizeDialogueSession,
   normalizeTranslationSession,
+  normalizeTutorSession,
   startCommunicationSessionState,
   startDialogueSessionState,
   startTranslationSessionState,
+  startTutorSessionState,
   type RewardsState,
 } from './rewardsState'
 
@@ -61,6 +71,10 @@ export type RewardsEvent =
     }
   | { type: 'dialogue_session_started' }
   | { type: 'dialogue_session_abandoned' }
+  | { type: 'tutor_explain_resolved'; canonicalKey: string }
+  | { type: 'tutor_micro_finale_resolved'; canonicalKey: string }
+  | { type: 'tutor_session_started' }
+  | { type: 'tutor_session_abandoned' }
 
 function applyTranslationStepResolved(
   state: RewardsState,
@@ -308,6 +322,88 @@ function applyCommunicationStepResolved(state: RewardsState, assistantKey: strin
   return next
 }
 
+function applyTutorExplainResolved(state: RewardsState, canonicalKey: string): RewardsState {
+  const today = getTodayDateString()
+  const key = tutorExplainKey(canonicalKey)
+  if (!key) return state
+
+  let next = {
+    ...state,
+    tutorSession: normalizeTutorSession(state.tutorSession, { today }),
+  }
+  let session = next.tutorSession
+
+  if (session.awardedExplainKeys.includes(key)) return next
+
+  if (session.status !== 'in_progress') {
+    next = startTutorSessionState(next, today)
+    session = next.tutorSession
+  }
+
+  const stepActual = clampTutorDailyXp(session.dailyXpAwarded, TUTOR_XP_EXPLAIN)
+  const nextDaily = session.dailyXpAwarded + stepActual
+  const nextSessionXp = session.sessionXpAwarded + stepActual
+
+  next = {
+    ...next,
+    tutorSession: {
+      ...session,
+      sessionXpAwarded: nextSessionXp,
+      dailyXpAwarded: nextDaily,
+      dailyXpDate: today,
+      awardedExplainKeys: [...session.awardedExplainKeys, key],
+    },
+  }
+
+  if (stepActual > 0) {
+    return awardGlobalXp(next, stepActual, 'tutor_explain_resolved', {
+      ticker: `Репетитор: +${stepActual}.`,
+    })
+  }
+  return next
+}
+
+function applyTutorMicroFinaleResolved(state: RewardsState, canonicalKey: string): RewardsState {
+  const today = getTodayDateString()
+  const key = tutorMicroKey(canonicalKey)
+  if (!key) return state
+
+  let next = {
+    ...state,
+    tutorSession: normalizeTutorSession(state.tutorSession, { today }),
+  }
+  let session = next.tutorSession
+
+  if (session.awardedMicroKeys.includes(key)) return next
+
+  if (session.status !== 'in_progress') {
+    next = startTutorSessionState(next, today)
+    session = next.tutorSession
+  }
+
+  const stepActual = clampTutorDailyXp(session.dailyXpAwarded, TUTOR_XP_MICRO_FINALE)
+  const nextDaily = session.dailyXpAwarded + stepActual
+  const nextSessionXp = session.sessionXpAwarded + stepActual
+
+  next = {
+    ...next,
+    tutorSession: {
+      ...session,
+      sessionXpAwarded: nextSessionXp,
+      dailyXpAwarded: nextDaily,
+      dailyXpDate: today,
+      awardedMicroKeys: [...session.awardedMicroKeys, key],
+    },
+  }
+
+  if (stepActual > 0) {
+    return awardGlobalXp(next, stepActual, 'tutor_micro_finale_resolved', {
+      ticker: `Закрепление: +${stepActual}.`,
+    })
+  }
+  return next
+}
+
 export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): RewardsState {
   switch (event.type) {
     case 'lesson_xp_awarded': {
@@ -391,6 +487,14 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       return abandonDialogueSessionState(state)
     case 'dialogue_step_resolved':
       return applyDialogueStepResolved(state, event.outcome, event.assistantKey)
+    case 'tutor_session_started':
+      return startTutorSessionState(state)
+    case 'tutor_session_abandoned':
+      return abandonTutorSessionState(state)
+    case 'tutor_explain_resolved':
+      return applyTutorExplainResolved(state, event.canonicalKey)
+    case 'tutor_micro_finale_resolved':
+      return applyTutorMicroFinaleResolved(state, event.canonicalKey)
     default:
       return state
   }

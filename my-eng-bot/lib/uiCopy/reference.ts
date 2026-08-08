@@ -1,4 +1,4 @@
-import { LESSON_READING_CARD_LABELS } from '@/lib/uiCopy/lessonReadingCards'
+import { REFERENCE_READING_CARD_LABELS } from '@/lib/uiCopy/lessonReadingCards'
 
 export const REFERENCE_COPY = {
   menuRootLabel: 'Справочник',
@@ -15,13 +15,15 @@ export const REFERENCE_COPY = {
   searchMissHint: 'Попробуй другое слово или открой тему по уровню.',
   searchGenerateHint: 'Собираю шпаргалку по этому запросу…',
   searchNeedQuery: 'Введи слово или фразу для поиска.',
+  searchChooseHint: 'Уточни, что открыть:',
   searchHitsLabel: 'Найдено',
-  cardHook: LESSON_READING_CARD_LABELS.essence,
-  cardRule: LESSON_READING_CARD_LABELS.rule,
-  cardFormula: LESSON_READING_CARD_LABELS.templates,
-  cardExamples: LESSON_READING_CARD_LABELS.examples,
-  cardTraps: LESSON_READING_CARD_LABELS.mistakes,
-  cardSelfCheck: LESSON_READING_CARD_LABELS.selfCheck,
+  cardHook: REFERENCE_READING_CARD_LABELS.essence,
+  cardRule: REFERENCE_READING_CARD_LABELS.rule,
+  cardFormula: REFERENCE_READING_CARD_LABELS.templates,
+  cardExamples: REFERENCE_READING_CARD_LABELS.examples,
+  cardContrast: REFERENCE_READING_CARD_LABELS.contrast,
+  cardTraps: REFERENCE_READING_CARD_LABELS.mistakes,
+  cardSelfCheck: REFERENCE_READING_CARD_LABELS.selfCheck,
   back: '← Назад',
   startLesson: 'Пройти урок',
   startPractice: 'Практика',

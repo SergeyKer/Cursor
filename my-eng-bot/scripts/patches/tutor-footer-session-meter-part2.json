@@ -1,0 +1,38 @@
+[
+  [
+    "  const footerDynamicText = isAccentActive\n    ? resolveFooterWithStreakLayer(accentFooterView?.dynamicText ?? null)\n    : isVocabularyHubActive\n    ? resolveFooterWithStreakLayer(\n        vocabularyFooterView?.dynamicText ??\n          (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')\n      )\n    : isPracticeActive\n    ? resolveFooterWithStreakLayer(\n        practiceFooterView?.dynamicText ?? null,\n        practiceOverlayRewardTicker\n      )\n    : isLessonIntroActive",
+    "  const isTutorFooterActive = Boolean(tutorFooterView) || isTutorChatSpaceActive\n  const tutorSessionMeter =\n    tutorFooterView?.sessionMeter && tutorFooterView.sessionMeter.target > 0\n      ? tutorFooterView.sessionMeter\n      : null\n  const footerDynamicText = isAccentActive\n    ? resolveFooterWithStreakLayer(accentFooterView?.dynamicText ?? null)\n    : isVocabularyHubActive\n    ? resolveFooterWithStreakLayer(\n        vocabularyFooterView?.dynamicText ??\n          (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')\n      )\n    : isTutorFooterActive\n    ? resolveFooterWithStreakLayer(tutorFooterView?.dynamicText ?? null)\n    : isPracticeActive\n    ? resolveFooterWithStreakLayer(\n        practiceFooterView?.dynamicText ?? null,\n        practiceOverlayRewardTicker\n      )\n    : isLessonIntroActive"
+  ],
+  [
+    "  const baseFooterStaticText = isAccentActive\n    ? accentFooterView?.staticText ?? 'Произношение'\n    : isVocabularyHubActive\n    ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')\n    : isPracticeActive\n    ? practiceFooterView?.staticText ?? 'Практика'\n    : isLessonIntroActive",
+    "  const baseFooterStaticText = isAccentActive\n    ? accentFooterView?.staticText ?? 'Произношение'\n    : isVocabularyHubActive\n    ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')\n    : isTutorFooterActive\n    ? formatCompactFooterStats(rewardsState)\n    : isPracticeActive\n    ? practiceFooterView?.staticText ?? 'Практика'\n    : isLessonIntroActive"
+  ],
+  [
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    isPracticeActive ||\n    footerSessionMeterChatActive\n      ? null\n      : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)",
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    Boolean(tutorSessionMeter) ||\n    isPracticeActive ||\n    footerSessionMeterChatActive\n      ? null\n      : isTutorFooterActive\n        ? baseFooterStaticText\n        : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)"
+  ],
+  [
+    "  const baseFooterTypingKey = isAccentActive\n    ? accentFooterView?.typingKey ?? 'accent-footer'\n    : isVocabularyHubActive\n    ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'\n    : isPracticeActive\n    ? practiceFooterView?.typingKey ?? 'practice-footer'\n    : isLessonIntroActive",
+    "  const baseFooterTypingKey = isAccentActive\n    ? accentFooterView?.typingKey ?? 'accent-footer'\n    : isVocabularyHubActive\n    ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'\n    : isTutorFooterActive\n    ? tutorFooterView?.typingKey ?? 'tutor-footer'\n    : isPracticeActive\n    ? practiceFooterView?.typingKey ?? 'practice-footer'\n    : isLessonIntroActive"
+  ],
+  [
+    "  const baseFooterVoiceTone = isAccentActive\n    ? accentFooterView?.tone ?? 'neutral'\n    : isVocabularyHubActive\n    ? 'support'\n    : isPracticeActive\n    ? practiceSession.state === 'correction' || practiceSession.state === 'briefing'\n      ? 'hint'\n      : practiceSession.state === 'completed'\n        ? 'support'\n        : 'neutral'\n    : isLessonIntroActive",
+    "  const baseFooterVoiceTone = isAccentActive\n    ? accentFooterView?.tone ?? 'neutral'\n    : isVocabularyHubActive\n    ? 'support'\n    : isTutorFooterActive\n    ? 'neutral'\n    : isPracticeActive\n    ? practiceSession.state === 'correction' || practiceSession.state === 'briefing'\n      ? 'hint'\n      : practiceSession.state === 'completed'\n        ? 'support'\n        : 'neutral'\n    : isLessonIntroActive"
+  ],
+  [
+    "  const baseFooterVoiceEmphasis = isAccentActive\n    ? accentFooterView?.emphasis ?? 'none'\n    : isVocabularyHubActive\n    ? 'none'\n    : isPracticeActive\n    ? practiceSession.state === 'completed'\n      ? 'pulse'\n      : 'none'\n    : isLessonIntroActive",
+    "  const baseFooterVoiceEmphasis = isAccentActive\n    ? accentFooterView?.emphasis ?? 'none'\n    : isVocabularyHubActive\n    ? 'none'\n    : isTutorFooterActive\n    ? 'none'\n    : isPracticeActive\n    ? practiceSession.state === 'completed'\n      ? 'pulse'\n      : 'none'\n    : isLessonIntroActive"
+  ],
+  [
+    "  const footerDisplaySessionMeter =\n    footerHydrated && isPracticeActive\n      ? practiceFooterView?.sessionMeter ?? null\n      : footerHydrated && !footerSessionMeterBlocked && translationChatActive\n        ? translationFooterView?.sessionMeter ?? null\n        : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive\n          ? dialogueFooterView?.sessionMeter ?? null\n          : footerHydrated && !footerSessionMeterBlocked && communicationChatActive\n            ? communicationFooterView?.sessionMeter ?? null\n            : null",
+    "  const footerDisplaySessionMeter =\n    footerHydrated && tutorSessionMeter\n      ? tutorSessionMeter\n      : footerHydrated && isPracticeActive\n        ? practiceFooterView?.sessionMeter ?? null\n        : footerHydrated && !footerSessionMeterBlocked && translationChatActive\n          ? translationFooterView?.sessionMeter ?? null\n          : footerHydrated && !footerSessionMeterBlocked && dialogueChatActive\n            ? dialogueFooterView?.sessionMeter ?? null\n            : footerHydrated && !footerSessionMeterBlocked && communicationChatActive\n              ? communicationFooterView?.sessionMeter ?? null\n              : null"
+  ],
+  [
+    "                  <TutorChatPanel\n                    key={tutorChatMountKey}\n                    initialPrefill={tutorChatPrefill}\n                    autoSubmitInitial={tutorChatAutoSubmitInitial}\n                    onDone={exitTutorChatSpace}\n                    onSessionExitGuardChange={setTutorMicroSessionExitLocked}\n                  />",
+    "                  <TutorChatPanel\n                    key={tutorChatMountKey}\n                    initialPrefill={tutorChatPrefill}\n                    autoSubmitInitial={tutorChatAutoSubmitInitial}\n                    onDone={exitTutorChatSpace}\n                    onSessionExitGuardChange={setTutorMicroSessionExitLocked}\n                    onFooterViewChange={handleTutorFooterViewChange}\n                  />"
+  ],
+  [
+    "        onAdaptiveFooterViewChange={setAdaptiveFooterView}\n        onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}",
+    "        onAdaptiveFooterViewChange={setAdaptiveFooterView}\n        onTutorFooterViewChange={handleTutorFooterViewChange}\n        onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}"
+  ]
+]

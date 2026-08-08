@@ -115,6 +115,7 @@ import type {
   PracticeMode,
 } from '@/types/practice'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
+import type { TutorFooterView } from '@/lib/tutor/tutorFooter'
 import {
   ENGVO_DEFAULT_PROVIDER,
   ENGVO_DEFAULT_VOICE,
@@ -498,6 +499,11 @@ const THEME_OPTIONS: Array<{ id: Theme; name: string; description: string }> = [
     name: 'Glass3',
     description: 'Нейтральное стекло, прозрачные бабблы. Одна палитра для всех возрастов.',
   },
+  {
+    id: 'modern',
+    name: 'Modern',
+    description: 'Эксперимент: tactile 3D mic/send и усиленный объём на базе Basic.',
+  },
 ]
 
 const MENU_GROUP_CLASS =
@@ -584,6 +590,21 @@ export interface MenuSectionPanelsProps {
   onOpenSyllabusTopic?: (topicKey: string) => void | Promise<void>
   /** Сгенерировать шпаргалку для miss поиска, только при staging flag. */
   onGenerateReferenceSheet?: (query: string) => void | Promise<void>
+  /** Gold-first resolve for справочник search submit. */
+  onReferenceSearchSubmit?: (
+    query: string
+  ) => Promise<
+    | { kind: 'opened' }
+    | { kind: 'miss'; message: string }
+    | { kind: 'choose'; candidates: import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate[] }
+  >
+  onOpenReferenceSearchCandidate?: (
+    candidate: import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate
+  ) => Promise<
+    | { kind: 'opened' }
+    | { kind: 'miss'; message: string }
+    | { kind: 'choose'; candidates: import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate[] }
+  >
   /** Full-screen пространство Прогресс (progressSpaceV1). */
   onOpenProgressSpace?: () => void
   /** Full-screen пространство Мой план (myPlanSpaceV1). */
@@ -645,6 +666,12 @@ export interface MenuSectionPanelsProps {
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Футер приложения при открытии «Мой путь» (AdaptiveDailyHub). */
   onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
+  /** Футер Репетитора (menu idle TutorChatPanel). */
+  onTutorFooterViewChange?: (view: TutorFooterView | null) => void
+  /** Visit XP for tutor micro meter. */
+  tutorSessionXp?: number
+  onTutorExplainSuccess?: (canonicalKey: string) => void
+  onTutorMicroFinale?: (canonicalKey: string) => void
   /** Стартовый уровень lessons-панели при открытии меню. */
   initialLessonsPanel?: LessonsPanel
   /** Поля контекста вместе со `initialLessonsPanel` (восстановление навигации). */
@@ -718,6 +745,8 @@ export default function MenuSectionPanels({
   onOpenReferenceTopic,
   onOpenSyllabusTopic,
   onGenerateReferenceSheet,
+  onReferenceSearchSubmit,
+  onOpenReferenceSearchCandidate,
   onOpenProgressSpace,
   onOpenMyPlanSpace,
   onOpenTutorChat,
@@ -741,6 +770,10 @@ export default function MenuSectionPanels({
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
   onAdaptiveFooterViewChange,
+  onTutorFooterViewChange,
+  tutorSessionXp = 0,
+  onTutorExplainSuccess,
+  onTutorMicroFinale,
   onPracticeTheoryTagFilterPersist,
   initialLessonsPanel,
   initialLessonMenuContext,
@@ -846,6 +879,9 @@ export default function MenuSectionPanels({
   const [referenceHubSearchQuery, setReferenceHubSearchQuery] = React.useState('')
   const [referenceHubSearchMiss, setReferenceHubSearchMiss] = React.useState<string | null>(null)
   const [referenceHubSearchFocused, setReferenceHubSearchFocused] = React.useState(false)
+  const [referenceHubChooseCandidates, setReferenceHubChooseCandidates] = React.useState<
+    import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate[]
+  >([])
   const [referenceSyllabusLevel, setReferenceSyllabusLevel] = React.useState<LessonCatalogLevel | null>(null)
   const [referenceTopicSearchQuery, setReferenceTopicSearchQuery] = React.useState('')
   const [expandedCefrLesson, setExpandedCefrLesson] = React.useState<Set<CefrMenuLevel>>(() =>
@@ -996,6 +1032,7 @@ export default function MenuSectionPanels({
     if (!isReferenceBrowse || !referenceHubSearchQuery.trim()) return []
     return findReferenceTopicCandidates(referenceHubSearchQuery, settings.audience, 8)
   }, [isReferenceBrowse, referenceHubSearchQuery, settings.audience])
+
   const referenceSyllabusThemes = React.useMemo(
     () => (referenceSyllabusLevel ? listSyllabusTopicsByLevel(referenceSyllabusLevel) : []),
     [referenceSyllabusLevel]
@@ -1113,6 +1150,60 @@ export default function MenuSectionPanels({
       catalogBrowseIntent,
     }
   }, [theoryLessonSourceNav, activeGrammarCategoryId, activeTheoryTagId, theoryTopicLaunch, theoryTagBrowseLevel, catalogBrowseIntent])
+
+  const submitReferenceHubSearch = React.useCallback(async () => {
+    const q = referenceHubSearchQuery.trim()
+    if (!q) {
+      setReferenceHubSearchMiss(REFERENCE_COPY.searchNeedQuery)
+      setReferenceHubChooseCandidates([])
+      return
+    }
+    if (onReferenceSearchSubmit) {
+      setReferenceHubSearchMiss(
+        featureFlags.referenceGenerate ? REFERENCE_COPY.searchGenerateHint : null
+      )
+      const result = await onReferenceSearchSubmit(q)
+      if (result.kind === 'opened') {
+        setReferenceHubSearchMiss(null)
+        setReferenceHubChooseCandidates([])
+        return
+      }
+      if (result.kind === 'choose') {
+        setReferenceHubChooseCandidates(result.candidates)
+        setReferenceHubSearchMiss(REFERENCE_COPY.searchChooseHint)
+        return
+      }
+      setReferenceHubChooseCandidates([])
+      setReferenceHubSearchMiss(result.message || REFERENCE_COPY.searchEmpty)
+      return
+    }
+    if (!onOpenReferenceTopic) return
+    const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
+    if (!hit) {
+      setReferenceHubChooseCandidates([])
+      setReferenceHubSearchMiss(
+        onGenerateReferenceSheet && featureFlags.referenceGenerate
+          ? REFERENCE_COPY.searchGenerateHint
+          : referenceHubSearchHits.length > 0
+            ? REFERENCE_COPY.searchMissHint
+            : REFERENCE_COPY.searchEmpty
+      )
+      if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
+        void onGenerateReferenceSheet(q)
+      }
+      return
+    }
+    setReferenceHubSearchMiss(null)
+    setReferenceHubChooseCandidates([])
+    void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
+  }, [
+    buildLearningLessonMeta,
+    onGenerateReferenceSheet,
+    onOpenReferenceTopic,
+    onReferenceSearchSubmit,
+    referenceHubSearchHits,
+    referenceHubSearchQuery,
+  ])
 
   React.useEffect(() => {
     if (lessonsPanel !== 'theoryTagLessons') return
@@ -1638,7 +1729,9 @@ export default function MenuSectionPanels({
               ? 'Glass2'
               : theme === 'glass3'
                 ? 'Glass3'
-                : 'Basic'
+                : theme === 'modern'
+                  ? 'Modern'
+                  : 'Basic'
   const engvoProviderLabel =
     ENGVO_PROVIDER_OPTIONS.find((p) => p.id === engvoProvider)?.label ?? 'ChatGPT'
   const customXaiVoices = React.useMemo(() => listEngvoCustomVoices(), [])
@@ -2843,6 +2936,10 @@ export default function MenuSectionPanels({
                   embeddedInMenu
                   onPromoteToSpace={onPromoteTutorFromMenu}
                   onDone={() => setLessonsPanel('summary')}
+                  onFooterViewChange={onTutorFooterViewChange}
+                  sessionXp={tutorSessionXp}
+                  onExplainSuccess={onTutorExplainSuccess}
+                  onMicroFinale={onTutorMicroFinale}
                 />
               </div>
             ) : null}
@@ -2976,33 +3073,14 @@ export default function MenuSectionPanels({
                         onChange={(e) => {
                           setReferenceHubSearchQuery(e.target.value)
                           setReferenceHubSearchMiss(null)
+                          setReferenceHubChooseCandidates([])
                         }}
                         onFocus={() => setReferenceHubSearchFocused(true)}
                         onBlur={() => setReferenceHubSearchFocused(false)}
                         onKeyDown={(e) => {
-                          if (e.key !== 'Enter' || !onOpenReferenceTopic) return
+                          if (e.key !== 'Enter') return
                           e.preventDefault()
-                          const q = referenceHubSearchQuery.trim()
-                          if (!q) {
-                            setReferenceHubSearchMiss(REFERENCE_COPY.searchNeedQuery)
-                            return
-                          }
-                          const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
-                          if (!hit) {
-                            setReferenceHubSearchMiss(
-                              onGenerateReferenceSheet && featureFlags.referenceGenerate
-                                ? REFERENCE_COPY.searchGenerateHint
-                                : referenceHubSearchHits.length > 0
-                                  ? REFERENCE_COPY.searchMissHint
-                                  : REFERENCE_COPY.searchEmpty
-                            )
-                            if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
-                              void onGenerateReferenceSheet(q)
-                            }
-                            return
-                          }
-                          setReferenceHubSearchMiss(null)
-                          void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
+                          void submitReferenceHubSearch()
                         }}
                         className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
                         placeholder={referenceHubSearchFocused ? '' : REFERENCE_COPY.searchPlaceholder}
@@ -3011,28 +3089,7 @@ export default function MenuSectionPanels({
                         type="button"
                         className="btn-3d-menu shrink-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] px-3 py-2 text-[14px] font-medium text-[var(--text)] touch-manipulation focus-visible:outline-none"
                         onClick={() => {
-                          if (!onOpenReferenceTopic) return
-                          const q = referenceHubSearchQuery.trim()
-                          if (!q) {
-                            setReferenceHubSearchMiss(REFERENCE_COPY.searchNeedQuery)
-                            return
-                          }
-                          const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
-                          if (!hit) {
-                            setReferenceHubSearchMiss(
-                              onGenerateReferenceSheet && featureFlags.referenceGenerate
-                                ? REFERENCE_COPY.searchGenerateHint
-                                : referenceHubSearchHits.length > 0
-                                  ? REFERENCE_COPY.searchMissHint
-                                  : REFERENCE_COPY.searchEmpty
-                            )
-                            if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
-                              void onGenerateReferenceSheet(q)
-                            }
-                            return
-                          }
-                          setReferenceHubSearchMiss(null)
-                          void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
+                          void submitReferenceHubSearch()
                         }}
                       >
                         {REFERENCE_COPY.searchSubmit}
@@ -3040,6 +3097,35 @@ export default function MenuSectionPanels({
                     </div>
                     {referenceHubSearchMiss ? (
                       <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{referenceHubSearchMiss}</p>
+                    ) : null}
+                    {referenceHubChooseCandidates.length > 0 ? (
+                      <div className={MENU_GROUP_OUTER}>
+                        <div className={MENU_GROUP_CLASS}>
+                          {referenceHubChooseCandidates.map((candidate) => (
+                            <MenuNavRow
+                              key={candidate.id}
+                              label={`${candidate.title} — ${candidate.whyRu}`}
+                              onClick={() => {
+                                if (!onOpenReferenceSearchCandidate) return
+                                void (async () => {
+                                  const result = await onOpenReferenceSearchCandidate(candidate)
+                                  if (result.kind === 'opened') {
+                                    setReferenceHubChooseCandidates([])
+                                    setReferenceHubSearchMiss(null)
+                                    return
+                                  }
+                                  if (result.kind === 'choose') {
+                                    setReferenceHubChooseCandidates(result.candidates)
+                                    setReferenceHubSearchMiss(REFERENCE_COPY.searchChooseHint)
+                                    return
+                                  }
+                                  setReferenceHubSearchMiss(result.message || REFERENCE_COPY.searchEmpty)
+                                })()
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     ) : null}
                     {referenceHubSearchQuery.trim() ? (
                       referenceHubSearchHits.length > 0 ? (

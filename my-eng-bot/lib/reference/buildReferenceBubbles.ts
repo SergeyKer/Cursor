@@ -1,9 +1,19 @@
 import { buildLessonReadingBubbles } from '@/lib/buildLessonReadingBubbles'
 import type { ReferenceSheet } from '@/lib/reference/types'
+import type { LessonReadingBubbleMode } from '@/lib/uiCopy/lessonReadingCards'
 import type { Bubble, LessonIntro } from '@/types/lesson'
 
-/** Same 6-card reading set as lesson intro (no separate title-only bubble). */
-export function buildReferenceBubbles(sheet: ReferenceSheet): Bubble[] {
+export type BuildReferenceBubblesOptions = {
+  /** lookup = menu search; cheatsheet = tutor chip; default lookup for reference screens. */
+  mode?: Exclude<LessonReadingBubbleMode, 'lesson'>
+}
+
+/** Reference sheet → same LessonIntro reading cards (mode filters subset + labels). */
+export function buildReferenceBubbles(
+  sheet: ReferenceSheet,
+  options: BuildReferenceBubblesOptions = {}
+): Bubble[] {
+  const mode = options.mode ?? 'lookup'
   const intro: LessonIntro = {
     topic: sheet.title,
     kind: 'single_rule',
@@ -16,9 +26,9 @@ export function buildReferenceBubbles(sheet: ReferenceSheet): Bubble[] {
     },
     deepDive: {
       commonMistakes: sheet.traps,
-      contrastNotes: [],
+      contrastNotes: sheet.contrast ?? [],
       selfCheckRule: sheet.selfCheck ?? '',
     },
   }
-  return buildLessonReadingBubbles(intro, { title: sheet.title })
+  return buildLessonReadingBubbles(intro, { title: sheet.title, mode })
 }

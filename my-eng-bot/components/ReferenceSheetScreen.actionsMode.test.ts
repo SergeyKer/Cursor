@@ -12,6 +12,7 @@ const sheetWithPractice: ReferenceSheet = {
   rule: ['r'],
   formula: ['f'],
   traps: [],
+  contrast: [],
   examples: [],
   selfCheck: null,
   relatedLessonId: '4',

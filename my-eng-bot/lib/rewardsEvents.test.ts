@@ -111,4 +111,52 @@ describe('applyRewardsEvent', () => {
     expect(next.communicationSession.progress).toBe(0)
     expect(next.progress.totalXP).toBe(0)
   })
+
+  it('awards tutor explain +1 once per canonicalKey day', () => {
+    let state = createDefaultRewardsState()
+    state = applyRewardsEvent(state, { type: 'tutor_explain_resolved', canonicalKey: 'pp' })
+    expect(state.progress.totalXP).toBe(1)
+    expect(state.tutorSession.sessionXpAwarded).toBe(1)
+    expect(state.tutorSession.dailyXpAwarded).toBe(1)
+    expect(state.ui.lastReward?.reason).toBe('tutor_explain_resolved')
+
+    const dup = applyRewardsEvent(state, { type: 'tutor_explain_resolved', canonicalKey: 'pp' })
+    expect(dup.progress.totalXP).toBe(1)
+    expect(dup.tutorSession.sessionXpAwarded).toBe(1)
+  })
+
+  it('awards tutor micro +6 once and clamps daily cap', () => {
+    let state = createDefaultRewardsState()
+    state = applyRewardsEvent(state, { type: 'tutor_explain_resolved', canonicalKey: 'a' })
+    state = applyRewardsEvent(state, { type: 'tutor_micro_finale_resolved', canonicalKey: 'a' })
+    expect(state.progress.totalXP).toBe(7)
+    expect(state.tutorSession.sessionXpAwarded).toBe(7)
+    expect(state.tutorSession.dailyXpAwarded).toBe(7)
+
+    const again = applyRewardsEvent(state, {
+      type: 'tutor_micro_finale_resolved',
+      canonicalKey: 'a',
+    })
+    expect(again.progress.totalXP).toBe(7)
+
+    state = applyRewardsEvent(state, { type: 'tutor_explain_resolved', canonicalKey: 'b' })
+    state = applyRewardsEvent(state, { type: 'tutor_micro_finale_resolved', canonicalKey: 'b' })
+    expect(state.tutorSession.dailyXpAwarded).toBe(14)
+    expect(state.progress.totalXP).toBe(14)
+
+    const over = applyRewardsEvent(state, { type: 'tutor_explain_resolved', canonicalKey: 'c' })
+    expect(over.progress.totalXP).toBe(14)
+    expect(over.tutorSession.dailyXpAwarded).toBe(14)
+  })
+
+  it('resets tutor visit sessionXp on abandon but keeps daily keys', () => {
+    let state = createDefaultRewardsState()
+    state = applyRewardsEvent(state, { type: 'tutor_explain_resolved', canonicalKey: 'pp' })
+    state = applyRewardsEvent(state, { type: 'tutor_session_abandoned' })
+    expect(state.tutorSession.sessionXpAwarded).toBe(0)
+    expect(state.tutorSession.status).toBe('abandoned')
+    expect(state.tutorSession.dailyXpAwarded).toBe(1)
+    expect(state.tutorSession.awardedExplainKeys).toContain('r:e:pp')
+    expect(state.progress.totalXP).toBe(1)
+  })
 })

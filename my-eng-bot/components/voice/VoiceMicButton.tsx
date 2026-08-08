@@ -74,50 +74,52 @@ export default function VoiceMicButton({
   const suppressInviteChrome = recordingActive || finalizing
 
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      aria-busy={finalizing || undefined}
-      className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
-        recordingActive ? 'text-[var(--chat-control-active-text)]' : 'text-[var(--chat-control-text)]'
-      } ${!suppressInviteChrome && micVisualState === 'invite' ? 'animate-invite' : ''} ${className}`}
-      style={{
-        background: recordingActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
-      }}
-      title={title}
-      aria-label={ariaLabel}
-      onMouseEnter={(event) => {
-        if (suppressInviteChrome || micVisualState === 'wait') return
-        event.currentTarget.style.background = 'var(--chat-control-hover)'
-      }}
-      onMouseLeave={(event) => {
-        if (suppressInviteChrome || micVisualState === 'wait') return
-        event.currentTarget.style.background = 'var(--chat-control-bg)'
-      }}
-    >
-      {!suppressInviteChrome && micVisualState === 'wait' ? (
-        <span
-          aria-hidden="true"
-          className="animate-wait pointer-events-none absolute inset-0 rounded-full"
-          style={{
-            opacity: 0.82,
-            backgroundImage:
-              'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
-            animationDuration: '9s',
-          }}
-        />
-      ) : null}
-      {finalizing ? (
-        <MicFinalizeRing />
-      ) : recordingActive ? (
-        <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
-      ) : (
-        <span className="relative z-10">
-          <MicIcon />
-        </span>
-      )}
-    </button>
+    <span className="chat-control-bead inline-flex shrink-0 rounded-full">
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={onClick}
+        aria-busy={finalizing || undefined}
+        className={`chat-action-button chat-control-surface relative isolate flex h-11 w-11 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center overflow-hidden rounded-full p-2.5 touch-manipulation ${
+          recordingActive ? 'text-[var(--chat-control-active-text)]' : 'text-[var(--chat-control-text)]'
+        } ${!suppressInviteChrome && micVisualState === 'invite' ? 'animate-invite' : ''} ${className}`}
+        style={{
+          background: recordingActive ? 'var(--chat-control-active-bg)' : 'var(--chat-control-bg)',
+        }}
+        title={title}
+        aria-label={ariaLabel}
+        onMouseEnter={(event) => {
+          if (suppressInviteChrome || micVisualState === 'wait') return
+          event.currentTarget.style.background = 'var(--chat-control-hover)'
+        }}
+        onMouseLeave={(event) => {
+          if (suppressInviteChrome || micVisualState === 'wait') return
+          event.currentTarget.style.background = 'var(--chat-control-bg)'
+        }}
+      >
+        {!suppressInviteChrome && micVisualState === 'wait' ? (
+          <span
+            aria-hidden="true"
+            className="animate-wait pointer-events-none absolute inset-0 rounded-full"
+            style={{
+              opacity: 0.82,
+              backgroundImage:
+                'linear-gradient(250deg, transparent 12%, rgba(255, 255, 255, 0.1) 38%, rgba(255, 255, 255, 0.42) 52%, rgba(255, 255, 255, 0.14) 72%, transparent 90%)',
+              animationDuration: '9s',
+            }}
+          />
+        ) : null}
+        {finalizing ? (
+          <MicFinalizeRing />
+        ) : recordingActive ? (
+          <span className="relative z-10 h-5 w-5 rounded-full bg-[var(--chat-control-dot)] animate-pulse" />
+        ) : (
+          <span className="relative z-10">
+            <MicIcon />
+          </span>
+        )}
+      </button>
+    </span>
   )
 }
 

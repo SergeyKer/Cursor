@@ -12,6 +12,7 @@ const runtimeStub: ReferenceSheet = {
   rule: ['r'],
   formula: ['f'],
   traps: [],
+  contrast: [],
   examples: [{ en: 'Hi.', ru: 'Привет.', note: 'n' }],
   selfCheck: null,
   relatedLessonId: null,

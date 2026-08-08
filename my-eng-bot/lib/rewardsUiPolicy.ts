@@ -12,6 +12,8 @@ const QUIET_PROGRESS_REASONS = new Set([
   'engvo_goal_progress',
   'translation_step_resolved',
   'dialogue_step_resolved',
+  'tutor_explain_resolved',
+  'tutor_micro_finale_resolved',
 ])
 
 export function rewardReasonAllowsDynamicTickerOverride(reason: string): boolean {

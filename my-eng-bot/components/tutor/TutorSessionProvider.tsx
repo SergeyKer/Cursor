@@ -7,6 +7,8 @@ import {
   resolveTutorCheatsheetOpen,
 } from '@/lib/tutor/resolveTutorCheatsheetOpen'
 import { generateReferenceSheet } from '@/lib/reference/generateReferenceSheet'
+import { materializeReferenceCandidate } from '@/lib/reference/resolveReferenceOpen'
+import type { ReferenceCandidate } from '@/lib/reference/resolveReferenceOpen'
 import type { TutorExplainAnswer } from '@/lib/tutor/types'
 import type { TutorReturnContextSnapshot } from '@/lib/tutor/tutorReturnContext'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
@@ -23,6 +25,7 @@ export type TutorCheatsheetResult =
   | { kind: 'opened' }
   | { kind: 'missing'; message: string }
   | { kind: 'unavailable'; message: string }
+  | { kind: 'needs_choose'; candidates: ReferenceCandidate[] }
 
 type TutorSessionContextValue = {
   settings: TutorSessionSettings
@@ -31,6 +34,7 @@ type TutorSessionContextValue = {
     answer: TutorExplainAnswer
     snapshot: Omit<TutorReturnContextSnapshot, 'savedAt'>
   }) => Promise<TutorCheatsheetResult>
+  openCheatsheetCandidate: (candidate: ReferenceCandidate) => Promise<TutorCheatsheetResult>
 }
 
 const TutorSessionContext = createContext<TutorSessionContextValue | null>(null)
@@ -38,9 +42,7 @@ const TutorSessionContext = createContext<TutorSessionContextValue | null>(null)
 export type TutorSessionProviderProps = {
   children: React.ReactNode
   settings: TutorSessionSettings
-  /** Open catalog reference sheet; return false if open failed. */
   onOpenLocalReference: (lessonId: string) => boolean | void | Promise<boolean | void>
-  /** Open a generated, back-only reference sheet. */
   onOpenGeneratedReference?: (sheet: import('@/lib/reference/types').ReferenceSheet) => void | Promise<void>
 }
 
@@ -50,21 +52,27 @@ export function TutorSessionProvider({
   onOpenLocalReference,
   onOpenGeneratedReference,
 }: TutorSessionProviderProps) {
-  const openCheatsheet = useCallback(
-    async (params: {
-      answer: TutorExplainAnswer
-      snapshot: Omit<TutorReturnContextSnapshot, 'savedAt'>
-    }): Promise<TutorCheatsheetResult> => {
-      const result = resolveTutorCheatsheetOpen({
-        answer: params.answer,
-        snapshot: params.snapshot,
-        openLocalReference: (lessonId) => {
-          void onOpenLocalReference(lessonId)
-        },
-      })
-      if (result.kind === 'needs_generate') {
+  const openRuntime = useCallback(
+    async (sheet: import('@/lib/reference/types').ReferenceSheet) => {
+      if (onOpenGeneratedReference) await onOpenGeneratedReference(sheet)
+    },
+    [onOpenGeneratedReference]
+  )
+
+  const openCheatsheetCandidate = useCallback(
+    async (candidate: ReferenceCandidate): Promise<TutorCheatsheetResult> => {
+      const materialized = materializeReferenceCandidate(candidate)
+      if (materialized.kind === 'open') {
+        if (candidate.openKind === 'local_lesson' && candidate.lessonId) {
+          void onOpenLocalReference(candidate.lessonId)
+        } else {
+          await openRuntime(materialized.sheet)
+        }
+        return { kind: 'opened' }
+      }
+      if (materialized.kind === 'generate' && featureFlags.referenceGenerate) {
         const generated = await generateReferenceSheet({
-          query: result.query,
+          query: materialized.query,
           level: settings.level,
           audience: settings.audience,
           provider: settings.provider,
@@ -77,9 +85,48 @@ export function TutorSessionProvider({
         abandonCheatsheetGenerate()
         return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
       }
+      return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
+    },
+    [onOpenGeneratedReference, onOpenLocalReference, openRuntime, settings]
+  )
+
+  const openCheatsheet = useCallback(
+    async (params: {
+      answer: TutorExplainAnswer
+      snapshot: Omit<TutorReturnContextSnapshot, 'savedAt'>
+    }): Promise<TutorCheatsheetResult> => {
+      const result = resolveTutorCheatsheetOpen({
+        answer: params.answer,
+        snapshot: params.snapshot,
+        openLocalReference: (lessonId) => {
+          void onOpenLocalReference(lessonId)
+        },
+        openRuntimeSheet: (sheet) => {
+          void openRuntime(sheet)
+        },
+      })
+      if (result.kind === 'needs_choose') {
+        return { kind: 'needs_choose', candidates: result.candidates }
+      }
+      if (result.kind === 'needs_generate') {
+        const generated = await generateReferenceSheet({
+          query: result.query,
+          level: settings.level,
+          audience: settings.audience,
+          provider: settings.provider,
+          openAiChatPreset: settings.openAiChatPreset,
+          groundedExplain: result.grounded ? params.answer : undefined,
+        })
+        if (generated.kind === 'generated' && onOpenGeneratedReference) {
+          await onOpenGeneratedReference(generated.sheet)
+          return { kind: 'opened' }
+        }
+        abandonCheatsheetGenerate()
+        return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
+      }
       return result
     },
-    [onOpenGeneratedReference, onOpenLocalReference, settings]
+    [onOpenGeneratedReference, onOpenLocalReference, openRuntime, settings]
   )
 
   const value = useMemo<TutorSessionContextValue>(
@@ -87,8 +134,9 @@ export function TutorSessionProvider({
       settings,
       referenceEnabled: featureFlags.referenceV1,
       openCheatsheet,
+      openCheatsheetCandidate,
     }),
-    [openCheatsheet, settings]
+    [openCheatsheet, openCheatsheetCandidate, settings]
   )
 
   return <TutorSessionContext.Provider value={value}>{children}</TutorSessionContext.Provider>

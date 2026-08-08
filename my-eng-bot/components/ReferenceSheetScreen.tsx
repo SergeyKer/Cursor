@@ -28,6 +28,8 @@ type ReferenceSheetScreenProps = {
   onStartPractice?: () => void
   /** Default: derive from hasPractice + callbacks (menu-compatible). */
   actionsMode?: ReferenceActionsMode
+  /** Card subset/labels. Default lookup. Tutor chip → cheatsheet. */
+  readingMode?: 'lookup' | 'cheatsheet'
 }
 
 const ROW_CTA_BASE = [
@@ -67,9 +69,13 @@ export default function ReferenceSheetScreen({
   onStartLesson,
   onStartPractice,
   actionsMode,
+  readingMode = 'lookup',
 }: ReferenceSheetScreenProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const bubbles = useMemo(() => buildReferenceBubbles(sheet), [sheet])
+  const bubbles = useMemo(
+    () => buildReferenceBubbles(sheet, { mode: readingMode }),
+    [sheet, readingMode]
+  )
   const mode = resolveReferenceActionsMode(sheet, actionsMode, onStartLesson, onStartPractice)
 
   return (

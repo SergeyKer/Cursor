@@ -4,7 +4,12 @@ import {
   resolveTheoryBlock,
 } from '@/lib/lessonIntroBlocks'
 import { formatCommonMistakesList } from '@/lib/lessonExtraTips'
-import { LESSON_READING_CARD_LABELS } from '@/lib/uiCopy/lessonReadingCards'
+import {
+  labelsForReadingMode,
+  orderForReadingMode,
+  type LessonReadingBubbleMode,
+  type LessonReadingCardKey,
+} from '@/lib/uiCopy/lessonReadingCards'
 import type { Bubble, LessonIntro } from '@/types/lesson'
 
 function formatList(items: string[]): string {
@@ -16,69 +21,65 @@ function formatExamples(examples: LessonIntro['quick']['examples']): string {
 }
 
 export type BuildLessonReadingBubblesOptions = {
-  /** Title line under «Тема урока» (usually intro.topic). */
+  /** Title line under essence card (usually intro.topic). */
   title?: string
+  /** lesson = full set; lookup/cheatsheet = subset + reference labels. Default lesson. */
+  mode?: LessonReadingBubbleMode
 }
 
 /**
- * Canonical 6 reading cards for lesson intro and reference sheet.
+ * Canonical reading cards for lesson intro and reference sheet.
  * Each bubble is `Label\nbody` for detached reading header/body split.
+ * Empty optional cards (contrast / mistakes / selfCheck) are omitted.
  */
 export function buildLessonReadingBubbles(
   intro: LessonIntro,
   options: BuildLessonReadingBubblesOptions = {}
 ): Bubble[] {
+  const mode = options.mode ?? 'lesson'
+  const labels = labelsForReadingMode(mode)
+  const order = orderForReadingMode(mode)
   const title = (options.title ?? intro.topic).trim()
   const theoryBlock = resolveTheoryBlock(intro)
   const howBlock = resolveHowBlock(intro)
-  const bubbles: Bubble[] = []
 
   const essenceBody = [title, intro.quick.takeaway.trim()].filter(Boolean).join('\n')
-  if (essenceBody) {
-    bubbles.push({
-      type: 'info',
-      content: `${LESSON_READING_CARD_LABELS.essence}\n${essenceBody}`,
-    })
-  }
-
   const ruleBullets = theoryBlock ? formatIntroBlockBullets(theoryBlock) : formatList(intro.quick.why)
-  if (ruleBullets.trim()) {
-    bubbles.push({
-      type: 'positive',
-      content: `${LESSON_READING_CARD_LABELS.rule}\n${ruleBullets}`,
-    })
-  }
-
   const templateBullets = howBlock ? formatIntroBlockBullets(howBlock) : formatList(intro.quick.how)
-  if (templateBullets.trim()) {
-    bubbles.push({
-      type: 'info',
-      content: `${LESSON_READING_CARD_LABELS.templates}\n${templateBullets}`,
-    })
-  }
-
-  if (intro.quick.examples.length > 0) {
-    bubbles.push({
-      type: 'task',
-      content: `${LESSON_READING_CARD_LABELS.examples}\n${formatExamples(intro.quick.examples)}`,
-    })
-  }
-
-  const mistakes = intro.deepDive?.commonMistakes?.map((item) => item.trim()).filter(Boolean) ?? []
-  if (mistakes.length > 0) {
-    bubbles.push({
-      type: 'positive',
-      content: `${LESSON_READING_CARD_LABELS.mistakes}\n${formatCommonMistakesList(mistakes)}`,
-    })
-  }
-
+  const examplesBody =
+    intro.quick.examples.length > 0 ? formatExamples(intro.quick.examples) : ''
+  const contrast = (intro.deepDive?.contrastNotes ?? []).map((item) => item.trim()).filter(Boolean)
+  const mistakes = (intro.deepDive?.commonMistakes ?? []).map((item) => item.trim()).filter(Boolean)
   const selfCheck = intro.deepDive?.selfCheckRule?.trim() ?? ''
-  if (selfCheck) {
-    bubbles.push({
-      type: 'task',
-      content: `${LESSON_READING_CARD_LABELS.selfCheck}\n${selfCheck}`,
-    })
+
+  const bodies: Partial<Record<LessonReadingCardKey, string>> = {
+    essence: essenceBody,
+    rule: ruleBullets.trim(),
+    templates: templateBullets.trim(),
+    examples: examplesBody.trim(),
+    contrast: contrast.length > 0 ? formatList(contrast) : '',
+    mistakes: mistakes.length > 0 ? formatCommonMistakesList(mistakes) : '',
+    selfCheck,
   }
 
+  const bubbleType: Record<LessonReadingCardKey, Bubble['type']> = {
+    essence: 'info',
+    rule: 'positive',
+    templates: 'info',
+    examples: 'task',
+    contrast: 'info',
+    mistakes: 'positive',
+    selfCheck: 'task',
+  }
+
+  const bubbles: Bubble[] = []
+  for (const key of order) {
+    const body = bodies[key]?.trim() ?? ''
+    if (!body) continue
+    bubbles.push({
+      type: bubbleType[key],
+      content: `${labels[key]}\n${body}`,
+    })
+  }
   return bubbles
 }

@@ -18,7 +18,8 @@ function seed(
   formula: string[],
   traps: string[],
   examples: ReferenceSheet['examples'],
-  selfCheck: string
+  selfCheck: string,
+  contrast: string[] = []
 ): PrebuiltSheetSeed {
   return {
     title,
@@ -29,6 +30,7 @@ function seed(
     rule,
     formula,
     traps,
+    contrast,
     examples,
     selfCheck,
     relatedLessonId: null,
@@ -199,7 +201,11 @@ const PREBUILT_SHEETS: Record<string, PrebuiltSheetSeed> = {
       'Не I go yesterday — а I went yesterday.',
     ],
     [{ en: 'I saw her last week.', ru: 'Я видел её на прошлой неделе.', note: 'Уже закончилось' }],
-    'Есть вчера / в 2020 / last week — скорее Past Simple, не Present Perfect.'
+    'Есть вчера / в 2020 / last week — скорее Past Simple, не Present Perfect.',
+    [
+      'I was there yesterday — Past Simple (уже закончилось).',
+      'I have been there — опыт без точной даты (Perfect).',
+    ]
   ),
   present_perfect_experience: seed(
     'Present Perfect — опыт',
@@ -248,6 +254,151 @@ const PREBUILT_SHEETS: Record<string, PrebuiltSheetSeed> = {
     ],
     [{ en: 'You should check the address.', ru: 'Тебе стоит проверить адрес.', note: 'Мягкий совет' }],
     'Даёшь совет — should + глагол без to и без -s.'
+  ),
+  present_continuous: seed(
+    'Present Continuous',
+    'Сейчас в процессе: am / is / are + V-ing.',
+    'A1',
+    [
+      'Говоришь про «прямо сейчас» — am / is / are + глагол с -ing.',
+      'Не для привычек каждый день — там Present Simple.',
+    ],
+    [
+      'I am + V-ing → I am working.',
+      'She is + V-ing → She is reading.',
+      'Are you + V-ing? → Are you working now?',
+    ],
+    [
+      'Не I working now — а I am working now.',
+      'Не She is work — а She is working.',
+    ],
+    [
+      { en: 'I am doing my homework.', ru: 'Я делаю домашку.', note: 'Сейчас в процессе' },
+      { en: 'Look! It is raining.', ru: 'Смотри! Идёт дождь.', note: 'Прямо сейчас' },
+    ],
+    'Есть now / Look! / at the moment? Скорее Continuous.',
+    [
+      'I am doing — сейчас. I do — привычка / факт.',
+      'Не путай с have been doing — это «уже какое-то время до сейчас».',
+    ]
+  ),
+  present_perfect_continuous: seed(
+    'Present Perfect Continuous',
+    'have / has been + V-ing — уже какое-то время до сейчас.',
+    'B1',
+    [
+      'Действие началось раньше и всё ещё важно сейчас — have/has been + V-ing.',
+      'Часто с for / since: for two hours, since morning.',
+    ],
+    [
+      'I have been + V-ing → I have been waiting.',
+      'She has been + V-ing → She has been studying.',
+      'Have you been + V-ing? → Have you been working?',
+    ],
+    [
+      'Не I am waiting for two hours — а I have been waiting for two hours.',
+      'Не I have been wait — а I have been waiting.',
+    ],
+    [
+      {
+        en: 'I have been doing this for an hour.',
+        ru: 'Я уже час этим занимаюсь.',
+        note: 'Длится до сейчас',
+      },
+      {
+        en: 'She has been working since morning.',
+        ru: 'Она работает с утра.',
+        note: 'since = с какого момента',
+      },
+    ],
+    'Есть for / since и действие всё ещё «живо»? Скорее have been + V-ing.',
+    [
+      'I am doing — снимок «сейчас». I have been doing — «уже какое-то время».',
+      'Не путай с have got — это «у меня есть», не время.',
+    ]
+  ),
+  quantifiers: seed(
+    'Much / many / a lot of',
+    'much — неисчисл.; many — исчисл.; a lot of — почти везде в речи.',
+    'A2',
+    [
+      'many — с тем, что можно посчитать: many books.',
+      'much — с неисчисляемым: much water / much time.',
+      'a lot of — удобно и с books, и с water (особенно в утверждении).',
+    ],
+    [
+      'many + plural → many friends',
+      'much + uncountable → much time',
+      'a lot of + noun → a lot of people / a lot of water',
+    ],
+    [
+      'Не much friends — а many friends / a lot of friends.',
+      'Не many water — а much water / a lot of water.',
+    ],
+    [
+      { en: 'I have a lot of homework.', ru: 'У меня много домашки.', note: 'a lot of — универсально' },
+      { en: 'How many books do you have?', ru: 'Сколько у тебя книг?', note: 'many — считаем' },
+      { en: 'How much time do we have?', ru: 'Сколько у нас времени?', note: 'much — не считаем штуки' },
+    ],
+    'Можно посчитать штуки? many. Нельзя (вода, время)? much. Не уверен — a lot of.',
+    [
+      'a lot of ≈ много в живой речи.',
+      'В вопросах часто how much / how many — не how a lot.',
+    ]
+  ),
+  get_become: seed(
+    'Get + прилагательное',
+    'get tired / get angry — стать каким-то.',
+    'A2',
+    [
+      'get + прилагательное = становиться: get cold, get tired, get hungry.',
+      'Не про «вставать с кровати» — это get up.',
+    ],
+    [
+      'get + adj → get tired',
+      'I get + adj → I get hungry at noon.',
+      'She gets + adj → She gets nervous before tests.',
+    ],
+    [
+      'Не I am get tired — а I get tired / I am getting tired.',
+      'Не I become angry every day в простой речи — чаще I get angry.',
+    ],
+    [
+      { en: 'I get tired after school.', ru: 'Я устаю после школы.', note: 'становиться усталым' },
+      { en: 'It is getting dark.', ru: 'Темнеет.', note: 'процесс прямо сейчас' },
+    ],
+    'После get стоит слово «какой?» (tired, dark, ready)? Это get = становиться.',
+    [
+      'get tired ≠ get up (вставать).',
+      'get angry ≠ have got (у меня есть).',
+    ]
+  ),
+  get_up: seed(
+    'Get up',
+    'get up — вставать (с кровати / на ноги).',
+    'A1',
+    [
+      'get up = вставать, обычно утром с кровати.',
+      'Это не get tired («уставать»).',
+    ],
+    [
+      'I get up + time → I get up at 7.',
+      'What time do you get up?',
+      'She gets up early.',
+    ],
+    [
+      'Не I get up tired как «устаю» — для усталости get tired.',
+      'Не I stand up every morning в смысле подъёма с кровати — обычно get up.',
+    ],
+    [
+      { en: 'I get up at seven.', ru: 'Я встаю в семь.', note: 'утро / кровать' },
+      { en: 'He gets up late on Sundays.', ru: 'В воскресенье он встаёт поздно.', note: 'привычка' },
+    ],
+    'Речь про подъём с кровати / «во сколько встаёшь»? get up.',
+    [
+      'get up ≠ get tired.',
+      'get up ≠ have got.',
+    ]
   ),
 }
 

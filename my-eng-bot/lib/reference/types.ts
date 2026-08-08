@@ -13,6 +13,8 @@ export interface ReferenceSheet {
   rule: string[]
   formula: string[]
   traps: string[]
+  /** A vs B / neighbor senses; omit empty in UI. */
+  contrast: string[]
   examples: LessonIntroExample[]
   selfCheck: string | null
   /** Lesson CTA only when non-null. */

@@ -29,12 +29,13 @@ describe('buildReferenceSheetFromLesson', () => {
     expect(sheet?.teaser.length).toBeGreaterThan(0)
   })
 
-  it('builds sheet for It’s time lesson (id 1)', () => {
+  it('builds sheet for It’s time lesson (id 1) with contrast', () => {
     const sheet = buildReferenceSheetByLessonId('1')
     expect(sheet).not.toBeNull()
     expect(sheet?.id).toBe('1')
     expect(sheet?.rule.length || sheet?.hook).toBeTruthy()
     expect((sheet?.formula.length ?? 0) + (sheet?.examples.length ?? 0)).toBeGreaterThan(0)
+    expect(sheet?.contrast.length).toBeGreaterThan(0)
   })
 
   it('returns null for empty lesson', () => {

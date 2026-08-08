@@ -30,6 +30,8 @@ const CURRICULUM_ORDER: Record<string, number> = {
   предлоги: 85,
   adjectives: 90,
   present_continuous: 100,
+  get_up: 101,
+  get_become: 102,
   past_simple: 110,
   past_simple_irregular: 111,
   past_continuous: 120,

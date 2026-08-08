@@ -24,6 +24,7 @@ import type { ChatPatternId } from '@/lib/chatPattern'
 import type { ChatPatternTuning, ChatPatternTuningMap, TunableChatPatternId } from '@/lib/chatPatternTuning'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
+import type { TutorFooterView } from '@/lib/tutor/tutorFooter'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { resolveAppPanelHorizontalLayout } from '@/lib/appPanelLayout'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
@@ -87,6 +88,20 @@ interface SlideOutMenuProps {
   onOpenReferenceTopic?: (lessonId: string, lessonsPanel?: LessonsPanel, meta?: LearningLessonMenuMeta) => void
   onOpenSyllabusTopic?: (topicKey: string) => void | Promise<void>
   onGenerateReferenceSheet?: (query: string) => void | Promise<void>
+  onReferenceSearchSubmit?: (
+    query: string
+  ) => Promise<
+    | { kind: 'opened' }
+    | { kind: 'miss'; message: string }
+    | { kind: 'choose'; candidates: import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate[] }
+  >
+  onOpenReferenceSearchCandidate?: (
+    candidate: import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate
+  ) => Promise<
+    | { kind: 'opened' }
+    | { kind: 'miss'; message: string }
+    | { kind: 'choose'; candidates: import('@/lib/reference/resolveReferenceOpen').ReferenceCandidate[] }
+  >
   /** Full-screen Progress space. */
   onOpenProgressSpace?: () => void
   /** Full-screen My Plan space. */
@@ -139,6 +154,12 @@ interface SlideOutMenuProps {
   onMarkOpenedFromMyPlan?: () => void
   /** Футер приложения при «Мой путь» в меню уроков. */
   onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
+  /** Футер Репетитора (menu idle). */
+  onTutorFooterViewChange?: (view: TutorFooterView | null) => void
+  /** Visit XP for tutor micro meter. */
+  tutorSessionXp?: number
+  onTutorExplainSuccess?: (canonicalKey: string) => void
+  onTutorMicroFinale?: (canonicalKey: string) => void
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Контекст меню, из которого открыт урок. */
   lessonMenuContext?: LessonMenuContext | null
@@ -206,6 +227,8 @@ export default function SlideOutMenu({
   onOpenReferenceTopic,
   onOpenSyllabusTopic,
   onGenerateReferenceSheet,
+  onReferenceSearchSubmit,
+  onOpenReferenceSearchCandidate,
   onOpenProgressSpace,
   onOpenMyPlanSpace,
   onOpenTutorChat,
@@ -229,6 +252,10 @@ export default function SlideOutMenu({
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
   onAdaptiveFooterViewChange,
+  onTutorFooterViewChange,
+  tutorSessionXp = 0,
+  onTutorExplainSuccess,
+  onTutorMicroFinale,
   onPracticeTheoryTagFilterPersist,
   lessonMenuContext,
   restoreLessonMenuOnNextOpenRef,
@@ -413,6 +440,8 @@ export default function SlideOutMenu({
         onOpenReferenceTopic={onOpenReferenceTopic}
         onOpenSyllabusTopic={onOpenSyllabusTopic}
         onGenerateReferenceSheet={onGenerateReferenceSheet}
+        onReferenceSearchSubmit={onReferenceSearchSubmit}
+        onOpenReferenceSearchCandidate={onOpenReferenceSearchCandidate}
         onOpenProgressSpace={onOpenProgressSpace}
         onOpenMyPlanSpace={onOpenMyPlanSpace}
         onOpenTutorChat={onOpenTutorChat}
@@ -436,6 +465,10 @@ export default function SlideOutMenu({
         onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
         onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
+        onTutorFooterViewChange={onTutorFooterViewChange}
+        tutorSessionXp={tutorSessionXp}
+        onTutorExplainSuccess={onTutorExplainSuccess}
+        onTutorMicroFinale={onTutorMicroFinale}
         onPracticeTheoryTagFilterPersist={onPracticeTheoryTagFilterPersist}
         practiceProgressRevision={practiceProgressRevision}
         initialLessonsPanel={

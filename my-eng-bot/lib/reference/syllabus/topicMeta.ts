@@ -30,7 +30,15 @@ export const SYLLABUS_TOPIC_META: Record<string, SyllabusTopicMeta> = {
     titleRu: 'Настоящее длительное',
     titleEn: 'Present Continuous',
     teaser: 'Что происходит сейчас: I am working.',
-    aliases: ['present continuous', 'i am working', 'now'],
+    aliases: [
+      'present continuous',
+      'i am working',
+      'now',
+      'is doing',
+      'am doing',
+      'are doing',
+      'i am doing',
+    ],
     level: 'A1',
   },
   articles: {
@@ -133,7 +141,7 @@ export const SYLLABUS_TOPIC_META: Record<string, SyllabusTopicMeta> = {
     titleRu: 'Прошедшее простое',
     titleEn: 'Past Simple',
     teaser: 'Что было: I went, she liked.',
-    aliases: ['past simple', 'yesterday', 'ago'],
+    aliases: ['past simple', 'yesterday', 'ago', 'was', 'were', 'i was', 'я был'],
     level: 'A2',
   },
   past_continuous: {
@@ -180,6 +188,7 @@ export const SYLLABUS_TOPIC_META: Record<string, SyllabusTopicMeta> = {
     titleRu: 'Much / many / a lot of',
     titleEn: 'Quantifiers',
     teaser: 'Сколько: much, many, a few, a little.',
+    aliases: ['a lot', 'a lot of', 'alot', 'much', 'many', 'how much', 'how many'],
     level: 'A2',
   },
   conditionals: {
@@ -259,7 +268,28 @@ export const SYLLABUS_TOPIC_META: Record<string, SyllabusTopicMeta> = {
     titleRu: 'Present Perfect Continuous',
     titleEn: 'Present Perfect Continuous',
     teaser: 'have been doing — длительность до сейчас.',
+    aliases: [
+      'have been doing',
+      'has been doing',
+      'been doing',
+      'present perfect continuous',
+      'i have been',
+    ],
     level: 'B1',
+  },
+  get_become: {
+    titleRu: 'Get = становиться',
+    titleEn: 'get + adjective',
+    teaser: 'get tired / get angry — стать каким-то.',
+    aliases: ['get tired', 'get angry', 'get cold', 'become', 'get + adjective'],
+    level: 'A2',
+  },
+  get_up: {
+    titleRu: 'Get up',
+    titleEn: 'get up',
+    teaser: 'get up — вставать с кровати.',
+    aliases: ['get up', 'wake up', 'вставать'],
+    level: 'A1',
   },
   so_such: {
     titleRu: 'So / such',

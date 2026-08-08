@@ -62,7 +62,7 @@ describe('chrome footer layout guards', () => {
     expect(css).not.toMatch(/--app-footer-backdrop-filter:\s*var\(--app-header-backdrop-filter\)/)
   })
 
-  it('sessionMeter is blocked by lesson overlays; practice uses meter and nulls static', () => {
+  it('sessionMeter is blocked by lesson overlays; tutor then practice use meter and null static', () => {
     const source = readProjectFile('components/app/AppShell.tsx')
     const blockedBlock = source.match(
       /const footerSessionMeterBlocked =([\s\S]*?)const footerSessionMeterChatActive/
@@ -74,18 +74,22 @@ describe('chrome footer layout guards', () => {
     expect(blockedBlock).toMatch(/isLessonBriefingActive/)
     expect(blockedBlock).not.toMatch(/isPracticeActive/)
     expect(source).toMatch(
-      /footerDisplaySessionMeter =[\s\S]*isPracticeActive[\s\S]*practiceFooterView\?\.sessionMeter/
+      /footerDisplaySessionMeter =[\s\S]*tutorSessionMeter[\s\S]*isPracticeActive[\s\S]*practiceFooterView\?\.sessionMeter/
     )
     expect(source).toMatch(/footerSessionMeterChatActive/)
     expect(source).toMatch(
-      /footerStaticText =[\s\S]*isPracticeActive \|\|[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
+      /footerStaticText =[\s\S]*Boolean\(tutorSessionMeter\) \|\|[\s\S]*isPracticeActive \|\|[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
     )
+    expect(source).toMatch(/isTutorFooterActive/)
+    expect(source).toMatch(/formatCompactFooterStats\(rewardsState\)/)
     expect(source).not.toMatch(
       /footerStaticText =[\s\S]*translationChatActive \|\|[\s\S]*dialogueChatActive \|\|[\s\S]*communicationChatActive[\s\S]*\? null/
     )
     expect(source).not.toMatch(/buildPracticeFooterLive/)
     expect(source).not.toMatch(/const practiceFooterLive/)
     expect(source).toMatch(/mapPracticeFlowToFooterState/)
+    expect(source).toMatch(/handleTutorFooterViewChange/)
+    expect(source).toMatch(/onTutorFooterViewChange=\{handleTutorFooterViewChange\}/)
   })
 
   it('AppFooter prefers lesson segments over sessionMeter via resolveFooterBottomMode', () => {

@@ -25,6 +25,9 @@ export const BLUE_PRIMARY_SKIN =
 export const BLUE_SECONDARY_SKIN =
   'border border-[#3b82f6] bg-gradient-to-b from-[#60a5fa] to-[#2563eb] text-white hover:brightness-105 active:brightness-95'
 
+/** Fixed blue text for nav tertiary (Back / Главная) — theme-independent, matches BLUE_* mid. */
+export const BLUE_CTA_TEXT = 'text-[#2563eb]'
+
 /**
  * Card-footer launch (Progress / My Plan cards).
  * Softer than secondary; do NOT reuse or mutate BLUE_SECONDARY_SKIN.
@@ -217,10 +220,11 @@ export const APP_BTN_SECONDARY_LARGE_BLOCK = [
 
 /**
  * Tertiary Back skin only (цвет/фон/бордер/hover) — без размеров.
- * Accent-текст вместо slate, чтобы не конкурировать с filled blue CTA.
+ * Текст = BLUE_CTA_TEXT (не theme --accent), чтобы не конкурировать с filled blue CTA
+ * и не зеленеть/чернеть в Glass1/Glass3.
  */
 export const APP_BTN_TERTIARY_BACK_SKIN =
-  'border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 text-[var(--accent)] hover:from-white hover:to-sky-100 active:brightness-95'
+  `border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 ${BLUE_CTA_TEXT} hover:from-white hover:to-sky-100 active:brightness-95`
 
 /** Эталон / compact Back рядом с синими CTA (layout Reference). */
 export const APP_BTN_TERTIARY_BACK = [
@@ -240,7 +244,7 @@ export const PAGE_HOME_START_PRIMARY_BUTTON_CLASS = APP_BTN_PRIMARY_INLINE
 
 export const PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS = [
   BTN_INTERACTION_BASE,
-  'inline-flex w-fit max-w-full min-h-[44px] items-center justify-center rounded-xl border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-4 py-2.5 text-[var(--accent)] hover:brightness-95 active:brightness-90',
+  `inline-flex w-fit max-w-full min-h-[44px] items-center justify-center rounded-xl border border-[var(--text)]/[0.18] bg-[var(--bg-card)] px-4 py-2.5 ${BLUE_CTA_TEXT} hover:brightness-95 active:brightness-90`,
   BTN_FONT_INLINE,
   BTN_DISABLED_CLASS,
 ].join(' ')

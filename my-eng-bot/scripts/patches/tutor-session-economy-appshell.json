@@ -1,0 +1,18 @@
+[
+  [
+    "  const abandonCommunicationSession = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'communication_session_abandoned' }))\n  }, [])\n  const bumpEngvoGoal = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))\n  }, [])",
+    "  const abandonCommunicationSession = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'communication_session_abandoned' }))\n  }, [])\n  const bumpTutorExplain = useCallback((canonicalKey: string) => {\n    setRewardsState((prev) =>\n      applyRewardsEvent(prev, { type: 'tutor_explain_resolved', canonicalKey })\n    )\n  }, [])\n  const bumpTutorMicroFinale = useCallback((canonicalKey: string) => {\n    setRewardsState((prev) =>\n      applyRewardsEvent(prev, { type: 'tutor_micro_finale_resolved', canonicalKey })\n    )\n  }, [])\n  const abandonTutorSession = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'tutor_session_abandoned' }))\n  }, [])\n  const bumpEngvoGoal = useCallback(() => {\n    setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))\n  }, [])"
+  ],
+  [
+    "  }, [storageLoaded, communicationChatActive, abandonCommunicationSession])\n  const translationSessionExitChips = React.useMemo(",
+    "  }, [storageLoaded, communicationChatActive, abandonCommunicationSession])\n  React.useEffect(() => {\n    if (!storageLoaded) return\n    if (tutorChatSpaceActive) {\n      setRewardsState((prev) => {\n        const status = prev.tutorSession?.status\n        if (status === 'in_progress') return prev\n        return applyRewardsEvent(prev, { type: 'tutor_session_started' })\n      })\n      return\n    }\n    abandonTutorSession()\n  }, [storageLoaded, tutorChatSpaceActive, abandonTutorSession])\n  const translationSessionExitChips = React.useMemo("
+  ],
+  [
+    "                  <TutorChatPanel\n                    key={tutorChatMountKey}\n                    initialPrefill={tutorChatPrefill}\n                    autoSubmitInitial={tutorChatAutoSubmitInitial}\n                    onDone={exitTutorChatSpace}\n                    onSessionExitGuardChange={setTutorMicroSessionExitLocked}\n                    onFooterViewChange={handleTutorFooterViewChange}\n                  />",
+    "                  <TutorChatPanel\n                    key={tutorChatMountKey}\n                    initialPrefill={tutorChatPrefill}\n                    autoSubmitInitial={tutorChatAutoSubmitInitial}\n                    onDone={exitTutorChatSpace}\n                    onSessionExitGuardChange={setTutorMicroSessionExitLocked}\n                    onFooterViewChange={handleTutorFooterViewChange}\n                    sessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}\n                    onExplainSuccess={bumpTutorExplain}\n                    onMicroFinale={bumpTutorMicroFinale}\n                  />"
+  ],
+  [
+    "        onTutorFooterViewChange={handleTutorFooterViewChange}\n        onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}",
+    "        onTutorFooterViewChange={handleTutorFooterViewChange}\n        tutorSessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}\n        onTutorExplainSuccess={bumpTutorExplain}\n        onTutorMicroFinale={bumpTutorMicroFinale}\n        onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}"
+  ]
+]

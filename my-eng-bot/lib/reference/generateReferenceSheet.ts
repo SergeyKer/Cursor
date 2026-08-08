@@ -5,14 +5,19 @@ import type { AiProvider, Audience, LevelId } from '@/lib/types'
 import type { LessonIntro } from '@/types/lesson'
 import type { ReferenceSheet } from '@/lib/reference/types'
 import { trackReferenceEvent } from '@/lib/reference/analytics'
+import type { TutorExplainAnswer } from '@/lib/tutor/types'
 
 export type GenerateReferenceSheetParams = {
   query: string
+  /** Chosen sense / long generate string — skips short-token reject when set. */
+  generateQuery?: string
   level?: LevelId | string
   audience?: Audience | string
   provider?: AiProvider
   openAiChatPreset?: 'gpt-4o-mini' | 'gpt-5.4-mini-none' | 'gpt-5.4-mini-low'
   fetcher?: typeof fetch
+  /** Tutor explain → grounded pack B2 (facts only). */
+  groundedExplain?: TutorExplainAnswer
 }
 
 export type GenerateReferenceSheetResult =
@@ -51,6 +56,7 @@ export function buildReferenceSheetFromGeneratedIntro(params: {
     rule: rule.map((item) => item.trim()).filter(Boolean),
     formula: formula.map((item) => item.trim()).filter(Boolean),
     traps: (intro.deepDive?.commonMistakes ?? []).map((item) => item.trim()).filter(Boolean),
+    contrast: (intro.deepDive?.contrastNotes ?? []).map((item) => item.trim()).filter(Boolean),
     examples: (intro.quick.examples ?? []).filter((example) => example.en.trim()),
     selfCheck: intro.deepDive?.selfCheckRule?.trim() || null,
     relatedLessonId: null,
@@ -61,31 +67,55 @@ export async function generateReferenceSheet(
   params: GenerateReferenceSheetParams
 ): Promise<GenerateReferenceSheetResult> {
   const query = params.query.trim()
-  if (!query || isShortToken(query)) {
+  const generateQuery = (params.generateQuery || query).trim()
+  const allowShort =
+    Boolean(params.generateQuery?.trim()) || Boolean(params.groundedExplain)
+
+  if (!query && !generateQuery) {
     trackReferenceEvent('reference_reject', { reason: 'short_token' })
     return { kind: 'rejected', reason: 'short_token' }
   }
+  if (!allowShort && isShortToken(query)) {
+    trackReferenceEvent('reference_reject', { reason: 'short_token' })
+    return { kind: 'rejected', reason: 'short_token' }
+  }
+
   trackReferenceEvent('reference_generate')
   if (!featureFlags.referenceGenerate) {
     trackReferenceEvent('reference_reject', { reason: 'generate_disabled' })
     return { kind: 'rejected', reason: 'generate_disabled' }
   }
-  if (matchTutorGate(query)) {
+  if (matchTutorGate(query) || matchTutorGate(generateQuery)) {
     trackReferenceEvent('reference_reject', { reason: 'input_gate' })
     return { kind: 'rejected', reason: 'input_gate' }
   }
 
   try {
+    const grounded = params.groundedExplain
+    const body: Record<string, unknown> = {
+      query,
+      generateQuery,
+      level: params.level,
+      audience: params.audience,
+      provider: params.provider,
+      openAiChatPreset: params.openAiChatPreset,
+    }
+    if (grounded) {
+      body.groundedExplain = {
+        answerKind: grounded.answerKind,
+        title: grounded.title,
+        paragraphs: grounded.paragraphs,
+        examplesEn: grounded.examplesEn,
+        rememberRu: grounded.rememberRu,
+        contrastPair: grounded.contrastPair,
+        topicAnchor: grounded.topicAnchor,
+      }
+    }
+
     const response = await (params.fetcher ?? fetch)('/api/reference-sheet-generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query,
-        level: params.level,
-        audience: params.audience,
-        provider: params.provider,
-        openAiChatPreset: params.openAiChatPreset,
-      }),
+      body: JSON.stringify(body),
     })
     const data = (await response.json()) as { intro?: LessonIntro; error?: string }
     if (!response.ok || !data.intro) {
@@ -97,7 +127,7 @@ export async function generateReferenceSheet(
       ok: true,
       intro: data.intro,
       lessonTitle: data.intro.topic,
-      enAnchor: query,
+      enAnchor: grounded?.title || generateQuery || query,
     })
     if (gate.reject) {
       trackReferenceEvent('reference_reject', { reason: 'output_gate' })
@@ -106,7 +136,7 @@ export async function generateReferenceSheet(
     return {
       kind: 'generated',
       sheet: buildReferenceSheetFromGeneratedIntro({
-        query,
+        query: generateQuery || query,
         intro: gate.intro,
         level: params.level,
       }),

@@ -49,9 +49,9 @@ describe('resolveTutorCheatsheetOpen P0-1', () => {
     expect(peekTutorReturnContext()).not.toBeNull()
   })
 
-  it('missing without stash orphan for bad hint when generate off', () => {
+  it('missing when nothing resolves and generate off', () => {
     const opened: string[] = []
-    const answer = grammarAnswer('999', 'have got')
+    const answer = grammarAnswer(null, 'привет')
     const result = resolveTutorCheatsheetOpen({
       answer,
       snapshot: snapshotBase(answer),
@@ -60,6 +60,49 @@ describe('resolveTutorCheatsheetOpen P0-1', () => {
     expect(result.kind).toBe('missing')
     expect(opened).toEqual([])
     expect(peekTutorReturnContext()).toBeNull()
+  })
+
+  it('missing prebuilt without runtime opener does not stash', () => {
+    const opened: string[] = []
+    const answer = grammarAnswer(null, 'is doing')
+    const result = resolveTutorCheatsheetOpen({
+      answer,
+      snapshot: snapshotBase(answer),
+      openLocalReference: (id) => opened.push(id),
+    })
+    expect(result.kind).toBe('missing')
+    expect(opened).toEqual([])
+    expect(peekTutorReturnContext()).toBeNull()
+  })
+
+  it('opens prebuilt via runtime sheet when no local lesson', () => {
+    const sheets: string[] = []
+    const answer = grammarAnswer(null, 'is doing')
+    const result = resolveTutorCheatsheetOpen({
+      answer,
+      snapshot: snapshotBase(answer),
+      openLocalReference: () => {},
+      openRuntimeSheet: (sheet) => {
+        sheets.push(sheet.id)
+      },
+    })
+    expect(result).toEqual({ kind: 'opened' })
+    expect(sheets.length).toBe(1)
+    expect(peekTutorReturnContext()).not.toBeNull()
+  })
+
+  it('returns choose for ambiguous get', () => {
+    const answer = grammarAnswer(null, 'get')
+    const result = resolveTutorCheatsheetOpen({
+      answer,
+      snapshot: snapshotBase(answer),
+      openLocalReference: () => {},
+    })
+    expect(result.kind).toBe('needs_choose')
+    if (result.kind === 'needs_choose') {
+      expect(result.candidates.map((c) => c.topicKey).sort()).toEqual(['get_become', 'get_up'])
+    }
+    expect(peekTutorReturnContext()).not.toBeNull()
   })
 
   it('resolves allowlist title to local lesson when hint empty', () => {

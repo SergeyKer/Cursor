@@ -21,6 +21,8 @@ export type TutorReturnContextSnapshot = {
   followUpNudgeConsumed?: boolean
   /** True after first successful in-scope Explain (not gate/D/OOS). */
   followUpNudgeArmed?: boolean
+  /** 0 off | 1 thematic | 2 examples. Preferred over legacy armed/consumed. */
+  followUpHop?: 0 | 1 | 2
 }
 
 function isExplainLike(value: unknown): value is TutorExplainAnswer {
@@ -43,6 +45,9 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
           ? null
           : undefined
     const lastExplain = isExplainLike(data.lastExplain) ? data.lastExplain : null
+    const hopRaw = data.followUpHop
+    const followUpHop: 0 | 1 | 2 | undefined =
+      hopRaw === 0 || hopRaw === 1 || hopRaw === 2 ? hopRaw : undefined
     return {
       savedAt: data.savedAt,
       draft: typeof data.draft === 'string' ? data.draft : '',
@@ -53,6 +58,7 @@ function safeParse(raw: string | null): TutorReturnContextSnapshot | null {
       ...(pending !== undefined ? { pendingTriageQuery: pending } : {}),
       followUpNudgeConsumed: data.followUpNudgeConsumed === true,
       followUpNudgeArmed: data.followUpNudgeArmed === true,
+      ...(followUpHop !== undefined ? { followUpHop } : {}),
     }
   } catch {
     return null

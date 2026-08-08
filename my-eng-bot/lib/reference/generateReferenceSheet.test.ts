@@ -22,4 +22,15 @@ describe('generateReferenceSheet', () => {
     const result = await generateReferenceSheet({ query: 'have' })
     expect(result).toEqual({ kind: 'rejected', reason: 'short_token' })
   })
+
+  it('allows short query when generateQuery override is set (still respects flag)', async () => {
+    const fetcher = vi.fn()
+    const result = await generateReferenceSheet({
+      query: 'get',
+      generateQuery: 'get tired — become adjective',
+      fetcher,
+    })
+    expect(result).toEqual({ kind: 'rejected', reason: 'generate_disabled' })
+    expect(fetcher).not.toHaveBeenCalled()
+  })
 })
