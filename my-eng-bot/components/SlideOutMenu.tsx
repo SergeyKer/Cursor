@@ -149,6 +149,8 @@ interface SlideOutMenuProps {
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => Promise<void> | void
   onOpenVocabularyByLevel?: () => Promise<void> | void
+  onOpenVocabularyFeed?: () => Promise<void> | void
+  onOpenVocabCustomPack?: (packId: string) => void
   onOpenAdaptivePracticeTopic?: (topic: string) => void
   /** Сессия из «Мой план» — return loop. */
   onMarkOpenedFromMyPlan?: () => void
@@ -249,6 +251,8 @@ export default function SlideOutMenu({
   onOpenAccentTrainer,
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
+  onOpenVocabularyFeed,
+  onOpenVocabCustomPack,
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
   onAdaptiveFooterViewChange,
@@ -464,6 +468,8 @@ export default function SlideOutMenu({
         onOpenAccentTrainer={onOpenAccentTrainer}
         onOpenVocabularyWorlds={onOpenVocabularyWorlds}
         onOpenVocabularyByLevel={onOpenVocabularyByLevel}
+        onOpenVocabularyFeed={onOpenVocabularyFeed}
+        onOpenVocabCustomPack={onOpenVocabCustomPack}
         onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
         onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}

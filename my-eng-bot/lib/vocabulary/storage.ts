@@ -1,14 +1,18 @@
 import { normalizeVocabularySessionRoute } from '@/lib/vocabulary/sessionRoute'
+import { isWordStrictlyLearned } from '@/lib/vocabulary/learned'
 import { applyVocabularyReview, createEmptyWordProgress } from '@/lib/vocabulary/srs'
+import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
 import type {
+  VocabularyFeedStatus,
   VocabularyProgressState,
   VocabularySessionHistoryItem,
   VocabularyWordProgress,
+  VocabularyWordSource,
   VocabularyWorldId,
 } from '@/types/vocabulary'
 
 const STORAGE_KEY = 'my-eng-bot-vocabulary-progress'
-const STORAGE_VERSION = 1
+const STORAGE_VERSION = 2
 const MAX_HISTORY = 40
 
 function canUseStorage(): boolean {
@@ -30,12 +34,19 @@ export function createEmptyVocabularyProgress(): VocabularyProgressState {
   }
 }
 
+function normalizeFeedStatus(raw: unknown, row: Partial<VocabularyWordProgress>): VocabularyFeedStatus {
+  if (raw === 'in_feed' || raw === 'mastered' || raw === 'returned' || raw === 'none') return raw
+  // Legacy strict archive → mastered (browse continuity)
+  if (isWordStrictlyLearned(row as VocabularyWordProgress)) return 'mastered'
+  return 'none'
+}
+
 function normalizeWordProgress(raw: unknown): VocabularyWordProgress | null {
   if (!raw || typeof raw !== 'object') return null
   const row = raw as Partial<VocabularyWordProgress>
   if (typeof row.wordId !== 'number') return null
 
-  return {
+  const base: VocabularyWordProgress = {
     wordId: row.wordId,
     stage: typeof row.stage === 'number' ? Math.max(0, Math.floor(row.stage)) : 0,
     attempts: typeof row.attempts === 'number' ? Math.max(0, Math.floor(row.attempts)) : 0,
@@ -43,6 +54,25 @@ function normalizeWordProgress(raw: unknown): VocabularyWordProgress | null {
     failures: typeof row.failures === 'number' ? Math.max(0, Math.floor(row.failures)) : 0,
     lastReviewedAt: typeof row.lastReviewedAt === 'number' ? row.lastReviewedAt : null,
     nextReviewAt: typeof row.nextReviewAt === 'number' ? row.nextReviewAt : null,
+    spokenEnCount: typeof row.spokenEnCount === 'number' ? Math.max(0, row.spokenEnCount) : 0,
+    lastSpokenEnAt: typeof row.lastSpokenEnAt === 'number' ? row.lastSpokenEnAt : null,
+    phraseSpokenCount: typeof row.phraseSpokenCount === 'number' ? Math.max(0, row.phraseSpokenCount) : 0,
+    lastPhraseAt: typeof row.lastPhraseAt === 'number' ? row.lastPhraseAt : null,
+    useStreak: typeof row.useStreak === 'number' ? Math.max(0, row.useStreak) : 0,
+    checkPassedOnce: Boolean(row.checkPassedOnce),
+    passedAt: typeof row.passedAt === 'number' ? row.passedAt : null,
+    source: (['catalog', 'mistake', 'pack'] as VocabularyWordSource[]).includes(row.source as VocabularyWordSource)
+      ? (row.source as VocabularyWordSource)
+      : 'catalog',
+    packId: typeof row.packId === 'string' ? row.packId : undefined,
+    lemmaKey: typeof row.lemmaKey === 'string' ? row.lemmaKey : undefined,
+    lastFocusUsedAt: typeof row.lastFocusUsedAt === 'number' ? row.lastFocusUsedAt : null,
+  }
+
+  return {
+    ...base,
+    feedStatus: normalizeFeedStatus(row.feedStatus, base),
+    lemmaKey: base.lemmaKey,
   }
 }
 
@@ -59,6 +89,9 @@ function normalizeHistoryItem(raw: unknown): VocabularySessionHistoryItem | null
   const learnedWordIds = Array.isArray(row.learnedWordIds)
     ? row.learnedWordIds.filter((value): value is number => typeof value === 'number')
     : []
+  const bankedWordIds = Array.isArray(row.bankedWordIds)
+    ? row.bankedWordIds.filter((value): value is number => typeof value === 'number')
+    : []
 
   return {
     id: row.id,
@@ -67,8 +100,10 @@ function normalizeHistoryItem(raw: unknown): VocabularySessionHistoryItem | null
     completedAt: typeof row.completedAt === 'number' ? row.completedAt : 0,
     reviewedWordIds,
     learnedWordIds,
+    bankedWordIds,
     coinsEarned: typeof row.coinsEarned === 'number' ? row.coinsEarned : 0,
     promptPreview: typeof row.promptPreview === 'string' ? row.promptPreview : '',
+    tempo: row.tempo === 'full' || row.tempo === 'sprint' ? row.tempo : undefined,
   }
 }
 
@@ -79,7 +114,14 @@ function normalizeProgress(raw: unknown): VocabularyProgressState {
   const source = raw as Partial<VocabularyProgressState>
   const words = Object.fromEntries(
     Object.entries(source.words ?? {})
-      .map(([key, value]) => [key, normalizeWordProgress(value)])
+      .map(([key, value]) => {
+        const normalized = normalizeWordProgress(value)
+        if (!normalized) return [key, null] as const
+        if (!normalized.lemmaKey && typeof normalized.wordId === 'number') {
+          // lemmaKey filled later when word catalog known; keep as-is
+        }
+        return [key, normalized] as const
+      })
       .filter((entry): entry is [string, VocabularyWordProgress] => Boolean(entry[1]))
   )
 
@@ -145,6 +187,30 @@ export function recordWordReview(params: {
   }
 }
 
+export function patchWordProgress(
+  state: VocabularyProgressState,
+  wordId: number,
+  patch: Partial<VocabularyWordProgress>
+): VocabularyProgressState {
+  const current = state.words[String(wordId)] ?? createEmptyWordProgress(wordId)
+  const next = {
+    ...current,
+    ...patch,
+    wordId,
+    lemmaKey: patch.lemmaKey ?? current.lemmaKey ?? (typeof patch.lemmaKey === 'string' ? patch.lemmaKey : current.lemmaKey),
+  }
+  if (!next.lemmaKey && typeof (patch as { en?: string }).en === 'string') {
+    next.lemmaKey = lemmaKeyFromEn((patch as { en: string }).en)
+  }
+  return {
+    ...state,
+    words: {
+      ...state.words,
+      [String(wordId)]: next,
+    },
+  }
+}
+
 export function unlockWorld(state: VocabularyProgressState, worldId: VocabularyWorldId): VocabularyProgressState {
   if (state.stats.unlockedWorldIds.includes(worldId)) return state
   return {
@@ -159,9 +225,10 @@ export function unlockWorld(state: VocabularyProgressState, worldId: VocabularyW
 export function finalizeVocabularySession(params: {
   state: VocabularyProgressState
   historyItem: VocabularySessionHistoryItem
-  coinsEarned: number
+  coinsEarned?: number
 }): VocabularyProgressState {
-  const nextCoins = params.state.stats.coins + params.coinsEarned
+  const coinsEarned = params.coinsEarned ?? 0
+  const nextCoins = params.state.stats.coins + coinsEarned
   const nextCompletedSessions = params.state.stats.completedSessions + 1
   const nextLevel = Math.max(1, Math.floor(nextCoins / 120) + 1)
 

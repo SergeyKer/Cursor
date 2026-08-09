@@ -30,6 +30,9 @@ export function normalizeVocabularySessionRoute(
   ) {
     return { kind: 'level', levelId: route.levelId, topicId: route.topicId }
   }
+  if (route?.kind === 'pack' && typeof route.packId === 'string' && route.packId.trim()) {
+    return { kind: 'pack', packId: route.packId.trim() }
+  }
 
   const legacyWorld = row.worldId
   if (legacyWorld && WORLD_IDS.has(legacyWorld as VocabularyWorldId)) {
@@ -42,6 +45,9 @@ export function normalizeVocabularySessionRoute(
 export function formatVocabularySessionRouteTitle(route: VocabularySessionRoute): string {
   if (route.kind === 'world') {
     return VOCABULARY_WORLDS.find((world) => world.id === route.worldId)?.title ?? route.worldId
+  }
+  if (route.kind === 'pack') {
+    return route.packId
   }
   const levelPrefix = VOCABULARY_LEVELS.find((level) => level.id === route.levelId)?.prefixLabel ?? route.levelId
   const topicTitle = VOCABULARY_TOPICS.find((topic) => topic.id === route.topicId)?.title ?? route.topicId

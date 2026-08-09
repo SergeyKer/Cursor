@@ -69,6 +69,14 @@ export interface NecessaryWordsCatalog {
 export type VocabularySessionRoute =
   | { kind: 'world'; worldId: VocabularyWorldId }
   | { kind: 'level'; levelId: VocabularyLevelId; topicId: VocabularyTopicId }
+  | { kind: 'pack'; packId: string }
+
+/** WordFeed lifecycle (UI: К изучению / В деле / Умею). */
+export type VocabularyFeedStatus = 'none' | 'in_feed' | 'mastered' | 'returned'
+
+export type VocabularyWordSource = 'catalog' | 'mistake' | 'pack'
+
+export type VocabularyTempo = 'sprint' | 'full'
 
 export interface VocabularyWordProgress {
   wordId: number
@@ -78,6 +86,26 @@ export interface VocabularyWordProgress {
   failures: number
   lastReviewedAt: number | null
   nextReviewAt: number | null
+  /** Spoken EN accepts in thin loop (real mic/typed match). */
+  spokenEnCount?: number
+  lastSpokenEnAt?: number | null
+  phraseSpokenCount?: number
+  lastPhraseAt?: number | null
+  feedStatus?: VocabularyFeedStatus
+  useStreak?: number
+  checkPassedOnce?: boolean
+  passedAt?: number | null
+  source?: VocabularyWordSource
+  packId?: string
+  lemmaKey?: string
+  lastFocusUsedAt?: number | null
+}
+
+export interface VocabularyFocusLemma {
+  en: string
+  ru: string
+  wordId?: number
+  lemmaKey?: string
 }
 
 export interface VocabularySessionHistoryItem {
@@ -87,8 +115,11 @@ export interface VocabularySessionHistoryItem {
   completedAt: number
   reviewedWordIds: number[]
   learnedWordIds: number[]
+  /** Banked this session (Path A). */
+  bankedWordIds?: number[]
   coinsEarned: number
   promptPreview: string
+  tempo?: VocabularyTempo
 }
 
 export interface VocabularyProgressState {

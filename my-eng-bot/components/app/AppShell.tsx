@@ -3,6 +3,10 @@
 import Image from 'next/image'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
+import {
+  consumeVocabTranslationHandoff,
+  peekVocabTranslationHandoff,
+} from '@/lib/vocabulary/translationHandoff'
 import { TutorSessionProvider } from '@/components/tutor/TutorSessionProvider'
 import {
   clearOpenLessonIntent,
@@ -525,6 +529,8 @@ import {
   VocabularyByLevelScreen,
   VocabularyWorldsScreen,
 } from '@/lib/start/appBranchComponents'
+import VocabularyFeedBrowseScreen from '@/components/vocabulary/VocabularyFeedBrowseScreen'
+import VocabularyPackSessionScreen from '@/components/vocabulary/VocabularyPackSessionScreen'
 import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
 import {
   buildReferenceSheetByLessonId,
@@ -1150,6 +1156,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
+  const [vocabularyFeedActive, setVocabularyFeedActive] = useState(false)
+  const [vocabularyPackId, setVocabularyPackId] = useState<string | null>(null)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [progressSpaceActive, setProgressSpaceActive] = useState(false)
   const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)
@@ -1345,6 +1353,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const firstMessageInFlightRef = React.useRef(false)
   const ensureFirstMessageRef = React.useRef<(() => Promise<void>) | null>(null)
   const dialogSeedRef = React.useRef(createDialogSeed())
+  const vocabFocusLemmasRef = React.useRef<Array<{ en: string; ru?: string }>>([])
   /** Актуальный язык ожидаемого ввода в общении - для тела fetch без гонки замыкания sendToApi/setTimeout. */
   const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
   communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
@@ -4358,6 +4367,24 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   ? {
                       translationDrillKind: settings.translationDrillKind ?? 'tense_drill',
                       translationLessonId: settings.translationLessonId ?? null,
+                      ...(() => {
+                        if (vocabFocusLemmasRef.current.length === 0) {
+                          const peeked = peekVocabTranslationHandoff()
+                          if (peeked?.lemmas?.length) {
+                            vocabFocusLemmasRef.current = peeked.lemmas.map((lemma) => ({
+                              en: lemma.en,
+                              ru: lemma.ru,
+                            }))
+                          }
+                        }
+                        const focus = vocabFocusLemmasRef.current
+                        return focus.length > 0
+                          ? {
+                              focusLemmas: focus.map((lemma) => lemma.en),
+                              focusLemmaPairs: focus,
+                            }
+                          : {}
+                      })(),
                       ...((settings.translationDrillKind ?? 'tense_drill') === 'lesson_topic' &&
                       settings.translationLessonId === 'all' &&
                       translationEffectiveLessonIdRef.current
@@ -6145,6 +6172,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyByLevelActive(false)
+    setVocabularyFeedActive(false)
+    setVocabularyPackId(null)
     setVocabularyWorldsActive(true)
     // Сбрасываем снимок меню: намеренный выход в слова, не «закрыли меню после правок чата».
     menuOpenSnapshotRef.current = null
@@ -6158,6 +6187,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
+    setVocabularyFeedActive(false)
+    setVocabularyPackId(null)
     setVocabularyByLevelActive(true)
     // Сбрасываем снимок меню: намеренный выход в слова по уровню, не «закрыли меню после правок чата».
     menuOpenSnapshotRef.current = null
@@ -6166,6 +6197,72 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('lessons')
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsByLevel' })
   }, [resetStructuredLessonSession])
+
+  const openVocabularyFeed = useCallback(() => {
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setVocabularyPackId(null)
+    setVocabularyFeedActive(true)
+    menuOpenSnapshotRef.current = null
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('lessons')
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsFeed' })
+  }, [resetStructuredLessonSession])
+
+  const openVocabularyCustomPack = useCallback(
+    (packId: string) => {
+      resetStructuredLessonSession()
+      setAdaptiveFooterView(null)
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setVocabularyFeedActive(false)
+      setVocabularyPackId(packId)
+      menuOpenSnapshotRef.current = null
+      setDialogStarted(true)
+      setMenuOpen(false)
+      setHomeMenuView('lessons')
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsAll' })
+    },
+    [resetStructuredLessonSession]
+  )
+
+  const openTranslationFromVocabHandoff = useCallback(() => {
+    const packet = consumeVocabTranslationHandoff()
+    vocabFocusLemmasRef.current = (packet?.lemmas ?? []).map((lemma) => ({
+      en: lemma.en,
+      ru: lemma.ru,
+    }))
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setVocabularyFeedActive(false)
+    setVocabularyPackId(null)
+    setAdaptiveFooterView(null)
+    menuOpenSnapshotRef.current = null
+    suppressSettingsChangeBannerRef.current = true
+    setSettings((prev) => ({ ...prev, mode: 'translation' }))
+    setComposerSessionKey((key) => key + 1)
+    cleanupEngvoRuntime({ markIgnoredCurrent: true })
+    resetStructuredLessonSession()
+    firstMessageRequestIdRef.current += 1
+    firstMessageInFlightRef.current = false
+    dialogSeedRef.current = createDialogSeed()
+    translationEffectiveLessonIdRef.current = null
+    translationCurrentDrillAxisRef.current = null
+    translationUsedAnyTensesRef.current = []
+    newDialogRef.current = true
+    setMessages([])
+    setSettingsAtLastSend(null)
+    startTranslationSession()
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('root')
+    setTimeout(() => {
+      void ensureFirstMessageRef.current?.()
+    }, 80)
+  }, [cleanupEngvoRuntime, resetStructuredLessonSession, startTranslationSession])
 
   const openProgressSpace = useCallback(() => {
     resetStructuredLessonSession()
@@ -7278,6 +7375,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setFooterTransitionText(null)
     bumpFooterSessionContext()
     resetStructuredLessonSession()
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setVocabularyFeedActive(false)
+    setVocabularyPackId(null)
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
     restoreLessonMenuOnNextOpenRef.current = true
     setMenuOpen(true)
@@ -8397,7 +8498,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [practiceSession.session]
   )
   const isAccentActive = accentTrainerActive
-  const isVocabularyHubActive = vocabularyWorldsActive || vocabularyByLevelActive
+  const isVocabularyHubActive =
+    vocabularyWorldsActive || vocabularyByLevelActive || vocabularyFeedActive || Boolean(vocabularyPackId)
   const isProgressSpaceActive = progressSpaceActive
   const isMyPlanSpaceActive = myPlanSpaceActive
   const isTutorChatSpaceActive = tutorChatSpaceActive
@@ -11001,15 +11103,30 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     practiceBusy={progressPracticeBusy}
                   />
                 ) : isVocabularyHubActive ? (
-                  vocabularyWorldsActive ? (
+                  vocabularyPackId ? (
+                    <VocabularyPackSessionScreen
+                      packId={vocabularyPackId}
+                      onBack={backToVocabularyMenu}
+                      onFooterViewChange={setVocabularyFooterView}
+                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
+                    />
+                  ) : vocabularyFeedActive ? (
+                    <VocabularyFeedBrowseScreen
+                      onBack={backToVocabularyMenu}
+                      onFooterViewChange={setVocabularyFooterView}
+                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
+                    />
+                  ) : vocabularyWorldsActive ? (
                     <VocabularyWorldsScreen
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
+                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                     />
                   ) : (
                     <VocabularyByLevelScreen
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
+                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                     />
                   )
                 ) : isAccentActive ? (
@@ -11512,6 +11629,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenAccentTrainer={openAccentTrainer}
         onOpenVocabularyWorlds={openVocabularyWorlds}
         onOpenVocabularyByLevel={openVocabularyByLevel}
+        onOpenVocabularyFeed={openVocabularyFeed}
+        onOpenVocabCustomPack={openVocabularyCustomPack}
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
         onAdaptiveFooterViewChange={setAdaptiveFooterView}

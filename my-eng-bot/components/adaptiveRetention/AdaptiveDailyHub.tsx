@@ -15,6 +15,7 @@ type AdaptiveDailyHubProps = {
   onFooterViewChange?: (view: AdaptiveFooterView | null) => void
   onOpenVocabularyWorlds: () => void
   onOpenPracticeTopic: (topic: string) => void
+  onOpenVocabCustomPack?: (packId: string) => void
   onStartChat: () => void
 }
 
@@ -47,6 +48,7 @@ export default function AdaptiveDailyHub({
   onFooterViewChange,
   onOpenVocabularyWorlds,
   onOpenPracticeTopic,
+  onOpenVocabCustomPack,
   onStartChat,
 }: AdaptiveDailyHubProps) {
   const [nonce, setNonce] = React.useState(0)
@@ -103,12 +105,16 @@ export default function AdaptiveDailyHub({
         return
       }
       if (target.kind === 'custom_pack') {
+        if (onOpenVocabCustomPack && target.packId) {
+          onOpenVocabCustomPack(target.packId)
+          return
+        }
         onOpenPracticeTopic(action.title)
         return
       }
       onOpenVocabularyWorlds()
     },
-    [onOpenPracticeTopic, onOpenVocabularyWorlds, onStartChat, settings.level, snapshot.segment]
+    [onOpenPracticeTopic, onOpenVocabCustomPack, onOpenVocabularyWorlds, onStartChat, settings.level, snapshot.segment]
   )
 
   const startTopicPack = React.useCallback(
@@ -323,7 +329,11 @@ export default function AdaptiveDailyHub({
             {latestPack && (
               <button
                 type="button"
-                onClick={() => onOpenPracticeTopic(latestPack.title)}
+                onClick={() =>
+                  onOpenVocabCustomPack
+                    ? onOpenVocabCustomPack(latestPack.id)
+                    : onOpenPracticeTopic(latestPack.title)
+                }
                 className="btn-3d-menu mt-2 w-full rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800"
               >
                 Учить: {latestPack.title}

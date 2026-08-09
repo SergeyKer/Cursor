@@ -565,6 +565,7 @@ function buildSystemPrompt(params: {
     title: string
     grammarFocusLines: string[]
   } | null
+  focusLemmasCue?: string | null
 }): string {
   const {
     mode,
@@ -586,6 +587,7 @@ function buildSystemPrompt(params: {
     translationPromptTense,
     translationDrillSentenceType,
     translationLessonTopic = null,
+    focusLemmasCue = null,
   } = params
   const levelPrompt = buildLevelPrompt(level)
   const cefrPromptBlock = buildCefrPromptBlock({
@@ -683,21 +685,25 @@ No other format. Output only the chat message text.`
     const tenseNameTr = TENSE_NAMES[trTense] ?? 'Present Simple'
     const drillSt = translationDrillSentenceType ?? sentenceType ?? 'mixed'
     const sentenceTypeNameTr = SENTENCE_TYPE_NAMES[drillSt] ?? 'mixed'
+    const withFocusCue = (prompt: string) =>
+      focusLemmasCue && focusLemmasCue.trim() ? `${prompt}\n\n${focusLemmasCue.trim()}` : prompt
     if (translationLessonTopic) {
-      return buildTranslationLessonTopicSystemPrompt({
-        topicName,
-        levelPrompt: levelPromptTr,
-        cefrPromptBlock: cefrPromptBlockTr,
-        sentenceTypeName: sentenceTypeNameTr,
-        lessonTitle: translationLessonTopic.title,
-        grammarFocusLines: translationLessonTopic.grammarFocusLines,
-        audienceStyleRule,
-        childTopicSafetyRule,
-        styleRule,
-        grammarFocusRule,
-        topicRetentionRule,
-        strictTopicRule,
-      })
+      return withFocusCue(
+        buildTranslationLessonTopicSystemPrompt({
+          topicName,
+          levelPrompt: levelPromptTr,
+          cefrPromptBlock: cefrPromptBlockTr,
+          sentenceTypeName: sentenceTypeNameTr,
+          lessonTitle: translationLessonTopic.title,
+          grammarFocusLines: translationLessonTopic.grammarFocusLines,
+          audienceStyleRule,
+          childTopicSafetyRule,
+          styleRule,
+          grammarFocusRule,
+          topicRetentionRule,
+          strictTopicRule,
+        })
+      )
     }
     const translationDrillContract = `Russian drill sentence (the line before "Переведи на английский" on the first assistant turn, and the next Russian line after SUCCESS): contract for THIS turn only:
 - Exactly one Russian sentence for the task; target length 3–12 words (slightly longer is OK for natural questions or negatives if still clear).
@@ -709,7 +715,7 @@ No other format. Output only the chat message text.`
 - Avoid narrow cultural references on low levels (starter/A1/A2); stay unambiguous; do not mix English tenses inside the one Russian sentence; vocabulary must stay within the stated CEFR level.
 - Task line only: Комментарий lines follow existing audience register rules separately.`
 
-    return `Translation training. Topic: ${topicName}, ${levelPromptTr}, ${sentenceTypeNameTr}. Required tense: ${tenseNameTr}.
+    return withFocusCue(`Translation training. Topic: ${topicName}, ${levelPromptTr}, ${sentenceTypeNameTr}. Required tense: ${tenseNameTr}.
 ${cefrPromptBlockTr}
 
 ${translationDrillContract}
@@ -797,7 +803,7 @@ Rules:
   - Do NOT output "Формы:", "+:", "?:", "-:", "Время:", or "Конструкция:" in translation mode (SUCCESS or ERROR).
   - "Скажи:" is canonical translation of the task sentence (not copied from learner by inertia).
   - Wording and vocabulary stay within CEFR constraints from CEFR_Levels.xlsx.
-- In SUCCESS protocol never output "Комментарий_перевод:".`
+- In SUCCESS protocol never output "Комментарий_перевод:".`)
   }
   const tenseRule =
     tense === 'all'
@@ -6771,6 +6777,30 @@ export async function POST(req: NextRequest) {
     let normalizedGrammarFocus = normalizeGrammarFocusForLevel(grammarFocus, level)
     const timezone = typeof body.timezone === 'string' ? body.timezone.trim() : ''
     const dialogSeed = typeof body.dialogSeed === 'string' ? body.dialogSeed : ''
+    const focusLemmasRaw = Array.isArray(body.focusLemmas)
+      ? body.focusLemmas.filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+      : []
+    const focusLemmaPairs = Array.isArray(body.focusLemmaPairs)
+      ? body.focusLemmaPairs
+          .map((item: unknown) => {
+            if (!item || typeof item !== 'object') return null
+            const row = item as { en?: unknown; ru?: unknown }
+            if (typeof row.en !== 'string' || !row.en.trim()) return null
+            return {
+              en: row.en.trim(),
+              ru: typeof row.ru === 'string' ? row.ru.trim() : '',
+            }
+          })
+          .filter(Boolean)
+      : []
+    const focusLemmasCue =
+      focusLemmaPairs.length > 0
+        ? `Focus words today (learner should use these English lemmas when natural): ${focusLemmaPairs
+            .map((l: { en: string; ru: string }) => `${l.en}${l.ru ? ` (${l.ru})` : ''}`)
+            .join(', ')}. Prefer prompts that elicit these words.`
+        : focusLemmasRaw.length > 0
+          ? `Focus words today (learner should use these English lemmas when natural): ${focusLemmasRaw.join(', ')}. Prefer prompts that elicit these words.`
+          : null
     let translationDrillKind = normalizeTranslationDrillKind(body.translationDrillKind)
     const translationLessonIdRaw =
       typeof body.translationLessonId === 'string' ? body.translationLessonId.trim() : ''
@@ -7755,6 +7785,7 @@ export async function POST(req: NextRequest) {
             translationPromptLevel: translationDrillLevel,
             translationPromptTense: translationDrillTense,
             translationDrillSentenceType: translationDrillSentenceType,
+            focusLemmasCue,
             translationLessonTopic:
               activeTranslationLessonId != null
                 ? (() => {

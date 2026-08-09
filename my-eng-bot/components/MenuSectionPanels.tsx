@@ -245,6 +245,7 @@ export type LessonsPanel =
   | 'words'
   | 'wordsAll'
   | 'wordsByLevel'
+  | 'wordsFeed'
 
 /** Контекст меню «Уроки» для восстановления после урока (теория по теме / практика). */
 export type LessonMenuContext = {
@@ -381,8 +382,9 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   tutor: 'Репетитор',
   vocabulary: 'Самые необходимые слова',
   words: 'Слова',
-  wordsAll: 'Сегодня, темы и свои списки',
+  wordsAll: 'Сегодня и мои списки',
   wordsByLevel: 'Слова по уровням (A1-C2)',
+  wordsFeed: 'Слова в деле',
 }
 
 type TheoryTopicLaunchState = { tagIds: string[]; searchQuery: string | null }
@@ -671,8 +673,10 @@ export interface MenuSectionPanelsProps {
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => void | Promise<void>
   onOpenVocabularyByLevel?: () => void | Promise<void>
-  /** Практика по теме из adaptive-хаба («Сегодня, темы и свои списки»). */
+  onOpenVocabularyFeed?: () => void | Promise<void>
+  /** Практика по теме из adaptive-хаба («Сегодня и мои списки»). */
   onOpenAdaptivePracticeTopic?: (topic: string) => void
+  onOpenVocabCustomPack?: (packId: string) => void
   /** Пометить, что сессия открыта из «Мой план» (return loop). */
   onMarkOpenedFromMyPlan?: () => void
   /** Сохранить фильтр практики по тегу теории в контексте приложения (страница). */
@@ -780,7 +784,9 @@ export default function MenuSectionPanels({
   onOpenAccentTrainer,
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
+  onOpenVocabularyFeed,
   onOpenAdaptivePracticeTopic,
+  onOpenVocabCustomPack,
   onMarkOpenedFromMyPlan,
   onAdaptiveFooterViewChange,
   onTutorFooterViewChange,
@@ -1989,6 +1995,10 @@ export default function MenuSectionPanels({
         setLessonsPanel('words')
         return
       }
+      if (lessonsPanel === 'wordsFeed') {
+        setLessonsPanel('words')
+        return
+      }
       if (lessonsPanel === 'words') {
         setLessonsPanel('summary')
         return
@@ -2933,9 +2943,10 @@ export default function MenuSectionPanels({
                   <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
                   <MenuNavRow label="Слова по уровням (A1-C2)" onClick={() => setLessonsPanel('wordsByLevel')} />
                   <MenuNavRow
-                    label="Сегодня, темы и свои списки"
+                    label="Сегодня и мои списки"
                     onClick={() => setLessonsPanel('wordsAll')}
                   />
+                  <MenuNavRow label="Слова в деле" onClick={() => setLessonsPanel('wordsFeed')} />
                 </div>
               </div>
             )}
@@ -2985,11 +2996,31 @@ export default function MenuSectionPanels({
               </div>
             )}
 
+            {lessonsPanel === 'wordsFeed' && (
+              <div className="space-y-3">
+                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
+                  <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Слова в деле</p>
+                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
+                    К изучению · В деле · Умею. Банк для закрепления в переводе.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void onOpenVocabularyFeed?.()}
+                    disabled={!onOpenVocabularyFeed}
+                    className={`${MENU_PRIMARY_CTA_CLASS} mt-3`}
+                  >
+                    Открыть слова в деле
+                  </button>
+                </div>
+              </div>
+            )}
+
             {lessonsPanel === 'wordsAll' && onOpenAdaptivePracticeTopic && onStartHomeChat && (
               <AdaptiveDailyHub
                 settings={settings}
                 onOpenVocabularyWorlds={() => void onOpenVocabularyWorlds?.()}
                 onOpenPracticeTopic={onOpenAdaptivePracticeTopic}
+                onOpenVocabCustomPack={onOpenVocabCustomPack}
                 onStartChat={onStartHomeChat}
                 onFooterViewChange={onAdaptiveFooterViewChange}
               />
