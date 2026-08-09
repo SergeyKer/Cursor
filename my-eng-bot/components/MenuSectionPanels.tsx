@@ -420,6 +420,18 @@ const A1_PRACTICE_ITEMS = getPracticeLessonTopics('A1').map((item) => ({
   enabled: item.enabled,
 }))
 
+const B1_THEORY_ITEMS = getTheoryLessonTopics('B1').map((item) => ({
+  id: item.id,
+  label: item.title,
+  enabled: item.enabled,
+}))
+
+const B2_THEORY_ITEMS = getTheoryLessonTopics('B2').map((item) => ({
+  id: item.id,
+  label: item.title,
+  enabled: item.enabled,
+}))
+
 const PRACTICE_MODE_OPTIONS: { id: PracticeMode; title: string; meta: string; description: string }[] = [
   {
     id: 'relaxed',
@@ -934,6 +946,24 @@ export default function MenuSectionPanels({
         }))
     return source
   }, [a2PracticeTopicCopy, isReferenceBrowse])
+  const b1TheoryItems = React.useMemo(
+    () =>
+      B1_THEORY_ITEMS.map((item) => ({
+        ...item,
+        short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
+        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.label}`,
+      })),
+    [a2PracticeTopicCopy]
+  )
+  const b2TheoryItems = React.useMemo(
+    () =>
+      B2_THEORY_ITEMS.map((item) => ({
+        ...item,
+        short: a2PracticeTopicCopy[item.id]?.short ?? 'Тема урока',
+        long: a2PracticeTopicCopy[item.id]?.long ?? `Тема: ${item.label}`,
+      })),
+    [a2PracticeTopicCopy]
+  )
   const a1PracticeItems = React.useMemo(
     () =>
       A1_PRACTICE_ITEMS.map((item) => ({
@@ -3327,7 +3357,11 @@ export default function MenuSectionPanels({
                     <div className={MENU_GROUP_CLASS}>
                       {THEORY_LEVELS.map((levelRow) => {
                         const levelId = levelRow.id as CefrMenuLevel
-                        const expandableLesson = levelId === 'A1' || levelId === 'A2'
+                        const expandableLesson =
+                          levelId === 'A1' ||
+                          levelId === 'A2' ||
+                          (levelId === 'B1' && B1_THEORY_ITEMS.length > 0) ||
+                          (levelId === 'B2' && B2_THEORY_ITEMS.length > 0)
                         const expandable =
                           isReferenceBrowse
                             ? levelId === 'A1' ||
@@ -3344,7 +3378,15 @@ export default function MenuSectionPanels({
                               : null
                           : null
                         const lessonItems =
-                          levelId === 'A1' ? a1TheoryItems : levelId === 'A2' ? a2TheoryItems : []
+                          levelId === 'A1'
+                            ? a1TheoryItems
+                            : levelId === 'A2'
+                              ? a2TheoryItems
+                              : levelId === 'B1'
+                                ? b1TheoryItems
+                                : levelId === 'B2'
+                                  ? b2TheoryItems
+                                  : []
                         const syllabusTopics = isReferenceBrowse
                           ? listSyllabusTopicsByLevel(levelId as LessonCatalogLevel)
                           : []
@@ -3424,7 +3466,9 @@ export default function MenuSectionPanels({
                                           item.enabled &&
                                           (levelId === 'A1'
                                             ? selectedA1LessonId === item.id
-                                            : selectedA2LessonId === item.id)
+                                            : levelId === 'A2'
+                                              ? selectedA2LessonId === item.id
+                                              : false)
                                         }
                                         enabled={item.enabled}
                                         onClick={
@@ -3435,7 +3479,7 @@ export default function MenuSectionPanels({
                                                 if (levelId === 'A1') {
                                                   setSelectedA1LessonId(item.id)
                                                   setSelectedA2LessonId(null)
-                                                } else {
+                                                } else if (levelId === 'A2') {
                                                   setSelectedA2LessonId(item.id)
                                                   setSelectedA1LessonId(null)
                                                 }
