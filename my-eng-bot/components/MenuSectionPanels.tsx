@@ -44,6 +44,7 @@ import {
   type LessonListDensity,
 } from '@/lib/lessonListDensity'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
+import { buildReferenceMissTutorPrefill } from '@/lib/reference/buildReferenceMissTutorPrefill'
 import type { CatalogBrowseIntent } from '@/lib/reference/types'
 import { getReferenceLessonTopics, isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
 import {
@@ -53,6 +54,7 @@ import {
 import {
   findSyllabusTopicCandidates,
   isSyllabusTopicOpenable,
+  isSyllabusTopicSearchActive,
   listSyllabusTopicsByLevel,
 } from '@/lib/reference/syllabus'
 import {
@@ -883,6 +885,7 @@ export default function MenuSectionPanels({
   >([])
   const [referenceSyllabusLevel, setReferenceSyllabusLevel] = React.useState<LessonCatalogLevel | null>(null)
   const [referenceTopicSearchQuery, setReferenceTopicSearchQuery] = React.useState('')
+  const [referenceTopicSearchFocused, setReferenceTopicSearchFocused] = React.useState(false)
   const [expandedCefrLesson, setExpandedCefrLesson] = React.useState<Set<CefrMenuLevel>>(() =>
     initialExpandedForProfile(settings.level)
   )
@@ -893,7 +896,10 @@ export default function MenuSectionPanels({
   const isReferenceBrowse = featureFlags.referenceV1 && catalogBrowseIntent === 'reference'
 
   React.useEffect(() => {
-    if (!isReferenceBrowse) setReferenceHubSearchFocused(false)
+    if (!isReferenceBrowse) {
+      setReferenceHubSearchFocused(false)
+      setReferenceTopicSearchFocused(false)
+    }
   }, [isReferenceBrowse])
 
   const a2TheoryItems = React.useMemo(() => {
@@ -1041,9 +1047,20 @@ export default function MenuSectionPanels({
     [referenceSyllabusThemes]
   )
   const referenceTopicBrowseHits = React.useMemo(() => {
-    if (!isReferenceBrowse || !referenceTopicSearchQuery.trim()) return []
+    if (!isReferenceBrowse || !isSyllabusTopicSearchActive(referenceTopicSearchQuery)) return []
     return findSyllabusTopicCandidates(referenceTopicSearchQuery, 12)
   }, [isReferenceBrowse, referenceTopicSearchQuery])
+  const isReferenceTopicFilterActive = isSyllabusTopicSearchActive(referenceTopicSearchQuery)
+  const referenceTopicBrowseTopics = React.useMemo(() => {
+    if (!isReferenceTopicFilterActive) {
+      return listSyllabusTopicsByLevel('A1').concat(
+        listSyllabusTopicsByLevel('A2'),
+        listSyllabusTopicsByLevel('B1'),
+        listSyllabusTopicsByLevel('B2')
+      )
+    }
+    return referenceTopicBrowseHits.map((hit) => hit.topic)
+  }, [isReferenceTopicFilterActive, referenceTopicBrowseHits])
   const theoryTopicLessonsByLevel = React.useMemo(
     () => groupTheoryLessonsByLevel(theoryTopicLessonsFlat),
     [theoryTopicLessonsFlat]
@@ -1173,19 +1190,27 @@ export default function MenuSectionPanels({
         return
       }
       setReferenceHubChooseCandidates([])
-      setReferenceHubSearchMiss(result.message || REFERENCE_COPY.searchEmpty)
+      const canAskTutor = Boolean(featureFlags.tutorChatV1 && onOpenTutorChat)
+      setReferenceHubSearchMiss(
+        canAskTutor
+          ? REFERENCE_COPY.searchMissAskTutor
+          : result.message || REFERENCE_COPY.searchEmpty
+      )
       return
     }
     if (!onOpenReferenceTopic) return
     const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
     if (!hit) {
       setReferenceHubChooseCandidates([])
+      const canAskTutor = Boolean(featureFlags.tutorChatV1 && onOpenTutorChat)
       setReferenceHubSearchMiss(
         onGenerateReferenceSheet && featureFlags.referenceGenerate
           ? REFERENCE_COPY.searchGenerateHint
-          : referenceHubSearchHits.length > 0
-            ? REFERENCE_COPY.searchMissHint
-            : REFERENCE_COPY.searchEmpty
+          : canAskTutor
+            ? REFERENCE_COPY.searchMissAskTutor
+            : referenceHubSearchHits.length > 0
+              ? REFERENCE_COPY.searchMissHint
+              : REFERENCE_COPY.searchEmpty
       )
       if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
         void onGenerateReferenceSheet(q)
@@ -1199,6 +1224,7 @@ export default function MenuSectionPanels({
     buildLearningLessonMeta,
     onGenerateReferenceSheet,
     onOpenReferenceTopic,
+    onOpenTutorChat,
     onReferenceSearchSubmit,
     referenceHubSearchHits,
     referenceHubSearchQuery,
@@ -1306,8 +1332,14 @@ export default function MenuSectionPanels({
     return JSON.stringify(activePracticeMenuSnapshot)
   }, [activePracticeMenuSnapshot])
 
+  /** Одноразовое восстановление lessonsPanel: не перетирать ручную навигацию (Репетитор и т.д.). */
+  const lessonsRestoreAppliedKeyRef = React.useRef('')
+
   React.useEffect(() => {
-    if (menuView !== 'lessons') return
+    if (menuView !== 'lessons') {
+      lessonsRestoreAppliedKeyRef.current = ''
+      return
+    }
     if (initialLessonsPanel !== 'practice') return
     if (!activePracticeMenuSnapshot) return
 
@@ -1321,6 +1353,9 @@ export default function MenuSectionPanels({
   React.useEffect(() => {
     if (menuView !== 'lessons') return
     if (!initialLessonsPanel) return
+    const restoreKey = `${initialLessonsPanel}|${initialLessonMenuContextKey}`
+    if (lessonsRestoreAppliedKeyRef.current === restoreKey) return
+    lessonsRestoreAppliedKeyRef.current = restoreKey
     setLessonsPanel(initialLessonsPanel)
     if (!initialLessonMenuContext) return
     setActiveGrammarCategoryId(initialLessonMenuContext.activeGrammarCategoryId ?? null)
@@ -1454,8 +1489,7 @@ export default function MenuSectionPanels({
     menuView,
     initialLessonsPanel,
     initialLessonMenuContextKey,
-    initialLessonMenuContext,
-    activePracticeMenuSnapshot,
+    activePracticeMenuSnapshotKey,
   ])
 
   React.useEffect(() => {
@@ -2850,7 +2884,13 @@ export default function MenuSectionPanels({
                     <LessonTopicRow label="Произношение" />
                   )}
                   {featureFlags.tutorChatV1 ? (
-                    <MenuNavRow label="Репетитор" onClick={() => setLessonsPanel('tutor')} />
+                    <MenuNavRow
+                      label="Репетитор"
+                      onClick={() => {
+                        setCatalogBrowseIntent('lesson')
+                        setLessonsPanel('tutor')
+                      }}
+                    />
                   ) : null}
                   <MenuNavRow label="Слова" onClick={() => setLessonsPanel('words')} />
                 </div>
@@ -3093,7 +3133,26 @@ export default function MenuSectionPanels({
                       </button>
                     </div>
                     {referenceHubSearchMiss ? (
-                      <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{referenceHubSearchMiss}</p>
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                          {referenceHubSearchMiss}
+                        </p>
+                        {referenceHubSearchMiss === REFERENCE_COPY.searchMissAskTutor &&
+                        featureFlags.tutorChatV1 &&
+                        onOpenTutorChat ? (
+                          <button
+                            type="button"
+                            className={`${MENU_PRIMARY_CTA_CLASS} w-full`}
+                            onClick={() => {
+                              const prefill = buildReferenceMissTutorPrefill(referenceHubSearchQuery)
+                              if (!prefill) return
+                              onOpenTutorChat({ prefill })
+                            }}
+                          >
+                            {REFERENCE_COPY.searchAskTutor}
+                          </button>
+                        ) : null}
+                      </div>
                     ) : null}
                     {referenceHubChooseCandidates.length > 0 ? (
                       <div className={MENU_GROUP_OUTER}>
@@ -3124,7 +3183,9 @@ export default function MenuSectionPanels({
                         </div>
                       </div>
                     ) : null}
-                    {referenceHubSearchQuery.trim() ? (
+                    {referenceHubSearchQuery.trim() &&
+                    !referenceHubSearchMiss &&
+                    referenceHubChooseCandidates.length === 0 ? (
                       referenceHubSearchHits.length > 0 ? (
                         <div className={MENU_GROUP_OUTER}>
                           <div className={MENU_GROUP_CLASS}>
@@ -3141,9 +3202,11 @@ export default function MenuSectionPanels({
                             ))}
                           </div>
                         </div>
-                      ) : !referenceHubSearchMiss ? (
-                        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">{REFERENCE_COPY.searchEmpty}</p>
-                      ) : null
+                      ) : (
+                        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                          {REFERENCE_COPY.searchEmpty}
+                        </p>
+                      )
                     ) : null}
                   </div>
                 ) : null}
@@ -3489,19 +3552,22 @@ export default function MenuSectionPanels({
                       type="text"
                       value={referenceTopicSearchQuery}
                       onChange={(e) => setReferenceTopicSearchQuery(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
-                      placeholder="Например: вопросы или present"
+                      onFocus={() => setReferenceTopicSearchFocused(true)}
+                      onBlur={() => setReferenceTopicSearchFocused(false)}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                      placeholder={
+                        referenceTopicSearchFocused ? '' : REFERENCE_COPY.topicBrowsePlaceholder
+                      }
                     />
                   </div>
+                  {isReferenceTopicFilterActive && referenceTopicBrowseTopics.length === 0 ? (
+                    <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                      {REFERENCE_COPY.topicBrowseEmpty}
+                    </p>
+                  ) : (
                   <div className={MENU_GROUP_OUTER}>
                     <div className={MENU_GROUP_CLASS}>
-                      {(referenceTopicSearchQuery.trim()
-                        ? referenceTopicBrowseHits.map((hit) => hit.topic)
-                        : listSyllabusTopicsByLevel('A1').concat(
-                            listSyllabusTopicsByLevel('A2'),
-                            listSyllabusTopicsByLevel('B1'),
-                            listSyllabusTopicsByLevel('B2')
-                          )).map((topic) => {
+                      {referenceTopicBrowseTopics.map((topic) => {
                         const openable = isSyllabusTopicOpenable(topic)
                         return (
                           <A2LessonChoiceRow
@@ -3532,6 +3598,7 @@ export default function MenuSectionPanels({
                       })}
                     </div>
                   </div>
+                  )}
                 </div>
               </div>
             )}

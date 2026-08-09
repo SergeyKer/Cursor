@@ -111,6 +111,7 @@ export {
 } from '@/lib/tutor/resolveContinueLastExplain'
 export { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
 export type { ResolveTutorMicroResult } from '@/lib/tutor/resolveMicroPack'
+export { peekTutorCheatsheetAvailable } from '@/lib/tutor/peekTutorCheatsheetAvailable'
 export { buildTutorMicroSystemPrompt, buildTutorMicroUserPrompt } from '@/lib/tutor/microPrompt'
 
 

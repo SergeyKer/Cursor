@@ -14,6 +14,16 @@ function scoreNeedle(haystack: string, needle: string): number {
   return 0
 }
 
+/** Short aliases (is/am/are) only exact — not substring of "is going". */
+function aliasMatchScore(alias: string, norm: string): number {
+  if (!alias || !norm) return 0
+  if (alias === norm) return 120
+  const compact = alias.replace(/\s+/g, '')
+  if (compact.length < 4) return 0
+  if (alias.includes(norm) || norm.includes(alias)) return 80
+  return 0
+}
+
 function topicSearchBlob(topic: ReferenceSyllabusTopic): string {
   return normalizeFaqText(
     [topic.topicKey, topic.titleRu, topic.titleEn, topic.teaser, ...topic.searchAliases].join(' ')
@@ -25,13 +35,18 @@ export type SyllabusSearchHit = {
   score: number
 }
 
+/** True when query is long enough to run syllabus topic search / browse filter. */
+export function isSyllabusTopicSearchActive(query: string): boolean {
+  return normalizeFaqText(query).length >= 2
+}
+
 /** Search all syllabus rows (including planned) for discovery / future browse. */
 export function findSyllabusTopicCandidates(
   query: string,
   limit = 8
 ): SyllabusSearchHit[] {
+  if (!isSyllabusTopicSearchActive(query)) return []
   const norm = normalizeFaqText(query)
-  if (!norm || norm.length < 2) return []
 
   const scored: SyllabusSearchHit[] = []
   for (const topic of getReferenceSyllabusTopics()) {
@@ -39,10 +54,12 @@ export function findSyllabusTopicCandidates(
     let score = scoreNeedle(blob, norm)
     for (const alias of topic.searchAliases) {
       const a = normalizeFaqText(alias)
-      score = Math.max(score, scoreNeedle(a, norm), scoreNeedle(blob, a) > 0 && norm === a ? 120 : 0)
-      if (a && (norm === a || a.includes(norm) || norm.includes(a))) {
-        score = Math.max(score, norm === a ? 120 : 80)
-      }
+      score = Math.max(
+        score,
+        scoreNeedle(a, norm),
+        scoreNeedle(blob, a) > 0 && norm === a ? 120 : 0,
+        aliasMatchScore(a, norm)
+      )
     }
     const keyNorm = normalizeFaqText(topic.topicKey.replace(/_/g, ' '))
     score = Math.max(score, scoreNeedle(keyNorm, norm))
@@ -59,8 +76,8 @@ export function findOpenableSyllabusLessonHits(
   query: string,
   limit = 8
 ): Array<{ lessonId: string; title: string; score: number; topicKey: string }> {
+  if (!isSyllabusTopicSearchActive(query)) return []
   const norm = normalizeFaqText(query)
-  if (!norm || norm.length < 2) return []
 
   const out: Array<{ lessonId: string; title: string; score: number; topicKey: string }> = []
   for (const hit of findSyllabusTopicCandidates(query, limit * 2)) {
@@ -79,11 +96,22 @@ export function findOpenableSyllabusLessonHits(
       for (const alias of topic.searchAliases) {
         const a = normalizeFaqText(alias)
         if (!a) continue
-        if (norm === a || a.startsWith(norm) || norm.startsWith(a)) {
+        if (norm === a) {
           out.push({
             lessonId: topic.lessonId!,
             title: topic.titleEn || topic.titleRu,
-            score: norm === a ? 120 : 90,
+            score: 120,
+            topicKey: topic.topicKey,
+          })
+          continue
+        }
+        // Substantial prefix only — not "is" ⊂ "is going"
+        if (a.replace(/\s+/g, '').length < 4) continue
+        if (a.startsWith(norm) || norm.startsWith(a)) {
+          out.push({
+            lessonId: topic.lessonId!,
+            title: topic.titleEn || topic.titleRu,
+            score: 90,
             topicKey: topic.topicKey,
           })
         }

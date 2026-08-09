@@ -53,6 +53,7 @@ import {
   type FollowUpHopState,
 } from '@/lib/tutor/followUpHop'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
+import { peekTutorCheatsheetAvailable } from '@/lib/tutor/peekTutorCheatsheetAvailable'
 import { shouldRetainLastExplainOnDeepen } from '@/lib/tutor/resolveContinueLastExplain'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
@@ -227,7 +228,9 @@ export default function TutorChatPanel({
   onMicroFinale,
 }: TutorChatPanelProps) {
   const session = useTutorSessionOptional()
-  const [draft, setDraft] = useState(initialPrefill)
+  const [draft, setDraft] = useState(() =>
+    autoSubmitInitial && initialPrefill.trim() ? '' : initialPrefill
+  )
   const [thread, setThread] = useState<ThreadMessage[]>([])
   const [triageChips, setTriageChips] = useState<TutorComposerChip[]>([])
   const [anchorQuery, setAnchorQuery] = useState<string | null>(null)
@@ -367,12 +370,14 @@ export default function TutorChatPanel({
   }, [])
 
   useEffect(() => {
+    // autoSubmit: prefill is submit payload only — never leave it in the composer.
+    if (autoSubmitInitial) return
     if (initialPrefill.trim()) {
       setDraft(initialPrefill)
       voice.setDraftText(initialPrefill)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on prefill change
-  }, [initialPrefill])
+  }, [autoSubmitInitial, initialPrefill])
 
   useEffect(() => {
     if (voice.isVoiceActive || voice.listening) {
@@ -1133,6 +1138,7 @@ export default function TutorChatPanel({
     if (pendingTriageDoneRef.current) return
     autoSubmitDoneRef.current = true
     setDraftSynced('')
+    voice.setDraftText('')
     handleUserTurn(text, { userAlreadyInThread: false })
   }, [
     autoSubmitInitial,
@@ -1140,6 +1146,7 @@ export default function TutorChatPanel({
     handleUserTurn,
     initialPrefill,
     setDraftSynced,
+    voice,
   ])
 
   const handleSubmit = useCallback(() => {
@@ -1451,6 +1458,21 @@ export default function TutorChatPanel({
     lastExplain.cheatsheetVisibility !== 'hidden' &&
     (session?.referenceEnabled ?? true)
 
+  const cheatsheetChipAvailable = useMemo(
+    () => (lastExplain && cheatsheetChipVisible ? peekTutorCheatsheetAvailable(lastExplain) : false),
+    [cheatsheetChipVisible, lastExplain]
+  )
+
+  const cheatsheetChip = useMemo((): TutorComposerChip | null => {
+    if (!cheatsheetChipVisible) return null
+    return {
+      id: 'cheatsheet',
+      labelRu: TUTOR_CHAT_COPY.chipCheatsheet,
+      disabled: !cheatsheetChipAvailable,
+      disabledTitle: TUTOR_CHAT_COPY.cheatsheetChipDisabledTitle,
+    }
+  }, [cheatsheetChipAvailable, cheatsheetChipVisible])
+
   const microChipVisible =
     lastExplain != null &&
     canOfferTutorMicro(lastExplain, {
@@ -1461,9 +1483,7 @@ export default function TutorChatPanel({
     ...(microChipVisible
       ? [{ id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain } satisfies TutorComposerChip]
       : []),
-    ...(cheatsheetChipVisible
-      ? [{ id: 'cheatsheet', labelRu: TUTOR_CHAT_COPY.chipCheatsheet } satisfies TutorComposerChip]
-      : []),
+    ...(cheatsheetChip ? [cheatsheetChip] : []),
     ...(onDone ? [{ id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone } satisfies TutorComposerChip] : []),
   ]
 
@@ -1488,9 +1508,7 @@ export default function TutorChatPanel({
                 ...(microChipVisible
                   ? [{ id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro } satisfies TutorComposerChip]
                   : []),
-                ...(cheatsheetChipVisible
-                  ? [{ id: 'cheatsheet', labelRu: TUTOR_CHAT_COPY.chipCheatsheet } satisfies TutorComposerChip]
-                  : []),
+                ...(cheatsheetChip ? [cheatsheetChip] : []),
               ]
             : triageChips
 
@@ -1572,6 +1590,7 @@ export default function TutorChatPanel({
           return
         }
         if (chipId === 'cheatsheet') {
+          if (!cheatsheetChipAvailable) return
           if (!lastExplain || !session) {
             append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
             return
@@ -1615,6 +1634,7 @@ export default function TutorChatPanel({
         return
       }
       if (chipId === 'cheatsheet') {
+        if (!cheatsheetChipAvailable) return
         if (!lastExplain || !session) {
           append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
           return
@@ -1652,6 +1672,7 @@ export default function TutorChatPanel({
       append,
       buildSnapshot,
       busy,
+      cheatsheetChipAvailable,
       followUpChip,
       handleChipSelect,
       lastExplain,

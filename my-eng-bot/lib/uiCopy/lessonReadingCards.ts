@@ -24,7 +24,7 @@ export const LESSON_READING_CARD_LABELS = {
 
 /** Lookup / cheatsheet: exam-aid wording (same fields, clearer for search). */
 export const REFERENCE_READING_CARD_LABELS = {
-  essence: 'Суть',
+  essence: 'Тема',
   rule: 'Когда так',
   templates: 'Как сказать',
   examples: 'Примеры',

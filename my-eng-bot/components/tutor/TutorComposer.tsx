@@ -175,10 +175,23 @@ export default function TutorComposer({
             <button
               key={chip.id}
               type="button"
-              disabled={chipsDisabled}
-              onClick={() => onChipSelect?.(chip.id)}
+              disabled={chipsDisabled || Boolean(chip.disabled)}
+              title={chip.disabled ? chip.disabledTitle : undefined}
+              aria-label={
+                chip.disabled && chip.disabledTitle
+                  ? `${chip.labelRu}. ${chip.disabledTitle}`
+                  : undefined
+              }
+              onClick={() => {
+                if (chip.disabled) return
+                onChipSelect?.(chip.id)
+              }}
               style={{ animationDelay: `${index * 85}ms` }}
-              className="tutor-composer-nav-chip lesson-choice-chip-enter touch-manipulation rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[12px] font-medium text-blue-700 [@media(hover:hover)]:hover:bg-blue-100 disabled:opacity-50"
+              className={
+                chip.disabled
+                  ? 'tutor-composer-nav-chip lesson-choice-chip-enter touch-manipulation rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[12px] font-medium text-slate-400 cursor-not-allowed'
+                  : 'tutor-composer-nav-chip lesson-choice-chip-enter touch-manipulation rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[12px] font-medium text-blue-700 [@media(hover:hover)]:hover:bg-blue-100 disabled:opacity-50'
+              }
             >
               {chip.labelRu}
             </button>

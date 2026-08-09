@@ -53,12 +53,15 @@ export function findReferenceTopicCandidates(
     .slice(0, Math.max(1, limit))
 }
 
-/** Один явный лидер: единственный кандидат или score ≥ 80 с отрывом. */
+/** Один явный лидер: score ≥ 80 с отрывом; единственный — только если тоже ≥ 80. */
 export function pickStrongReferenceHit(
   candidates: PracticeTopicCandidate[]
 ): PracticeTopicCandidate | null {
   if (candidates.length === 0) return null
-  if (candidates.length === 1) return candidates[0] ?? null
+  if (candidates.length === 1) {
+    const only = candidates[0]
+    return only && only.score >= STRONG_HIT_SCORE ? only : null
+  }
   const [first, second] = candidates
   if (!first) return null
   if (first.score >= STRONG_HIT_SCORE && first.score - (second?.score ?? 0) >= 20) {

@@ -224,7 +224,7 @@ export const APP_BTN_SECONDARY_LARGE_BLOCK = [
  * и не зеленеть/чернеть в Glass1/Glass3.
  */
 export const APP_BTN_TERTIARY_BACK_SKIN =
-  `border border-slate-200 bg-gradient-to-r from-slate-50 to-sky-50 ${BLUE_CTA_TEXT} hover:from-white hover:to-sky-100 active:brightness-95`
+  `border border-[#93c5fd] bg-gradient-to-r from-slate-50 to-sky-50 ${BLUE_CTA_TEXT} hover:from-white hover:to-sky-100 active:brightness-95`
 
 /** Эталон / compact Back рядом с синими CTA (layout Reference). */
 export const APP_BTN_TERTIARY_BACK = [

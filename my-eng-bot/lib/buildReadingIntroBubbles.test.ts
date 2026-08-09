@@ -112,7 +112,7 @@ describe('reference mirror', () => {
     expect(refBubbles.some((b) => b.content.startsWith(REFERENCE_READING_CARD_LABELS.contrast))).toBe(
       true
     )
-    expect(refBubbles[0]?.content.split('\n')[0]).toBe('Суть')
+    expect(refBubbles[0]?.content.split('\n')[0]).toBe('Тема')
   })
 
   it('keeps same card keys for I am lesson intro vs lookup (labels may differ)', () => {
@@ -137,7 +137,7 @@ describe('reading layout + labels', () => {
     expect(LESSON_READING_CARD_LABELS.essence).toBe('Тема урока')
     expect(LESSON_READING_CARD_LABELS.contrast).toBe('Не путать')
     expect(REFERENCE_COPY.cardHook).toBe(REFERENCE_READING_CARD_LABELS.essence)
-    expect(REFERENCE_COPY.cardHook).toBe('Суть')
+    expect(REFERENCE_COPY.cardHook).toBe('Тема')
     expect(REFERENCE_COPY.cardContrast).toBe('Не путать')
     expect(REFERENCE_COPY.cardFormula).toBe(REFERENCE_READING_CARD_LABELS.templates)
     expect(REFERENCE_COPY.hubTitle).toBe('Справочник')

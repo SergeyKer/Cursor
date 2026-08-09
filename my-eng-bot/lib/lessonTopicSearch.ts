@@ -46,10 +46,16 @@ function splitTokens(value: string): string[] {
     .filter((token) => token.length > 1)
 }
 
+/** Avoid "is" ⊂ "is going" / "i" ⊂ anything — short needles only exact. */
+function substantialNeedle(value: string): boolean {
+  return value.replace(/\s+/g, '').length >= 4
+}
+
 export function scoreLessonCatalogQueryKey(query: string, key: string): number {
   if (!query || !key) return 0
   if (query === key) return 120
-  if (key.includes(query) || query.includes(key)) return 80
+  if (substantialNeedle(query) && key.includes(query)) return 80
+  if (substantialNeedle(key) && query.includes(key)) return 80
   const queryTokens = splitTokens(query)
   const keyTokens = splitTokens(key)
   if (queryTokens.length === 0 || keyTokens.length === 0) return 0

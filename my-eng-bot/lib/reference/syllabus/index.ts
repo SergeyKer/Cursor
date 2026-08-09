@@ -16,6 +16,7 @@ export {
 export {
   findSyllabusTopicCandidates,
   findOpenableSyllabusLessonHits,
+  isSyllabusTopicSearchActive,
 } from '@/lib/reference/syllabus/search'
 export type { SyllabusSearchHit } from '@/lib/reference/syllabus/search'
 export { sortSyllabusByCurriculum, curriculumRank } from '@/lib/reference/syllabus/curriculumOrder'

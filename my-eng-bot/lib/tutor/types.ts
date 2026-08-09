@@ -13,6 +13,10 @@ export type TutorComposerChip = {
   labelRu: string
   /** If set, chip action uses this instead of labelRu (e.g. follow-up without «Например:»). */
   submitText?: string
+  /** Per-chip unavailable (e.g. шпаргалка без канона). Busy uses chipsDisabled separately. */
+  disabled?: boolean
+  /** Optional hint when disabled. */
+  disabledTitle?: string
 }
 
 export type TutorTriageResult =

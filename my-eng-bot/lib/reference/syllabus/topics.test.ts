@@ -10,6 +10,7 @@ import {
 import {
   findSyllabusTopicCandidates,
   findOpenableSyllabusLessonHits,
+  isSyllabusTopicSearchActive,
 } from '@/lib/reference/syllabus/search'
 import { getPrebuiltSheet, hasStaticPrebuiltSheet } from '@/lib/reference/prebuiltStore'
 import { resolveOpenReferenceSheet } from '@/lib/reference/openReferenceSheet'
@@ -49,6 +50,13 @@ describe('reference syllabus seed', () => {
     clearReferenceSyllabusCacheForTests()
     const openable = findOpenableSyllabusLessonHits("it's time", 5)
     expect(openable.some((h) => h.lessonId === '1')).toBe(true)
+  })
+
+  it('isSyllabusTopicSearchActive matches search threshold', () => {
+    expect(isSyllabusTopicSearchActive('')).toBe(false)
+    expect(isSyllabusTopicSearchActive('a')).toBe(false)
+    expect(isSyllabusTopicSearchActive('ab')).toBe(true)
+    expect(isSyllabusTopicSearchActive('  Present ')).toBe(true)
   })
 
   it('opens have_got from the offline prebuilt registry', () => {
