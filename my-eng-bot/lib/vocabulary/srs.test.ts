@@ -1,11 +1,14 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   applyVocabularyReview,
   buildSessionWords,
   createEmptyWordProgress,
   isWordDue,
   pickNextSessionWords,
+  resolveVocabularyTempo,
+  saveVocabularyTempo,
   sessionSizeForTempo,
+  VOCAB_TEMPO_STORAGE_KEY,
 } from '@/lib/vocabulary/srs'
 import type { NecessaryWord } from '@/types/vocabulary'
 
@@ -20,7 +23,36 @@ const sampleWord = (partial: Partial<NecessaryWord> & Pick<NecessaryWord, 'id' |
   ...partial,
 })
 
+class MemoryStorage {
+  private store = new Map<string, string>()
+
+  getItem(key: string): string | null {
+    return this.store.has(key) ? this.store.get(key)! : null
+  }
+
+  setItem(key: string, value: string): void {
+    this.store.set(key, value)
+  }
+
+  removeItem(key: string): void {
+    this.store.delete(key)
+  }
+}
+
+function withWindowStorage() {
+  const storage = new MemoryStorage()
+  Object.defineProperty(globalThis, 'window', {
+    value: { localStorage: storage },
+    configurable: true,
+  })
+  return storage
+}
+
 describe('vocabulary srs', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(globalThis, 'window')
+  })
+
   it('soft-fails stage by one instead of hard reset', () => {
     const base = { ...createEmptyWordProgress(42), stage: 3, successes: 2, attempts: 2 }
     const success = applyVocabularyReview(base, true, 1_000)
@@ -113,5 +145,22 @@ describe('vocabulary srs', () => {
     expect(sessionSizeForTempo('sprint')).toBe(3)
     expect(sessionSizeForTempo('full')).toBe(5)
     expect(sessionSizeForTempo('sprint', true)).toBe(2)
+  })
+
+  it('persists tempo preference in localStorage', () => {
+    const storage = withWindowStorage()
+    expect(resolveVocabularyTempo()).toBe('sprint')
+    saveVocabularyTempo('full')
+    expect(storage.getItem(VOCAB_TEMPO_STORAGE_KEY)).toBe('full')
+    expect(resolveVocabularyTempo()).toBe('full')
+    saveVocabularyTempo('sprint')
+    expect(resolveVocabularyTempo()).toBe('sprint')
+  })
+
+  it('prefers explicit tempo over localStorage', () => {
+    withWindowStorage()
+    saveVocabularyTempo('full')
+    expect(resolveVocabularyTempo('sprint')).toBe('sprint')
+    expect(resolveVocabularyTempo('full')).toBe('full')
   })
 })

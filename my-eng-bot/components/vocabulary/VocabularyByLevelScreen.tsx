@@ -1,14 +1,12 @@
 'use client'
 
 import React from 'react'
+import VocabularyTempoToggle from '@/components/vocabulary/VocabularyTempoToggle'
 import VocabularyThinSession from '@/components/vocabulary/VocabularyThinSession'
+import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { isWordInProgress, listStrictlyLearnedWords } from '@/lib/vocabulary/learned'
 import { VOCABULARY_LEVELS } from '@/lib/vocabulary/levels'
-import {
-  pickNextSessionWords,
-  resolveVocabularyTempo,
-  sessionSizeForTempo,
-} from '@/lib/vocabulary/srs'
+import { pickNextSessionWords } from '@/lib/vocabulary/srs'
 import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
@@ -88,6 +86,7 @@ export default function VocabularyByLevelScreen({
   const [hubTab, setHubTab] = React.useState<HubTab>('levels')
   const [browseLevelId, setBrowseLevelId] = React.useState<VocabularyLevelId | null>(null)
   const [learnedFilter, setLearnedFilter] = React.useState('')
+  const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
   const lastLaunchRef = React.useRef<{
     levelId: VocabularyLevelId
     topicId: VocabularyTopicId
@@ -166,12 +165,10 @@ export default function VocabularyByLevelScreen({
   const buildLaunch = React.useCallback(
     (levelId: VocabularyLevelId, topicId: VocabularyTopicId): ThinSessionLaunch | null => {
       const pool = wordsForLevelTopic(activeWords, levelId, topicId)
-      const tempo = resolveVocabularyTempo()
-      const size = sessionSizeForTempo(tempo)
       const plannedWords = pickNextSessionWords({
         words: pool,
         progressMap: progress.words,
-        size,
+        size: tempoSize,
       })
       if (plannedWords.length === 0) return null
       return {
@@ -182,7 +179,7 @@ export default function VocabularyByLevelScreen({
         distractorPool: pool,
       }
     },
-    [activeWords, catalog, progress.words]
+    [activeWords, catalog, progress.words, tempo, tempoSize]
   )
 
   const startTopicSession = React.useCallback(
@@ -206,12 +203,10 @@ export default function VocabularyByLevelScreen({
     const latest = loadVocabularyProgress()
     setProgress(latest)
     const pool = wordsForLevelTopic(activeWords, last.levelId, last.topicId)
-    const tempo = resolveVocabularyTempo()
-    const size = sessionSizeForTempo(tempo)
     const plannedWords = pickNextSessionWords({
       words: pool,
       progressMap: latest.words,
-      size,
+      size: tempoSize,
     })
     if (plannedWords.length === 0) {
       setSession(null)
@@ -225,7 +220,7 @@ export default function VocabularyByLevelScreen({
       distractorPool: pool,
     })
     setSessionKey((key) => key + 1)
-  }, [activeWords, catalog])
+  }, [activeWords, catalog, tempo, tempoSize])
 
   const strictlyLearnedEntries = React.useMemo(
     () => listStrictlyLearnedWords(activeWords, progress.words),
@@ -313,11 +308,17 @@ export default function VocabularyByLevelScreen({
             ← Все уровни
           </button>
           <p className="text-[14px] font-semibold text-[var(--text)]">{getLevelPrefix(browseLevelId, catalog)}</p>
+          <VocabularyTempoToggle value={tempo} onChange={setTempo} />
           <div className="space-y-3">
             {topicList.map((topic) => {
               const pool = wordsForLevelTopic(activeWords, browseLevelId, topic.id)
               if (pool.length === 0) return null
               const reviewed = countWordsInProgress(progress, pool)
+              const plannedCount = pickNextSessionWords({
+                words: pool,
+                progressMap: progress.words,
+                size: tempoSize,
+              }).length
               return (
                 <div
                   key={topic.id}
@@ -335,10 +336,11 @@ export default function VocabularyByLevelScreen({
                     </div>
                     <button
                       type="button"
+                      disabled={plannedCount === 0}
                       onClick={() => startTopicSession(browseLevelId, topic.id)}
-                      className="btn-3d-menu shrink-0 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--text)]"
+                      className="btn-3d-menu shrink-0 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      Учить
+                      {plannedCount > 0 ? `Учить · ${plannedCount}` : 'Учить'}
                     </button>
                   </div>
                 </div>

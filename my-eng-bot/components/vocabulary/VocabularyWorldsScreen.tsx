@@ -1,14 +1,12 @@
 'use client'
 
 import React from 'react'
+import VocabularyTempoToggle from '@/components/vocabulary/VocabularyTempoToggle'
 import VocabularyThinSession from '@/components/vocabulary/VocabularyThinSession'
+import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { isWordInProgress } from '@/lib/vocabulary/learned'
 import { formatVocabularySessionRouteTitle } from '@/lib/vocabulary/sessionRoute'
-import {
-  pickNextSessionWords,
-  resolveVocabularyTempo,
-  sessionSizeForTempo,
-} from '@/lib/vocabulary/srs'
+import { pickNextSessionWords } from '@/lib/vocabulary/srs'
 import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
@@ -68,6 +66,7 @@ export default function VocabularyWorldsScreen({
   const [session, setSession] = React.useState<ThinSessionLaunch | null>(null)
   const [sessionKey, setSessionKey] = React.useState(0)
   const [showStats, setShowStats] = React.useState(false)
+  const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
   const lastWorldRef = React.useRef<VocabularyWorldId | null>(null)
 
   React.useEffect(() => {
@@ -122,12 +121,10 @@ export default function VocabularyWorldsScreen({
   const startWorldSession = React.useCallback(
     (worldId: VocabularyWorldId) => {
       const pool = worldMap[worldId] ?? []
-      const tempo = resolveVocabularyTempo()
-      const size = sessionSizeForTempo(tempo)
       const plannedWords = pickNextSessionWords({
         words: pool,
         progressMap: progress.words,
-        size,
+        size: tempoSize,
       })
       if (plannedWords.length === 0) return
       lastWorldRef.current = worldId
@@ -141,7 +138,7 @@ export default function VocabularyWorldsScreen({
       setSessionKey((key) => key + 1)
       setShowStats(false)
     },
-    [progress.words, worldMap]
+    [progress.words, tempo, tempoSize, worldMap]
   )
 
   const handleAgain = React.useCallback(() => {
@@ -153,12 +150,10 @@ export default function VocabularyWorldsScreen({
     const latest = loadVocabularyProgress()
     setProgress(latest)
     const pool = worldMap[worldId] ?? []
-    const tempo = resolveVocabularyTempo()
-    const size = sessionSizeForTempo(tempo)
     const plannedWords = pickNextSessionWords({
       words: pool,
       progressMap: latest.words,
-      size,
+      size: tempoSize,
     })
     if (plannedWords.length === 0) {
       setSession(null)
@@ -172,7 +167,7 @@ export default function VocabularyWorldsScreen({
       distractorPool: pool,
     })
     setSessionKey((key) => key + 1)
-  }, [worldMap])
+  }, [tempo, tempoSize, worldMap])
 
   const worldCards = VOCABULARY_WORLDS.map((world) => {
     const words = worldMap[world.id] ?? []
@@ -269,8 +264,18 @@ export default function VocabularyWorldsScreen({
                 </div>
               )}
 
+              {!showStats && <VocabularyTempoToggle value={tempo} onChange={setTempo} />}
+
               <div className="space-y-3 overflow-y-auto pb-2">
-                {worldCards.map(({ world, words, reviewed, unlocked }) => (
+                {worldCards.map(({ world, words, reviewed, unlocked }) => {
+                  const plannedCount = unlocked
+                    ? pickNextSessionWords({
+                        words,
+                        progressMap: progress.words,
+                        size: tempoSize,
+                      }).length
+                    : 0
+                  return (
                   <div
                     key={world.id}
                     className={`rounded-[1.15rem] border px-4 py-4 shadow-sm ${
@@ -291,15 +296,16 @@ export default function VocabularyWorldsScreen({
                       </div>
                       <button
                         type="button"
-                        disabled={!unlocked || words.length === 0}
+                        disabled={!unlocked || plannedCount === 0}
                         onClick={() => startWorldSession(world.id)}
                         className="btn-3d-menu rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        {unlocked ? 'Учить' : 'Закрыт'}
+                        {!unlocked ? 'Закрыт' : plannedCount > 0 ? `Учить · ${plannedCount}` : 'Учить'}
                       </button>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             </>
           )}
