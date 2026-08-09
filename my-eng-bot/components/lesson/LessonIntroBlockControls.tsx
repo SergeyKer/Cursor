@@ -61,10 +61,10 @@ function IntroBlockPanel({ block, panelKind }: { block: LessonIntroBlock; panelK
         setEnterActive(false)
       }}
     >
-      <p className="whitespace-pre-wrap break-words font-sans text-[14px] leading-snug text-[var(--text)]">
-        <span className="font-medium text-[var(--chat-label-slate)]">{block.label}:</span>{' '}
-        {formatIntroBlockBullets(block)}
-      </p>
+      <div className="font-sans text-[14px] leading-snug text-[var(--text)]">
+        <p className="font-medium text-[var(--chat-label-slate)]">{block.label}:</p>
+        <p className="mt-1 whitespace-pre-wrap break-words">{formatIntroBlockBullets(block)}</p>
+      </div>
     </section>
   )
 }

@@ -523,6 +523,10 @@ const MENU_CHOICE_TEXT_CLASS =
 /** Подпись строки меню (кликабельной и неактивной): системный стек, как MenuNavRow. */
 const MENU_ROW_LABEL_CLASS = `${MENU_CHOICE_TEXT_CLASS} leading-snug text-[var(--text)]`
 
+/** Заголовок CEFR-уровня в аккордеоне: semibold, не наследует font-normal из MENU_ROW_LABEL_CLASS. */
+const CEFR_LEVEL_HEADER_LABEL_CLASS =
+  "text-[15px] font-semibold leading-snug text-[var(--text)] [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
+
 const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
 export interface MenuSectionPanelsProps {
@@ -3075,12 +3079,12 @@ export default function MenuSectionPanels({
                           e.preventDefault()
                           void submitReferenceHubSearch()
                         }}
-                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none"
+                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
                         placeholder={referenceHubSearchFocused ? '' : REFERENCE_COPY.searchPlaceholder}
                       />
                       <button
                         type="button"
-                        className="btn-3d-menu shrink-0 rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] px-3 py-2 text-[14px] font-medium text-[var(--text)] touch-manipulation focus-visible:outline-none"
+                        className="btn-3d-menu shrink-0 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-[14px] font-medium text-[var(--accent-text)] touch-manipulation focus-visible:outline-none"
                         onClick={() => {
                           void submitReferenceHubSearch()
                         }}
@@ -3301,7 +3305,7 @@ export default function MenuSectionPanels({
                               }
                             />
                             {expanded ? (
-                              <div id={bodyId} role="region" aria-label={levelRow.label}>
+                              <div id={bodyId} role="region" aria-label={levelRow.label} className="pl-4">
                                 {isReferenceBrowse
                                   ? syllabusTopics.map((topic) => {
                                       const openable = isSyllabusTopicOpenable(topic)
@@ -3662,7 +3666,7 @@ export default function MenuSectionPanels({
                                 }}
                               />
                               {expanded ? (
-                                <div id={bodyId} role="region" aria-label={String(lvl)}>
+                                <div id={bodyId} role="region" aria-label={String(lvl)} className="pl-4">
                                   {lessons.map((lesson) => {
                                     const topicCopy = a2PracticeTopicCopy[lesson.id]
                                     return (
@@ -4980,7 +4984,7 @@ function CefrLevelAccordionHeader({
   if (!expandable || !onToggle) {
     return (
       <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
-        <span className={MENU_ROW_LABEL_CLASS}>{label}</span>
+        <span className={CEFR_LEVEL_HEADER_LABEL_CLASS}>{label}</span>
         <span className="flex shrink-0 items-center gap-2.5">
           <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
         </span>
@@ -4994,9 +4998,9 @@ function CefrLevelAccordionHeader({
       onClick={onToggle}
       aria-expanded={expanded}
       aria-controls={controlsId}
-      className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
+      className={`flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]${expanded ? ' bg-[var(--border)]/20' : ''}`}
     >
-      <span className={`min-w-0 flex-1 text-left ${MENU_ROW_LABEL_CLASS}`}>{label}</span>
+      <span className={`min-w-0 flex-1 text-left ${CEFR_LEVEL_HEADER_LABEL_CLASS}`}>{label}</span>
       <span className="flex shrink-0 items-center gap-2.5">
         {summaryLabel ? (
           <span className="text-[13px] leading-normal text-[var(--text-muted)] tabular-nums">
@@ -5015,11 +5019,17 @@ function CefrLevelAccordionHeader({
 
 function LessonLevelRow({ label, onClick }: { label: string; onClick?: () => void }) {
   if (onClick) {
-    return <MenuNavRow label={label} onClick={onClick} />
+    return (
+      <MenuNavRow
+        label={label}
+        onClick={onClick}
+        labelClassName={CEFR_LEVEL_HEADER_LABEL_CLASS}
+      />
+    )
   }
   return (
     <div className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 last:border-b-0">
-      <span className={MENU_ROW_LABEL_CLASS}>{label}</span>
+      <span className={CEFR_LEVEL_HEADER_LABEL_CLASS}>{label}</span>
       <span className="text-[13px] leading-normal text-[var(--text-muted)]">Скоро</span>
     </div>
   )
@@ -5554,11 +5564,13 @@ function MenuNavRow({
   onClick,
   variant = 'default',
   showChevron = true,
+  labelClassName = MENU_ROW_LABEL_CLASS,
 }: {
   label: string
   onClick: () => void
   variant?: 'default' | 'primary'
   showChevron?: boolean
+  labelClassName?: string
 }) {
   if (variant === 'primary') {
     return (
@@ -5573,7 +5585,7 @@ function MenuNavRow({
       onClick={onClick}
       className="flex w-full min-h-[44px] items-center justify-between gap-2 border-b border-[var(--border)]/70 px-3 py-2.5 text-left text-[15px] font-normal leading-normal text-[var(--text)] transition-colors last:border-b-0 hover:bg-[var(--border)]/25 active:bg-[var(--border)]/35 touch-manipulation [font-family:system-ui,-apple-system,'Segoe_UI',Roboto,'Noto_Sans',Arial,sans-serif]"
     >
-      <span className={`min-w-0 flex-1 text-left ${MENU_ROW_LABEL_CLASS}`}>{label}</span>
+      <span className={`min-w-0 flex-1 text-left ${labelClassName}`}>{label}</span>
       {showChevron ? (
         <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
       ) : (

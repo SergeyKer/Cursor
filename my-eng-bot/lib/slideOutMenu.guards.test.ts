@@ -31,4 +31,13 @@ describe('SlideOutMenu stacking guards', () => {
     expect(source).toMatch(/btn-3d-menu fixed z-\[60\]/)
     expect(60).toBeLessThan(65)
   })
+
+  it('clears forceLessonsSummary on manual hub navigation', () => {
+    expect(source).toMatch(
+      /if \(v === 'root' \|\| v === 'communication' \|\| v === 'practice'\) \{[\s\S]*?setForceLessonsSummary\(false\)/
+    )
+    expect(source).toMatch(
+      /else if \(v === 'lessons' && menuView === 'root'\) \{[\s\S]*?setForceLessonsSummary\(false\)/
+    )
+  })
 })

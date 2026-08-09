@@ -305,8 +305,10 @@ export default function SlideOutMenu({
     (v: MenuView) => {
       if (v === 'root' || v === 'communication' || v === 'practice') {
         setLessonsRestorePanel(undefined)
+        setForceLessonsSummary(false)
       } else if (v === 'lessons' && menuView === 'root') {
         setLessonsRestorePanel(undefined)
+        setForceLessonsSummary(false)
       }
       setMenuView(v)
     },
