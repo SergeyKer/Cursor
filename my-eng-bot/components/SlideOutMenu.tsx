@@ -150,6 +150,7 @@ interface SlideOutMenuProps {
   onOpenVocabularyWorlds?: () => Promise<void> | void
   onOpenVocabularyByLevel?: () => Promise<void> | void
   onOpenVocabularyFeed?: () => Promise<void> | void
+  onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
   onOpenVocabCustomPack?: (packId: string) => void
   onOpenAdaptivePracticeTopic?: (topic: string) => void
   /** Сессия из «Мой план» — return loop. */
@@ -252,6 +253,7 @@ export default function SlideOutMenu({
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
   onOpenVocabularyFeed,
+  onOpenTranslationVocabNag,
   onOpenVocabCustomPack,
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
@@ -469,6 +471,7 @@ export default function SlideOutMenu({
         onOpenVocabularyWorlds={onOpenVocabularyWorlds}
         onOpenVocabularyByLevel={onOpenVocabularyByLevel}
         onOpenVocabularyFeed={onOpenVocabularyFeed}
+        onOpenTranslationVocabNag={onOpenTranslationVocabNag}
         onOpenVocabCustomPack={onOpenVocabCustomPack}
         onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}

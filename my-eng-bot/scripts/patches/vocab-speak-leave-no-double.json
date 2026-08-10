@@ -1,0 +1,9 @@
+{
+  "file": "components/app/AppShell.tsx",
+  "replacements": [
+    {
+      "old": "      } else if (kind === 'vocabulary') {\n        vocabularyLeaveHandlerRef.current?.()\n        setVocabularySessionActive(false)\n        setVocabularyExitRequestKey((value) => value + 1)\n      }",
+      "new": "      } else if (kind === 'vocabulary') {\n        vocabularyLeaveHandlerRef.current?.()\n        setVocabularySessionActive(false)\n      }"
+    }
+  ]
+}

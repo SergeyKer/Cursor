@@ -24,10 +24,11 @@ const word = (id: number, en: string, ru: string): NecessaryWord => ({
 
 describe('sessionEngine', () => {
   it('builds sprint steps without show_ru', () => {
-    expect(stepsForTempo('sprint', false)).toEqual(['reveal_en', 'check', 'speak_en', 'done'])
+    expect(stepsForTempo('sprint', false)).toEqual(['reveal_en', 'check', 'produce', 'speak_en', 'done'])
     expect(stepsForTempo('sprint', true)).toEqual([
       'reveal_en',
       'check',
+      'produce',
       'speak_en',
       'say_phrase',
       'done',
@@ -39,11 +40,19 @@ describe('sessionEngine', () => {
       'show_ru',
       'reveal_en',
       'check',
+      'produce',
       'speak_en',
       'say_phrase',
       'done',
     ])
-    expect(stepsForTempo('full', false)).toEqual(['show_ru', 'reveal_en', 'check', 'speak_en', 'done'])
+    expect(stepsForTempo('full', false)).toEqual([
+      'show_ru',
+      'reveal_en',
+      'check',
+      'produce',
+      'speak_en',
+      'done',
+    ])
   })
 
   it('picks middle-ish phrase word index', () => {
@@ -55,6 +64,7 @@ describe('sessionEngine', () => {
   it('advances and skips speak after fail-say', () => {
     const steps = stepsForTempo('sprint', true)
     expect(nextStep(steps, 'reveal_en')).toBe('check')
+    expect(nextStep(steps, 'check')).toBe('produce')
     expect(nextStep(steps, 'done')).toBeNull()
     expect(stepAfterSkippingSpeak(steps)).toBe('say_phrase')
   })

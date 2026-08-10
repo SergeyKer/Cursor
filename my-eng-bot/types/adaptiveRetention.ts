@@ -47,7 +47,7 @@ export interface TopicGoalPack {
   successCriteria: string
 }
 
-export type CustomWordPackSource = 'manual' | 'paste' | 'excel' | 'word' | 'ai-assisted'
+export type CustomWordPackSource = 'manual' | 'paste' | 'excel' | 'word' | 'ai-assisted' | 'photo'
 
 export interface CustomWordItem {
   id: string

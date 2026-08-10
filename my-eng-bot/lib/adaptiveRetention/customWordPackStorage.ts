@@ -36,7 +36,12 @@ function normalizePack(value: unknown): CustomWordPack | null {
   const items = Array.isArray(row.items) ? row.items.map(normalizeItem).filter((item): item is CustomWordItem => Boolean(item)) : []
   if (items.length === 0) return null
   const source: CustomWordPackSource =
-    row.source === 'manual' || row.source === 'paste' || row.source === 'excel' || row.source === 'word' || row.source === 'ai-assisted'
+    row.source === 'manual' ||
+    row.source === 'paste' ||
+    row.source === 'excel' ||
+    row.source === 'word' ||
+    row.source === 'ai-assisted' ||
+    row.source === 'photo'
       ? row.source
       : 'manual'
   const now = Date.now()

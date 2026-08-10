@@ -1,6 +1,7 @@
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { practiceStorage } from '@/lib/practice/storage/practiceStorage'
+import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
 import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
 import { isWordDue } from '@/lib/vocabulary/srs'
 import type { Settings } from '@/lib/types'
@@ -8,6 +9,7 @@ import type { LearnerSnapshot, WeakSpot } from '@/types/adaptiveRetention'
 import type { VocabularyWorldId } from '@/types/vocabulary'
 
 const DAY_MS = 24 * 60 * 60 * 1000
+const STALE_FOCUS_MS = 48 * 60 * 60 * 1000
 
 function daysSince(timestamp: number | null, now: number): number | null {
   if (!timestamp) return null
@@ -25,7 +27,42 @@ function latest(values: Array<number | null | undefined>): number | null {
   return filtered.length > 0 ? Math.max(...filtered) : null
 }
 
-function buildVocabularyWeakSpots(progress: ReturnType<typeof loadVocabularyProgress>): WeakSpot[] {
+function buildVocabularyWeakSpots(
+  progress: ReturnType<typeof loadVocabularyProgress>,
+  now: number = Date.now()
+): WeakSpot[] {
+  const mistakes = loadVocabMistakes()
+  if (mistakes.length > 0) {
+    const first = mistakes[0]
+    return [
+      {
+        id: 'vocab-mistakes-inbox',
+        label: `Закрепи ошибку: ${first.en}`,
+        reason: `${mistakes.length} слов из ошибок ждут закрепления в переводе или звонке.`,
+        severity: mistakes.length >= 5 ? 'high' : mistakes.length >= 2 ? 'medium' : 'low',
+        actionHint: 'Закрепить ошибку в переводе.',
+      },
+    ]
+  }
+
+  const waitingBank = Object.values(progress.words).filter((word) => {
+    if (word.feedStatus !== 'in_feed') return false
+    if (!word.lastFocusUsedAt) return true
+    return now - word.lastFocusUsedAt > STALE_FOCUS_MS
+  })
+  if (waitingBank.length > 0) {
+    const n = waitingBank.length
+    return [
+      {
+        id: 'vocab-bank-waiting',
+        label: `${n} слова ждут перевод`,
+        reason: 'Слова в деле давно не использовались как фокус в переводе.',
+        severity: n >= 8 ? 'high' : n >= 3 ? 'medium' : 'low',
+        actionHint: 'Открыть банк слов и закрепить в переводе.',
+      },
+    ]
+  }
+
   const weakWords = Object.values(progress.words).filter((word) => word.failures > 0 && word.failures >= word.successes)
   if (weakWords.length === 0) return []
   return [
@@ -56,7 +93,7 @@ export function buildLearnerSnapshot(settings: Settings, now: number = Date.now(
   const lastActiveAt = latest([latestVocabAt, latestPracticeAt, latestLessonAt, customPacks[0]?.updatedAt])
   const weakPracticeAnswers = completedPractice.flatMap((session) => session.answers).filter((answer) => !answer.isCorrect).length
   const weakSpots = [
-    ...buildVocabularyWeakSpots(vocabularyProgress),
+    ...buildVocabularyWeakSpots(vocabularyProgress, now),
     ...(weakPracticeAnswers > 0
       ? [
           {

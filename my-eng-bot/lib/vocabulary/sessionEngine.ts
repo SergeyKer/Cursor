@@ -5,6 +5,7 @@ export type WordStep =
   | 'reveal_en'
   | 'check'
   | 'check_fail_say'
+  | 'produce'
   | 'speak_en'
   | 'say_phrase'
   | 'done'
@@ -17,11 +18,11 @@ function shuffleInPlace<T>(items: T[]): T[] {
   return items
 }
 
-/** Sprint skips show_ru. Include say_phrase only when phraseOnThisWord. */
+/** Sprint skips show_ru. Produce sits between Check and SpeakEn. */
 export function stepsForTempo(tempo: VocabularyTempo, phraseOnThisWord: boolean): WordStep[] {
   const steps: WordStep[] = []
   if (tempo === 'full') steps.push('show_ru')
-  steps.push('reveal_en', 'check', 'speak_en')
+  steps.push('reveal_en', 'check', 'produce', 'speak_en')
   if (phraseOnThisWord) steps.push('say_phrase')
   steps.push('done')
   return steps

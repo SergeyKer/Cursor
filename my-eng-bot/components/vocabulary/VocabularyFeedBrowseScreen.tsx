@@ -3,6 +3,7 @@
 import React from 'react'
 import { listByFeedStatus, lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
 import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
+import { loadVocabMistakes, vocabMistakeLemmaKeys } from '@/lib/vocabulary/mistakesList'
 import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
@@ -15,18 +16,20 @@ import type {
   VocabularyProgressState,
 } from '@/types/vocabulary'
 
-type Tab = 'queue' | 'in_feed' | 'mastered'
+type Tab = 'queue' | 'in_feed' | 'mastered' | 'mistakes'
 
 type Props = {
   onBack: () => void
   onFooterViewChange?: (view: VocabularyFooterView | null) => void
   onOpenTranslationWithHandoff?: () => void
+  onOpenCallWithHandoff?: () => void
 }
 
 export default function VocabularyFeedBrowseScreen({
   onBack,
   onFooterViewChange,
   onOpenTranslationWithHandoff,
+  onOpenCallWithHandoff,
 }: Props) {
   const [catalog, setCatalog] = React.useState<NecessaryWordsCatalog | null>(null)
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
@@ -45,6 +48,10 @@ export default function VocabularyFeedBrowseScreen({
         const raw = (await response.json()) as NecessaryWordsCatalog
         if (!alive || !response.ok) return
         setCatalog(raw)
+        void import('@/lib/vocabulary/catalogCache').then((mod) => {
+          const words = (raw.words ?? []).filter((w) => w.status === 'active')
+          mod.setCachedNecessaryWords(words)
+        })
       } catch {
         // ignore
       }
@@ -69,9 +76,15 @@ export default function VocabularyFeedBrowseScreen({
   )
 
   const list = React.useMemo(() => {
-    const status: VocabularyFeedStatus | 'queue' =
-      tab === 'queue' ? 'queue' : tab === 'in_feed' ? 'in_feed' : 'mastered'
-    let words = listByFeedStatus(activeWords, progress.words, status)
+    let words: NecessaryWord[]
+    if (tab === 'mistakes') {
+      const keys = vocabMistakeLemmaKeys()
+      words = activeWords.filter((w) => keys.has(lemmaKeyFromEn(w.en)))
+    } else {
+      const status: VocabularyFeedStatus | 'queue' =
+        tab === 'queue' ? 'queue' : tab === 'in_feed' ? 'in_feed' : 'mastered'
+      words = listByFeedStatus(activeWords, progress.words, status)
+    }
     const q = query.trim().toLowerCase()
     if (q) {
       words = words.filter((w) => w.en.toLowerCase().includes(q) || w.ru.toLowerCase().includes(q))
@@ -95,6 +108,39 @@ export default function VocabularyFeedBrowseScreen({
     onOpenTranslationWithHandoff?.()
   }
 
+  const handoffMistakes = (open: 'translation' | 'call') => {
+    const keys = vocabMistakeLemmaKeys()
+    const fromCatalog = activeWords.filter((w) => keys.has(lemmaKeyFromEn(w.en))).slice(0, 3)
+    const lemmas =
+      fromCatalog.length > 0
+        ? fromCatalog.map((w) => ({
+            en: w.en,
+            ru: w.ru,
+            wordId: w.id,
+            lemmaKey: lemmaKeyFromEn(w.en),
+          }))
+        : loadVocabMistakes()
+            .slice(0, 3)
+            .map((m) => ({
+              en: m.en,
+              ru: m.ru ?? '',
+              lemmaKey: m.lemmaKey,
+            }))
+    if (lemmas.length === 0) return
+    writeVocabTranslationHandoff({
+      lemmas,
+      source: 'feed_browse',
+      loadStudying: true,
+    })
+    if (open === 'call') {
+      onOpenCallWithHandoff?.()
+    } else {
+      onOpenTranslationWithHandoff?.()
+    }
+  }
+
+  const mistakesCtaDisabled = list.length === 0 && loadVocabMistakes().length === 0
+
   const tabLabel = (id: Tab, label: string) => (
     <button
       type="button"
@@ -115,7 +161,7 @@ export default function VocabularyFeedBrowseScreen({
         <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
           <div>
             <p className="text-[17px] font-semibold text-[var(--text)]">Слова в деле</p>
-            <p className="text-[13px] text-[var(--text-muted)]">К изучению · В деле · Умею</p>
+            <p className="text-[13px] text-[var(--text-muted)]">К изучению · В деле · Умею · Из ошибок</p>
           </div>
           <button
             type="button"
@@ -126,10 +172,11 @@ export default function VocabularyFeedBrowseScreen({
           </button>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {tabLabel('queue', 'К изучению')}
           {tabLabel('in_feed', 'В деле')}
           {tabLabel('mastered', 'Умею')}
+          {tabLabel('mistakes', 'Из ошибок')}
         </div>
 
         <input
@@ -148,6 +195,29 @@ export default function VocabularyFeedBrowseScreen({
           >
             Закрепить в переводе
           </button>
+        ) : null}
+
+        {tab === 'mistakes' ? (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={() => handoffMistakes('translation')}
+              disabled={mistakesCtaDisabled}
+              className="btn-3d-menu rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-[14px] font-semibold text-[var(--text)] disabled:opacity-50"
+            >
+              Закрепить в переводе
+            </button>
+            {onOpenCallWithHandoff ? (
+              <button
+                type="button"
+                onClick={() => handoffMistakes('call')}
+                disabled={mistakesCtaDisabled}
+                className="btn-3d-menu rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-4 py-3 text-[14px] font-semibold text-[var(--text)] disabled:opacity-50"
+              >
+                В звонок
+              </button>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="space-y-2 pb-4">

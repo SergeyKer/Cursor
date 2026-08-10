@@ -16,9 +16,12 @@ import {
   recordWordReview,
   saveVocabularyProgress,
 } from '@/lib/vocabulary/storage'
+import { applyProduceResult, produceAccept, scrambleProduceLetters } from '@/lib/vocabulary/producePuzzle'
 import { chipAccept, voiceAccept } from '@/lib/vocabulary/voiceAccept'
 import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import { lemmaKeyFromEn, markWordPassed } from '@/lib/vocabulary/wordFeed'
+import type { Audience } from '@/lib/types'
+import { vocabSpeakFooterHint } from '@/lib/vocabulary/vocabSpeakComposer'
 import type {
   NecessaryWord,
   VocabularyFooterView,
@@ -45,7 +48,9 @@ type UseVocabularyThinSessionParams = {
   setProgress: React.Dispatch<React.SetStateAction<VocabularyProgressState>>
   distractorPool: NecessaryWord[]
   routeTitle?: string
+  audience?: Audience
   onFooterViewChange?: (view: VocabularyFooterView | null) => void
+  onSessionActiveChange?: (active: boolean) => void
 }
 
 function buildFooter(
@@ -54,7 +59,8 @@ function buildFooter(
   routeTitle: string,
   wordIndex: number,
   sessionSize: number,
-  sessionId: string
+  sessionId: string,
+  audience: Audience
 ): VocabularyFooterView {
   const progressLabel = `${Math.min(wordIndex + 1, sessionSize)}/${sessionSize}`
   const base = (dynamicText: string, staticSuffix: string, typingKey: string): VocabularyFooterView => ({
@@ -75,11 +81,13 @@ function buildFooter(
     case 'check':
       return base('Выбери правильный перевод.', `Проверка ${progressLabel}`, `vocab-thin-check-${sessionId}-${wordIndex}`)
     case 'check_fail_say':
-      return base('Скажи слово по-английски.', `Исправление ${progressLabel}`, `vocab-thin-fail-say-${sessionId}-${wordIndex}`)
+      return base(vocabSpeakFooterHint(audience), `Исправление ${progressLabel}`, `vocab-thin-fail-say-${sessionId}-${wordIndex}`)
+    case 'produce':
+      return base('Собери слово из букв.', `Сборка ${progressLabel}`, `vocab-thin-produce-${sessionId}-${wordIndex}`)
     case 'speak_en':
-      return base('Скажи слово вслух.', `Голос ${progressLabel}`, `vocab-thin-speak-${sessionId}-${wordIndex}`)
+      return base(vocabSpeakFooterHint(audience), `Голос ${progressLabel}`, `vocab-thin-speak-${sessionId}-${wordIndex}`)
     case 'say_phrase':
-      return base('Скажи короткую фразу со словом.', `Фраза ${progressLabel}`, `vocab-thin-phrase-${sessionId}-${wordIndex}`)
+      return base(vocabSpeakFooterHint(audience), `Фраза ${progressLabel}`, `vocab-thin-phrase-${sessionId}-${wordIndex}`)
     case 'done':
       return base('Слово закрыто. Дальше.', `Слово ${progressLabel}`, `vocab-thin-done-${sessionId}-${wordIndex}`)
     default:
@@ -91,7 +99,9 @@ export function useVocabularyThinSession({
   setProgress,
   distractorPool,
   routeTitle = 'Слова',
+  audience = 'adult',
   onFooterViewChange,
+  onSessionActiveChange,
 }: UseVocabularyThinSessionParams) {
   const [status, setStatus] = React.useState<ThinSessionStatus>('idle')
   const [words, setWords] = React.useState<NecessaryWord[]>([])
@@ -103,6 +113,8 @@ export function useVocabularyThinSession({
   const [steps, setSteps] = React.useState<WordStep[]>([])
   const [step, setStep] = React.useState<WordStep | null>(null)
   const [quizOptions, setQuizOptions] = React.useState<string[]>([])
+  const [produceTiles, setProduceTiles] = React.useState<string[]>([])
+  const [produceBuilt, setProduceBuilt] = React.useState('')
   const [runtime, setRuntime] = React.useState<WordRuntime>({
     checkPassed: false,
     speakPassed: false,
@@ -111,6 +123,7 @@ export function useVocabularyThinSession({
   })
   const [bankedWordIds, setBankedWordIds] = React.useState<number[]>([])
   const [lastVoiceOk, setLastVoiceOk] = React.useState<boolean | null>(null)
+  const [lastProduceOk, setLastProduceOk] = React.useState<boolean | null>(null)
   const bankedRef = React.useRef<number[]>([])
   const wordsRef = React.useRef<NecessaryWord[]>([])
   const routeRef = React.useRef<VocabularySessionRoute | null>(null)
@@ -123,12 +136,17 @@ export function useVocabularyThinSession({
 
   const footerView = React.useMemo(() => {
     if (status === 'idle' || status === 'aborted') return null
-    return buildFooter(step, status, routeTitle, wordIndex, words.length || 1, sessionId)
-  }, [status, step, routeTitle, wordIndex, words.length, sessionId])
+    return buildFooter(step, status, routeTitle, wordIndex, words.length || 1, sessionId, audience)
+  }, [status, step, routeTitle, wordIndex, words.length, sessionId, audience])
 
   React.useEffect(() => {
     onFooterViewChange?.(footerView)
   }, [footerView, onFooterViewChange])
+
+  React.useEffect(() => {
+    onSessionActiveChange?.(status === 'active')
+    return () => onSessionActiveChange?.(false)
+  }, [onSessionActiveChange, status])
 
   const prepareWord = React.useCallback(
     (list: NecessaryWord[], index: number, sessionTempo: VocabularyTempo) => {
@@ -145,7 +163,10 @@ export function useVocabularyThinSession({
         phraseRequired,
       })
       setQuizOptions([])
+      setProduceTiles(scrambleProduceLetters(word.en))
+      setProduceBuilt('')
       setLastVoiceOk(null)
+      setLastProduceOk(null)
       setWordIndex(index)
     },
     []
@@ -262,6 +283,11 @@ export function useVocabularyThinSession({
         const pool = distractorPool.length > 1 ? distractorPool : wordsRef.current
         setQuizOptions(buildQuizOptions(word, pool))
       }
+      if (upcoming === 'produce') {
+        setProduceTiles(scrambleProduceLetters(word.en))
+        setProduceBuilt('')
+        setLastProduceOk(null)
+      }
 
       setStep(upcoming)
       setLastVoiceOk(null)
@@ -305,35 +331,70 @@ export function useVocabularyThinSession({
     [advanceFrom, currentWord, runtime, setProgress, status, step]
   )
 
+  const tapProduceTile = React.useCallback(
+    (letter: string, tileIndex: number) => {
+      if (status !== 'active' || step !== 'produce') return
+      setProduceBuilt((prev) => prev + letter)
+      setProduceTiles((prev) => prev.filter((_, index) => index !== tileIndex))
+      setLastProduceOk(null)
+    },
+    [status, step]
+  )
+
+  const clearProduce = React.useCallback(() => {
+    if (status !== 'active' || step !== 'produce' || !currentWord) return
+    setProduceTiles(scrambleProduceLetters(currentWord.en))
+    setProduceBuilt('')
+    setLastProduceOk(null)
+  }, [currentWord, status, step])
+
+  const submitProduce = React.useCallback(() => {
+    if (status !== 'active' || step !== 'produce' || !currentWord) return
+    const ok = produceAccept(produceBuilt, currentWord.en)
+    setLastProduceOk(ok)
+
+    setProgress((prev) => {
+      const current = prev.words[String(currentWord.id)] ?? createEmptyWordProgress(currentWord.id)
+      const nextState = patchWordProgress(prev, currentWord.id, applyProduceResult(current, ok))
+      saveVocabularyProgress(nextState)
+      return nextState
+    })
+
+    if (!ok) {
+      setProduceTiles(scrambleProduceLetters(currentWord.en))
+      setProduceBuilt('')
+      return
+    }
+
+    advanceFrom('produce', runtime)
+  }, [advanceFrom, currentWord, produceBuilt, runtime, setProgress, status, step])
+
   const acceptVoice = React.useCallback(
     (transcript: string) => {
       if (status !== 'active' || !currentWord || !step) return false
+      if (step !== 'check_fail_say' && step !== 'speak_en' && step !== 'say_phrase') return false
 
-      if (step === 'check_fail_say' || step === 'speak_en') {
-        const ok = voiceAccept({ transcript, target: currentWord.en, kind: 'en_word' })
-        setLastVoiceOk(ok)
-        if (!ok) return false
-        const nextFlags = {
-          ...runtime,
-          // Bank Speak✓ only if Check✓; fail-say is practice, not Path A credit
-          speakPassed: step === 'speak_en' ? true : runtime.checkPassed,
-        }
-        setRuntime(nextFlags)
-        advanceFrom(step, nextFlags)
-        return true
-      }
+      const matched =
+        step === 'say_phrase'
+          ? voiceAccept({ transcript, target: phraseTarget, kind: 'en_phrase' })
+          : voiceAccept({ transcript, target: currentWord.en, kind: 'en_word' })
 
+      setLastVoiceOk(matched)
+
+      // Soft-advance: always proceed after an attempt; credit only on match (no SRS fail).
+      const nextFlags = { ...runtime }
       if (step === 'say_phrase') {
-        const ok = voiceAccept({ transcript, target: phraseTarget, kind: 'en_phrase' })
-        setLastVoiceOk(ok)
-        if (!ok) return false
-        const nextFlags = { ...runtime, phrasePassed: true }
-        setRuntime(nextFlags)
-        advanceFrom(step, nextFlags)
-        return true
+        if (matched) nextFlags.phrasePassed = true
+      } else if (step === 'speak_en') {
+        if (matched) nextFlags.speakPassed = true
+      } else if (matched) {
+        // check_fail_say: bank Speak✓ only if Check✓ already
+        nextFlags.speakPassed = runtime.checkPassed
       }
 
-      return false
+      setRuntime(nextFlags)
+      advanceFrom(step, nextFlags)
+      return true
     },
     [advanceFrom, currentWord, phraseTarget, runtime, status, step]
   )
@@ -375,15 +436,21 @@ export function useVocabularyThinSession({
     step,
     steps,
     quizOptions,
+    produceTiles,
+    produceBuilt,
     phraseTarget,
     footerView,
     lastVoiceOk,
+    lastProduceOk,
     bankedWordIds,
     bankedWords,
     finaleStats,
     start,
     acceptChip,
     acceptVoice,
+    tapProduceTile,
+    clearProduce,
+    submitProduce,
     skipSpeakAccessibility,
     goNextReveal,
     abort,

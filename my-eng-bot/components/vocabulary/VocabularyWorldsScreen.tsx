@@ -12,6 +12,7 @@ import {
   loadVocabularyProgress,
 } from '@/lib/vocabulary/storage'
 import { VOCABULARY_WORLDS } from '@/lib/vocabulary/worlds'
+import type { Audience } from '@/lib/types'
 import type {
   NecessaryWord,
   NecessaryWordsCatalog,
@@ -32,8 +33,13 @@ type ThinSessionLaunch = {
 
 type VocabularyWorldsScreenProps = {
   onBackToLessons: () => void
+  audience?: Audience
   onFooterViewChange?: (view: VocabularyFooterView | null) => void
+  onSessionActiveChange?: (active: boolean) => void
+  onRegisterLeaveHandler?: (handler: (() => void) | null) => void
+  exitRequestKey?: number
   onOpenTranslationWithHandoff?: () => void
+  onOpenCallWithHandoff?: () => void
 }
 
 function getWorldTitle(worldId: VocabularyWorldId): string {
@@ -56,8 +62,13 @@ function countWordsInProgress(state: VocabularyProgressState, words: NecessaryWo
 
 export default function VocabularyWorldsScreen({
   onBackToLessons,
+  audience = 'adult',
   onFooterViewChange,
+  onSessionActiveChange,
+  onRegisterLeaveHandler,
+  exitRequestKey = 0,
   onOpenTranslationWithHandoff,
+  onOpenCallWithHandoff,
 }: VocabularyWorldsScreenProps) {
   const [catalog, setCatalog] = React.useState<NecessaryWordsCatalog | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -72,6 +83,16 @@ export default function VocabularyWorldsScreen({
   React.useEffect(() => {
     setProgress(loadVocabularyProgress())
   }, [])
+
+  React.useEffect(() => {
+    onRegisterLeaveHandler?.(() => setSession(null))
+    return () => onRegisterLeaveHandler?.(null)
+  }, [onRegisterLeaveHandler])
+
+  React.useEffect(() => {
+    if (exitRequestKey <= 0) return
+    setSession(null)
+  }, [exitRequestKey])
 
   React.useEffect(() => {
     let active = true
@@ -179,7 +200,8 @@ export default function VocabularyWorldsScreen({
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3">
+          <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3">
+          {!session ? (
           <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
             <div className="min-w-0">
               <p className="text-[17px] font-semibold text-[var(--text)]">Самые необходимые слова</p>
@@ -193,6 +215,7 @@ export default function VocabularyWorldsScreen({
               К урокам
             </button>
           </div>
+          ) : null}
 
           {loading ? (
             <div className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-5 text-center text-[15px] text-[var(--text)] shadow-sm">
@@ -210,9 +233,12 @@ export default function VocabularyWorldsScreen({
               route={session.route}
               tempo={session.tempo}
               routeTitle={session.routeTitle}
+              audience={audience}
               setProgress={setProgress}
               onFooterViewChange={onFooterViewChange}
+              onSessionActiveChange={onSessionActiveChange}
               onHandoffTranslation={() => onOpenTranslationWithHandoff?.()}
+              onHandoffCall={onOpenCallWithHandoff ? () => onOpenCallWithHandoff() : undefined}
               onAgain={handleAgain}
               onExit={() => setSession(null)}
             />

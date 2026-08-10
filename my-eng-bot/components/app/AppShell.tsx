@@ -5,8 +5,17 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
 import {
   consumeVocabTranslationHandoff,
+  formatFocusLemmasCue,
   peekVocabTranslationHandoff,
+  writeVocabTranslationHandoff,
 } from '@/lib/vocabulary/translationHandoff'
+import { applyFocusLemmasOutcome } from '@/lib/vocabulary/applyFocusOutcome'
+import { getLoadStudyingPref, setLoadStudyingPref } from '@/lib/vocabulary/loadStudyingPref'
+import { resolveSmartMixFocusLemmas } from '@/lib/vocabulary/resolveSmartMix'
+import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
+import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
+import { lemmaKeyFromEn, listByFeedStatus } from '@/lib/vocabulary/wordFeed'
+import { loadActiveNecessaryWords } from '@/lib/vocabulary/catalogCache'
 import { TutorSessionProvider } from '@/components/tutor/TutorSessionProvider'
 import {
   clearOpenLessonIntent,
@@ -1353,7 +1362,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const firstMessageInFlightRef = React.useRef(false)
   const ensureFirstMessageRef = React.useRef<(() => Promise<void>) | null>(null)
   const dialogSeedRef = React.useRef(createDialogSeed())
-  const vocabFocusLemmasRef = React.useRef<Array<{ en: string; ru?: string }>>([])
+  const vocabFocusLemmasRef = React.useRef<Array<{ en: string; ru?: string; wordId?: number }>>([])
   /** Актуальный язык ожидаемого ввода в общении - для тела fetch без гонки замыкания sendToApi/setTimeout. */
   const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
   communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
@@ -1510,10 +1519,23 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'tutor_session_abandoned' }))
   }, [])
   const bumpEngvoGoal = useCallback(() => {
+    const focus = vocabFocusLemmasRef.current
+    if (focus.length > 0) {
+      applyFocusLemmasOutcome({ lemmas: focus, outcome: 'success', source: 'call' })
+    }
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))
   }, [])
-  const bumpTranslationStep = useCallback((assistantContent: string) => {
+  const bumpTranslationStep = useCallback((assistantContent: string, userText?: string | null) => {
     const award = resolveTranslationStepAward(assistantContent)
+    const protocol = award?.protocolStatus ?? resolveTranslationProtocolFromAssistantContent(assistantContent)
+    const focus = vocabFocusLemmasRef.current
+    if (focus.length > 0) {
+      if (award?.outcome === 'success') {
+        applyFocusLemmasOutcome({ lemmas: focus, outcome: 'success', userText, source: 'translation' })
+      } else if (award?.outcome === 'soft_fail' || protocol === 'error_repeat') {
+        applyFocusLemmasOutcome({ lemmas: focus, outcome: 'fail', userText, source: 'translation' })
+      }
+    }
     if (!award) return
     setRewardsState((prev) =>
       applyRewardsEvent(prev, {
@@ -2429,7 +2451,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         !resolved?.axis.active
           ? ensureTeacherAnyLiveAxes()
           : null
-      return buildEngvoRealtimeInstructionsClient({
+      const base = buildEngvoRealtimeInstructionsClient({
         audience: settings.audience,
         level: engvoCefrLevel,
         topic: settings.topic,
@@ -2442,6 +2464,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           ? (anyLive.next as import('@/lib/types').TenseId)
           : null,
       })
+      const focus = vocabFocusLemmasRef.current
+      const cue = focus.length > 0 ? formatFocusLemmasCue(focus) : ''
+      return cue ? base + '\n\n' + cue : base
     },
     [
       engvoCefrLevel,
@@ -4374,6 +4399,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                             vocabFocusLemmasRef.current = peeked.lemmas.map((lemma) => ({
                               en: lemma.en,
                               ru: lemma.ru,
+                              wordId: lemma.wordId,
                             }))
                           }
                         }
@@ -4648,7 +4674,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         })
       }
       if (settings.mode === 'translation') {
-        bumpTranslationStep(main)
+        bumpTranslationStep(main, lastUser?.content)
       } else if (settings.mode === 'dialogue') {
         const prevAssistant = [...toSend].reverse().find((m) => m.role === 'assistant')
         bumpDialogueStep({
@@ -4838,27 +4864,55 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }, 50)
   }, [cleanupEngvoRuntime, ensureFirstMessage, resetStructuredLessonSession, settings.mode, startTranslationSession])
 
+  const prepareTranslationFocusFromPrefs = useCallback(async () => {
+    if (settings.mode !== 'translation') return
+    if (!getLoadStudyingPref()) return
+    const push = vocabFocusLemmasRef.current.length
+      ? vocabFocusLemmasRef.current.map((lemma) => ({
+          en: lemma.en,
+          ru: lemma.ru,
+          wordId: lemma.wordId,
+          lemmaKey: lemmaKeyFromEn(lemma.en),
+        }))
+      : undefined
+    const picked = await resolveSmartMixFocusLemmas({ pushLemmas: push })
+    if (picked.length > 0) {
+      vocabFocusLemmasRef.current = picked.map((lemma) => ({
+        en: lemma.en,
+        ru: lemma.ru,
+        wordId: lemma.wordId,
+      }))
+    }
+  }, [settings.mode])
+
   const handleStartChatFromMenu = useCallback(() => {
     setComposerSessionKey((k) => k + 1)
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     setEngvoVoiceMode(false)
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
-    if (!dialogStarted) {
-      resetStructuredLessonSession()
+    const kickOff = async () => {
       if (settings.mode === 'translation') {
-        startTranslationSession()
+        await prepareTranslationFocusFromPrefs()
       }
-      setDialogStarted(true)
+      if (!dialogStarted) {
+        resetStructuredLessonSession()
+        if (settings.mode === 'translation') {
+          startTranslationSession()
+        }
+        setDialogStarted(true)
+        setMenuOpen(false)
+        return
+      }
+      resetStructuredLessonSession()
+      restartChatForNewModeFromMenu()
       setMenuOpen(false)
-      return
     }
-    resetStructuredLessonSession()
-    restartChatForNewModeFromMenu()
-    setMenuOpen(false)
+    void kickOff()
   }, [
     cleanupEngvoRuntime,
     dialogStarted,
+    prepareTranslationFocusFromPrefs,
     restartChatForNewModeFromMenu,
     resetStructuredLessonSession,
     settings.mode,
@@ -4870,6 +4924,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setComposerSessionKey((k) => k + 1)
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     resetStructuredLessonSession()
+    void (async () => {
+      if (getLoadStudyingPref() && vocabFocusLemmasRef.current.length === 0) {
+        const picked = await resolveSmartMixFocusLemmas()
+        if (picked.length > 0) {
+          vocabFocusLemmasRef.current = picked.map((lemma) => ({
+            en: lemma.en,
+            ru: lemma.ru,
+            wordId: lemma.wordId,
+          }))
+        }
+      }
+    })()
     setMessages([
       {
         role: 'assistant',
@@ -6231,10 +6297,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const openTranslationFromVocabHandoff = useCallback(() => {
     const packet = consumeVocabTranslationHandoff()
-    vocabFocusLemmasRef.current = (packet?.lemmas ?? []).map((lemma) => ({
+    const push = (packet?.lemmas ?? []).map((lemma) => ({
       en: lemma.en,
       ru: lemma.ru,
+      wordId: lemma.wordId,
+      lemmaKey: lemma.lemmaKey ?? lemmaKeyFromEn(lemma.en),
     }))
+    vocabFocusLemmasRef.current = push.map((lemma) => ({
+      en: lemma.en,
+      ru: lemma.ru,
+      wordId: lemma.wordId,
+    }))
+    setLoadStudyingPref(packet?.loadStudying ?? true)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
     setVocabularyFeedActive(false)
@@ -6259,10 +6333,99 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('root')
-    setTimeout(() => {
-      void ensureFirstMessageRef.current?.()
-    }, 80)
+    void (async () => {
+      if (packet?.loadStudying !== false) {
+        const picked = await resolveSmartMixFocusLemmas({ pushLemmas: push })
+        if (picked.length > 0) {
+          vocabFocusLemmasRef.current = picked.map((lemma) => ({
+            en: lemma.en,
+            ru: lemma.ru,
+            wordId: lemma.wordId,
+          }))
+        }
+      }
+      setTimeout(() => {
+        void ensureFirstMessageRef.current?.()
+      }, 80)
+    })()
   }, [cleanupEngvoRuntime, resetStructuredLessonSession, startTranslationSession])
+
+  const openCallFromVocabHandoff = useCallback(() => {
+    const packet = consumeVocabTranslationHandoff()
+    const push = (packet?.lemmas ?? []).map((lemma) => ({
+      en: lemma.en,
+      ru: lemma.ru,
+      wordId: lemma.wordId,
+      lemmaKey: lemma.lemmaKey ?? lemmaKeyFromEn(lemma.en),
+    }))
+    vocabFocusLemmasRef.current = push.map((lemma) => ({
+      en: lemma.en,
+      ru: lemma.ru,
+      wordId: lemma.wordId,
+    }))
+    setLoadStudyingPref(packet?.loadStudying ?? true)
+    setVocabularyWorldsActive(false)
+    setVocabularyByLevelActive(false)
+    setVocabularyFeedActive(false)
+    setVocabularyPackId(null)
+    setAdaptiveFooterView(null)
+    void (async () => {
+      if (packet?.loadStudying !== false && push.length < 3) {
+        const picked = await resolveSmartMixFocusLemmas({ pushLemmas: push })
+        if (picked.length > 0) {
+          vocabFocusLemmasRef.current = picked.map((lemma) => ({
+            en: lemma.en,
+            ru: lemma.ru,
+            wordId: lemma.wordId,
+          }))
+        }
+      }
+      handleOpenEngvoVoiceChat()
+    })()
+  }, [handleOpenEngvoVoiceChat])
+
+  const openTranslationVocabNag = useCallback(
+    async (spotId: string) => {
+      setMyPlanSpaceActive(false)
+      setLoadStudyingPref(true)
+      const words = await loadActiveNecessaryWords()
+      const progress = loadVocabularyProgress()
+      let lemmas = [] as Array<{ en: string; ru?: string; wordId?: number; lemmaKey: string }>
+      if (spotId === 'vocab-mistakes-inbox') {
+        lemmas = loadVocabMistakes()
+          .slice(0, 3)
+          .map((item) => {
+            const match = words.find((word) => lemmaKeyFromEn(word.en) === item.lemmaKey)
+            return {
+              en: item.en,
+              ru: item.ru ?? match?.ru,
+              wordId: match?.id,
+              lemmaKey: item.lemmaKey,
+            }
+          })
+      } else {
+        lemmas = listByFeedStatus(words, progress.words, 'in_feed')
+          .slice(0, 3)
+          .map((word) => ({
+            en: word.en,
+            ru: word.ru,
+            wordId: word.id,
+            lemmaKey: lemmaKeyFromEn(word.en),
+          }))
+      }
+      if (lemmas.length === 0) {
+        await openVocabularyFeed()
+        return
+      }
+      writeVocabTranslationHandoff({
+        lemmas,
+        source: 'my_plan',
+        loadStudying: true,
+      })
+      openTranslationFromVocabHandoff()
+    },
+    [openTranslationFromVocabHandoff, openVocabularyFeed]
+  )
 
   const openProgressSpace = useCallback(() => {
     resetStructuredLessonSession()
@@ -8013,7 +8176,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         if (settings.mode === 'communication') {
           bumpCommunicationStep(main)
         } else if (settings.mode === 'translation') {
-          bumpTranslationStep(main)
+          bumpTranslationStep(main, text)
         } else if (settings.mode === 'dialogue') {
           const prevAssistant = [...nextMessages].reverse().find((m) => m.role === 'assistant')
           bumpDialogueStep({
@@ -11087,6 +11250,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       setMyPlanSpaceActive(false)
                       await openVocabularyWorlds()
                     }}
+                    onOpenVocabularyFeed={async () => {
+                      setMyPlanSpaceActive(false)
+                      await openVocabularyFeed()
+                    }}
+                    onOpenTranslationVocabNag={openTranslationVocabNag}
                     onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
                     onOpenTutorChat={openTutorChat}
                   />
@@ -11109,24 +11277,28 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       onBack={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
+                      onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
                   ) : vocabularyFeedActive ? (
                     <VocabularyFeedBrowseScreen
                       onBack={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
+                      onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
                   ) : vocabularyWorldsActive ? (
                     <VocabularyWorldsScreen
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
+                      onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
                   ) : (
                     <VocabularyByLevelScreen
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
+                      onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
                   )
                 ) : isAccentActive ? (
@@ -11630,6 +11802,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenVocabularyWorlds={openVocabularyWorlds}
         onOpenVocabularyByLevel={openVocabularyByLevel}
         onOpenVocabularyFeed={openVocabularyFeed}
+        onOpenTranslationVocabNag={openTranslationVocabNag}
         onOpenVocabCustomPack={openVocabularyCustomPack}
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={markOpenedFromMyPlan}

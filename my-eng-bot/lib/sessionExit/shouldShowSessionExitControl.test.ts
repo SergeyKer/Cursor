@@ -18,6 +18,7 @@ const base = {
   communicationChatActive: false,
   communicationSessionStatus: null as string | null,
   isVocabularyHubActive: false,
+  isVocabularySessionActive: false,
   isAccentActive: false,
   isReferenceSheetActive: false,
   tutorMicroLocked: false,
@@ -160,6 +161,23 @@ describe('shouldShowSessionExitControl', () => {
     ).toBe(false)
   })
 
+  it('shows for vocabulary thin-session even on hub overlay', () => {
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        isVocabularyHubActive: true,
+        isVocabularySessionActive: true,
+      })
+    ).toBe(true)
+    expect(
+      shouldShowSessionExitControl({
+        ...base,
+        isVocabularyHubActive: true,
+        isVocabularySessionActive: false,
+      })
+    ).toBe(false)
+  })
+
   it('hides chat mid-session on vocabulary or accent overlays', () => {
     expect(
       shouldShowSessionExitControl({
@@ -261,6 +279,17 @@ describe('shouldShowSessionExitControl', () => {
 })
 
 describe('resolveSessionExitKind', () => {
+  it('prefers vocabulary thin-session over lesson when both set', () => {
+    expect(
+      resolveSessionExitKind({
+        ...base,
+        isVocabularySessionActive: true,
+        isStructuredLessonActive: true,
+        activeStructuredLessonStatus: 'idle',
+      })
+    ).toBe('vocabulary')
+  })
+
   it('prefers lesson when both could apply', () => {
     expect(
       resolveSessionExitKind({

@@ -11,20 +11,31 @@ import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
 } from '@/lib/vocabulary/storage'
+import type { Audience } from '@/lib/types'
 import type { VocabularyFooterView, VocabularyProgressState } from '@/types/vocabulary'
 
 type Props = {
   packId: string
+  audience?: Audience
   onBack: () => void
   onFooterViewChange?: (view: VocabularyFooterView | null) => void
+  onSessionActiveChange?: (active: boolean) => void
+  onRegisterLeaveHandler?: (handler: (() => void) | null) => void
+  exitRequestKey?: number
   onOpenTranslationWithHandoff?: () => void
+  onOpenCallWithHandoff?: () => void
 }
 
 export default function VocabularyPackSessionScreen({
   packId,
+  audience = 'adult',
   onBack,
   onFooterViewChange,
+  onSessionActiveChange,
+  onRegisterLeaveHandler,
+  exitRequestKey = 0,
   onOpenTranslationWithHandoff,
+  onOpenCallWithHandoff,
 }: Props) {
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
   const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
@@ -43,6 +54,16 @@ export default function VocabularyPackSessionScreen({
   React.useEffect(() => {
     setProgress(loadVocabularyProgress())
   }, [])
+
+  React.useEffect(() => {
+    onRegisterLeaveHandler?.(() => onBack())
+    return () => onRegisterLeaveHandler?.(null)
+  }, [onBack, onRegisterLeaveHandler])
+
+  React.useEffect(() => {
+    if (exitRequestKey <= 0) return
+    onBack()
+  }, [exitRequestKey, onBack])
 
   React.useEffect(() => {
     if (started) return
@@ -113,8 +134,10 @@ export default function VocabularyPackSessionScreen({
       route={{ kind: 'pack', packId }}
       tempo={tempo}
       routeTitle={pack.title}
+      audience={audience}
       setProgress={setProgress}
       onFooterViewChange={onFooterViewChange}
+      onSessionActiveChange={onSessionActiveChange}
       onExit={onBack}
       onAgain={() => {
         const latest = loadVocabularyProgress()
@@ -131,6 +154,7 @@ export default function VocabularyPackSessionScreen({
         setNonce((n) => n + 1)
       }}
       onHandoffTranslation={() => onOpenTranslationWithHandoff?.()}
+      onHandoffCall={onOpenCallWithHandoff ? () => onOpenCallWithHandoff() : undefined}
     />
   )
 }

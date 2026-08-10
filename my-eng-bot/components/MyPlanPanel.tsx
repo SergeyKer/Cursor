@@ -127,6 +127,8 @@ export interface MyPlanPanelProps {
     referenceExerciseType?: PracticeExerciseType
   }) => Promise<void> | void
   onOpenVocabularyWorlds?: () => void | Promise<void>
+  onOpenVocabularyFeed?: () => void | Promise<void>
+  onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
   onMenuViewChange?: (view: 'lessons' | 'progress' | 'myPlan') => void
   onOpenProgressSpace?: () => void
   onMarkOpenedFromMyPlan?: () => void
@@ -153,6 +155,8 @@ export default function MyPlanPanel({
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenVocabularyWorlds,
+  onOpenVocabularyFeed,
+  onOpenTranslationVocabNag,
   onMenuViewChange,
   onOpenProgressSpace,
   onMarkOpenedFromMyPlan,
@@ -332,6 +336,24 @@ export default function MyPlanPanel({
         case 'weak_spot':
           if (action.target === 'vocabulary') {
             onMarkOpenedFromMyPlan?.()
+            const nagSpot =
+              action.spotId === 'vocab-mistakes-inbox' || action.spotId === 'vocab-bank-waiting'
+            if (nagSpot) {
+              if (onOpenTranslationVocabNag) {
+                await onOpenTranslationVocabNag(action.spotId)
+                return
+              }
+              if (onOpenVocabularyFeed) {
+                await onOpenVocabularyFeed()
+                return
+              }
+              await onOpenVocabularyWorlds?.()
+              return
+            }
+            if (onOpenVocabularyFeed) {
+              await onOpenVocabularyFeed()
+              return
+            }
             await onOpenVocabularyWorlds?.()
             return
           }
@@ -357,6 +379,8 @@ export default function MyPlanPanel({
       onOpenReferenceTopic,
       onOpenTutorChat,
       onOpenVocabularyWorlds,
+      onOpenVocabularyFeed,
+      onOpenTranslationVocabNag,
       resolvedMain?.goalType,
       runPractice,
       settings.level,

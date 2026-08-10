@@ -34,6 +34,21 @@ function readFileAsArrayBuffer(file: File): Promise<ArrayBuffer> {
   })
 }
 
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Не удалось прочитать изображение.'))
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        resolve(reader.result)
+      } else {
+        reject(new Error('Не удалось прочитать изображение как data URL.'))
+      }
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 function actionMeta(action: NextBestAction): { label: string; helper: string } {
   if (action.kind === 'return_flow') return { label: 'Мягкий вход', helper: 'без давления после паузы' }
   if (action.kind === 'srs_review') return { label: 'Повторение', helper: 'слова уже ждут' }
@@ -134,7 +149,7 @@ export default function AdaptiveDailyHub({
   )
 
   const saveParsedCustomPack = React.useCallback(
-    (text: string, source: 'paste' | 'excel' | 'word' = 'paste') => {
+    (text: string, source: 'paste' | 'excel' | 'word' | 'photo' = 'paste') => {
       const parsed = parseCustomWordListText(text)
       if (parsed.validItems.length === 0) {
         setImportMessage('Не нашёл готовых пар слово-перевод. Проверьте формат и попробуйте ещё раз.')
@@ -199,6 +214,69 @@ export default function AdaptiveDailyHub({
       }
     },
     [saveParsedCustomPack, settings.level, snapshot.segment]
+  )
+
+  const handlePhotoFile = React.useCallback(
+    async (file: File) => {
+      setImportBusy(true)
+      setImportMessage(null)
+      recordAdaptiveEvent({
+        eventName: 'custom_word_pack_import_started',
+        occurredAt: Date.now(),
+        source: 'customPack',
+        audience: snapshot.segment,
+        level: settings.level,
+        result: 'started',
+        metadata: { fileName: file.name, source: 'photo' },
+      })
+      try {
+        const imageDataUrl = await readFileAsDataUrl(file)
+        const response = await fetch('/api/analyze-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageDataUrl,
+            level: settings.level,
+            audience: settings.audience,
+            provider: settings.provider,
+            openAiChatPreset: settings.openAiChatPreset,
+            customFocus:
+              'Extract bilingual vocabulary list from homework or textbook photo. Prefer English word + Russian translation pairs.',
+          }),
+        })
+        const data = (await response.json()) as {
+          analysis?: {
+            whatToLearn?: {
+              vocabulary?: Array<{ word?: string; translation?: string }>
+            }
+          }
+          error?: string
+          userMessage?: string
+        }
+        if (!response.ok || !data.analysis) {
+          throw new Error(data.userMessage || data.error || 'Не удалось разобрать фото.')
+        }
+        const vocab = data.analysis.whatToLearn?.vocabulary ?? []
+        const text = vocab
+          .map((row) => {
+            const word = typeof row.word === 'string' ? row.word.trim() : ''
+            const translation = typeof row.translation === 'string' ? row.translation.trim() : ''
+            if (!word || !translation) return ''
+            return `${word} - ${translation}`
+          })
+          .filter(Boolean)
+          .join('\n')
+        if (!text) {
+          throw new Error('На фото не нашлось пар слово-перевод.')
+        }
+        saveParsedCustomPack(text, 'photo')
+      } catch (error) {
+        setImportMessage(error instanceof Error ? error.message : 'Не удалось импортировать фото.')
+      } finally {
+        setImportBusy(false)
+      }
+    },
+    [saveParsedCustomPack, settings.audience, settings.level, settings.openAiChatPreset, settings.provider, snapshot.segment]
   )
 
   const primaryMeta = actionMeta(plan.primaryAction)
@@ -284,7 +362,7 @@ export default function AdaptiveDailyHub({
           <section className="rounded-[1.25rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-4 shadow-sm">
             <p className="text-[15px] font-semibold text-[var(--text)]">Свой список слов</p>
             <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
-              Вставьте домашнее задание или загрузите Excel. Word пока можно вставить текстом.
+              Вставьте домашнее задание, загрузите Excel или фото списка. Word пока можно вставить текстом.
             </p>
             <input
               value={importTitle}
@@ -298,7 +376,7 @@ export default function AdaptiveDailyHub({
               placeholder="apple - яблоко&#10;ticket | билет&#10;gate, выход на посадку"
               className="mt-2 min-h-24 w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--text)] outline-none"
             />
-            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button
                 type="button"
                 disabled={!customText.trim() || importBusy}
@@ -313,6 +391,7 @@ export default function AdaptiveDailyHub({
                   type="file"
                   accept=".xlsx,.xls"
                   className="hidden"
+                  disabled={importBusy}
                   onChange={(event) => {
                     const file = event.target.files?.[0]
                     if (file) void handleExcelFile(file)
@@ -320,7 +399,26 @@ export default function AdaptiveDailyHub({
                   }}
                 />
               </label>
+              <label className="btn-3d-menu cursor-pointer rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-center text-sm font-semibold text-[var(--text)]">
+                Фото списка
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  disabled={importBusy}
+                  onChange={(event) => {
+                    const file = event.target.files?.[0]
+                    if (file) void handlePhotoFile(file)
+                    event.currentTarget.value = ''
+                  }}
+                />
+              </label>
             </div>
+            {importBusy ? (
+              <p className="mt-3 rounded-lg border border-[var(--border)] bg-white/75 px-3 py-2 text-[12px] leading-relaxed text-[var(--text-muted)]">
+                Обрабатываю файл…
+              </p>
+            ) : null}
             {importMessage && (
               <p className="mt-3 rounded-lg border border-[var(--border)] bg-white/75 px-3 py-2 text-[12px] leading-relaxed text-[var(--text)]">
                 {importMessage}

@@ -52,6 +52,8 @@ export type MyPlanSheetScreenProps = {
     referenceExerciseType?: PracticeExerciseType
   }) => Promise<void> | void
   onOpenVocabularyWorlds?: () => void | Promise<void>
+  onOpenVocabularyFeed?: () => void | Promise<void>
+  onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
   onMarkOpenedFromMyPlan?: () => void
   onOpenTutorChat?: (opts?: { prefill?: string }) => void
 }
@@ -74,6 +76,8 @@ export default function MyPlanSheetScreen({
   onOpenPracticeSession,
   onGeneratePracticeSession,
   onOpenVocabularyWorlds,
+  onOpenVocabularyFeed,
+  onOpenTranslationVocabNag,
   onMarkOpenedFromMyPlan,
   onOpenTutorChat,
 }: MyPlanSheetScreenProps) {
@@ -170,6 +174,8 @@ export default function MyPlanSheetScreen({
           onOpenPracticeSession={onOpenPracticeSession}
           onGeneratePracticeSession={onGeneratePracticeSession}
           onOpenVocabularyWorlds={onOpenVocabularyWorlds}
+          onOpenVocabularyFeed={onOpenVocabularyFeed}
+          onOpenTranslationVocabNag={onOpenTranslationVocabNag}
           onMenuViewChange={
             onOpenLessons
               ? (view) => {

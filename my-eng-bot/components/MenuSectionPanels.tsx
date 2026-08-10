@@ -34,6 +34,7 @@ import {
   MENU_PRIMARY_CTA_CLASS,
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
+import { getLoadStudyingPref, setLoadStudyingPref } from '@/lib/vocabulary/loadStudyingPref'
 import { buildPracticeModeEconomyBlurb } from '@/lib/practice/practiceCoinExplainCopy'
 import {
   DEFAULT_LESSON_LIST_DENSITY,
@@ -674,6 +675,7 @@ export interface MenuSectionPanelsProps {
   onOpenVocabularyWorlds?: () => void | Promise<void>
   onOpenVocabularyByLevel?: () => void | Promise<void>
   onOpenVocabularyFeed?: () => void | Promise<void>
+  onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
   /** Практика по теме из adaptive-хаба («Сегодня и мои списки»). */
   onOpenAdaptivePracticeTopic?: (topic: string) => void
   onOpenVocabCustomPack?: (packId: string) => void
@@ -785,6 +787,7 @@ export default function MenuSectionPanels({
   onOpenVocabularyWorlds,
   onOpenVocabularyByLevel,
   onOpenVocabularyFeed,
+  onOpenTranslationVocabNag,
   onOpenAdaptivePracticeTopic,
   onOpenVocabCustomPack,
   onMarkOpenedFromMyPlan,
@@ -805,6 +808,7 @@ export default function MenuSectionPanels({
   const [aiChatTenseReturnPanel, setAiChatTenseReturnPanel] = React.useState<'summary' | 'translationFocus'>(
     'summary'
   )
+  const [loadStudyingPref, setLoadStudyingPrefState] = React.useState(true)
   const [lessonPickContext, setLessonPickContext] = React.useState<
     'practice' | 'translation' | 'engvo_teacher' | null
   >(null)
@@ -822,6 +826,10 @@ export default function MenuSectionPanels({
       resolveLessonVariantDualCtaLayout(lessonId ? lessonProgressMap[lessonId] : null),
     [lessonProgressMap]
   )
+
+  React.useEffect(() => {
+    setLoadStudyingPrefState(getLoadStudyingPref())
+  }, [])
 
   React.useEffect(() => {
     if (menuView === 'lessons' || menuView === 'progress') {
@@ -2642,6 +2650,20 @@ export default function MenuSectionPanels({
                           }}
                           disabled={engvoSettingsLocked}
                         />
+                        <label className="flex items-center gap-2 border-b border-[var(--border)]/60 bg-[var(--menu-card-bg)] px-3 py-2.5 text-[13px] text-[var(--text)] last:border-b-0">
+                          <input
+                            type="checkbox"
+                            checked={loadStudyingPref}
+                            disabled={engvoSettingsLocked}
+                            onChange={(event) => {
+                              const next = event.target.checked
+                              setLoadStudyingPref(next)
+                              setLoadStudyingPrefState(next)
+                            }}
+                            className="h-4 w-4 rounded border-[var(--border)]"
+                          />
+                          Подгружать изучаемые
+                        </label>
                       </>
                     )}
                     <MenuSettingRow label="Голос" value={engvoVoiceLabel} onClick={() => setEngvoPanel('voice')} />
@@ -4799,6 +4821,21 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                   onClick={() => setAiChatPanel('sentenceType')}
                 />
               )}
+              {settings.mode === 'translation' ? (
+                <label className="flex items-center gap-2 border-b border-[var(--border)]/60 bg-[var(--menu-card-bg)] px-3 py-2.5 text-[13px] text-[var(--text)] last:border-b-0">
+                  <input
+                    type="checkbox"
+                    checked={loadStudyingPref}
+                    onChange={(event) => {
+                      const next = event.target.checked
+                      setLoadStudyingPref(next)
+                      setLoadStudyingPrefState(next)
+                    }}
+                    className="h-4 w-4 rounded border-[var(--border)]"
+                  />
+                  Подгружать изучаемые
+                </label>
+              ) : null}
               {(settings.mode === 'dialogue' || settings.mode === 'translation') && (
                 <MenuSettingRow label="Тема" value={topicLabel} onClick={() => setAiChatPanel('topic')} />
               )}
@@ -5098,6 +5135,8 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             onOpenPracticeSession={onOpenPracticeSession}
             onGeneratePracticeSession={onGeneratePracticeSession}
             onOpenVocabularyWorlds={onOpenVocabularyWorlds}
+            onOpenVocabularyFeed={onOpenVocabularyFeed}
+            onOpenTranslationVocabNag={onOpenTranslationVocabNag}
             onMenuViewChange={onMenuViewChange}
             onOpenProgressSpace={onOpenProgressSpace}
             onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}

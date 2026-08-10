@@ -139,5 +139,6 @@ export function buildCustomWordPackTitle(source: CustomWordPackSource, now: Date
   if (source === 'excel') return `Excel список ${date}`
   if (source === 'word') return `Word список ${date}`
   if (source === 'paste') return `Свой список ${date}`
+  if (source === 'photo') return `Фото список ${date}`
   return `Список слов ${date}`
 }

@@ -10,6 +10,7 @@ export const SESSION_EXIT_COPY = {
   confirmBodyDialogue: 'Прогресс этого прогона диалога не сохранится.',
   confirmBodyCommunication: 'Прогресс этого прогона общения не сохранится.',
   confirmBodyTutor: 'Прогресс этого закрепления не сохранится.',
+  confirmBodyVocabulary: 'Прогресс этой сессии слов не сохранится.',
   stay: 'Остаться',
   leave: 'Выйти',
   dialogAriaLabel: 'Подтверждение выхода из задания',
@@ -22,6 +23,7 @@ export type SessionExitKind =
   | 'dialogue'
   | 'communication'
   | 'tutor'
+  | 'vocabulary'
 
 const SESSION_EXIT_CONFIRM_BODY: Record<SessionExitKind, string> = {
   lesson: SESSION_EXIT_COPY.confirmBodyLesson,
@@ -30,6 +32,7 @@ const SESSION_EXIT_CONFIRM_BODY: Record<SessionExitKind, string> = {
   dialogue: SESSION_EXIT_COPY.confirmBodyDialogue,
   communication: SESSION_EXIT_COPY.confirmBodyCommunication,
   tutor: SESSION_EXIT_COPY.confirmBodyTutor,
+  vocabulary: SESSION_EXIT_COPY.confirmBodyVocabulary,
 }
 
 export function sessionExitConfirmBody(kind: SessionExitKind): string {

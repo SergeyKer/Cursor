@@ -1,0 +1,9 @@
+{
+  "file": "components/app/AppShell.tsx",
+  "replacements": [
+    {
+      "old": "    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })",
+      "new": "    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setVocabularySessionActive(false)\n    vocabularyLeaveHandlerRef.current = null\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })"
+    }
+  ]
+}
