@@ -4,11 +4,11 @@ import {
   extractLemmaMistake,
 } from '@/lib/vocabulary/mistakesList'
 import {
-  createEmptyWordProgress,
   loadVocabularyProgress,
   patchWordProgress,
   saveVocabularyProgress,
 } from '@/lib/vocabulary/storage'
+import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import {
   lemmaKeyFromEn,
   recordFeedFail,

@@ -311,7 +311,7 @@ import type { TutorFooterView } from '@/lib/tutor/tutorFooter'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
-import type { VocabularyFooterView } from '@/types/vocabulary'
+import type { VocabularyFocusLemma, VocabularyFooterView } from '@/types/vocabulary'
 import {
   buildEngvoInputAudioTranscriptionConfig,
   ENGVO_DEFAULT_LEVEL,
@@ -1362,7 +1362,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const firstMessageInFlightRef = React.useRef(false)
   const ensureFirstMessageRef = React.useRef<(() => Promise<void>) | null>(null)
   const dialogSeedRef = React.useRef(createDialogSeed())
-  const vocabFocusLemmasRef = React.useRef<Array<{ en: string; ru?: string; wordId?: number }>>([])
+  const vocabFocusLemmasRef = React.useRef<VocabularyFocusLemma[]>([])
   /** Актуальный язык ожидаемого ввода в общении - для тела fetch без гонки замыкания sendToApi/setTimeout. */
   const communicationInputExpectedLangRef = React.useRef(settings.communicationInputExpectedLang)
   communicationInputExpectedLangRef.current = settings.communicationInputExpectedLang
@@ -6390,7 +6390,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setLoadStudyingPref(true)
       const words = await loadActiveNecessaryWords()
       const progress = loadVocabularyProgress()
-      let lemmas = [] as Array<{ en: string; ru?: string; wordId?: number; lemmaKey: string }>
+      let lemmas: VocabularyFocusLemma[] = []
       if (spotId === 'vocab-mistakes-inbox') {
         lemmas = loadVocabMistakes()
           .slice(0, 3)
@@ -6398,7 +6398,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             const match = words.find((word) => lemmaKeyFromEn(word.en) === item.lemmaKey)
             return {
               en: item.en,
-              ru: item.ru ?? match?.ru,
+              ru: item.ru ?? match?.ru ?? '',
               wordId: match?.id,
               lemmaKey: item.lemmaKey,
             }
