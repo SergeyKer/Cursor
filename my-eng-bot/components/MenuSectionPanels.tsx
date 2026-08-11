@@ -715,6 +715,7 @@ export interface MenuSectionPanelsProps {
     | 'practiceMode'
     | 'referenceExerciseType'
     | 'catalogBrowseIntent'
+    | 'referenceSearchQuery'
   > | null
 }
 

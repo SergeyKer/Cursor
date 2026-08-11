@@ -399,7 +399,7 @@ export default function LessonSentencePuzzle({
                     disabled={!word || isBusy}
                     onClick={() => handleReturnWord(index)}
                     style={slotStyle}
-                    className={`inline-flex h-9 min-w-0 shrink-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition ${
+                    className={`lesson-puzzle-chip inline-flex h-9 min-w-0 shrink-0 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition ${
                       word
                         ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                         : 'border-dashed border-slate-300 bg-slate-50 text-slate-400'
@@ -425,7 +425,7 @@ export default function LessonSentencePuzzle({
             type="button"
             disabled={isBusy || isFilled}
             onClick={() => handleSelectWord(word)}
-            className="inline-flex h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
+            className="lesson-puzzle-chip inline-flex h-9 items-center rounded-lg border border-blue-200 bg-blue-50 px-2.5 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100 disabled:opacity-60"
             aria-label={`Добавить слово ${word}`}
           >
             {word}

@@ -2202,8 +2202,10 @@ export default function Chat({
       idleSingleLineInputHeightRef.current = baseHeight
     }
 
+    // Freeze single-line at idle while STT overlay is on — web-metrics baseHeight can be
+    // 46 vs idle 45; max(base, idle) used to grow the field and jitter the composer.
     const effectiveSingleLine = showVoiceOverlay
-      ? Math.max(baseHeight, idleSingleLineInputHeightRef.current)
+      ? Math.max(INPUT_MIN_HEIGHT_PX, idleSingleLineInputHeightRef.current)
       : baseHeight
     singleLineInputHeightRef.current = effectiveSingleLine
 

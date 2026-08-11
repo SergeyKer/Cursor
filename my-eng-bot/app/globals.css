@@ -1892,7 +1892,11 @@ html[data-menu-open][data-ios-safari-dialog] aside[aria-label='Меню'] .dialo
   padding-bottom: 11px;
 }
 
-/* Р•РґРёРЅР°СЏ СЃРµС‚РєР° СЃ VoiceComposerOverlay РЅР° WebKit/Blink (СЃРј. needsVoiceComposerWebMetrics): 11 + 22 + 11 = 44px. */
+/*
+ * Единая сетка VoiceComposerOverlay + textarea STT (needsVoiceComposerWebMetrics):
+ * textarea 11+22+11=44px. Overlay: same lh 22px; padding 12/10 (sum 22) nudges
+ * набегание down without changing lh (do not set overlay to 1.45rem — height jitter).
+ */
 .chat-input-field.chat-input-voice-web-metrics {
   padding-top: 11px;
   padding-bottom: 11px;
@@ -1901,8 +1905,8 @@ html[data-menu-open][data-ios-safari-dialog] aside[aria-label='Меню'] .dialo
 
 .voice-composer-web-metrics {
   box-sizing: border-box;
-  padding-top: 11px;
-  padding-bottom: 11px;
+  padding-top: 12px;
+  padding-bottom: 10px;
   line-height: 22px;
 }
 
@@ -1927,6 +1931,10 @@ html[data-menu-open][data-ios-safari-dialog] aside[aria-label='Меню'] .dialo
 }
 
 .lesson-choice-chip {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lesson-puzzle-chip {
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -2684,6 +2692,11 @@ html[data-theme='glass3'] {
     min-height: 36px;
   }
   button.lesson-choice-chip {
+    min-height: auto;
+  }
+  /* Puzzle chips: keep h-9 (36px) so wordBankMinHeight estimate matches reality
+     when the bank empties; otherwise coarse 44px → jump on Android. */
+  button.lesson-puzzle-chip {
     min-height: auto;
   }
 

@@ -63,8 +63,10 @@ export function useAutoGrowTextarea(params: {
       idleSingleLineInputHeightRef.current = baseHeight
     }
 
+    // Freeze single-line at idle while STT overlay is on — web-metrics baseHeight can be
+    // 46 vs idle 45; max(base, idle) used to grow the field and jitter the composer.
     const effectiveSingleLine = params.showVoiceOverlay
-      ? Math.max(baseHeight, idleSingleLineInputHeightRef.current)
+      ? Math.max(minHeightPx, idleSingleLineInputHeightRef.current)
       : baseHeight
     singleLineInputHeightRef.current = effectiveSingleLine
 
