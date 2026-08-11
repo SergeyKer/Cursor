@@ -1,4 +1,4 @@
-/* engvo-sw-v20260716b — bump forces clients to re-fetch this file */
+/* engvo-sw-v20260811a — bump forces clients to re-fetch this file */
 self.addEventListener('install', (event) => {
   event.waitUntil(self.skipWaiting())
 })
@@ -13,6 +13,9 @@ self.addEventListener('activate', (event) => {
   )
 })
 
-self.addEventListener('fetch', (event) => {
-  event.respondWith(fetch(event.request))
-})
+/**
+ * Do not intercept fetches.
+ * A blanket `respondWith(fetch(request))` wraps App Router navigation/RSC
+ * streams and can leave Edge/Chrome with a spinning omnibox + Stop (X)
+ * after the UI has already painted.
+ */
