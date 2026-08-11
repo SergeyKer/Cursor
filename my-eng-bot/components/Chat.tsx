@@ -24,7 +24,10 @@ import {
   stripLeadingBulbEmojisForPrefixedCard,
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
-import { extractCommunicationSpeakText } from '@/lib/communication/extractCommunicationSpeakText'
+import {
+  extractCommunicationSpeakText,
+  splitCommunicationOpening,
+} from '@/lib/communication/extractCommunicationSpeakText'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import TranslationSessionExitChips from '@/components/translation/TranslationSessionExitChips'
@@ -428,6 +431,11 @@ function buildAssistantSections(params: {
   isEngvoTeacherCall?: boolean
   /** Engvo ERROR with correction + Say:/Скажи: — one bubble, bold marker in UI. */
   engvoRepeatCue?: EngvoAssistantRepeatCue | null
+  /**
+   * Communication first-turn: leading RU CEFR meta as a neutral card
+   * (same contract as main), before EN invite main.
+   */
+  leadingNeutralText?: string | null
 }): AssistantSection[] {
   const {
     comment,
@@ -451,6 +459,7 @@ function buildAssistantSections(params: {
     isEngvoCall = false,
     isEngvoTeacherCall = false,
     engvoRepeatCue = null,
+    leadingNeutralText = null,
   } = params
   const hasEngvoCorrectionCue = Boolean(
     isEngvoCall &&
@@ -492,6 +501,17 @@ function buildAssistantSections(params: {
   }
 
   const sections: AssistantSection[] = []
+  const leadingNeutralTrim = leadingNeutralText?.trim() ?? ''
+  if (leadingNeutralTrim) {
+    sections.push({
+      key: 'communication-opening-ru',
+      tone: 'neutral',
+      label: '',
+      text: leadingNeutralTrim,
+      singleLine: !leadingNeutralTrim.includes('\n'),
+      emphasizeMainText: hideAiLabel,
+    })
+  }
   const isTranslationErrorRepeat = mode === 'translation' && translationProtocolStatus === 'error_repeat'
   const isTranslationSuccess = mode === 'translation' && translationProtocolStatus === 'success'
   const isTranslationSoftFailAdvance =
@@ -2958,6 +2978,22 @@ function MessageBubble({
   let effectiveThreeFormsText: string | null = null
   let effectiveMainBefore = mainBefore
   let effectiveInvitationText = invitationText
+  let communicationOpeningRuWarn: string | null = null
+  if (
+    !isUser &&
+    mode === 'communication' &&
+    messageIndex === 0 &&
+    !isEngvoCall &&
+    message.engvoLocalWelcome !== true &&
+    !comment &&
+    !errorLike
+  ) {
+    const opening = splitCommunicationOpening(displayText ?? '')
+    if (opening) {
+      communicationOpeningRuWarn = opening.ruWarn
+      effectiveMainBefore = opening.enInvite
+    }
+  }
   let hideTranslationMainCardForErrorRepeat = false
   let translationErrorsText: string | null = null
   let translationSupportComment: string | null = null
@@ -3269,6 +3305,7 @@ function MessageBubble({
               ? engvoRepeatCue
               : null
             : null,
+        leadingNeutralText: communicationOpeningRuWarn,
       })
 
   React.useLayoutEffect(() => {
