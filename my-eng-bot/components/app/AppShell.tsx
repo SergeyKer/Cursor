@@ -114,7 +114,7 @@ import { COMMUNICATION_VOICE_TOP } from '@/lib/uiCopy/communicationVoiceTop'
 import { resolveLessonCoinAward, type LessonCoinAward } from '@/lib/coinAwards'
 import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
-import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
+import { getLessonCoinForgivenessCopy, getLessonCoinForgivenessHelpLines } from '@/lib/lessonCoinForgivenessCopy'
 import {
   APP_SHELL_ERROR_COPY,
   APP_SHELL_HOME_COPY,
@@ -1078,7 +1078,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     forgivenessUsedThisRun: activeStructuredLessonForgivenessUsedThisRun,
     forgivenessConfirmPending: activeStructuredLessonForgivenessConfirmPending,
     forgivenessAppliedAckActive: activeStructuredLessonForgivenessAppliedAckActive,
-    forgivenessPendingCorrectAnswer: activeStructuredLessonForgivenessPendingCorrectAnswer,
     forgivenessAppliedBalanceAfter: activeStructuredLessonForgivenessAppliedBalanceAfter,
     puzzleAttemptForgivenessToken: activeStructuredLessonPuzzleAttemptForgivenessToken,
     forgivenessAutofillAnswer: activeStructuredLessonForgivenessAutofillAnswer,
@@ -1123,7 +1122,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         ? current
         : {
             title: copy.zeroBalanceHelpTitle,
-            lines: [copy.zeroBalanceHelpMessage],
+            lines: getLessonCoinForgivenessHelpLines(),
           }
     )
   }, [])
@@ -11649,7 +11648,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   forgivenessUsedThisRun={activeStructuredLessonForgivenessUsedThisRun}
                   forgivenessConfirmPending={activeStructuredLessonForgivenessConfirmPending}
                   forgivenessAppliedAckActive={activeStructuredLessonForgivenessAppliedAckActive}
-                  forgivenessPendingCorrectAnswer={activeStructuredLessonForgivenessPendingCorrectAnswer}
                   forgivenessAppliedBalanceAfter={activeStructuredLessonForgivenessAppliedBalanceAfter}
                   onRequestCoinForgiveness={requestStructuredLessonCoinForgiveness}
                   onConfirmCoinForgiveness={handleStructuredLessonConfirmCoinForgiveness}

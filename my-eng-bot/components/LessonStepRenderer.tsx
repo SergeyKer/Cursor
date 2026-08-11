@@ -185,7 +185,6 @@ type LessonStepRendererProps = {
   forgivenessUsedThisRun?: boolean
   forgivenessConfirmPending?: boolean
   forgivenessAppliedAckActive?: boolean
-  forgivenessPendingCorrectAnswer?: string | null
   forgivenessAppliedBalanceAfter?: number | null
   onRequestCoinForgiveness?: () => void
   onConfirmCoinForgiveness?: () => boolean
@@ -319,7 +318,6 @@ export default function LessonStepRenderer({
   forgivenessUsedThisRun = false,
   forgivenessConfirmPending = false,
   forgivenessAppliedAckActive = false,
-  forgivenessPendingCorrectAnswer = null,
   forgivenessAppliedBalanceAfter = null,
   onRequestCoinForgiveness,
   onConfirmCoinForgiveness,
@@ -1985,9 +1983,6 @@ export default function LessonStepRenderer({
                       coinForgivenessComposerMode === 'applied'
                         ? coinForgivenessAppliedBalance
                         : Math.max(0, coinBalance - COIN_ERROR_FORGIVENESS_COST)
-                    }
-                    correctAnswerPreview={
-                      coinForgivenessComposerMode === 'applied' ? forgivenessPendingCorrectAnswer : null
                     }
                     onConfirm={onConfirmCoinForgiveness ?? (() => false)}
                     onContinue={onContinueCoinForgiveness}

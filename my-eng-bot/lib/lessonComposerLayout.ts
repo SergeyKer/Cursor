@@ -30,8 +30,8 @@ const LESSON_BRIEFING_COMPOSER_HEIGHT_PX = 248
 /** Практика: короче урока — stakes без brand/how-to/slogan. */
 export const PRACTICE_BRIEFING_COMPOSER_HEIGHT_PX = 200
 const LESSON_BRIEFING_DUAL_CTA_EXTRA_HEIGHT_PX = 0
-/** Карточка confirm/applied + gap + кнопки или hint. */
-export const LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX = 215
+/** Карточка confirm/applied + how-to монеты + gap + кнопки. */
+export const LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX = 268
 const LESSON_FORGIVENESS_COMPOSER_HEIGHT_PX = LESSON_FORGIVENESS_COMPOSER_CONTENT_MIN_HEIGHT_PX
 const LESSON_FINALE_COMPOSER_HEIGHT_PX = 300
 const INTRO_CHIP_ROW_HEIGHT_PX = 44

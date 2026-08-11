@@ -13,7 +13,6 @@ type LessonCoinForgivenessComposerConfirmProps = {
   copy: LessonCoinForgivenessCopy
   coinBalance: number
   balanceAfter: number
-  correctAnswerPreview?: string | null
   onConfirm: () => boolean
   onContinue?: () => void
   onDecline: () => void
@@ -26,7 +25,6 @@ export default function LessonCoinForgivenessComposerConfirm({
   copy,
   coinBalance,
   balanceAfter,
-  correctAnswerPreview = null,
   onConfirm,
   onContinue,
   onDecline,
@@ -54,16 +52,9 @@ export default function LessonCoinForgivenessComposerConfirm({
     }
   }
 
-  const appliedAnswerLine = correctAnswerPreview?.trim()
-    ? copy.appliedCorrectAnswerPreview(correctAnswerPreview.trim())
-    : undefined
-
   const cardTitle = mode === 'applied' ? copy.appliedTitle : confirmTitle
   const cardMessage = mode === 'applied' ? copy.appliedBody(balanceAfter) : confirmMessage
-  const cardSecondary =
-    mode === 'applied'
-      ? [appliedAnswerLine, copy.appliedGoldMedalHint].filter(Boolean).join('\n')
-      : confirmHint
+  const cardSecondary = mode === 'applied' ? copy.appliedHowToGetCoins : confirmHint
 
   return (
     <div
@@ -71,7 +62,7 @@ export default function LessonCoinForgivenessComposerConfirm({
       role="region"
       aria-label={cardTitle}
     >
-      <div className="animate-fade-in-up w-full">
+      <div className={mode === 'confirm' ? 'animate-fade-in-up w-full' : 'w-full'}>
         <FlowInfoCard
           variant="info"
           title={cardTitle}

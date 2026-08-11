@@ -30,6 +30,7 @@ import {
   buildLessonNextVariantMessage,
   getLessonRepeatFooterMessage,
   getVariantInfo,
+  LESSON_PUZZLE_COMPLETE_MESSAGE,
 } from '@/utils/footerMessages'
 import type { Exercise } from '@/types/lesson'
 import {
@@ -51,8 +52,13 @@ import { getLessonCoinForgivenessCopy } from '@/lib/lessonCoinForgivenessCopy'
 import {
   isCoinForgivenessExercise,
   isCoinForgivenessStep,
-  resolveCoinForgivenessAppliedPreviewAnswer,
 } from '@/lib/lessonCoinForgiveness'
+import {
+  shouldDeferLessonSuccessAdvance,
+  stashLessonSuccessAdvance,
+  takeStashedLessonAdvance,
+  type StashedLessonAdvance,
+} from '@/lib/lessonForgivenessAdvance'
 
 /** Откладывает итог проверки (validate внутри onAfterDelay), как в практике. */
 export function scheduleLessonCheckingOutcome(
@@ -241,14 +247,13 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
   const [forgivenessAutofillChoice, setForgivenessAutofillChoice] = useState<string | null>(null)
   const [forgivenessAutofillNonce, setForgivenessAutofillNonce] = useState(0)
   const [forgivenessAppliedAckActive, setForgivenessAppliedAckActive] = useState(false)
-  const [forgivenessPendingCorrectAnswer, setForgivenessPendingCorrectAnswer] = useState<string | null>(
-    null
-  )
   const [forgivenessAppliedBalanceAfter, setForgivenessAppliedBalanceAfter] = useState<number | null>(
     null
   )
   const [coinForgivenessFooterPulse, setCoinForgivenessFooterPulse] = useState(false)
-  const forgivenessPendingAutofillPatchRef = useRef<CoinForgivenessAutofillPatch | null>(null)
+  const forgivenessAckBlocksAdvanceRef = useRef(false)
+  const pendingSuccessAdvanceRef = useRef<StashedLessonAdvance | null>(null)
+  const pendingPuzzleUiAdvanceRef = useRef(false)
   const [isAdvancingToNextStep, setIsAdvancingToNextStep] = useState(false)
   const [isAdvancingToNextVariant, setIsAdvancingToNextVariant] = useState(false)
   const [mistakes, setMistakes] = useState<LessonMistake[]>([])
@@ -306,9 +311,10 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     setForgivenessAutofillChoice(null)
     setForgivenessAutofillNonce(0)
     setForgivenessAppliedAckActive(false)
-    setForgivenessPendingCorrectAnswer(null)
     setForgivenessAppliedBalanceAfter(null)
-    forgivenessPendingAutofillPatchRef.current = null
+    forgivenessAckBlocksAdvanceRef.current = false
+    pendingSuccessAdvanceRef.current = null
+    pendingPuzzleUiAdvanceRef.current = false
     setCoinForgivenessFooterPulse(false)
     clearAdvanceFlags()
     setMistakes([])
@@ -490,13 +496,23 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
   }, [currentStep, goToStep])
 
   const scheduleSuccessAdvance = useCallback(
-    (kind: 'variant' | 'step', onAdvance: () => void) => {
+    (kind: StashedLessonAdvance['kind'], onAdvance: () => void) => {
+      const incoming = { kind, onAdvance }
+      if (shouldDeferLessonSuccessAdvance(forgivenessAckBlocksAdvanceRef.current)) {
+        pendingSuccessAdvanceRef.current = stashLessonSuccessAdvance(
+          pendingSuccessAdvanceRef.current,
+          incoming
+        )
+        return
+      }
       if (kind === 'variant') {
         setIsAdvancingToNextVariant(true)
         setIsAdvancingToNextStep(false)
-      } else {
+      } else if (kind === 'step') {
         setIsAdvancingToNextStep(true)
         setIsAdvancingToNextVariant(false)
+      } else {
+        clearAdvanceFlags()
       }
       const timer = setTimeout(() => {
         clearAdvanceFlags()
@@ -628,10 +644,9 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
               goToStep(currentStep + 1)
             })
           } else if (finale) {
-            const finaleTimer = setTimeout(() => {
+            scheduleSuccessAdvance('finale', () => {
               goToFinale()
-            }, LESSON_SUCCESS_HOLD_MS)
-            timeoutRefs.current.push(finaleTimer)
+            })
           }
           return
         }
@@ -734,6 +749,7 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
             submittedAnswer: string
             type: 'success'
             attempts: number
+            skipSubAdvance?: boolean
           }
     ) => {
       if (!lesson || !rawStep?.exercise || rawStep.exercise.type !== 'sentence_puzzle') return
@@ -788,7 +804,9 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
           })
         } else {
           awardPuzzleSubStep(params.subIndex, params.attempts)
-          setPuzzleSubAdvanceToken((current) => current + 1)
+          if (!params.skipSubAdvance) {
+            setPuzzleSubAdvanceToken((current) => current + 1)
+          }
         }
 
         setFeedback(attemptFeedback)
@@ -810,75 +828,6 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
   const cancelCoinForgivenessConfirm = useCallback(() => {
     setForgivenessConfirmPending(false)
   }, [])
-
-  const continueCoinForgivenessAfterSpend = useCallback((): boolean => {
-    const patch = forgivenessPendingAutofillPatchRef.current
-    if (!patch) return false
-    forgivenessPendingAutofillPatchRef.current = null
-    setForgivenessAppliedAckActive(false)
-    setForgivenessPendingCorrectAnswer(null)
-    setForgivenessAppliedBalanceAfter(null)
-    if (patch.kind === 'sentence_puzzle') {
-      setPuzzleAttemptForgivenessToken((current) => current + 1)
-      return true
-    }
-    if (patch.kind === 'fill_choice') {
-      setForgivenessAutofillChoice(patch.choice)
-      setForgivenessAutofillNonce((current) => current + 1)
-      return true
-    }
-    setForgivenessAutofillAnswer(patch.answer)
-    setForgivenessAutofillNonce((current) => current + 1)
-    return true
-  }, [])
-
-  const applyCoinErrorForgiveness = useCallback(
-    (balanceAfterSpend?: number): boolean => {
-      if (!lesson || !rawStep?.exercise || !activeExercise) return false
-      if (forgivenessUsedThisRun) return false
-      if (status !== 'feedback' || feedback?.type !== 'error') return false
-      if (exerciseErrors !== 1) return false
-      if (!isCoinForgivenessStep(rawStep.stepNumber)) return false
-      if (!isCoinForgivenessExercise(activeExercise)) return false
-
-      const correctAnswer = activeExercise.correctAnswer?.trim()
-      if (!correctAnswer && activeExercise.type !== 'sentence_puzzle') return false
-
-      const autofillPatch = resolveCoinForgivenessAutofillPatch(activeExercise, correctAnswer)
-      if (!autofillPatch) return false
-
-      const previewAnswer = resolveCoinForgivenessAppliedPreviewAnswer(
-        activeExercise,
-        puzzleProgress?.subIndex ?? 0,
-        correctAnswer
-      )
-      if (!previewAnswer && activeExercise.type !== 'sentence_puzzle') return false
-
-      forgivenessPendingAutofillPatchRef.current = autofillPatch
-      setForgivenessPendingCorrectAnswer(previewAnswer)
-      setForgivenessAppliedBalanceAfter(
-        typeof balanceAfterSpend === 'number' ? Math.max(0, balanceAfterSpend) : null
-      )
-      setForgivenessUsedThisRun(true)
-      setForgivenessConfirmPending(false)
-      setCoinForgivenessFooterPulse(true)
-      setExerciseErrors(0)
-      setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
-      setForgivenessAppliedAckActive(true)
-
-      return true
-    },
-    [
-      activeExercise,
-      exerciseErrors,
-      feedback?.type,
-      forgivenessUsedThisRun,
-      lesson,
-      puzzleProgress?.subIndex,
-      rawStep,
-      status,
-    ]
-  )
 
   useEffect(() => {
     if (status === 'idle') {
@@ -947,10 +896,9 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
           return
         }
         if (finale) {
-          const finaleTimer = setTimeout(() => {
+          scheduleSuccessAdvance('finale', () => {
             goToFinale()
-          }, LESSON_SUCCESS_HOLD_MS)
-          timeoutRefs.current.push(finaleTimer)
+          })
         }
       })
     },
@@ -972,6 +920,120 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
       totalSteps,
     ]
   )
+
+  const applyCoinErrorForgiveness = useCallback(
+    (balanceAfterSpend?: number): boolean => {
+      if (!lesson || !rawStep?.exercise || !activeExercise) return false
+      if (forgivenessUsedThisRun) return false
+      if (status !== 'feedback' || feedback?.type !== 'error') return false
+      if (exerciseErrors !== 1) return false
+      if (!isCoinForgivenessStep(rawStep.stepNumber)) return false
+      if (!isCoinForgivenessExercise(activeExercise)) return false
+
+      const correctAnswer = activeExercise.correctAnswer?.trim()
+      if (!correctAnswer && activeExercise.type !== 'sentence_puzzle') return false
+
+      const autofillPatch = resolveCoinForgivenessAutofillPatch(activeExercise, correctAnswer)
+      if (!autofillPatch) return false
+
+      forgivenessAckBlocksAdvanceRef.current = true
+      pendingSuccessAdvanceRef.current = null
+      pendingPuzzleUiAdvanceRef.current = false
+      setForgivenessAppliedBalanceAfter(
+        typeof balanceAfterSpend === 'number' ? Math.max(0, balanceAfterSpend) : null
+      )
+      setForgivenessUsedThisRun(true)
+      setForgivenessConfirmPending(false)
+      setCoinForgivenessFooterPulse(true)
+      setExerciseErrors(0)
+      setMistakes((current) => current.filter((item) => item.step !== rawStep.stepNumber))
+      setForgivenessAppliedAckActive(true)
+
+      if (autofillPatch.kind === 'sentence_puzzle') {
+        const subIndex = puzzleProgress?.subIndex ?? 0
+        const variants = activeExercise.puzzleVariants ?? []
+        const variant = variants[subIndex]
+        if (!variant) {
+          forgivenessAckBlocksAdvanceRef.current = false
+          pendingPuzzleUiAdvanceRef.current = false
+          setForgivenessAppliedAckActive(false)
+          setForgivenessAppliedBalanceAfter(null)
+          setForgivenessUsedThisRun(false)
+          setCoinForgivenessFooterPulse(false)
+          return false
+        }
+        const submittedAnswer =
+          variant.correctAnswer?.trim() || variant.correctOrder.join(' ')
+        const isLastVariant = subIndex >= variants.length - 1
+        if (isLastVariant) {
+          awardPuzzleSubStep(subIndex, 0)
+          completeCurrentStep({
+            submittedAnswer,
+            baseMessage: LESSON_PUZZLE_COMPLETE_MESSAGE,
+            taskCurrent: subIndex + 1,
+            taskTotal: variants.length,
+          })
+        } else {
+          pendingPuzzleUiAdvanceRef.current = true
+          recordPuzzleAttempt({
+            subIndex,
+            submittedAnswer,
+            type: 'success',
+            attempts: 0,
+            skipSubAdvance: true,
+          })
+        }
+        return true
+      }
+
+      if (autofillPatch.kind === 'fill_choice') {
+        handleAnswer(autofillPatch.choice, { attemptIndexOverride: 0 })
+        return true
+      }
+
+      handleAnswer(autofillPatch.answer, { attemptIndexOverride: 0 })
+      return true
+    },
+    [
+      activeExercise,
+      awardPuzzleSubStep,
+      completeCurrentStep,
+      exerciseErrors,
+      feedback?.type,
+      forgivenessUsedThisRun,
+      handleAnswer,
+      lesson,
+      puzzleProgress?.subIndex,
+      rawStep,
+      recordPuzzleAttempt,
+      status,
+    ]
+  )
+
+  const continueCoinForgivenessAfterSpend = useCallback((): boolean => {
+    if (!forgivenessAppliedAckActive && !forgivenessAckBlocksAdvanceRef.current) {
+      return false
+    }
+    setForgivenessAppliedAckActive(false)
+    setForgivenessAppliedBalanceAfter(null)
+    forgivenessAckBlocksAdvanceRef.current = false
+
+    const needPuzzleUiAdvance = pendingPuzzleUiAdvanceRef.current
+    pendingPuzzleUiAdvanceRef.current = false
+    const taken = takeStashedLessonAdvance(pendingSuccessAdvanceRef.current)
+    pendingSuccessAdvanceRef.current = taken.next
+
+    if (needPuzzleUiAdvance) {
+      queueMicrotask(() => {
+        setPuzzleSubAdvanceToken((current) => current + 1)
+      })
+    }
+
+    if (taken.runNow) {
+      scheduleSuccessAdvance(taken.runNow.kind, taken.runNow.onAdvance)
+    }
+    return true
+  }, [forgivenessAppliedAckActive, scheduleSuccessAdvance])
 
   const submittedAnswer = step ? submittedAnswersByStep[currentStep] ?? null : null
   const postLesson = useMemo<PostLessonContent | null>(() => {
@@ -1323,7 +1385,6 @@ export function useLessonEngine(lesson: LessonData | null, options: UseLessonEng
     forgivenessUsedThisRun,
     forgivenessConfirmPending,
     forgivenessAppliedAckActive,
-    forgivenessPendingCorrectAnswer,
     forgivenessAppliedBalanceAfter,
     puzzleAttemptForgivenessToken,
     forgivenessAutofillAnswer,
