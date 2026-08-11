@@ -19,6 +19,11 @@ export const TUTOR_FOOTER_TOP = {
     adult: 'Закрепите 2 мин — +6 XP.',
     child: 'Закрепи 2 мин — +6 XP.',
   },
+  /** After Explain when micro chip is not offered (weak answerKind). */
+  post_explain_soft: {
+    adult: 'Уточните или попросите примеры.',
+    child: 'Уточни или попроси примеры.',
+  },
   micro_loading: {
     adult: 'Готовлю проверку…',
     child: 'Готовлю проверку…',

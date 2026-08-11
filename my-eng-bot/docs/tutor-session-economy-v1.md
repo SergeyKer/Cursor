@@ -17,7 +17,7 @@ Daily cap **14** (только tutor). Сайды 92 → Σ **106**.
 
 ## Футер
 
-- Вне micro: compact `⭐totalXP | streak` + TOP (post_explain: «Закрепите 2 мин — +6 XP.»).
+- Вне micro: compact `⭐totalXP | streak` + TOP (`post_explain`: «Закрепите 2 мин — +6 XP.»; `post_explain_soft` без micro chip: «Уточните или попросите примеры.»).
 - В micro: bar вопросов + слева живой `sessionXp` + 🎯/🏁.
 - Нет цели сессии K/K.
 

@@ -41,7 +41,7 @@ describe('buildLessonPageTitle', () => {
     expect(view.fullTitle).toBe(`Фишки: ${longTopic}`)
   })
 
-  it('shows topic only on lesson steps', () => {
+  it('shows short Урок label on lesson steps (topic in fullTitle)', () => {
     expect(
       buildLessonPageTitle({
         stage: 'lesson',
@@ -50,10 +50,10 @@ describe('buildLessonPageTitle', () => {
       })
     ).toEqual({
       prefix: null,
-      topicSegment: 'I know what she likes',
-      displayTitle: 'I know what she likes',
+      topicSegment: 'Урок',
+      displayTitle: 'Урок',
       fullTitle: 'I know what she likes',
-      ariaLabel: 'I know what she likes. Шаг 2 из 7',
+      ariaLabel: 'Урок. Шаг 2 из 7',
     })
   })
 

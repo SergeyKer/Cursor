@@ -9,6 +9,7 @@ export type TutorFooterMoment =
   | 'triage'
   | 'busy_explain'
   | 'post_explain'
+  | 'post_explain_soft'
   | 'micro_loading'
   | 'micro_revealing'
   | 'micro_active'
@@ -53,8 +54,18 @@ export function resolveTutorFooterMoment(params: {
   hasMicroPack: boolean
   hasLastExplain: boolean
   hasTriageChips: boolean
+  /** When false with lastExplain → post_explain_soft (no +6 promise). Default true for compat. */
+  canOfferMicro?: boolean
 }): TutorFooterMoment {
-  const { busy, loadingMicro, microPhase, hasMicroPack, hasLastExplain, hasTriageChips } = params
+  const {
+    busy,
+    loadingMicro,
+    microPhase,
+    hasMicroPack,
+    hasLastExplain,
+    hasTriageChips,
+    canOfferMicro = true,
+  } = params
 
   if (loadingMicro && !hasMicroPack) return 'micro_loading'
   if (microPhase === 'revealing' && hasMicroPack) return 'micro_revealing'
@@ -62,7 +73,7 @@ export function resolveTutorFooterMoment(params: {
   if (microPhase === 'finale' && hasMicroPack) return 'micro_finale'
   if (busy) return 'busy_explain'
   if (hasTriageChips) return 'triage'
-  if (hasLastExplain) return 'post_explain'
+  if (hasLastExplain) return canOfferMicro ? 'post_explain' : 'post_explain_soft'
   return 'idle'
 }
 

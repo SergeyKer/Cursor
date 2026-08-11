@@ -370,7 +370,10 @@ export function buildTutorFollowUpPlaceholder(
  */
 export function buildTutorFollowUpChip(params: BuildTutorFollowUpChipParams): string | null {
   const answer = params.answer
-  if (answer.answerKind === 'translate' || answer.answerKind === 'other') return null
+  // Always leave a forward chip — even weak kinds (miss→tutor lexical answers).
+  if (answer.answerKind === 'translate' || answer.answerKind === 'other') {
+    return FOLLOW_UP_CHIP_BANK.exit
+  }
 
   const seed =
     params.seed ??

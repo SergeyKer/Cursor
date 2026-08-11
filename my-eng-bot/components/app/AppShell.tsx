@@ -308,6 +308,11 @@ import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
 import TutorChatPanel from '@/components/tutor/TutorChatPanel'
 import { clearTutorReturnContext } from '@/lib/tutor/tutorReturnContext'
 import type { TutorFooterView } from '@/lib/tutor/tutorFooter'
+import {
+  clearTutorReferenceReturnStash,
+  setTutorReferenceReturnStash,
+  takeTutorReferenceReturnStash,
+} from '@/lib/reference/tutorReferenceReturnStash'
 import type { AdaptiveFooterView } from '@/types/adaptiveRetention'
 import { isIosChromeBrowser } from '@/lib/sttClient'
 import { isIosSafariUserAgent, isIosWebKitBrowser } from '@/lib/iosSafariViewport'
@@ -1172,6 +1177,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)
   const [tutorChatSpaceActive, setTutorChatSpaceActive] = useState(false)
   const [tutorChatAutoSubmitInitial, setTutorChatAutoSubmitInitial] = useState(false)
+  const [tutorReferenceReturnActive, setTutorReferenceReturnActive] = useState(false)
   const [tutorMicroSessionExitLocked, setTutorMicroSessionExitLocked] = useState(false)
   const [tutorFooterView, setTutorFooterView] = useState<TutorFooterView | null>(null)
   const tutorFooterSeqRef = React.useRef(0)
@@ -6539,6 +6545,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [tutorChatMountKey, setTutorChatMountKey] = useState(0)
   const openTutorMenuIdle = useCallback(() => {
     if (!featureFlags.tutorChatV1) return
+    clearTutorReferenceReturnStash()
+    setTutorReferenceReturnActive(false)
     setTutorChatPrefill('')
     setTutorChatAutoSubmitInitial(false)
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
@@ -6602,15 +6610,58 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [abandonPracticeSession])
 
   const exitTutorChatSpace = useCallback(() => {
+    const referenceReturn = takeTutorReferenceReturnStash()
+    setTutorReferenceReturnActive(false)
     clearTutorReturnContext()
+    if (referenceReturn) {
+      setTutorChatPrefill('')
+      setTutorChatAutoSubmitInitial(false)
+      cleanupEngvoRuntime({ markIgnoredCurrent: true })
+      setEngvoVoiceMode(false)
+      setEngvoCallPhase('idle')
+      setEngvoErrorText(null)
+      resetStructuredLessonSession({ keepLessonMenuContext: true })
+      setFooterSheetContext(null)
+      setAdaptiveFooterView(null)
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setProgressSpaceActive(false)
+      setMyPlanSpaceActive(false)
+      setTutorChatSpaceActive(false)
+      setTutorMicroSessionExitLocked(false)
+      setTutorChatMountKey((k) => k + 1)
+      setDialogStarted(false)
+      setLessonMenuContext({
+        menuView: 'lessons',
+        lessonsPanel: 'theory',
+        catalogBrowseIntent: 'reference',
+        referenceSearchQuery: referenceReturn.searchQuery,
+      })
+      restoreLessonMenuOnNextOpenRef.current = true
+      setHomeMenuView('lessons')
+      setMenuOpen(true)
+      return
+    }
     openTutorMenuIdle()
-  }, [openTutorMenuIdle])
+  }, [cleanupEngvoRuntime, openTutorMenuIdle, resetStructuredLessonSession])
 
-  const openTutorChat = useCallback((opts?: { prefill?: string }) => {
-    const prefill = opts?.prefill?.trim() || ''
-    if (prefill) openTutorChatSpace({ prefill, autoSubmitInitial: true })
-    else openTutorMenuIdle()
-  }, [openTutorChatSpace, openTutorMenuIdle])
+  const openTutorChat = useCallback(
+    (opts?: { prefill?: string; returnTo?: 'reference'; referenceSearchQuery?: string }) => {
+      if (opts?.returnTo === 'reference') {
+        setTutorReferenceReturnStash({
+          searchQuery: opts.referenceSearchQuery?.trim() || '',
+        })
+        setTutorReferenceReturnActive(true)
+      } else {
+        clearTutorReferenceReturnStash()
+        setTutorReferenceReturnActive(false)
+      }
+      const prefill = opts?.prefill?.trim() || ''
+      if (prefill) openTutorChatSpace({ prefill, autoSubmitInitial: true })
+      else openTutorMenuIdle()
+    },
+    [openTutorChatSpace, openTutorMenuIdle]
+  )
 
   const openMyPlanFromProgress = useCallback(() => {
     openMyPlanSpace()
@@ -10878,21 +10929,36 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
           <div
             ref={appColumnRef}
-            className={`relative mx-auto grid w-full grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto] ${
+            className={`relative mx-auto grid w-full items-center gap-2 ${
+              lessonHeaderProgressLabel
+                ? 'grid-cols-[auto_1fr_auto]'
+                : 'grid-cols-[2.5rem_1fr_2.5rem] sm:grid-cols-[2.5rem_1fr_auto]'
+            } ${
               dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
             }`}
           >
-            <button
-              type="button"
-              onClick={handleMenuButtonClick}
-              className="app-header-control chat-action-button pointer-events-auto relative z-20 col-start-1 row-start-1 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
-              style={{ borderRadius: 'var(--app-header-control-radius)' }}
-              aria-label={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
-              aria-expanded={menuOpen}
-              title={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
-            >
-              <MenuToggleIcon />
-            </button>
+            <div className="relative z-20 col-start-1 row-start-1 flex items-center gap-1 justify-self-start">
+              <button
+                type="button"
+                onClick={handleMenuButtonClick}
+                className="app-header-control chat-action-button pointer-events-auto relative flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
+                style={{ borderRadius: 'var(--app-header-control-radius)' }}
+                aria-label={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
+                aria-expanded={menuOpen}
+                title={menuOpen ? 'Меню, открыто' : 'Меню, закрыто'}
+              >
+                <MenuToggleIcon />
+              </button>
+              {dialogStarted && isStructuredLessonActive && lessonHeaderProgressLabel ? (
+                <span
+                  className="max-w-[5.5rem] shrink-0 truncate rounded-md border border-[var(--app-header-control-border)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none text-[var(--app-header-text)] sm:max-w-none sm:text-[11px]"
+                  title={lessonHeaderProgressAriaLabel ?? lessonHeaderProgressLabel}
+                  aria-label={lessonHeaderProgressAriaLabel ?? lessonHeaderProgressLabel}
+                >
+                  {lessonHeaderProgressLabel}
+                </span>
+              ) : null}
+            </div>
             <h1
               className={`app-header-title-layer gap-1 px-2 text-[16px] font-semibold leading-[1.32] tracking-normal text-[var(--app-header-text)] sm:text-[17px] ${headerTitleMaxWidthClass} ${
                 !dialogStarted ? 'whitespace-nowrap' : 'min-w-0'
@@ -10989,15 +11055,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   )}
                 </div>
               )}
-              {dialogStarted && isStructuredLessonActive && lessonHeaderProgressLabel ? (
-                <span
-                  className="mr-1 max-w-[5.5rem] shrink-0 truncate rounded-md border border-[var(--app-header-control-border)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none text-[var(--app-header-text)] sm:max-w-none sm:text-[11px]"
-                  title={lessonHeaderProgressAriaLabel ?? lessonHeaderProgressLabel}
-                  aria-label={lessonHeaderProgressAriaLabel ?? lessonHeaderProgressLabel}
-                >
-                  {lessonHeaderProgressLabel}
-                </span>
-              ) : null}
               {dialogStarted && lessonHeaderMedal ? (
                 <span
                   className={`app-header-avatar flex h-10 w-10 shrink-0 items-center justify-center ${
@@ -11038,8 +11095,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onClick={exitTutorChatSpace}
                   className="app-header-control chat-action-button pointer-events-auto relative z-20 flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation mr-1 sm:mr-2"
                   style={{ borderRadius: 'var(--app-header-control-radius)' }}
-                  aria-label={TUTOR_CHAT_COPY.closeAriaLabel}
-                  title={TUTOR_CHAT_COPY.closeTitle}
+                  aria-label={
+                    tutorReferenceReturnActive
+                      ? TUTOR_CHAT_COPY.closeBackToReferenceAriaLabel
+                      : TUTOR_CHAT_COPY.closeAriaLabel
+                  }
+                  title={
+                    tutorReferenceReturnActive
+                      ? TUTOR_CHAT_COPY.closeBackToReferenceTitle
+                      : TUTOR_CHAT_COPY.closeTitle
+                  }
                 >
                   <SessionExitIcon />
                 </button>
@@ -11220,6 +11285,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     sessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
                     onExplainSuccess={bumpTutorExplain}
                     onMicroFinale={bumpTutorMicroFinale}
+                    showReferenceReturnChip={tutorReferenceReturnActive}
+                    onReturnToReference={exitTutorChatSpace}
                   />
                 ) : isMyPlanSpaceActive ? (
                   <MyPlanSheetScreen

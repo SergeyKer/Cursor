@@ -54,7 +54,7 @@ describe('resolveTutorFooterMoment', () => {
     ).toBe('micro_finale')
   })
 
-  it('falls back to triage / post_explain / idle', () => {
+  it('falls back to triage / post_explain / post_explain_soft / idle', () => {
     expect(
       resolveTutorFooterMoment({
         busy: false,
@@ -73,8 +73,20 @@ describe('resolveTutorFooterMoment', () => {
         hasMicroPack: false,
         hasLastExplain: true,
         hasTriageChips: false,
+        canOfferMicro: true,
       })
     ).toBe('post_explain')
+    expect(
+      resolveTutorFooterMoment({
+        busy: false,
+        loadingMicro: false,
+        microPhase: 'idle',
+        hasMicroPack: false,
+        hasLastExplain: true,
+        hasTriageChips: false,
+        canOfferMicro: false,
+      })
+    ).toBe('post_explain_soft')
     expect(
       resolveTutorFooterMoment({
         busy: false,
@@ -90,11 +102,26 @@ describe('resolveTutorFooterMoment', () => {
 
 describe('buildTutorFooterView', () => {
   it('keeps sessionMeter null outside micro pack moments', () => {
-    for (const moment of ['idle', 'triage', 'busy_explain', 'post_explain', 'micro_loading'] as const) {
+    for (const moment of [
+      'idle',
+      'triage',
+      'busy_explain',
+      'post_explain',
+      'post_explain_soft',
+      'micro_loading',
+    ] as const) {
       const view = buildTutorFooterView({ moment, audience: 'adult' })
       expect(view.sessionMeter).toBeNull()
       expect(view.staticText).toBe('')
     }
+  })
+
+  it('soft post_explain copy has no +6 promise', () => {
+    const view = buildTutorFooterView({ moment: 'post_explain_soft', audience: 'adult' })
+    expect(view.dynamicText).toBe('Уточните или попросите примеры.')
+    expect(view.dynamicText.includes('+6')).toBe(false)
+    const strong = buildTutorFooterView({ moment: 'post_explain', audience: 'adult' })
+    expect(strong.dynamicText).toContain('+6')
   })
 
   it('builds meter from microIndex / total', () => {

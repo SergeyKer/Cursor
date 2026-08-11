@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest'
 import { buildReferenceMissTutorPrefill } from '@/lib/reference/buildReferenceMissTutorPrefill'
 
 describe('buildReferenceMissTutorPrefill', () => {
-  it('wraps short fragment for Explain', () => {
-    expect(buildReferenceMissTutorPrefill('going to')).toBe(
-      'Когда говорят «going to» и что это значит?'
-    )
+  it('wraps short fragment for Explain as rule', () => {
+    expect(buildReferenceMissTutorPrefill('going to')).toBe('Разбери правило: «going to»')
+  })
+
+  it('wraps be invited as rule', () => {
+    expect(buildReferenceMissTutorPrefill('be invited')).toBe('Разбери правило: «be invited»')
   })
 
   it('keeps explicit Russian question', () => {

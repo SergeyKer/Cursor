@@ -106,7 +106,11 @@ interface SlideOutMenuProps {
   onOpenProgressSpace?: () => void
   /** Full-screen My Plan space. */
   onOpenMyPlanSpace?: () => void
-  onOpenTutorChat?: (opts?: { prefill?: string }) => void
+  onOpenTutorChat?: (opts?: {
+    prefill?: string
+    returnTo?: 'reference'
+    referenceSearchQuery?: string
+  }) => void
   tutorChatPrefill?: string
   tutorChatMountKey?: number
   onPromoteTutorFromMenu?: () => void

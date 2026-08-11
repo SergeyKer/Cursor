@@ -225,13 +225,19 @@ describe('buildTutorFollowUpChip', () => {
     expect(chip).toBe(FOLLOW_UP_CHIP_BANK.exit)
   })
 
-  it('returns null for translate', () => {
+  it('returns exit chip for translate and other', () => {
     expect(
       buildTutorFollowUpChip({
         answer: { ...haveGotExplain, answerKind: 'translate' },
         level: 'a1',
       })
-    ).toBeNull()
+    ).toBe(FOLLOW_UP_CHIP_BANK.exit)
+    expect(
+      buildTutorFollowUpChip({
+        answer: { ...haveGotExplain, answerKind: 'other' },
+        level: 'a1',
+      })
+    ).toBe(FOLLOW_UP_CHIP_BANK.exit)
   })
 
   it('chip bank phrases are continue-safe', () => {

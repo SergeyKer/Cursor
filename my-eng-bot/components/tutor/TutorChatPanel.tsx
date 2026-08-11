@@ -160,6 +160,10 @@ export type TutorChatPanelProps = {
   onExplainSuccess?: (canonicalKey: string) => void
   /** Micro finale completed for topic. */
   onMicroFinale?: (canonicalKey: string) => void
+  /** Miss→tutor: show «К справочнику» after explain (not during micro). */
+  showReferenceReturnChip?: boolean
+  /** Miss→tutor: chip / optional parallel to onDone for reference restore. */
+  onReturnToReference?: () => void
 }
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
@@ -226,6 +230,8 @@ export default function TutorChatPanel({
   sessionXp = 0,
   onExplainSuccess,
   onMicroFinale,
+  showReferenceReturnChip = false,
+  onReturnToReference,
 }: TutorChatPanelProps) {
   const session = useTutorSessionOptional()
   const [draft, setDraft] = useState(() =>
@@ -515,6 +521,12 @@ export default function TutorChatPanel({
   useEffect(() => {
     if (!onFooterViewChange) return
     const audience = session?.settings.audience === 'child' ? 'child' : 'adult'
+    const canOfferMicro = Boolean(
+      lastExplain &&
+        canOfferTutorMicro(lastExplain, {
+          llmEnabled: featureFlags.tutorMicroLlmV1,
+        })
+    )
     const moment = resolveTutorFooterMoment({
       busy,
       loadingMicro,
@@ -522,6 +534,7 @@ export default function TutorChatPanel({
       hasMicroPack: Boolean(microPack),
       hasLastExplain: Boolean(lastExplain),
       hasTriageChips: triageChips.length > 0,
+      canOfferMicro,
     })
     onFooterViewChange(
       buildTutorFooterView({
@@ -1479,11 +1492,27 @@ export default function TutorChatPanel({
       llmEnabled: featureFlags.tutorMicroLlmV1,
     })
 
+  const referenceReturnChipVisible =
+    showReferenceReturnChip &&
+    Boolean(onReturnToReference) &&
+    postExplainChips &&
+    microPhase !== 'revealing' &&
+    microPhase !== 'active'
+
+  const referenceReturnChip = useMemo((): TutorComposerChip | null => {
+    if (!referenceReturnChipVisible) return null
+    return {
+      id: 'return_reference',
+      labelRu: TUTOR_CHAT_COPY.chipReturnReference,
+    }
+  }, [referenceReturnChipVisible])
+
   const finaleChips: TutorComposerChip[] = [
     ...(microChipVisible
       ? [{ id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain } satisfies TutorComposerChip]
       : []),
     ...(cheatsheetChip ? [cheatsheetChip] : []),
+    ...(referenceReturnChip && microPhase === 'finale' ? [referenceReturnChip] : []),
     ...(onDone ? [{ id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone } satisfies TutorComposerChip] : []),
   ]
 
@@ -1509,6 +1538,7 @@ export default function TutorChatPanel({
                   ? [{ id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro } satisfies TutorComposerChip]
                   : []),
                 ...(cheatsheetChip ? [cheatsheetChip] : []),
+                ...(referenceReturnChip ? [referenceReturnChip] : []),
               ]
             : triageChips
 
@@ -1583,6 +1613,12 @@ export default function TutorChatPanel({
           void startMicro()
           return
         }
+        if (chipId === 'return_reference') {
+          abortMicro()
+          clearTutorReturnContext()
+          onReturnToReference?.()
+          return
+        }
         if (chipId === 'done') {
           abortMicro()
           clearTutorReturnContext()
@@ -1633,6 +1669,10 @@ export default function TutorChatPanel({
         void startMicro()
         return
       }
+      if (chipId === 'return_reference') {
+        onReturnToReference?.()
+        return
+      }
       if (chipId === 'cheatsheet') {
         if (!cheatsheetChipAvailable) return
         if (!lastExplain || !session) {
@@ -1679,6 +1719,7 @@ export default function TutorChatPanel({
       microPhase,
       nextId,
       onDone,
+      onReturnToReference,
       postExplainChips,
       runExplain,
       session,

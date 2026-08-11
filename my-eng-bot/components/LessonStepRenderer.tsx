@@ -229,6 +229,7 @@ import { CHOICE_REOPEN_DELAY_MS } from '@/lib/lessonChoiceHighlight'
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
   'Голосовой ввод...',
+  'Распознаю речь...',
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 

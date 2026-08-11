@@ -270,6 +270,8 @@ export type LessonMenuContext = {
   referenceExerciseType?: PracticeExerciseType | null
   /** Режим обзора каталога: урок или справочник. */
   catalogBrowseIntent?: CatalogBrowseIntent | null
+  /** Поиск в хабе справочника (restore после miss→tutor). */
+  referenceSearchQuery?: string | null
   /** Урок открыт из practice/tutor-origin — footer, не destination TutorChat. */
   origin?: 'tutor' | null
 }
@@ -625,8 +627,12 @@ export interface MenuSectionPanelsProps {
   onOpenProgressSpace?: () => void
   /** Full-screen пространство Мой план (myPlanSpaceV1). */
   onOpenMyPlanSpace?: () => void
-  /** Open tutor chat v1 with optional prefill (MyPlan open_tutor). */
-  onOpenTutorChat?: (opts?: { prefill?: string }) => void
+  /** Open tutor chat v1 with optional prefill (MyPlan open_tutor / reference miss). */
+  onOpenTutorChat?: (opts?: {
+    prefill?: string
+    returnTo?: 'reference'
+    referenceSearchQuery?: string
+  }) => void
   /** Prefill for in-menu TutorChatPanel (MyPlan open_tutor). */
   tutorChatPrefill?: string
   /** Remount key when opening tutor with a new prefill. */
@@ -1368,6 +1374,7 @@ export default function MenuSectionPanels({
       pm: initialLessonMenuContext.practiceMode ?? null,
       ret: initialLessonMenuContext.referenceExerciseType ?? null,
       cbi: initialLessonMenuContext.catalogBrowseIntent ?? null,
+      rsq: initialLessonMenuContext.referenceSearchQuery ?? null,
     })
   }, [initialLessonMenuContext])
 
@@ -1407,6 +1414,11 @@ export default function MenuSectionPanels({
     setTheoryLessonSourceNav(initialLessonMenuContext.theoryLessonSource ?? null)
     setPracticeTheoryTagFilterId(initialLessonMenuContext.practiceTheoryTagFilterId ?? null)
     setCatalogBrowseIntent(initialLessonMenuContext.catalogBrowseIntent === 'reference' ? 'reference' : 'lesson')
+    if (typeof initialLessonMenuContext.referenceSearchQuery === 'string') {
+      setReferenceHubSearchQuery(initialLessonMenuContext.referenceSearchQuery)
+      setReferenceHubSearchMiss(null)
+      setReferenceHubChooseCandidates([])
+    }
 
     const q = initialLessonMenuContext.theorySearchQuery ?? null
     const rawIds = initialLessonMenuContext.activeTheoryTagIds?.filter(Boolean) ?? null
@@ -3229,7 +3241,11 @@ export default function MenuSectionPanels({
                             onClick={() => {
                               const prefill = buildReferenceMissTutorPrefill(referenceHubSearchQuery)
                               if (!prefill) return
-                              onOpenTutorChat({ prefill })
+                              onOpenTutorChat({
+                                prefill,
+                                returnTo: 'reference',
+                                referenceSearchQuery: referenceHubSearchQuery.trim(),
+                              })
                             }}
                           >
                             {REFERENCE_COPY.searchAskTutor}

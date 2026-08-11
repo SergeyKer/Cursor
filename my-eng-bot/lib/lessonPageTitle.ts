@@ -15,20 +15,29 @@ export type LessonPageTitleView = {
 }
 
 const LESSON_PREFIX = 'Урок:' as const
+const LESSON_STEPS_LABEL = 'Урок' as const
 const TIPS_PREFIX = 'Фишки:' as const
 const REFERENCE_PREFIX = 'Справочник:' as const
 
 export function buildLessonPageTitle(input: LessonPageTitleInput): LessonPageTitleView {
   const topic = input.topicTitle.trim()
+  if (input.stage === 'lesson') {
+    const progressSuffix = input.progressAriaLabel?.trim()
+    return {
+      prefix: null,
+      topicSegment: LESSON_STEPS_LABEL,
+      displayTitle: LESSON_STEPS_LABEL,
+      fullTitle: topic,
+      ariaLabel: progressSuffix ? `${LESSON_STEPS_LABEL}. ${progressSuffix}` : LESSON_STEPS_LABEL,
+    }
+  }
   const prefix =
-    input.stage === 'lesson'
-      ? null
-      : input.stage === 'tips'
-        ? TIPS_PREFIX
-        : input.stage === 'reference'
-          ? REFERENCE_PREFIX
-          : LESSON_PREFIX
-  const fullTitle = prefix ? `${prefix} ${topic}` : topic
+    input.stage === 'tips'
+      ? TIPS_PREFIX
+      : input.stage === 'reference'
+        ? REFERENCE_PREFIX
+        : LESSON_PREFIX
+  const fullTitle = `${prefix} ${topic}`
   const progressSuffix = input.progressAriaLabel?.trim()
   const ariaLabel = progressSuffix ? `${fullTitle}. ${progressSuffix}` : fullTitle
 

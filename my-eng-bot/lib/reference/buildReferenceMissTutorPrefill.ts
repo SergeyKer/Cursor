@@ -6,7 +6,7 @@ import {
 
 /**
  * Build Explain-ready tutor prefill from reference hub miss query.
- * Explicit questions / intent stay as-is; short fragments get a RU wrap for triage A.
+ * Explicit questions / intent stay as-is; short fragments get a rule-oriented wrap.
  */
 export function buildReferenceMissTutorPrefill(rawQuery: string): string {
   const q = normalizeTutorQuery(rawQuery)
@@ -16,5 +16,5 @@ export function buildReferenceMissTutorPrefill(rawQuery: string): string {
     return q
   }
 
-  return `Когда говорят «${q}» и что это значит?`
+  return `Разбери правило: «${q}»`
 }
