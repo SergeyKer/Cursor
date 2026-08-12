@@ -22,7 +22,8 @@ export async function ttsPcmResponse(params: {
   // Local VPN/Xray: HTTP TTS (WS frames die on the proxy). Vercel: WS stream, same $15/1M chars.
   if (serverHasXaiProxyEnv()) {
     const bytes = await fetchXaiTtsPcmBytes(params)
-    return new Response(bytes, {
+    const body = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+    return new Response(body, {
       status: 200,
       headers: {
         ...headers,
