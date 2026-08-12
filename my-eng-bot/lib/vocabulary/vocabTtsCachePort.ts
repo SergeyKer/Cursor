@@ -1,5 +1,9 @@
-import type { VocabTtsCachePort } from '@/lib/vocabulary/vocabTtsCachePort'
 import { createVocabTtsMemoryCache } from '@/lib/vocabulary/vocabTtsMemoryCache'
+
+export type VocabTtsCachePort = {
+  get(key: string): ArrayBuffer | null
+  set(key: string, value: ArrayBuffer): void
+}
 
 let activeCache: VocabTtsCachePort | null = null
 
