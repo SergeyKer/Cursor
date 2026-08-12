@@ -379,7 +379,7 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
                 <span className="footer-sheet__title-row">
                   <AppIconFrame
                     variant="header"
-                    src="/engvo-logo-1024-plus5-eqletters.png"
+                    src="/engvo-logo-1024-bars-vfix.png"
                     alt=""
                     className="footer-sheet__title-icon"
                     sizes="40px"

@@ -1,7 +1,6 @@
 import type { NecessaryWord, VocabularyTempo } from '@/types/vocabulary'
 
 export type WordStep =
-  | 'show_ru'
   | 'reveal_en'
   | 'check'
   | 'check_fail_say'
@@ -18,11 +17,9 @@ function shuffleInPlace<T>(items: T[]): T[] {
   return items
 }
 
-/** Sprint skips show_ru. Produce sits between Check and SpeakEn. */
-export function stepsForTempo(tempo: VocabularyTempo, phraseOnThisWord: boolean): WordStep[] {
-  const steps: WordStep[] = []
-  if (tempo === 'full') steps.push('show_ru')
-  steps.push('reveal_en', 'check', 'produce', 'speak_en')
+/** Intro is always reveal_en (RU+EN). Produce sits between Check and SpeakEn. */
+export function stepsForTempo(_tempo: VocabularyTempo, phraseOnThisWord: boolean): WordStep[] {
+  const steps: WordStep[] = ['reveal_en', 'check', 'produce', 'speak_en']
   if (phraseOnThisWord) steps.push('say_phrase')
   steps.push('done')
   return steps

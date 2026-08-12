@@ -19,7 +19,7 @@ import type { FooterVoiceTone } from '@/lib/footerVoice'
 import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 
-const LOGO_SRC = '/engvo-logo-1024-plus5-eqletters.png'
+const LOGO_SRC = '/engvo-logo-1024-bars-vfix.png'
 const QUICK_TEST_PATTERN: ChatPatternId = 'study-doodles'
 const IOS_SAFARI_DIALOG_ATTR = 'data-ios-safari-dialog'
 

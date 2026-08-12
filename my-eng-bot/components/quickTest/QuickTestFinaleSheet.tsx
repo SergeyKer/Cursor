@@ -21,7 +21,7 @@ import { manropeHome } from '@/lib/manropeHome'
 import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 
 const NOTE_LABEL_CLASS = `${manropeHome.className} text-[15px] font-bold uppercase tracking-[0.06em]`
-const LOGO_SRC = '/engvo-logo-1024-plus5-eqletters.png'
+const LOGO_SRC = '/engvo-logo-1024-bars-vfix.png'
 
 type ShowcaseError = {
   questionId: string

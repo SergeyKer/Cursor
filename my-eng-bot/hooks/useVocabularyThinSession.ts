@@ -16,7 +16,15 @@ import {
   recordWordReview,
   saveVocabularyProgress,
 } from '@/lib/vocabulary/storage'
-import { applyProduceResult, produceAccept, scrambleProduceLetters } from '@/lib/vocabulary/producePuzzle'
+import {
+  applyProduceResult,
+  isProduceFilled,
+  produceAccept,
+  produceTargetLength,
+  returnProduceLetter,
+  scrambleProduceLetters,
+  selectProduceLetter,
+} from '@/lib/vocabulary/producePuzzle'
 import { chipAccept, voiceAccept } from '@/lib/vocabulary/voiceAccept'
 import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import { lemmaKeyFromEn, markWordPassed } from '@/lib/vocabulary/wordFeed'
@@ -74,10 +82,8 @@ function buildFooter(
   }
 
   switch (step) {
-    case 'show_ru':
-      return base('Сначала смысл — русский перевод.', `Слово ${progressLabel}`, `vocab-thin-show-${sessionId}-${wordIndex}`)
     case 'reveal_en':
-      return base('Запомни английскую форму.', `Слово ${progressLabel}`, `vocab-thin-reveal-${sessionId}-${wordIndex}`)
+      return base('Запомни слово.', `Слово ${progressLabel}`, `vocab-thin-reveal-${sessionId}-${wordIndex}`)
     case 'check':
       return base('Выбери правильный перевод.', `Проверка ${progressLabel}`, `vocab-thin-check-${sessionId}-${wordIndex}`)
     case 'check_fail_say':
@@ -114,7 +120,8 @@ export function useVocabularyThinSession({
   const [step, setStep] = React.useState<WordStep | null>(null)
   const [quizOptions, setQuizOptions] = React.useState<string[]>([])
   const [produceTiles, setProduceTiles] = React.useState<string[]>([])
-  const [produceBuilt, setProduceBuilt] = React.useState('')
+  const [produceSelected, setProduceSelected] = React.useState<string[]>([])
+  const produceAssemblyRef = React.useRef({ tiles: produceTiles, selected: produceSelected })
   const [runtime, setRuntime] = React.useState<WordRuntime>({
     checkPassed: false,
     speakPassed: false,
@@ -130,6 +137,8 @@ export function useVocabularyThinSession({
   const startedAtRef = React.useRef(0)
   const sessionIdRef = React.useRef('')
   const tempoRef = React.useRef<VocabularyTempo>('sprint')
+
+  produceAssemblyRef.current = { tiles: produceTiles, selected: produceSelected }
 
   const currentWord = status === 'active' || status === 'completed' ? words[wordIndex] ?? null : null
   const phraseTarget = currentWord ? buildSayPhraseForWord(currentWord) : ''
@@ -163,8 +172,10 @@ export function useVocabularyThinSession({
         phraseRequired,
       })
       setQuizOptions([])
-      setProduceTiles(scrambleProduceLetters(word.en))
-      setProduceBuilt('')
+      const tiles = scrambleProduceLetters(word.en)
+      produceAssemblyRef.current = { tiles, selected: [] }
+      setProduceTiles(tiles)
+      setProduceSelected([])
       setLastVoiceOk(null)
       setLastProduceOk(null)
       setWordIndex(index)
@@ -284,8 +295,10 @@ export function useVocabularyThinSession({
         setQuizOptions(buildQuizOptions(word, pool))
       }
       if (upcoming === 'produce') {
-        setProduceTiles(scrambleProduceLetters(word.en))
-        setProduceBuilt('')
+        const tiles = scrambleProduceLetters(word.en)
+        produceAssemblyRef.current = { tiles, selected: [] }
+        setProduceTiles(tiles)
+        setProduceSelected([])
         setLastProduceOk(null)
       }
 
@@ -297,7 +310,7 @@ export function useVocabularyThinSession({
 
   const goNextReveal = React.useCallback(() => {
     if (status !== 'active' || !step) return
-    if (step !== 'show_ru' && step !== 'reveal_en') return
+    if (step !== 'reveal_en') return
     advanceFrom(step, runtime)
   }, [advanceFrom, runtime, status, step])
 
@@ -333,9 +346,34 @@ export function useVocabularyThinSession({
 
   const tapProduceTile = React.useCallback(
     (letter: string, tileIndex: number) => {
+      if (status !== 'active' || step !== 'produce' || !currentWord) return
+      const targetLen = produceTargetLength(currentWord.en)
+      const next = selectProduceLetter(
+        produceAssemblyRef.current.tiles,
+        produceAssemblyRef.current.selected,
+        letter,
+        tileIndex,
+        targetLen
+      )
+      produceAssemblyRef.current = next
+      setProduceTiles(next.tiles)
+      setProduceSelected(next.selected)
+      setLastProduceOk(null)
+    },
+    [currentWord, status, step]
+  )
+
+  const returnProduceSlot = React.useCallback(
+    (slotIndex: number) => {
       if (status !== 'active' || step !== 'produce') return
-      setProduceBuilt((prev) => prev + letter)
-      setProduceTiles((prev) => prev.filter((_, index) => index !== tileIndex))
+      const next = returnProduceLetter(
+        produceAssemblyRef.current.tiles,
+        produceAssemblyRef.current.selected,
+        slotIndex
+      )
+      produceAssemblyRef.current = next
+      setProduceTiles(next.tiles)
+      setProduceSelected(next.selected)
       setLastProduceOk(null)
     },
     [status, step]
@@ -343,14 +381,19 @@ export function useVocabularyThinSession({
 
   const clearProduce = React.useCallback(() => {
     if (status !== 'active' || step !== 'produce' || !currentWord) return
-    setProduceTiles(scrambleProduceLetters(currentWord.en))
-    setProduceBuilt('')
+    const tiles = scrambleProduceLetters(currentWord.en)
+    const next = { tiles, selected: [] as string[] }
+    produceAssemblyRef.current = next
+    setProduceTiles(tiles)
+    setProduceSelected([])
     setLastProduceOk(null)
   }, [currentWord, status, step])
 
   const submitProduce = React.useCallback(() => {
     if (status !== 'active' || step !== 'produce' || !currentWord) return
-    const ok = produceAccept(produceBuilt, currentWord.en)
+    const selected = produceAssemblyRef.current.selected
+    if (!isProduceFilled(selected, currentWord.en)) return
+    const ok = produceAccept(selected.join(''), currentWord.en)
     setLastProduceOk(ok)
 
     setProgress((prev) => {
@@ -361,13 +404,16 @@ export function useVocabularyThinSession({
     })
 
     if (!ok) {
-      setProduceTiles(scrambleProduceLetters(currentWord.en))
-      setProduceBuilt('')
+      const tiles = scrambleProduceLetters(currentWord.en)
+      const next = { tiles, selected: [] as string[] }
+      produceAssemblyRef.current = next
+      setProduceTiles(tiles)
+      setProduceSelected([])
       return
     }
 
     advanceFrom('produce', runtime)
-  }, [advanceFrom, currentWord, produceBuilt, runtime, setProgress, status, step])
+  }, [advanceFrom, currentWord, runtime, setProgress, status, step])
 
   const acceptVoice = React.useCallback(
     (transcript: string) => {
@@ -425,6 +471,8 @@ export function useVocabularyThinSession({
     [bankedWordIds, words]
   )
 
+  const produceFilled = Boolean(currentWord && isProduceFilled(produceSelected, currentWord.en))
+
   return {
     status,
     words,
@@ -437,7 +485,8 @@ export function useVocabularyThinSession({
     steps,
     quizOptions,
     produceTiles,
-    produceBuilt,
+    produceSelected,
+    produceFilled,
     phraseTarget,
     footerView,
     lastVoiceOk,
@@ -449,6 +498,7 @@ export function useVocabularyThinSession({
     acceptChip,
     acceptVoice,
     tapProduceTile,
+    returnProduceSlot,
     clearProduce,
     submitProduce,
     skipSpeakAccessibility,

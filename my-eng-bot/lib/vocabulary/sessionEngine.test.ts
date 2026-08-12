@@ -23,7 +23,7 @@ const word = (id: number, en: string, ru: string): NecessaryWord => ({
 })
 
 describe('sessionEngine', () => {
-  it('builds sprint steps without show_ru', () => {
+  it('builds sprint steps with shared intro', () => {
     expect(stepsForTempo('sprint', false)).toEqual(['reveal_en', 'check', 'produce', 'speak_en', 'done'])
     expect(stepsForTempo('sprint', true)).toEqual([
       'reveal_en',
@@ -35,9 +35,8 @@ describe('sessionEngine', () => {
     ])
   })
 
-  it('builds full steps with show_ru and optional phrase', () => {
+  it('builds full steps with shared intro and optional phrase', () => {
     expect(stepsForTempo('full', true)).toEqual([
-      'show_ru',
       'reveal_en',
       'check',
       'produce',
@@ -45,14 +44,7 @@ describe('sessionEngine', () => {
       'say_phrase',
       'done',
     ])
-    expect(stepsForTempo('full', false)).toEqual([
-      'show_ru',
-      'reveal_en',
-      'check',
-      'produce',
-      'speak_en',
-      'done',
-    ])
+    expect(stepsForTempo('full', false)).toEqual(['reveal_en', 'check', 'produce', 'speak_en', 'done'])
   })
 
   it('picks middle-ish phrase word index', () => {

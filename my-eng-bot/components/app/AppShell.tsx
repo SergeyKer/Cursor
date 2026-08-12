@@ -1185,6 +1185,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [vocabularyFeedActive, setVocabularyFeedActive] = useState(false)
   const [vocabularyPackId, setVocabularyPackId] = useState<string | null>(null)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
+  const [vocabularySessionActive, setVocabularySessionActive] = useState(false)
+  const [vocabularyExitRequestKey, setVocabularyExitRequestKey] = useState(0)
+  const vocabularyLeaveHandlerRef = React.useRef<(() => void) | null>(null)
   const [progressSpaceActive, setProgressSpaceActive] = useState(false)
   const [myPlanSpaceActive, setMyPlanSpaceActive] = useState(false)
   const [tutorChatSpaceActive, setTutorChatSpaceActive] = useState(false)
@@ -7659,6 +7662,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setVocabularyByLevelActive(false)
     setVocabularyFeedActive(false)
     setVocabularyPackId(null)
+    setVocabularySessionActive(false)
+    vocabularyLeaveHandlerRef.current = null
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
     restoreLessonMenuOnNextOpenRef.current = true
     setMenuOpen(true)
@@ -8841,6 +8846,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     communicationChatActive,
     communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
     isVocabularyHubActive,
+    isVocabularySessionActive: vocabularySessionActive,
     isAccentActive,
     isReferenceSheetActive: isReferenceSheetActive || tutorTopicSheetPending,
     tutorMicroLocked,
@@ -8856,6 +8862,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     communicationChatActive,
     communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
     isVocabularyHubActive,
+    isVocabularySessionActive: vocabularySessionActive,
     isAccentActive,
     isReferenceSheetActive: isReferenceSheetActive || tutorTopicSheetPending,
     tutorMicroLocked,
@@ -8924,6 +8931,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         exitCommunicationSessionTo('myPlan')
       } else if (kind === 'tutor') {
         exitTutorChatSpace()
+      } else if (kind === 'vocabulary') {
+        vocabularyLeaveHandlerRef.current?.()
+        setVocabularySessionActive(false)
       }
     } finally {
       window.setTimeout(() => {
@@ -10908,6 +10918,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     !isLessonActive &&
     !isPracticeActive &&
     !isReferenceSheetActive &&
+    !isVocabularyHubActive &&
     !engvoVoiceMode
   const headerTitleMaxWidthClass = getAppHeaderTitleMaxWidthClass({
     dialogStarted,
@@ -10923,9 +10934,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const pageTitle = !dialogStarted
     ? 'Engvo AI - English Voice'
     : isVocabularyHubActive
-      ? vocabularyByLevelActive
-        ? 'Слова по уровням MyEng'
-        : 'Самые необходимые слова MyEng'
+      ? 'Слова'
     : isPracticeActive && activePracticeSession
       ? `Практика ${
           activePracticeSession.mode === 'reference'
@@ -11526,6 +11535,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       packId={vocabularyPackId}
                       onBack={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
+                      onSessionActiveChange={setVocabularySessionActive}
+                      onRegisterLeaveHandler={(handler) => {
+                        vocabularyLeaveHandlerRef.current = handler
+                      }}
+                      exitRequestKey={vocabularyExitRequestKey}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
@@ -11540,6 +11554,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     <VocabularyWorldsScreen
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
+                      onSessionActiveChange={setVocabularySessionActive}
+                      onRegisterLeaveHandler={(handler) => {
+                        vocabularyLeaveHandlerRef.current = handler
+                      }}
+                      exitRequestKey={vocabularyExitRequestKey}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
@@ -11547,6 +11566,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     <VocabularyByLevelScreen
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
+                      onSessionActiveChange={setVocabularySessionActive}
+                      onRegisterLeaveHandler={(handler) => {
+                        vocabularyLeaveHandlerRef.current = handler
+                      }}
+                      exitRequestKey={vocabularyExitRequestKey}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />

@@ -24,6 +24,51 @@ export function produceAccept(guess: string, targetEn: string): boolean {
   return Boolean(a && b && a === b)
 }
 
+export function produceTargetLength(targetEn: string): number {
+  return targetEn.trim().length
+}
+
+export function isProduceFilled(selected: string[], targetEn: string): boolean {
+  return selected.length === produceTargetLength(targetEn)
+}
+
+export type ProduceAssemblyState = {
+  tiles: string[]
+  selected: string[]
+}
+
+/** Append letter from bank into slots; no-op when already filled or index invalid. */
+export function selectProduceLetter(
+  tiles: string[],
+  selected: string[],
+  letter: string,
+  tileIndex: number,
+  targetLen: number
+): ProduceAssemblyState {
+  if (selected.length >= targetLen) return { tiles, selected }
+  if (tileIndex < 0 || tileIndex >= tiles.length) return { tiles, selected }
+  if (tiles[tileIndex] !== letter) return { tiles, selected }
+  return {
+    tiles: tiles.filter((_, index) => index !== tileIndex),
+    selected: [...selected, letter],
+  }
+}
+
+/** Return letter from slot back to end of bank; no-op on bad index. */
+export function returnProduceLetter(
+  tiles: string[],
+  selected: string[],
+  slotIndex: number
+): ProduceAssemblyState {
+  if (slotIndex < 0 || slotIndex >= selected.length) return { tiles, selected }
+  const letter = selected[slotIndex]
+  if (letter === undefined) return { tiles, selected }
+  return {
+    tiles: [...tiles, letter],
+    selected: selected.filter((_, index) => index !== slotIndex),
+  }
+}
+
 /** Produce success +1 stage; fail −2 (clamped). Does not gate bank. */
 export function applyProduceResult(
   progress: VocabularyWordProgress,
