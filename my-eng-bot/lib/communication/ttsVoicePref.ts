@@ -1,0 +1,32 @@
+import {
+  ENGVO_XAI_DEFAULT_VOICE,
+  isEngvoAllowedXaiVoice,
+  type EngvoXaiCallVoice,
+} from '@/lib/engvo/constants'
+
+const PREF_KEY = 'engvo_communication_tts_voice'
+
+function canUseStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined'
+}
+
+export function getCommunicationTtsVoicePref(): EngvoXaiCallVoice {
+  if (!canUseStorage()) return ENGVO_XAI_DEFAULT_VOICE
+  try {
+    const raw = window.localStorage.getItem(PREF_KEY)?.trim() ?? ''
+    if (isEngvoAllowedXaiVoice(raw)) return raw
+    return ENGVO_XAI_DEFAULT_VOICE
+  } catch {
+    return ENGVO_XAI_DEFAULT_VOICE
+  }
+}
+
+export function setCommunicationTtsVoicePref(value: string): void {
+  if (!canUseStorage()) return
+  if (!isEngvoAllowedXaiVoice(value)) return
+  try {
+    window.localStorage.setItem(PREF_KEY, value)
+  } catch {
+    // ignore
+  }
+}

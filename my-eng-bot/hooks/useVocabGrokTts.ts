@@ -1,12 +1,22 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { featureFlags } from '@/lib/featureFlags'
 import {
   cyclePracticeTtsSpeedIndex,
   getPracticeTtsRateByIndex,
   getPracticeTtsSpeedPreset,
 } from '@/lib/practice/practiceTtsSpeedPresets'
-import { playVocabTts, stopVocabTts } from '@/lib/vocabulary/playVocabTts'
+import { getVocabTtsEnginePref } from '@/lib/vocabulary/ttsEnginePref'
+import {
+  playVocabTts,
+  prefetchVocabTts,
+  resolveVocabGrokVoice,
+  stopVocabTts,
+} from '@/lib/vocabulary/playVocabTts'
+import { unlockTtsAudioContext } from '@/lib/tts/streamTtsPlayback'
+
+const PREFETCH_DEBOUNCE_MS = 300
 
 export type UseVocabGrokTtsOptions = {
   text: string
@@ -40,9 +50,19 @@ export function useVocabGrokTts({
   const playbackGenerationRef = useRef(0)
   const playbackKeyRef = useRef(playbackKey)
   const speakTimerRef = useRef<number | null>(null)
+  const grokVoiceKeyRef = useRef('')
+  const grokVoiceRef = useRef('')
 
   speedIndexRef.current = speedIndex
   isPlayingRef.current = isPlaying
+
+  const voiceForCard = useCallback((key: string): string => {
+    if (grokVoiceKeyRef.current === key && grokVoiceRef.current) return grokVoiceRef.current
+    const next = resolveVocabGrokVoice()
+    grokVoiceKeyRef.current = key
+    grokVoiceRef.current = next
+    return next
+  }, [])
 
   const clearSpeakTimer = useCallback(() => {
     if (speakTimerRef.current != null) {
@@ -79,6 +99,10 @@ export function useVocabGrokTts({
         playVocabTts(normalized, {
           rate,
           browserVoiceId: voiceId,
+          grokVoiceId:
+            featureFlags.vocabGrokTtsV1 && getVocabTtsEnginePref() === 'grok'
+              ? voiceForCard(playbackKeyRef.current)
+              : undefined,
           onStart: () => {
             if (playbackGenerationRef.current !== generation) return
             setIsPlaying(true)
@@ -94,7 +118,7 @@ export function useVocabGrokTts({
         })
       }, 0)
     },
-    [clearSpeakTimer, disabled, voiceId]
+    [clearSpeakTimer, disabled, voiceForCard, voiceId]
   )
 
   const togglePlay = useCallback(() => {
@@ -105,6 +129,7 @@ export function useVocabGrokTts({
       return
     }
 
+    unlockTtsAudioContext()
     startPlayback(text, getPracticeTtsRateByIndex(speedIndexRef.current))
   }, [disabled, isPlaying, startPlayback, stop, text])
 
@@ -115,6 +140,7 @@ export function useVocabGrokTts({
     onSpeedIndexChange(next)
 
     if (isPlayingRef.current && text.trim()) {
+      unlockTtsAudioContext()
       startPlayback(text, getPracticeTtsRateByIndex(next))
     }
   }, [disabled, onSpeedIndexChange, startPlayback, text])
@@ -124,6 +150,18 @@ export function useVocabGrokTts({
     playbackKeyRef.current = playbackKey
     stop()
   }, [playbackKey, stop])
+
+  useEffect(() => {
+    if (disabled || !text.trim()) return
+    if (!featureFlags.vocabGrokTtsV1 || getVocabTtsEnginePref() !== 'grok') return
+
+    const key = playbackKey
+    const rate = getPracticeTtsRateByIndex(speedIndex)
+    const timer = window.setTimeout(() => {
+      prefetchVocabTts(text, { rate, grokVoiceId: voiceForCard(key) })
+    }, PREFETCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [disabled, playbackKey, speedIndex, text, voiceForCard])
 
   useEffect(() => {
     return () => {

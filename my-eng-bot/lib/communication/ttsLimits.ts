@@ -1,0 +1,1 @@
+export const COMMUNICATION_TTS_MAX_CHARS = 1200

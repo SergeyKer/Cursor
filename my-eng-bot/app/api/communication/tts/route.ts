@@ -6,15 +6,14 @@ import {
 import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE } from '@/lib/engvo/errors'
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/ai/ipRateLimit'
 import { clampVocabTtsSpeed } from '@/lib/vocabulary/clampVocabTtsSpeed'
-import { buildVocabPronunciationReplace } from '@/lib/vocabulary/pronunciationReplace'
 import { ttsFailedResponse, ttsPcmResponse } from '@/lib/tts/ttsPcmResponse'
+import { COMMUNICATION_TTS_MAX_CHARS } from '@/lib/communication/ttsLimits'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 180
 
-const MAX_TEXT_CHARS = 200
-const VOCAB_TTS_RATE_BUCKETS = new Map<string, { count: number; resetAt: number }>()
+const COMMUNICATION_TTS_RATE_BUCKETS = new Map<string, { count: number; resetAt: number }>()
 
 function normalizeKey(raw: string): string {
   return raw.replace(/^["'\s]+|["'\s]+$/g, '')
@@ -24,10 +23,10 @@ export async function POST(req: NextRequest) {
   try {
     if (
       !checkIpRateLimit({
-        buckets: VOCAB_TTS_RATE_BUCKETS,
+        buckets: COMMUNICATION_TTS_RATE_BUCKETS,
         ip: clientIpFromRequest(req.headers),
         windowMs: 60_000,
-        max: 60,
+        max: 30,
       })
     ) {
       return NextResponse.json(
@@ -57,7 +56,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    if (text.length > MAX_TEXT_CHARS) {
+    if (text.length > COMMUNICATION_TTS_MAX_CHARS) {
       return NextResponse.json(
         { error: 'text_too_long', userMessage: 'Текст слишком длинный для озвучки.' },
         { status: 400 }
@@ -70,14 +69,12 @@ export async function POST(req: NextRequest) {
       typeof body.speed === 'number' && Number.isFinite(body.speed)
         ? clampVocabTtsSpeed(body.speed)
         : 1
-    const replace = buildVocabPronunciationReplace(text)
 
     return await ttsPcmResponse({
       apiKey,
       text,
       voiceId,
       speed,
-      replace,
     })
   } catch (error) {
     return ttsFailedResponse(error)

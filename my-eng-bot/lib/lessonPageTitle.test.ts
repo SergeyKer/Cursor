@@ -163,6 +163,21 @@ describe('getAppHeaderTitleMaxWidthClass', () => {
     ).toBe('max-w-[calc(100%-3rem-12.5rem)] sm:max-w-[calc(100%-3rem-14.5rem)]')
   })
 
+  it('reserves extra space for communication auto-tts next to session exit', () => {
+    expect(
+      getAppHeaderTitleMaxWidthClass({
+        dialogStarted: true,
+        hasCommunicationControls: false,
+        lessonPageTitleView: false,
+        hasLessonHeaderProgress: false,
+        isLessonPreSteps: false,
+        hasHeaderMedal: false,
+        hasSessionExitControl: true,
+        hasCommunicationAutoTts: true,
+      })
+    ).toBe('max-w-[calc(100%-3rem-8.5rem)]')
+  })
+
   it('reserves exit control space on dialog without lesson title', () => {
     expect(
       getAppHeaderTitleMaxWidthClass({

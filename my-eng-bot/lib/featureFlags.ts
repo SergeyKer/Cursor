@@ -61,5 +61,10 @@ export const featureFlags = {
    * Default on; =false hides Grok and forces system speechSynthesis.
    */
   vocabGrokTtsV1: process.env.NEXT_PUBLIC_FEATURE_VOCAB_GROK_TTS !== 'false',
+  /**
+   * Grok TTS for communication chat (menu Озвучка + header auto-speak).
+   * Default on; =false hides Grok and forces system speechSynthesis.
+   */
+  communicationGrokTtsV1: process.env.NEXT_PUBLIC_FEATURE_COMMUNICATION_GROK_TTS !== 'false',
 } as const
 

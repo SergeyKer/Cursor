@@ -1606,6 +1606,20 @@ select.select-chevron {
   pointer-events: none;
 }
 
+/* В поле общения / репетитора: иконка без кружка в покое, круглая зона наведения. */
+button.chat-input-inline-speaker-button,
+button.tutor-composer-paperclip-button {
+  box-shadow: none;
+  overflow: hidden;
+}
+
+button.chat-input-inline-speaker-button:hover:not(:disabled),
+button.chat-input-inline-speaker-button:focus-visible:not(:disabled),
+button.tutor-composer-paperclip-button:hover:not(:disabled),
+button.tutor-composer-paperclip-button:focus-visible:not(:disabled) {
+  box-shadow: var(--chat-button-shadow-hover);
+}
+
 /* РџР°РЅРµР»СЊ Р·РІРѕРЅРєР° Engvo: С‚СЂРё РєРѕР»РѕРЅРєРё РІ СЂСЏРґ (РР | С‚Р°Р№РјРµСЂ | РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ). */
 .engvo-call-status-strip {
   display: grid;
@@ -2726,7 +2740,7 @@ html[data-theme='glass3'] {
     min-height: auto;
   }
 
-  /* Круг «Прослушать» в поле ввода: не растягивать по высоте многострочного textarea. */
+  /* Иконка «Прослушать» в поле ввода: не растягивать по высоте многострочного textarea. */
   button.chat-input-inline-speaker-button,
   button.tutor-composer-paperclip-button {
     min-height: 2rem;

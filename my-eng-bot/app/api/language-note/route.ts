@@ -9,6 +9,7 @@ import {
 import { parseLanguageNoteResponse } from '@/lib/languageNote/parseLanguageNoteResponse'
 import { applyTeacherEtalonLock } from '@/lib/languageNote/applyTeacherEtalonLock'
 import { truncateLanguageNoteInput } from '@/lib/languageNote/eligibility'
+import { normalizeCommunicationVoiceInputMode } from '@/lib/communicationVoiceInputMode'
 import type { Audience, CommunicationVoiceInputMode } from '@/lib/types'
 import type { LanguageNoteMode } from '@/lib/languageNote/types'
 
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
     const rawVoice = body.communicationVoiceInputMode
     const communicationVoiceInputMode: CommunicationVoiceInputMode | null =
       mode === 'communication' && (rawVoice === 'ru' || rawVoice === 'en' || rawVoice === 'mix')
-        ? rawVoice
+        ? normalizeCommunicationVoiceInputMode(rawVoice)
         : null
     const correctTarget = resolveLanguageNoteCorrectTarget(mode, communicationVoiceInputMode)
     const recentAssistantText =

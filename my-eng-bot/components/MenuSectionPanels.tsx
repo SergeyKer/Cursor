@@ -41,6 +41,25 @@ import {
   type VocabTtsEngine,
 } from '@/lib/vocabulary/ttsEnginePref'
 import { getVocabTtsVoicePref, setVocabTtsVoicePref } from '@/lib/vocabulary/ttsVoicePref'
+import {
+  clearVocabTtsShuffleRemaining,
+  getVocabTtsRotationModePref,
+  setVocabTtsRotationModePref,
+} from '@/lib/vocabulary/ttsRotationPref'
+import {
+  getCommunicationTtsEnginePref,
+  setCommunicationTtsEnginePref,
+  type CommunicationTtsEngine,
+} from '@/lib/communication/ttsEnginePref'
+import {
+  getCommunicationTtsVoicePref,
+  setCommunicationTtsVoicePref,
+} from '@/lib/communication/ttsVoicePref'
+import {
+  clearCommunicationTtsShuffleRemaining,
+  getCommunicationTtsRotationModePref,
+  setCommunicationTtsRotationModePref,
+} from '@/lib/communication/ttsRotationPref'
 import { buildPracticeModeEconomyBlurb } from '@/lib/practice/practiceCoinExplainCopy'
 import {
   DEFAULT_LESSON_LIST_DENSITY,
@@ -134,8 +153,6 @@ import {
   ENGVO_REALTIME_VOICES,
   ENGVO_SPEECH_SPEED_PRESETS,
   ENGVO_XAI_DEFAULT_VOICE,
-  ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS,
-  ENGVO_XAI_VOICE_SECTIONS,
   formatEngvoXaiVoiceRotationSummary,
   getEngvoXaiVoiceSection,
   type EngvoCefrLevel,
@@ -166,6 +183,9 @@ import {
 } from '@/lib/engvo/teacherLessonAxis'
 import { formatEngvoVoiceDisplayName } from '@/lib/engvo/voiceDisplayName'
 import { listEngvoCustomVoices } from '@/lib/engvo/voiceLab/customVoicesManifest'
+import { ensureBuiltInXaiVoiceForRotation } from '@/lib/engvo/xaiVoiceRotation'
+import { XaiTtsVoiceMenu } from '@/components/tts/XaiTtsVoiceMenu'
+import { COMMUNICATION_TTS_COPY } from '@/lib/uiCopy/communicationTts'
 import {
   getPracticeTtsSpeedPreset,
   PRACTICE_TTS_SPEED_PRESETS,
@@ -255,6 +275,7 @@ export type LessonsPanel =
   | 'wordsFeed'
   | 'wordsTts'
   | 'wordsTtsVoice'
+  | 'wordsTtsRotation'
   | 'wordsTtsVoiceSection'
 
 /** Контекст меню «Уроки» для восстановления после урока (теория по теме / практика). */
@@ -305,6 +326,10 @@ const AI_CHAT_PANEL_TITLE: Record<AiChatPanel, string> = {
   topic: 'Тема',
   level: 'Уровень',
   translationFocus: TRANSLATION_MENU_COPY.focusLabel,
+  tts: COMMUNICATION_TTS_COPY.engineLabel,
+  voice: COMMUNICATION_TTS_COPY.voiceLabel,
+  voiceRotation: 'Случайный',
+  voiceSection: COMMUNICATION_TTS_COPY.voiceLabel,
 }
 
 function resolveAiChatSummaryTitle(mode: AppMode): string {
@@ -399,6 +424,7 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   wordsFeed: 'Слова в деле',
   wordsTts: 'Озвучка',
   wordsTtsVoice: 'Голос',
+  wordsTtsRotation: 'Случайный',
   wordsTtsVoiceSection: 'Голос',
 }
 
@@ -839,6 +865,17 @@ export default function MenuSectionPanels({
     React.useState<EngvoXaiVoiceSectionId>('classic')
   const [vocabTtsEngine, setVocabTtsEngineState] = React.useState<VocabTtsEngine>('grok')
   const [vocabTtsVoice, setVocabTtsVoiceState] = React.useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)
+  const [vocabTtsRotationMode, setVocabTtsRotationModeState] = React.useState<EngvoXaiVoiceRotationMode>(
+    ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE
+  )
+  const [communicationTtsEngine, setCommunicationTtsEngineState] =
+    React.useState<CommunicationTtsEngine>('system')
+  const [communicationTtsVoice, setCommunicationTtsVoiceState] =
+    React.useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)
+  const [communicationTtsRotationMode, setCommunicationTtsRotationModeState] =
+    React.useState<EngvoXaiVoiceRotationMode>(ENGVO_DEFAULT_XAI_VOICE_ROTATION_MODE)
+  const [communicationTtsVoiceSectionId, setCommunicationTtsVoiceSectionId] =
+    React.useState<EngvoXaiVoiceSectionId>('classic')
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   /** Hub to return to from aiChat/engvo/practice leaf (cleared on root/Home). */
   const [menuReturnView, setMenuReturnView] = React.useState<MenuView | null>(null)
@@ -854,6 +891,10 @@ export default function MenuSectionPanels({
     setLoadStudyingPrefState(getLoadStudyingPref())
     setVocabTtsEngineState(getVocabTtsEnginePref())
     setVocabTtsVoiceState(getVocabTtsVoicePref())
+    setVocabTtsRotationModeState(getVocabTtsRotationModePref())
+    setCommunicationTtsEngineState(getCommunicationTtsEnginePref())
+    setCommunicationTtsVoiceState(getCommunicationTtsVoicePref())
+    setCommunicationTtsRotationModeState(getCommunicationTtsRotationModePref())
   }, [])
 
   React.useEffect(() => {
@@ -1370,6 +1411,17 @@ export default function MenuSectionPanels({
       setAiChatPanel('summary')
     }
   }, [settings, aiChatPanel])
+
+  React.useEffect(() => {
+    const ttsPanel =
+      aiChatPanel === 'tts' ||
+      aiChatPanel === 'voice' ||
+      aiChatPanel === 'voiceRotation' ||
+      aiChatPanel === 'voiceSection'
+    if (!ttsPanel) return
+    if (settings.mode === 'communication' && featureFlags.communicationGrokTtsV1) return
+    setAiChatPanel('summary')
+  }, [settings.mode, aiChatPanel])
 
   React.useEffect(() => {
     if (menuView !== 'settings') setSettingsPanel('summary')
@@ -1902,15 +1954,6 @@ export default function MenuSectionPanels({
     engvoProvider === 'xai'
       ? formatEngvoXaiVoiceRotationSummary(engvoXaiVoiceRotationMode, engvoVoiceDisplayName)
       : engvoVoiceDisplayName
-  const engvoXaiRotationModeLabel =
-    ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS.find((o) => o.id === engvoXaiVoiceRotationMode)?.label ??
-    'Нет'
-  const currentXaiVoiceSection = getEngvoXaiVoiceSection(engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE)
-  const selectedXaiVoiceSection =
-    selectedXaiVoiceSectionId === 'other'
-      ? null
-      : ENGVO_XAI_VOICE_SECTIONS.find((s) => s.id === selectedXaiVoiceSectionId) ??
-        ENGVO_XAI_VOICE_SECTIONS[0]
   const engvoLevelLabel =
     ENGVO_LEVEL_OPTIONS.find((l) => l.id === (engvoCefrLevel ?? 'a2'))?.label ?? 'A2'
   const engvoSpeechSpeedLabel =
@@ -2075,7 +2118,7 @@ export default function MenuSectionPanels({
         setLessonsPanel('pronunciation')
         return
       }
-      if (lessonsPanel === 'wordsTtsVoiceSection') {
+      if (lessonsPanel === 'wordsTtsVoiceSection' || lessonsPanel === 'wordsTtsRotation') {
         setLessonsPanel('wordsTtsVoice')
         return
       }
@@ -2116,6 +2159,10 @@ export default function MenuSectionPanels({
         setAiChatTenseReturnPanel('summary')
         return
       }
+      if (aiChatPanel === 'voiceSection' || aiChatPanel === 'voiceRotation') {
+        setAiChatPanel('voice')
+        return
+      }
       setAiChatPanel('summary')
       return
     }
@@ -2148,7 +2195,12 @@ export default function MenuSectionPanels({
         return
       }
     }
-    if (menuView === 'communication' || menuView === 'practice') {
+    if (menuView === 'communication') {
+      setMenuReturnView(null)
+      onMenuViewChange('root')
+      return
+    }
+    if (menuView === 'practice') {
       setMenuReturnView(null)
       onMenuViewChange('root')
       return
@@ -2901,52 +2953,35 @@ export default function MenuSectionPanels({
               />
             )}
             {engvoPanel === 'voice' && engvoProvider === 'xai' && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  <MenuSettingRow
-                    label="Случайный"
-                    value={engvoXaiRotationModeLabel}
-                    onClick={() => setEngvoPanel('voiceRotation')}
-                  />
-                  {ENGVO_XAI_VOICE_SECTIONS.map((section) => (
-                    <MenuSettingRow
-                      key={section.id}
-                      label={section.label}
-                      value={
-                        currentXaiVoiceSection === section.id ? engvoVoiceDisplayName : ''
-                      }
-                      onClick={() => {
-                        setSelectedXaiVoiceSectionId(section.id)
-                        setEngvoPanel('voiceSection')
-                      }}
-                    />
-                  ))}
-                  {customXaiVoices.length > 0 && (
-                    <MenuSettingRow
-                      label="Other"
-                      value={
-                        currentXaiVoiceSection === 'other' ? engvoVoiceDisplayName : ''
-                      }
-                      onClick={() => {
-                        setSelectedXaiVoiceSectionId('other')
-                        setEngvoPanel('voiceSection')
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
+              <XaiTtsVoiceMenu
+                view="hub"
+                voice={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
+                rotationMode={engvoXaiVoiceRotationMode}
+                sectionId={selectedXaiVoiceSectionId}
+                customVoices={customXaiVoices}
+                onOpenRotation={() => setEngvoPanel('voiceRotation')}
+                onOpenSection={(id) => {
+                  setSelectedXaiVoiceSectionId(id)
+                  setEngvoPanel('voiceSection')
+                }}
+                onSelectRotation={() => undefined}
+                onSelectVoice={() => undefined}
+              />
             )}
             {engvoPanel === 'voiceRotation' && engvoProvider === 'xai' && (
-              <PickerList
-                options={ENGVO_XAI_VOICE_ROTATION_MODE_OPTIONS.map((o) => ({
-                  id: o.id,
-                  label: o.label,
-                }))}
-                value={engvoXaiVoiceRotationMode}
-                onSelect={(id) => {
-                  onEngvoXaiVoiceRotationModeChange?.(id as EngvoXaiVoiceRotationMode)
+              <XaiTtsVoiceMenu
+                view="rotation"
+                voice={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
+                rotationMode={engvoXaiVoiceRotationMode}
+                sectionId={selectedXaiVoiceSectionId}
+                customVoices={customXaiVoices}
+                onOpenRotation={() => undefined}
+                onOpenSection={() => undefined}
+                onSelectRotation={(id) => {
+                  onEngvoXaiVoiceRotationModeChange?.(id)
                   setEngvoPanel('voice')
                 }}
+                onSelectVoice={() => undefined}
               />
             )}
             {engvoPanel === 'voice' && engvoProvider !== 'xai' && (
@@ -2962,24 +2997,17 @@ export default function MenuSectionPanels({
                 }}
               />
             )}
-            {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && selectedXaiVoiceSectionId === 'other' && (
-              <PickerList
-                options={customXaiVoices.map((voice) => ({ id: voice.voiceId, label: voice.name }))}
-                value={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
-                onSelect={(id) => {
-                  onEngvoXaiVoiceChange?.(id)
-                  setEngvoPanel('summary')
-                }}
-              />
-            )}
-            {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && selectedXaiVoiceSection && (
-              <PickerList
-                options={selectedXaiVoiceSection.voices.map((voice) => ({
-                  id: voice,
-                  label: formatEngvoVoiceDisplayName(voice),
-                }))}
-                value={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
-                onSelect={(id) => {
+            {engvoPanel === 'voiceSection' && engvoProvider === 'xai' && (
+              <XaiTtsVoiceMenu
+                view="section"
+                voice={engvoXaiVoice ?? ENGVO_XAI_DEFAULT_VOICE}
+                rotationMode={engvoXaiVoiceRotationMode}
+                sectionId={selectedXaiVoiceSectionId}
+                customVoices={customXaiVoices}
+                onOpenRotation={() => undefined}
+                onOpenSection={() => undefined}
+                onSelectRotation={() => undefined}
+                onSelectVoice={(id) => {
                   onEngvoXaiVoiceChange?.(id)
                   setEngvoPanel('summary')
                 }}
@@ -3076,7 +3104,10 @@ export default function MenuSectionPanels({
                       {vocabTtsEngine === 'grok' ? (
                         <MenuSettingRow
                           label="Голос"
-                          value={formatEngvoVoiceDisplayName(vocabTtsVoice)}
+                          value={formatEngvoXaiVoiceRotationSummary(
+                            vocabTtsRotationMode,
+                            formatEngvoVoiceDisplayName(vocabTtsVoice)
+                          )}
                           onClick={() => {
                             setVocabTtsVoiceSectionId(getEngvoXaiVoiceSection(vocabTtsVoice))
                             setLessonsPanel('wordsTtsVoice')
@@ -3106,76 +3137,68 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'wordsTtsVoice' && featureFlags.vocabGrokTtsV1 && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  {ENGVO_XAI_VOICE_SECTIONS.map((section) => (
-                    <MenuSettingRow
-                      key={section.id}
-                      label={section.label}
-                      value={
-                        getEngvoXaiVoiceSection(vocabTtsVoice) === section.id
-                          ? formatEngvoVoiceDisplayName(vocabTtsVoice)
-                          : ''
-                      }
-                      onClick={() => {
-                        setVocabTtsVoiceSectionId(section.id)
-                        setLessonsPanel('wordsTtsVoiceSection')
-                      }}
-                    />
-                  ))}
-                  {customXaiVoices.length > 0 && (
-                    <MenuSettingRow
-                      label="Other"
-                      value={
-                        getEngvoXaiVoiceSection(vocabTtsVoice) === 'other'
-                          ? formatEngvoVoiceDisplayName(vocabTtsVoice)
-                          : ''
-                      }
-                      onClick={() => {
-                        setVocabTtsVoiceSectionId('other')
-                        setLessonsPanel('wordsTtsVoiceSection')
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
+              <XaiTtsVoiceMenu
+                view="hub"
+                voice={vocabTtsVoice}
+                rotationMode={vocabTtsRotationMode}
+                sectionId={vocabTtsVoiceSectionId}
+                customVoices={customXaiVoices}
+                onOpenRotation={() => setLessonsPanel('wordsTtsRotation')}
+                onOpenSection={(id) => {
+                  setVocabTtsVoiceSectionId(id)
+                  setLessonsPanel('wordsTtsVoiceSection')
+                }}
+                onSelectRotation={() => undefined}
+                onSelectVoice={() => undefined}
+              />
             )}
 
-            {lessonsPanel === 'wordsTtsVoiceSection' &&
-              featureFlags.vocabGrokTtsV1 &&
-              vocabTtsVoiceSectionId === 'other' && (
-                <PickerList
-                  options={customXaiVoices.map((voice) => ({
-                    id: voice.voiceId,
-                    label: voice.name,
-                  }))}
-                  value={vocabTtsVoice}
-                  onSelect={(id) => {
-                    setVocabTtsVoicePref(id)
-                    setVocabTtsVoiceState(getVocabTtsVoicePref())
-                    setLessonsPanel('words')
-                  }}
-                />
-              )}
+            {lessonsPanel === 'wordsTtsRotation' && featureFlags.vocabGrokTtsV1 && (
+              <XaiTtsVoiceMenu
+                view="rotation"
+                voice={vocabTtsVoice}
+                rotationMode={vocabTtsRotationMode}
+                sectionId={vocabTtsVoiceSectionId}
+                customVoices={customXaiVoices}
+                onOpenRotation={() => undefined}
+                onOpenSection={() => undefined}
+                onSelectRotation={(mode) => {
+                  setVocabTtsRotationModePref(mode)
+                  setVocabTtsRotationModeState(mode)
+                  if (mode !== 'shuffle') clearVocabTtsShuffleRemaining()
+                  if (mode !== 'none') {
+                    const fallback = ensureBuiltInXaiVoiceForRotation(vocabTtsVoice)
+                    if (fallback) {
+                      setVocabTtsVoicePref(fallback)
+                      setVocabTtsVoiceState(fallback)
+                    }
+                  }
+                  setLessonsPanel('wordsTtsVoice')
+                }}
+                onSelectVoice={() => undefined}
+              />
+            )}
 
-            {lessonsPanel === 'wordsTtsVoiceSection' &&
-              featureFlags.vocabGrokTtsV1 &&
-              vocabTtsVoiceSectionId !== 'other' && (
-                <PickerList
-                  options={(
-                    ENGVO_XAI_VOICE_SECTIONS.find((s) => s.id === vocabTtsVoiceSectionId)?.voices ?? []
-                  ).map((voice) => ({
-                    id: voice,
-                    label: formatEngvoVoiceDisplayName(voice),
-                  }))}
-                  value={vocabTtsVoice}
-                  onSelect={(id) => {
-                    setVocabTtsVoicePref(id)
-                    setVocabTtsVoiceState(getVocabTtsVoicePref())
-                    setLessonsPanel('words')
-                  }}
-                />
-              )}
+            {lessonsPanel === 'wordsTtsVoiceSection' && featureFlags.vocabGrokTtsV1 && (
+              <XaiTtsVoiceMenu
+                view="section"
+                voice={vocabTtsVoice}
+                rotationMode={vocabTtsRotationMode}
+                sectionId={vocabTtsVoiceSectionId}
+                customVoices={customXaiVoices}
+                onOpenRotation={() => undefined}
+                onOpenSection={() => undefined}
+                onSelectRotation={() => undefined}
+                onSelectVoice={(id) => {
+                  setVocabTtsVoicePref(id)
+                  setVocabTtsVoiceState(getVocabTtsVoicePref())
+                  setVocabTtsRotationModePref('none')
+                  setVocabTtsRotationModeState('none')
+                  clearVocabTtsShuffleRemaining()
+                  setLessonsPanel('words')
+                }}
+              />
+            )}
 
             {lessonsPanel === 'vocabulary' && (
               <div className="space-y-3">
@@ -5040,6 +5063,32 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
               {showLevelRow ? (
                 <MenuSettingRow label="Уровень" value={levelLabel} onClick={() => setAiChatPanel('level')} />
               ) : null}
+              {settings.mode === 'communication' && featureFlags.communicationGrokTtsV1 ? (
+                <>
+                  <MenuSettingRow
+                    label={COMMUNICATION_TTS_COPY.engineLabel}
+                    value={
+                      communicationTtsEngine === 'grok'
+                        ? COMMUNICATION_TTS_COPY.engineGrok
+                        : COMMUNICATION_TTS_COPY.engineSystem
+                    }
+                    onClick={() => setAiChatPanel('tts')}
+                  />
+                  {communicationTtsEngine === 'grok' ? (
+                    <MenuSettingRow
+                      label={COMMUNICATION_TTS_COPY.voiceLabel}
+                      value={formatEngvoXaiVoiceRotationSummary(
+                        communicationTtsRotationMode,
+                        formatEngvoVoiceDisplayName(communicationTtsVoice)
+                      )}
+                      onClick={() => {
+                        setCommunicationTtsVoiceSectionId(getEngvoXaiVoiceSection(communicationTtsVoice))
+                        setAiChatPanel('voice')
+                      }}
+                    />
+                  ) : null}
+                </>
+              ) : null}
               </div>
             </div>
 
@@ -5173,6 +5222,83 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
                 patch.translationLessonId = normalizeLessonForLevel(settings.translationLessonId, newLevel)
               }
               update(patch)
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+
+        {menuView === 'aiChat' && aiChatPanel === 'tts' && featureFlags.communicationGrokTtsV1 && (
+          <PickerList
+            options={[
+              { id: 'system', label: COMMUNICATION_TTS_COPY.engineSystem },
+              { id: 'grok', label: COMMUNICATION_TTS_COPY.engineGrok },
+            ]}
+            value={communicationTtsEngine}
+            onSelect={(id) => {
+              const next = id as CommunicationTtsEngine
+              setCommunicationTtsEnginePref(next)
+              setCommunicationTtsEngineState(next)
+              setAiChatPanel('summary')
+            }}
+          />
+        )}
+        {menuView === 'aiChat' && aiChatPanel === 'voice' && featureFlags.communicationGrokTtsV1 && (
+          <XaiTtsVoiceMenu
+            view="hub"
+            voice={communicationTtsVoice}
+            rotationMode={communicationTtsRotationMode}
+            sectionId={communicationTtsVoiceSectionId}
+            customVoices={customXaiVoices}
+            onOpenRotation={() => setAiChatPanel('voiceRotation')}
+            onOpenSection={(id) => {
+              setCommunicationTtsVoiceSectionId(id)
+              setAiChatPanel('voiceSection')
+            }}
+            onSelectRotation={() => undefined}
+            onSelectVoice={() => undefined}
+          />
+        )}
+        {menuView === 'aiChat' && aiChatPanel === 'voiceRotation' && featureFlags.communicationGrokTtsV1 && (
+          <XaiTtsVoiceMenu
+            view="rotation"
+            voice={communicationTtsVoice}
+            rotationMode={communicationTtsRotationMode}
+            sectionId={communicationTtsVoiceSectionId}
+            customVoices={customXaiVoices}
+            onOpenRotation={() => undefined}
+            onOpenSection={() => undefined}
+            onSelectRotation={(mode) => {
+              setCommunicationTtsRotationModePref(mode)
+              setCommunicationTtsRotationModeState(mode)
+              if (mode !== 'shuffle') clearCommunicationTtsShuffleRemaining()
+              if (mode !== 'none') {
+                const fallback = ensureBuiltInXaiVoiceForRotation(communicationTtsVoice)
+                if (fallback) {
+                  setCommunicationTtsVoicePref(fallback)
+                  setCommunicationTtsVoiceState(fallback)
+                }
+              }
+              setAiChatPanel('voice')
+            }}
+            onSelectVoice={() => undefined}
+          />
+        )}
+        {menuView === 'aiChat' && aiChatPanel === 'voiceSection' && featureFlags.communicationGrokTtsV1 && (
+          <XaiTtsVoiceMenu
+            view="section"
+            voice={communicationTtsVoice}
+            rotationMode={communicationTtsRotationMode}
+            sectionId={communicationTtsVoiceSectionId}
+            customVoices={customXaiVoices}
+            onOpenRotation={() => undefined}
+            onOpenSection={() => undefined}
+            onSelectRotation={() => undefined}
+            onSelectVoice={(id) => {
+              setCommunicationTtsVoicePref(id)
+              setCommunicationTtsVoiceState(getCommunicationTtsVoicePref())
+              setCommunicationTtsRotationModePref('none')
+              setCommunicationTtsRotationModeState('none')
+              clearCommunicationTtsShuffleRemaining()
               setAiChatPanel('summary')
             }}
           />

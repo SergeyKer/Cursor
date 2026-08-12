@@ -2,16 +2,17 @@ import { describe, expect, it } from 'vitest'
 import {
   resolveVocabSpeakCommit,
   resolveVocabSpeakInputMode,
-  vocabHeardBubbleLabel,
   vocabSpeakFooterHint,
+  vocabSpeakMicTitle,
 } from '@/lib/vocabulary/vocabSpeakComposer'
 
 describe('vocabSpeakComposer', () => {
-  it('labels by audience', () => {
-    expect(vocabHeardBubbleLabel('child')).toBe('Ты сказал:')
-    expect(vocabHeardBubbleLabel('adult')).toBe('Я услышал:')
-    expect(vocabSpeakFooterHint('child')).toMatch(/бип/)
-    expect(vocabSpeakFooterHint('adult')).toMatch(/Эталон/)
+  it('uses communication dictation copy, not listen-repeat cues', () => {
+    expect(vocabSpeakFooterHint('child')).toBe('Голосовой ввод.')
+    expect(vocabSpeakFooterHint('adult')).toBe('Голосовой ввод.')
+    expect(vocabSpeakMicTitle(false, false)).toBe('Голосовой ввод')
+    expect(vocabSpeakMicTitle(true, false)).toBe('Остановить')
+    expect(vocabSpeakMicTitle(false, true)).toBe('Распознаю речь')
   })
 
   it('locks field until edit unlock', () => {

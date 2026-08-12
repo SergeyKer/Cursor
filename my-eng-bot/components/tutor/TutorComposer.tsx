@@ -298,7 +298,7 @@ export default function TutorComposer({
                 if (paperclipDisabled || composerLocked) return
                 onPaperclipClick?.()
               }}
-              className={`${TUTOR_PAPERCLIP_BUTTON_CLASS} pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)] shadow-none disabled:opacity-50`}
+              className={`${TUTOR_PAPERCLIP_BUTTON_CLASS} pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[var(--chat-speaker-text)] shadow-none disabled:opacity-50`}
               title="Прикрепить"
               aria-label="Прикрепить"
             >

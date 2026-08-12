@@ -24,6 +24,8 @@ import {
   stripLeadingBulbEmojisForPrefixedCard,
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
+import { playCommunicationTts, stopCommunicationTts } from '@/lib/communication/playCommunicationTts'
+import { resolveCommunicationSpeakText } from '@/lib/communication/resolveCommunicationSpeakText'
 import {
   extractCommunicationSpeakText,
   splitCommunicationOpening,
@@ -170,6 +172,7 @@ interface ChatProps {
   forceNextMicLang?: 'ru' | 'en' | null
   onConsumeForceNextMicLang?: () => void
   communicationVoiceInputMode?: 'ru' | 'en' | 'mix'
+  communicationAutoTtsEnabled?: boolean
   learningActions?: LearningLessonAction[]
   onSelectLearningAction?: (actionId: string) => void
   /** Sticky exit chips над composer (перевод 8/8). */
@@ -1305,6 +1308,7 @@ export default function Chat({
   forceNextMicLang,
   onConsumeForceNextMicLang,
   communicationVoiceInputMode,
+  communicationAutoTtsEnabled = false,
   learningActions = [],
   onSelectLearningAction,
   composerNavChips,
@@ -2033,6 +2037,62 @@ export default function Chat({
   const [showTypingIndicator, setShowTypingIndicator] = useState(false)
   const typingDelayTimerRef = useRef<number | null>(null)
   const isEngvoActive = Boolean(engvo?.active)
+  const communicationAutoSpeakKeyRef = useRef<string | null>(null)
+  const communicationAutoTtsPrevEnabledRef = useRef(communicationAutoTtsEnabled)
+
+  useEffect(() => {
+    if (listening) stopCommunicationTts()
+  }, [listening])
+
+  useEffect(() => {
+    const wasEnabled = communicationAutoTtsPrevEnabledRef.current
+    const last = messages[messages.length - 1]
+    const text = last ? resolveCommunicationSpeakText(last) : ''
+    if (settings.mode !== 'communication' || isEngvoActive) {
+      communicationAutoTtsPrevEnabledRef.current = communicationAutoTtsEnabled
+      communicationAutoSpeakKeyRef.current = null
+      return
+    }
+    if (wasEnabled && !communicationAutoTtsEnabled) {
+      communicationAutoTtsPrevEnabledRef.current = communicationAutoTtsEnabled
+      stopCommunicationTts()
+      return
+    }
+    if (loading || searchingInternet) return
+    communicationAutoTtsPrevEnabledRef.current = communicationAutoTtsEnabled
+    const key = text ? `${messages.length}:${text}` : `${messages.length}:`
+    if (communicationAutoSpeakKeyRef.current === null) {
+      communicationAutoSpeakKeyRef.current = key
+      if (communicationAutoTtsEnabled && text) {
+        playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+      }
+      return
+    }
+    if (!communicationAutoTtsEnabled) {
+      communicationAutoSpeakKeyRef.current = key
+      return
+    }
+    if (!wasEnabled && communicationAutoTtsEnabled && text) {
+      communicationAutoSpeakKeyRef.current = key
+      playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+      return
+    }
+    if (communicationAutoSpeakKeyRef.current === key || !text) {
+      communicationAutoSpeakKeyRef.current = key
+      return
+    }
+    communicationAutoSpeakKeyRef.current = key
+    playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+  }, [
+    communicationAutoTtsEnabled,
+    defaultTtsSpeechRate,
+    isEngvoActive,
+    loading,
+    messages,
+    searchingInternet,
+    settings.mode,
+    settings.voiceId,
+  ])
   const isEngvoTeacherCall =
     isEngvoActive && engvo?.sessionKind === 'teacher'
   const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
@@ -2372,13 +2432,7 @@ export default function Chat({
     ? ''
     : isVoiceActive
     ? ''
-    : settings.mode === 'communication'
-      ? communicationVoiceInputMode === 'mix'
-        ? 'Reply...'
-        : settings.communicationInputExpectedLang === 'en'
-        ? 'Reply...'
-        : 'Ответ...'
-      : 'Reply...'
+    : 'Reply...'
   const typingIndicatorText =
     engvoBootstrapTypingActive
       ? engvo?.assistantIndicatorText ?? 'Engvo говорит…'
@@ -2753,7 +2807,7 @@ export default function Chat({
                             onClick={() =>
                               speak(lastCommittedVoiceText, settings.voiceId, { rate: defaultTtsSpeechRate })
                             }
-                            className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
+                            className="chat-input-inline-speaker-button chat-action-button pointer-events-auto inline-flex h-8 w-8 min-h-8 min-w-8 max-h-8 max-w-8 shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[var(--chat-speaker-text)]"
                             title="Прослушать"
                             aria-label="Прослушать распознанный текст"
                           >
@@ -3224,7 +3278,9 @@ function MessageBubble({
 
   const handleSpeak = () => {
     const speakText = stripRepeatLeadForSpeak(speakSourceText)
-    if (speakText) speak(speakText, voiceId, { rate: defaultTtsSpeechRate })
+    if (!speakText) return
+    stopCommunicationTts()
+    speak(speakText, voiceId, { rate: defaultTtsSpeechRate })
   }
 
   /**

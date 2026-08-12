@@ -28,6 +28,7 @@ import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { SessionExitIcon } from '@/components/SessionExitIcon'
+import { CommunicationAutoTtsButton } from '@/components/communication/CommunicationAutoTtsButton'
 import SessionExitConfirm from '@/components/SessionExitConfirm'
 import { AppIconFrame } from '@/components/AppIconFrame'
 import {
@@ -111,6 +112,12 @@ import { resolveCommunicationSessionExitChips } from '@/lib/communication/resolv
 import type { CommunicationSessionExitChip } from '@/lib/communication/resolveCommunicationSessionExitChips'
 import { hashCommunicationAssistantKey } from '@/lib/communication/communicationSessionEconomy'
 import { COMMUNICATION_VOICE_TOP } from '@/lib/uiCopy/communicationVoiceTop'
+import {
+  nextCommunicationVoiceInputMode,
+  normalizeCommunicationVoiceInputMode,
+} from '@/lib/communicationVoiceInputMode'
+import { getCommunicationAutoTtsPref, setCommunicationAutoTtsPref } from '@/lib/communication/autoTtsPref'
+import { stopCommunicationTts } from '@/lib/communication/playCommunicationTts'
 import { resolveLessonCoinAward, type LessonCoinAward } from '@/lib/coinAwards'
 import type { LessonCoinIntroContext } from '@/lib/lessonCoinIntroCopy'
 import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/lessonCoinForgiveness'
@@ -779,11 +786,7 @@ function menuSettingsRestartNeeded(snap: MenuOpenSnapshot, current: Settings): b
 }
 
 function getCommunicationVoiceInputMode(settings: Settings): CommunicationVoiceInputMode {
-  const fallback: Exclude<CommunicationVoiceInputMode, 'mix'> =
-    settings.communicationInputExpectedLang === 'ru' ? 'ru' : 'en'
-  if (!featureFlags.communicationMixVoiceInputV1) return fallback
-  const stored = settings.communicationVoiceInputMode
-  return stored === 'ru' || stored === 'en' || stored === 'mix' ? stored : fallback
+  return normalizeCommunicationVoiceInputMode(settings.communicationVoiceInputMode)
 }
 
 /** Перевод в диалоге: актуальный assistant-пузырь после await. */
@@ -958,6 +961,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const languageNoteAbortRef = React.useRef<AbortController | null>(null)
   const languageNoteRequestIdRef = React.useRef(0)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
+  const [communicationAutoTtsEnabled, setCommunicationAutoTtsEnabled] = useState(false)
   const [loading, setLoading] = useState(false)
   const [usage, setUsage] = useState<UsageInfo>({ used: 0, limit: 50 })
   const [initialized, setInitialized] = useState(false)
@@ -4402,11 +4406,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           ? communicationInputExpectedLangRef.current
                           : 'ru',
                       communicationVoiceInputMode:
-                        communicationVoiceInputMode === 'ru' ||
-                        communicationVoiceInputMode === 'en' ||
-                        communicationVoiceInputMode === 'mix'
-                          ? communicationVoiceInputMode
-                          : 'en',
+                        normalizeCommunicationVoiceInputMode(communicationVoiceInputMode),
                     }
                   : {}),
                 ...(settings.mode === 'translation'
@@ -7764,6 +7764,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setEngvoTeacherDrillKind(loadEngvoTeacherDrillKind())
         setEngvoTeacherLessonId(loadEngvoTeacherLessonId())
         setPracticeTtsSpeedDefaultIndex(loadPracticeTtsSpeedDefaultIndex())
+        setCommunicationAutoTtsEnabled(getCommunicationAutoTtsPref())
         const loadedChatPattern = loadChatPattern()
         const loadedChatPatternTuningMap = loadChatPatternTuningMap()
         setChatPatternId(loadedChatPattern)
@@ -8196,8 +8197,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         }
         setSettings((prev) => {
           const nextExpectedLang = nextCommunicationExpectedLang ?? prev.communicationInputExpectedLang
-          const nextVoiceMode =
-            prev.communicationVoiceInputMode === 'mix' ? 'mix' : (nextExpectedLang as Exclude<CommunicationVoiceInputMode, 'mix'>)
+          const nextVoiceMode = nextCommunicationVoiceInputMode(
+            prev.communicationVoiceInputMode,
+            nextExpectedLang
+          )
           return {
             ...prev,
             communicationInputExpectedLang: nextExpectedLang,
@@ -8893,6 +8896,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const openSessionExitConfirm = useCallback(() => {
     if (!showSessionExitControl || !sessionExitKind) return
     setCommunicationVoiceDropdownOpen(false)
+    stopCommunicationTts()
     setSessionExitConfirmOpen(true)
   }, [sessionExitKind, showSessionExitControl])
 
@@ -9573,19 +9577,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             priority: 40,
             text:
               COMMUNICATION_VOICE_TOP[
-                communicationVoiceInputMode === 'mix'
-                  ? 'mix'
-                  : settings.communicationInputExpectedLang === 'ru'
-                    ? 'ru'
-                    : 'en'
+                communicationVoiceInputMode === 'mix' ? 'mix' : 'en'
               ].text,
             compactText:
               COMMUNICATION_VOICE_TOP[
-                communicationVoiceInputMode === 'mix'
-                  ? 'mix'
-                  : settings.communicationInputExpectedLang === 'ru'
-                    ? 'ru'
-                    : 'en'
+                communicationVoiceInputMode === 'mix' ? 'mix' : 'en'
               ].compact,
             tone: 'neutral',
           }
@@ -9887,6 +9883,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     abandonCommunicationSession()
   }, [storageLoaded, communicationChatActive, abandonCommunicationSession])
   React.useEffect(() => {
+    if (!communicationChatActive) stopCommunicationTts()
+  }, [communicationChatActive])
+  React.useEffect(() => {
     if (!storageLoaded) return
     if (tutorChatSpaceActive) {
       setRewardsState((prev) => {
@@ -10027,13 +10026,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         ? rewardsState.ui.lastReward.amount
         : session.sessionXpAwarded
     const voiceTop =
-      COMMUNICATION_VOICE_TOP[
-        communicationVoiceInputMode === 'mix'
-          ? 'mix'
-          : settings.communicationInputExpectedLang === 'ru'
-            ? 'ru'
-            : 'en'
-      ].text
+      COMMUNICATION_VOICE_TOP[communicationVoiceInputMode === 'mix' ? 'mix' : 'en'].text
     return buildCommunicationFooterView({
       session,
       moment,
@@ -10871,12 +10864,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     !hasEngvoDialingServiceLineInThread(messages) &&
     !!engvoBootstrapServiceIndicatorText
   const communicationVoiceTabs = featureFlags.communicationMixVoiceInputV1
-    ? (['ru', 'en', 'mix'] as const)
-    : (['ru', 'en'] as const)
+    ? (['en', 'mix'] as const)
+    : (['en'] as const)
   const communicationVoiceOptions = communicationVoiceTabs.map((mode) => {
-    if (mode === 'ru') {
-      return { mode, label: 'Ru', title: 'Русский ввод', ariaLabel: 'Ожидается русский ввод' }
-    }
     if (mode === 'en') {
       return { mode, label: 'En', title: 'English input', ariaLabel: 'Ожидается английский ввод' }
     }
@@ -10888,7 +10878,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }
   })
   const activeCommunicationVoiceOption =
-    communicationVoiceOptions.find((option) => option.mode === communicationVoiceInputMode) ?? communicationVoiceOptions[0]
+    communicationVoiceOptions.find((option) => option.mode === communicationVoiceInputMode) ??
+    communicationVoiceOptions[0]
   const activeCommunicationVoiceIsMix = activeCommunicationVoiceOption.mode === 'mix'
 
   const applyCommunicationVoiceMode = useCallback((mode: (typeof communicationVoiceTabs)[number]) => {
@@ -10909,17 +10900,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
     })
   }, [])
-  const hasCommunicationHeaderControls =
-    dialogStarted &&
-    settings.mode === 'communication' &&
-    !isProgressSpaceActive &&
-    !isMyPlanSpaceActive &&
-    !isTutorChatSpaceActive &&
-    !isLessonActive &&
-    !isPracticeActive &&
-    !isReferenceSheetActive &&
-    !isVocabularyHubActive &&
-    !engvoVoiceMode
+  const hasCommunicationHeaderControls = false
+  const handleCommunicationAutoTtsToggle = useCallback(() => {
+    setCommunicationAutoTtsEnabled((prev) => {
+      const next = !prev
+      setCommunicationAutoTtsPref(next)
+      if (!next) stopCommunicationTts()
+      return next
+    })
+  }, [])
   const headerTitleMaxWidthClass = getAppHeaderTitleMaxWidthClass({
     dialogStarted,
     hasCommunicationControls: hasCommunicationHeaderControls,
@@ -10929,6 +10918,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       isLessonIntroActive || isLessonTipsActive || isLessonBriefingActive || isTutorLessonPending || isReferenceSheetActive,
     hasHeaderMedal: lessonHeaderMedal != null,
     hasSessionExitControl: showSessionExitControl,
+    hasCommunicationAutoTts: communicationChatActive,
   })
 
   const pageTitle = !dialogStarted
@@ -11238,6 +11228,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   alt="Engvo AI"
                   className="mr-1 sm:mr-2"
                   sizes="40px"
+                />
+              ) : null}
+              {communicationChatActive ? (
+                <CommunicationAutoTtsButton
+                  enabled={communicationAutoTtsEnabled}
+                  onToggle={handleCommunicationAutoTtsToggle}
                 />
               ) : null}
               {showSessionExitControl ? (
@@ -11894,6 +11890,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   forceNextMicLang={forceNextMicLang}
                   onConsumeForceNextMicLang={() => setForceNextMicLang(null)}
                   communicationVoiceInputMode={communicationVoiceInputMode}
+                  communicationAutoTtsEnabled={communicationAutoTtsEnabled}
                   learningActions={
                     activeLearningLessonId && !activeStructuredLesson && !structuredLessonLoadingId
                       ? getLearningLessonActions(activeLearningLessonId)

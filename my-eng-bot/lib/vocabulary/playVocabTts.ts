@@ -1,132 +1,86 @@
-import { speak, stopSpeaking } from '@/lib/speech'
 import { featureFlags } from '@/lib/featureFlags'
 import { clampVocabTtsSpeed } from '@/lib/vocabulary/clampVocabTtsSpeed'
 import { getVocabTtsEnginePref } from '@/lib/vocabulary/ttsEnginePref'
-import { getVocabTtsVoicePref } from '@/lib/vocabulary/ttsVoicePref'
+import { getVocabTtsVoicePref, setVocabTtsVoicePref } from '@/lib/vocabulary/ttsVoicePref'
+import {
+  getVocabTtsRotationModePref,
+  getVocabTtsShuffleRemaining,
+  setVocabTtsShuffleRemaining,
+} from '@/lib/vocabulary/ttsRotationPref'
 import { getVocabTtsCache, makeVocabTtsCacheKey } from '@/lib/vocabulary/vocabTtsCachePort'
+import { pickNextXaiVoice } from '@/lib/engvo/xaiVoiceRotation'
+import {
+  clearUnaryGrokSession,
+  isUnaryTtsGenerationCurrent,
+  playSystemUnaryTts,
+  startUnaryGrokSession,
+  stopUnaryTts,
+  type UnaryTtsCallbacks,
+} from '@/lib/tts/unaryTtsPlayback'
+import { playPcmBuffer, playTtsPcmResponse } from '@/lib/tts/streamTtsPlayback'
+import { fetchTtsPcmResponse, getPcmInflight, loadPcmThroughCache, readStreamToBuffer, runPcmInflight } from '@/lib/tts/grokPcmClient'
 
 export type PlayVocabTtsOptions = {
   rate?: number
-  /** Browser speechSynthesis voice URI when engine is system. */
   browserVoiceId?: string
+  /** When set, skip rotation for this play/prefetch (one voice per card). */
+  grokVoiceId?: string
   onStart?: () => void
   onEnd?: () => void
   onError?: () => void
 }
 
-let activeAudio: HTMLAudioElement | null = null
-let activeObjectUrl: string | null = null
-let activeAbort: AbortController | null = null
-let playbackGeneration = 0
-
-function revokeObjectUrl(): void {
-  if (activeObjectUrl) {
-    URL.revokeObjectURL(activeObjectUrl)
-    activeObjectUrl = null
-  }
-}
-
-function stopAudioElement(): void {
-  if (activeAudio) {
-    try {
-      activeAudio.onended = null
-      activeAudio.onerror = null
-      activeAudio.pause()
-      activeAudio.removeAttribute('src')
-      activeAudio.load()
-    } catch {
-      // ignore
-    }
-    activeAudio = null
-  }
-  revokeObjectUrl()
-}
-
 export function stopVocabTts(): void {
-  playbackGeneration += 1
-  if (activeAbort) {
-    activeAbort.abort()
-    activeAbort = null
-  }
-  stopAudioElement()
-  stopSpeaking()
+  stopUnaryTts()
 }
 
-async function fetchGrokAudio(
-  text: string,
-  voiceId: string,
-  speed: number,
-  signal: AbortSignal
-): Promise<ArrayBuffer> {
+export function resolveVocabGrokVoice(): string {
+  const mode = getVocabTtsRotationModePref()
+  const lastVoice = getVocabTtsVoicePref()
+  const picked = pickNextXaiVoice({
+    mode,
+    lastVoice,
+    shuffleRemaining: getVocabTtsShuffleRemaining(),
+  })
+  setVocabTtsVoicePref(picked.voice)
+  setVocabTtsShuffleRemaining(mode === 'shuffle' ? picked.shuffleRemaining : [])
+  return picked.voice
+}
+
+function isVocabGrokEnabled(): boolean {
+  return featureFlags.vocabGrokTtsV1 && getVocabTtsEnginePref() === 'grok'
+}
+
+function loadVocabPcm(text: string, voiceId: string, speed: number, signal: AbortSignal): Promise<ArrayBuffer> {
   const cache = getVocabTtsCache()
-  const key = makeVocabTtsCacheKey(text, voiceId, speed)
-  const cached = cache.get(key)
-  if (cached) return cached
-
-  const response = await fetch('/api/vocab/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, voice_id: voiceId, speed }),
-    signal,
-  })
-  if (!response.ok) {
-    throw new Error(`vocab tts ${response.status}`)
-  }
-  const bytes = await response.arrayBuffer()
-  cache.set(key, bytes)
-  return bytes
-}
-
-function playArrayBuffer(
-  bytes: ArrayBuffer,
-  generation: number,
-  options: PlayVocabTtsOptions
-): void {
-  stopAudioElement()
-  const blob = new Blob([bytes], { type: 'audio/mpeg' })
-  const url = URL.createObjectURL(blob)
-  activeObjectUrl = url
-  const audio = new Audio(url)
-  activeAudio = audio
-
-  audio.onended = () => {
-    if (playbackGeneration !== generation) return
-    stopAudioElement()
-    options.onEnd?.()
-  }
-  audio.onerror = () => {
-    if (playbackGeneration !== generation) return
-    stopAudioElement()
-    options.onError?.()
-  }
-
-  void audio.play().then(
-    () => {
-      if (playbackGeneration !== generation) {
-        stopAudioElement()
-        return
-      }
-      options.onStart?.()
+  const cacheKey = makeVocabTtsCacheKey(text, voiceId, speed)
+  return loadPcmThroughCache({
+    cacheKey: `vocab:${cacheKey}`,
+    getCached: () => cache.get(cacheKey),
+    setCached: (bytes) => cache.set(cacheKey, bytes),
+    load: async () => {
+      const response = await fetchTtsPcmResponse(
+        '/api/vocab/tts',
+        { text, voice_id: voiceId, speed },
+        signal
+      )
+      if (!response.body) throw new Error('vocab tts empty body')
+      return readStreamToBuffer(response.body)
     },
-    () => {
-      if (playbackGeneration !== generation) return
-      stopAudioElement()
-      options.onError?.()
-    }
-  )
+  })
 }
 
-function playSystem(text: string, options: PlayVocabTtsOptions): void {
-  speak(text, options.browserVoiceId ?? '', {
-    rate: options.rate ?? 0.9,
-    onStart: options.onStart,
-    onEnd: options.onEnd,
-    onError: options.onError,
-  })
+/** Warm cache for the visible card. Does not start playback or toggle isPlaying. */
+export function prefetchVocabTts(text: string, options: { rate?: number; grokVoiceId: string }): void {
+  const normalized = text.trim()
+  if (!normalized || !isVocabGrokEnabled()) return
+  const speed = clampVocabTtsSpeed(options.rate ?? 1)
+  const abort = new AbortController()
+  void loadVocabPcm(normalized, options.grokVoiceId, speed, abort.signal).catch(() => undefined)
 }
 
 /**
- * Play vocab etalon / preview. Reads engine+voice prefs on each call.
+ * Play vocab etalon / preview. Reads engine+voice prefs on each call unless grokVoiceId is passed.
  * Grok path caches by text|voice|speed; failures fall back to speechSynthesis once.
  */
 export function playVocabTts(text: string, options: PlayVocabTtsOptions = {}): void {
@@ -134,30 +88,64 @@ export function playVocabTts(text: string, options: PlayVocabTtsOptions = {}): v
   if (!normalized) return
 
   stopVocabTts()
-  const generation = playbackGeneration
+  const callbacks: UnaryTtsCallbacks = {
+    onStart: options.onStart,
+    onEnd: options.onEnd,
+    onError: options.onError,
+  }
+  const systemOpts = {
+    ...callbacks,
+    browserVoiceId: options.browserVoiceId,
+    rate: options.rate ?? 0.9,
+  }
 
-  const useGrok = featureFlags.vocabGrokTtsV1 && getVocabTtsEnginePref() === 'grok'
-  if (!useGrok) {
-    playSystem(normalized, options)
+  if (!isVocabGrokEnabled()) {
+    playSystemUnaryTts(normalized, systemOpts)
     return
   }
 
-  const voiceId = getVocabTtsVoicePref()
+  const voiceId = options.grokVoiceId ?? resolveVocabGrokVoice()
   const speed = clampVocabTtsSpeed(options.rate ?? 1)
-  const abort = new AbortController()
-  activeAbort = abort
+  const cache = getVocabTtsCache()
+  const cacheKey = makeVocabTtsCacheKey(normalized, voiceId, speed)
+  const inflightKey = `vocab:${cacheKey}`
+  const { generation, signal } = startUnaryGrokSession()
+  const isCurrent = () => isUnaryTtsGenerationCurrent(generation) && !signal.aborted
 
   void (async () => {
     try {
-      const bytes = await fetchGrokAudio(normalized, voiceId, speed, abort.signal)
-      if (playbackGeneration !== generation || abort.signal.aborted) return
-      activeAbort = null
-      playArrayBuffer(bytes, generation, options)
+      const cached = cache.get(cacheKey)
+      if (cached) {
+        if (!isCurrent()) return
+        clearUnaryGrokSession()
+        playPcmBuffer(cached, generation, isCurrent, callbacks)
+        return
+      }
+
+      const pending = getPcmInflight(inflightKey)
+      if (pending) {
+        const bytes = await pending
+        if (!isCurrent()) return
+        clearUnaryGrokSession()
+        playPcmBuffer(bytes, generation, isCurrent, callbacks)
+        return
+      }
+
+      await runPcmInflight(inflightKey, async () => {
+        const response = await fetchTtsPcmResponse(
+          '/api/vocab/tts',
+          { text: normalized, voice_id: voiceId, speed },
+          signal
+        )
+        const bytes = await playTtsPcmResponse(response, generation, isCurrent, callbacks)
+        if (isCurrent() && bytes.byteLength > 0) cache.set(cacheKey, bytes)
+        return bytes
+      })
+      if (isCurrent()) clearUnaryGrokSession()
     } catch (error) {
-      if (abort.signal.aborted || playbackGeneration !== generation) return
-      activeAbort = null
-      // Network/API failure → one-shot system fallback (pref unchanged).
-      playSystem(normalized, options)
+      if (!isCurrent()) return
+      clearUnaryGrokSession()
+      playSystemUnaryTts(normalized, systemOpts)
       void error
     }
   })()

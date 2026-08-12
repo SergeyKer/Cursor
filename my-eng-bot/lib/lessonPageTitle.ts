@@ -74,8 +74,11 @@ export function getAppHeaderTitleMaxWidthClass(input: {
   hasHeaderMedal: boolean
   /** × выхода mid-cycle справа (~2.5rem + gap). */
   hasSessionExitControl?: boolean
+  /** Автоозвучка общения слева от крестика (~2.5rem + gap). */
+  hasCommunicationAutoTts?: boolean
 }): string {
   const exit = Boolean(input.hasSessionExitControl)
+  const autoTts = Boolean(input.hasCommunicationAutoTts)
   if (input.lessonPageTitleView) {
     if (input.hasLessonHeaderProgress) {
       return exit
@@ -90,14 +93,20 @@ export function getAppHeaderTitleMaxWidthClass(input: {
       : 'max-w-[calc(100%-3rem-8rem)] sm:max-w-[calc(100%-3rem-9.5rem)]'
   }
   if (input.hasCommunicationControls) {
-    return exit
+    if (exit) {
+      return autoTts
+        ? 'max-w-[calc(100%-3rem-14.5rem)] sm:max-w-[calc(100%-3rem-15.5rem)]'
+        : 'max-w-[calc(100%-3rem-12rem)] sm:max-w-[calc(100%-3rem-13rem)]'
+    }
+    return autoTts
       ? 'max-w-[calc(100%-3rem-12rem)] sm:max-w-[calc(100%-3rem-13rem)]'
       : 'max-w-[calc(100%-3rem-9.5rem)] sm:max-w-[calc(100%-3rem-10.5rem)]'
   }
   if (input.dialogStarted) {
-    return exit
-      ? 'max-w-[calc(100%-3rem-6rem)]'
-      : 'max-w-[calc(100%-3rem-3.5rem)]'
+    if (exit) {
+      return autoTts ? 'max-w-[calc(100%-3rem-8.5rem)]' : 'max-w-[calc(100%-3rem-6rem)]'
+    }
+    return autoTts ? 'max-w-[calc(100%-3rem-6rem)]' : 'max-w-[calc(100%-3rem-3.5rem)]'
   }
   return 'max-w-[calc(100%-3.5rem)]'
 }

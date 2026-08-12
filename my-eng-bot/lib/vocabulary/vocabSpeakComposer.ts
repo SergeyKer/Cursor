@@ -6,21 +6,14 @@ import {
   type ChoiceCorrectionInputMode,
 } from '@/lib/practice/choiceCorrectionComposer'
 
-export function vocabHeardBubbleLabel(audience: Audience): string {
-  return audience === 'child' ? 'Ты сказал:' : 'Я услышал:'
+export function vocabSpeakFooterHint(_audience?: Audience): string {
+  return 'Голосовой ввод.'
 }
 
-export function vocabSpeakFooterHint(audience: Audience): string {
-  return audience === 'child'
-    ? 'Слушай → бип → говори → бип-бип.'
-    : 'Эталон → бип → повтор → стоп по тишине.'
-}
-
-export function vocabSpeakMicTitle(phase: string, listening: boolean): string {
-  if (phase === 'playing' || phase === 'cueStart') return 'Слушаю эталон…'
-  if (phase === 'recording' || listening) return 'Остановить запись'
-  if (phase === 'cueStop' || phase === 'finalizing') return 'Распознаю…'
-  return 'Слушать и повторить'
+export function vocabSpeakMicTitle(listening: boolean, finalizing: boolean): string {
+  if (listening) return 'Остановить'
+  if (finalizing) return 'Распознаю речь'
+  return 'Голосовой ввод'
 }
 
 export function resolveVocabSpeakInputMode(params: {

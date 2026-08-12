@@ -1,4 +1,5 @@
 import { syncTranslationLevelFromConcreteLesson } from '@/lib/lessonTranslationBridge'
+import { normalizeCommunicationVoiceInputMode } from '@/lib/communicationVoiceInputMode'
 import type { StoredState, Settings, ChatMessage, TenseId, OpenAiChatPreset } from './types'
 
 export function normalizeOpenAiChatPreset(_value: unknown): OpenAiChatPreset {
@@ -69,12 +70,9 @@ export function loadState(): StoredState {
       merged.communicationInputExpectedLang === 'ru' || merged.communicationInputExpectedLang === 'en'
         ? merged.communicationInputExpectedLang
         : DEFAULT_SETTINGS.communicationInputExpectedLang
-    merged.communicationVoiceInputMode =
-      merged.communicationVoiceInputMode === 'ru' ||
-      merged.communicationVoiceInputMode === 'en' ||
-      merged.communicationVoiceInputMode === 'mix'
-        ? merged.communicationVoiceInputMode
-        : merged.communicationInputExpectedLang
+    merged.communicationVoiceInputMode = normalizeCommunicationVoiceInputMode(
+      merged.communicationVoiceInputMode
+    )
     merged.openAiChatPreset = normalizeOpenAiChatPreset(merged.openAiChatPreset)
     merged.translationDrillKind =
       merged.translationDrillKind === 'lesson_topic' || merged.translationDrillKind === 'tense_drill'

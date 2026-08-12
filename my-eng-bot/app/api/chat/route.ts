@@ -83,6 +83,7 @@ import {
   isCommunicationDetailOnlyMessage,
 } from '@/lib/communicationReplyLanguage'
 import { buildCommunicationMixLearningRule } from '@/lib/communicationMixLearningRule'
+import { normalizeCommunicationVoiceInputMode } from '@/lib/communicationVoiceInputMode'
 import { callProviderChat } from '@/lib/callProviderChat'
 import {
   getDialogueRepeatSentence,
@@ -7476,12 +7477,13 @@ export async function POST(req: NextRequest) {
     const communicationInputExpectedLang: 'ru' | 'en' =
       rawInputLang === 'en' || rawInputLang === 'ru' ? rawInputLang : 'ru'
     const rawCommunicationVoiceInputMode = body.communicationVoiceInputMode
-    const communicationVoiceInputMode: 'ru' | 'en' | 'mix' =
+    const communicationVoiceInputMode = normalizeCommunicationVoiceInputMode(
       rawCommunicationVoiceInputMode === 'ru' ||
-      rawCommunicationVoiceInputMode === 'en' ||
-      rawCommunicationVoiceInputMode === 'mix'
+        rawCommunicationVoiceInputMode === 'en' ||
+        rawCommunicationVoiceInputMode === 'mix'
         ? rawCommunicationVoiceInputMode
         : communicationInputExpectedLang
+    )
     const hasAssistantInThread = recentMessages.some((m: ChatMessage) => m.role === 'assistant')
     const communicationDetailOnly =
       mode === 'communication' ? isCommunicationDetailOnlyMessage(lastUserContentForResponse) : false

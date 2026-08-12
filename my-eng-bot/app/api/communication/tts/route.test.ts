@@ -15,14 +15,14 @@ import { POST } from './route'
 import { ENGVO_XAI_MISSING_KEY_USER_MESSAGE as MISSING_KEY_MSG } from '@/lib/engvo/errors'
 
 function makeRequest(body: unknown): Request {
-  return new Request('http://localhost/api/vocab/tts', {
+  return new Request('http://localhost/api/communication/tts', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   })
 }
 
-describe('POST /api/vocab/tts', () => {
+describe('POST /api/communication/tts', () => {
   const streamMock = fetchXaiTtsPcmBytes as unknown as ReturnType<typeof vi.fn>
   const originalKey = process.env.XAI_API_KEY
   const originalProxy = process.env.HTTPS_PROXY
@@ -41,7 +41,7 @@ describe('POST /api/vocab/tts', () => {
 
   it('fails when XAI_API_KEY is missing', async () => {
     process.env.XAI_API_KEY = ''
-    const res = await POST(makeRequest({ text: 'Eye' }) as never)
+    const res = await POST(makeRequest({ text: 'Hello' }) as never)
     const data = (await res.json()) as { userMessage: string }
     expect(res.status).toBe(500)
     expect(data.userMessage).toBe(MISSING_KEY_MSG)
@@ -54,33 +54,24 @@ describe('POST /api/vocab/tts', () => {
     expect(streamMock).not.toHaveBeenCalled()
   })
 
-  it('streams pcm, clamps speed, defaults unknown voice to luna, sends Eye replace', async () => {
-    const res = await POST(makeRequest({ text: 'Eye', voice_id: 'not-a-voice', speed: 0.6 }) as never)
-    expect(res.status).toBe(200)
-    expect(res.headers.get('content-type')).toBe(TTS_PCM_CONTENT_TYPE)
-    const buf = new Uint8Array(await res.arrayBuffer())
-    expect(Array.from(buf)).toEqual([1, 2, 3])
-
-    expect(streamMock).toHaveBeenCalledTimes(1)
-    const arg = streamMock.mock.calls[0]![0] as {
-      apiKey: string
-      text: string
-      voiceId: string
-      speed: number
-      replace?: Record<string, string>
-    }
-    expect(arg.apiKey).toBe('xai-test-secret-key-do-not-leak')
-    expect(arg.text).toBe('Eye')
-    expect(arg.voiceId).toBe('luna')
-    expect(arg.speed).toBe(0.7)
-    expect(arg.replace).toEqual({ Eye: '/aɪ/' })
+  it('rejects text over 1200 chars', async () => {
+    const res = await POST(makeRequest({ text: 'a'.repeat(1201) }) as never)
+    expect(res.status).toBe(400)
+    expect(streamMock).not.toHaveBeenCalled()
   })
 
-  it('accepts a valid built-in voice', async () => {
-    const res = await POST(makeRequest({ text: 'hello', voice_id: 'eve', speed: 1 }) as never)
+  it('defaults unknown voice to luna and does not send vocab replace', async () => {
+    const res = await POST(makeRequest({ text: 'Hello there', voice_id: 'not-a-voice', speed: 0.6 }) as never)
     expect(res.status).toBe(200)
-    const arg = streamMock.mock.calls[0]![0] as { voiceId: string; replace?: unknown }
-    expect(arg.voiceId).toBe('eve')
+    expect(res.headers.get('content-type')).toBe(TTS_PCM_CONTENT_TYPE)
+    const arg = streamMock.mock.calls[0]![0] as {
+      voiceId: string
+      speed: number
+      replace?: unknown
+    }
+    expect(arg.voiceId).toBe('luna')
+    expect(arg.speed).toBe(0.7)
     expect(arg.replace).toBeUndefined()
+    expect(res.headers.get('X-Engvo-Tts-Mode')).toBe('unary')
   })
 })

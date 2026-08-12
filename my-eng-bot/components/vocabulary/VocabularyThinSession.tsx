@@ -1,34 +1,35 @@
 'use client'
 
-import React from 'react'
+import React, { type CSSProperties } from 'react'
 import AudioDeck, { type AudioDeckHandle } from '@/components/audio/AudioDeck'
-import { ChatBubbleFrame } from '@/components/chat/ChatBubble'
-import SpeakerIcon from '@/components/chat/SpeakerIcon'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
 import LessonChoiceChips from '@/components/LessonChoiceChips'
 import ReadingDetachedCard from '@/components/ReadingDetachedCard'
+import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
-import { useVocabSpeakAttempt } from '@/hooks/useVocabSpeakAttempt'
 import { useVocabularyThinSession } from '@/hooks/useVocabularyThinSession'
-import { CHAT_COMPOSER_FORM_CLASS, CHAT_COMPOSER_INPUT_ROW_CLASS } from '@/lib/chatComposerMetrics'
+import {
+  CHAT_COMPOSER_FORM_CLASS,
+  CHAT_COMPOSER_INPUT_ROW_CLASS,
+  CHAT_COMPOSER_TYPO_CLASS,
+  getChatComposerOverlayVerticalClass,
+  getChatComposerTextareaVerticalClass,
+} from '@/lib/chatComposerMetrics'
 import { featureFlags } from '@/lib/featureFlags'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
-import { getPracticeTtsRateByIndex } from '@/lib/practice/practiceTtsSpeedPresets'
+import { isIosChromeBrowser, needsVoiceComposerWebMetrics } from '@/lib/sttClient'
 import type { Audience } from '@/lib/types'
-import {
-  createVocabAttemptId,
-  type VocabHeardAttempt,
-} from '@/lib/vocabulary/vocabSpeakAttemptState'
+import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
 import {
   isVocabSpeakFieldFrozen,
   isVocabSpeakFieldReadOnly,
   resolveVocabSpeakInputMode,
-  vocabHeardBubbleLabel,
   vocabSpeakMicTitle,
 } from '@/lib/vocabulary/vocabSpeakComposer'
-import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
 import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
+import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
+import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
 import type {
   NecessaryWord,
   VocabularyFooterView,
@@ -38,6 +39,25 @@ import type {
 } from '@/types/vocabulary'
 
 const COMPOSER_GLASS_SHADOW = { boxShadow: 'var(--chat-composer-shadow)' } as const
+const VOCAB_INPUT_MAX_HEIGHT_PX = 260
+
+const HIDDEN_VOICE_STATUS_MESSAGES = new Set([
+  'Голосовой ввод...',
+  'Распознаю речь...',
+  '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
+])
+
+const SR_ONLY_STYLE: CSSProperties = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  padding: 0,
+  margin: '-1px',
+  overflow: 'hidden',
+  clip: 'rect(0, 0, 0, 0)',
+  whiteSpace: 'nowrap',
+  border: 0,
+}
 
 type VocabularyThinSessionProps = {
   words: NecessaryWord[]
@@ -79,33 +99,32 @@ export default function VocabularyThinSession({
     onSessionActiveChange,
   })
 
-  const [draft, setDraft] = React.useState('')
   const [voiceHint, setVoiceHint] = React.useState<string | null>(null)
-  const [attempts, setAttempts] = React.useState<VocabHeardAttempt[]>([])
   const [textEditUnlocked, setTextEditUnlocked] = React.useState(false)
-  const [hasCompletedPreview, setHasCompletedPreview] = React.useState(false)
   /** Default 0.6× (index 2) — slower first listen for word form. */
   const [ttsSpeedIndex, setTtsSpeedIndex] = React.useState(2)
+  const [voiceWebMetricsClient, setVoiceWebMetricsClient] = React.useState(false)
+  const [isIosChromeClient, setIsIosChromeClient] = React.useState(false)
   const startedRef = React.useRef(false)
   const scrollRef = React.useRef<HTMLDivElement | null>(null)
-  const attemptsRef = React.useRef(attempts)
-  const speakAttemptCancelRef = React.useRef<(() => void) | null>(null)
   const audioDeckRef = React.useRef<AudioDeckHandle | null>(null)
-  attemptsRef.current = attempts
+  const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
 
   const isVoiceStep =
     session.step === 'check_fail_say' || session.step === 'speak_en' || session.step === 'say_phrase'
   const isFinale = session.status === 'completed'
   const etalonText =
     session.step === 'say_phrase' ? session.phraseTarget : session.currentWord?.en ?? ''
-  const ttsRate = getPracticeTtsRateByIndex(ttsSpeedIndex)
   const audioPlaybackKey = `${session.currentWord?.id ?? 'word'}-${session.step}`
+  const voiceInviteKey =
+    isVoiceStep && !isFinale && session.currentWord
+      ? `${session.currentWord.id}:${session.step}`
+      : null
 
-  const revokeAttempts = React.useCallback((list: VocabHeardAttempt[]) => {
-    for (const item of list) {
-      if (item.audioUrl) URL.revokeObjectURL(item.audioUrl)
-    }
-  }, [])
+  const voice = useLessonVoiceInput({
+    inviteKey: voiceInviteKey,
+    speechMode: 'en',
+  })
 
   React.useEffect(() => {
     if (startedRef.current) return
@@ -116,76 +135,77 @@ export default function VocabularyThinSession({
   }, [words, route, tempo])
 
   React.useEffect(() => {
-    revokeAttempts(attemptsRef.current)
-    setAttempts([])
-    setDraft('')
-    setVoiceHint(null)
-    setTextEditUnlocked(false)
-    setHasCompletedPreview(false)
-    speakAttemptCancelRef.current?.()
-    // AudioDeck stops itself via playbackKey change; avoid extra cancel() on mount.
-  }, [session.step, session.wordIndex, revokeAttempts])
-
-  React.useEffect(() => {
-    return () => {
-      revokeAttempts(attemptsRef.current)
-    }
-  }, [revokeAttempts])
-
-  const handlePreview = React.useCallback((result: { transcript: string; audioUrl: string | null }) => {
-    const next: VocabHeardAttempt = {
-      id: createVocabAttemptId(),
-      transcript: result.transcript,
-      audioUrl: result.audioUrl,
-    }
-    setAttempts((prev) => [...prev, next])
-    setDraft(result.transcript)
-    setHasCompletedPreview(true)
-    setTextEditUnlocked(false)
-    setVoiceHint(null)
+    if (typeof window === 'undefined') return
+    const ua = window.navigator.userAgent
+    setIsIosChromeClient(isIosChromeBrowser(ua))
+    setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(ua))
   }, [])
 
-  const speakAttempt = useVocabSpeakAttempt({
-    etalonText,
-    rate: ttsRate,
-    enabled: isVoiceStep && !isFinale,
-    onPreview: handlePreview,
-    onCapabilityBlocked: (message) => {
-      setVoiceHint(message)
-      setTextEditUnlocked(true)
-      setHasCompletedPreview(true)
-    },
-  })
-
-  speakAttemptCancelRef.current = speakAttempt.cancel
+  React.useLayoutEffect(() => {
+    setVoiceHint(null)
+    setTextEditUnlocked(false)
+    voice.resetVoiceInput()
+    // Layout: must run before useLessonVoiceInput invite effect, else mic stays idle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only on word/step change
+  }, [session.step, session.wordIndex])
 
   React.useEffect(() => {
-    if (attempts.length === 0) return
-    const root = scrollRef.current
-    if (!root) return
-    root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' })
-  }, [attempts.length])
+    if (voice.voicePhase !== 'error') return
+    setTextEditUnlocked(true)
+    if (voice.voiceStatusMessage) setVoiceHint(voice.voiceStatusMessage)
+  }, [voice.voicePhase, voice.voiceStatusMessage])
+
+  const composerText = voice.isVoiceActive ? voice.displayText : voice.draftText
+  const inputValue =
+    voice.isVoiceActive && HIDDEN_VOICE_STATUS_MESSAGES.has(voice.displayText) ? '' : composerText
+  const showVoiceOverlay = voice.isVoiceActive && composerText.length > 0
+  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
+  const iosChromeVoiceStatusMessage = !isIosChromeClient
+    ? null
+    : voice.voicePhase === 'recording'
+      ? 'Голосовой ввод...'
+      : voice.voicePhase === 'finalizing'
+        ? 'Распознаю речь...'
+        : voice.voicePhase === 'error'
+          ? voice.voiceStatusMessage
+          : null
+
+  useAutoGrowTextarea({
+    textareaRef,
+    value: inputValue,
+    maxHeightPx: VOCAB_INPUT_MAX_HEIGHT_PX,
+    minHeightPx: 44,
+    isVoiceActive: voice.isVoiceActive,
+    showVoiceOverlay,
+    voiceWebMetricsActive,
+  })
 
   const inputMode = resolveVocabSpeakInputMode({
     isTextEditUnlocked: textEditUnlocked,
-    voiceListening: speakAttempt.isRecording,
+    voiceListening: voice.listening || voice.isVoiceActive,
   })
-  const fieldReadOnly = isVocabSpeakFieldReadOnly(inputMode)
+  const fieldReadOnly = isVocabSpeakFieldReadOnly(inputMode) || voice.isInputLocked
   const fieldFrozen = isVocabSpeakFieldFrozen({
     isTextEditUnlocked: textEditUnlocked,
     inputMode,
   })
+  const showTextEditButton =
+    Boolean(voice.draftText.trim()) && !textEditUnlocked && !voice.isVoiceActive
+  const micTitle = vocabSpeakMicTitle(voice.listening, voice.voicePhase === 'finalizing')
+  const sendEnabled =
+    Boolean(voice.draftText.trim()) && !voice.isInputLocked && !voice.listening
 
   const handleSendVoice = React.useCallback(() => {
-    if (!hasCompletedPreview && !draft.trim() && !textEditUnlocked) return
-    const ok = session.acceptVoice(draft)
+    if (!sendEnabled) return
+    const ok = session.acceptVoice(voice.draftText)
     if (!ok) {
       setVoiceHint('Не удалось продолжить. Попробуй ещё раз.')
       return
     }
-    setDraft('')
+    voice.setDraftText('')
     setVoiceHint(null)
-  }, [draft, hasCompletedPreview, session, textEditUnlocked])
+    setTextEditUnlocked(false)
+  }, [sendEnabled, session, voice])
 
   const handleHandoff = React.useCallback(() => {
     const banked = session.bankedWords
@@ -219,20 +239,16 @@ export default function VocabularyThinSession({
     onHandoffCall(banked)
   }, [onHandoffCall, session.bankedWords])
 
-  const playAttemptAudio = React.useCallback((url: string) => {
-    try {
-      audioDeckRef.current?.stopTts()
-      const audio = new Audio(url)
-      void audio.play()
-    } catch {
-      // ignore
-    }
-  }, [])
-
   const handleMicClick = React.useCallback(() => {
     audioDeckRef.current?.stopTts()
-    speakAttempt.startCycle()
-  }, [speakAttempt.startCycle])
+    voice.resetMicAnimation()
+    if (voice.listening) {
+      voice.stopListening()
+      return
+    }
+    setVoiceHint(null)
+    void voice.startListening()
+  }, [voice])
 
   const handleRevealNext = React.useCallback(() => {
     audioDeckRef.current?.stopTts()
@@ -240,9 +256,6 @@ export default function VocabularyThinSession({
   }, [session])
 
   const word = session.currentWord
-  const heardLabel = vocabHeardBubbleLabel(audience)
-  const micTitle = vocabSpeakMicTitle(speakAttempt.phase, speakAttempt.isRecording)
-  const sendEnabled = hasCompletedPreview || Boolean(draft.trim())
 
   const audioDeck = word ? (
     <div className={CHAT_COMPOSER_FORM_CLASS} style={COMPOSER_GLASS_SHADOW}>
@@ -254,7 +267,7 @@ export default function VocabularyThinSession({
         playbackKey={audioPlaybackKey}
         speedIndex={ttsSpeedIndex}
         onSpeedIndexChange={setTtsSpeedIndex}
-        disabled={isVoiceStep ? speakAttempt.isBusy : false}
+        disabled={isVoiceStep ? voice.isVoiceActive : false}
       />
     </div>
   ) : null
@@ -331,60 +344,32 @@ export default function VocabularyThinSession({
                 ) : null}
               </ReadingDetachedCard>
             ) : word && isVoiceStep ? (
-              <>
-                <ReadingDetachedCard
-                  key={`card-${word.id}-${session.step}`}
-                  label={
-                    session.step === 'say_phrase'
-                      ? 'Фраза'
-                      : session.step === 'check_fail_say'
-                        ? 'Скажи правильно'
-                        : 'Произнеси'
-                  }
-                  className="lesson-enter"
-                >
-                  <p className="text-[24px] font-bold text-[var(--text)]">
-                    {session.step === 'say_phrase' ? session.phraseTarget : word.en}
+              <ReadingDetachedCard
+                key={`card-${word.id}-${session.step}`}
+                label={
+                  session.step === 'say_phrase'
+                    ? 'Фраза'
+                    : session.step === 'check_fail_say'
+                      ? 'Скажи правильно'
+                      : 'Произнеси'
+                }
+                className="lesson-enter"
+              >
+                <p className="text-[24px] font-bold text-[var(--text)]">
+                  {session.step === 'say_phrase' ? session.phraseTarget : word.en}
+                </p>
+                {session.step !== 'say_phrase' && word.transcription ? (
+                  <p className="mt-1 text-[14px] text-[var(--text-muted)]">{word.transcription}</p>
+                ) : null}
+                {voiceHint ? (
+                  <p className="mt-3 text-[13px] leading-relaxed text-[var(--status-warning-text)]">{voiceHint}</p>
+                ) : null}
+                {session.lastVoiceOk === false ? (
+                  <p className="mt-2 text-[13px] text-[var(--text-muted)]">
+                    Не совпало — можно поправить или идти дальше.
                   </p>
-                  {session.step !== 'say_phrase' && word.transcription ? (
-                    <p className="mt-1 text-[14px] text-[var(--text-muted)]">{word.transcription}</p>
-                  ) : null}
-                  {voiceHint ? (
-                    <p className="mt-3 text-[13px] leading-relaxed text-[var(--status-warning-text)]">{voiceHint}</p>
-                  ) : null}
-                  {session.lastVoiceOk === false ? (
-                    <p className="mt-2 text-[13px] text-[var(--text-muted)]">
-                      Не совпало — можно поправить или идти дальше.
-                    </p>
-                  ) : null}
-                </ReadingDetachedCard>
-                {attempts.map((attempt) => (
-                  <ChatBubbleFrame
-                    key={attempt.id}
-                    role="assistant"
-                    position="solo"
-                    className="lesson-enter"
-                    rowClassName="mb-2.5"
-                  >
-                    <div className="flex items-center gap-2 px-1 py-0.5 text-[15px] leading-relaxed text-[var(--text)]">
-                      <span className="min-w-0">
-                        {heardLabel} {attempt.transcript || '…'}
-                      </span>
-                      {attempt.audioUrl ? (
-                        <button
-                          type="button"
-                          onClick={() => playAttemptAudio(attempt.audioUrl!)}
-                          className="chat-input-inline-speaker-button chat-action-button inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
-                          title="Прослушать себя"
-                          aria-label="Прослушать свою запись"
-                        >
-                          <SpeakerIcon />
-                        </button>
-                      ) : null}
-                    </div>
-                  </ChatBubbleFrame>
-                ))}
-              </>
+                ) : null}
+              </ReadingDetachedCard>
             ) : (
               <ReadingDetachedCard label="Сессия">
                 <p className="text-[15px] text-[var(--text-muted)]">Готовлю сессию…</p>
@@ -476,35 +461,71 @@ export default function VocabularyThinSession({
               <div className={`${CHAT_COMPOSER_FORM_CLASS} px-2`} style={COMPOSER_GLASS_SHADOW}>
                 <div className={CHAT_COMPOSER_INPUT_ROW_CLASS}>
                   <VoiceMicButton
-                    listening={speakAttempt.isRecording}
-                    finalizing={speakAttempt.isFinalizing}
-                    disabled={speakAttempt.phase === 'playing' || speakAttempt.phase === 'cueStart'}
-                    micVisualState={
-                      speakAttempt.isRecording
-                        ? 'wait'
-                        : speakAttempt.phase === 'idle' || speakAttempt.phase === 'preview'
-                          ? 'invite'
-                          : 'idle'
-                    }
+                    listening={voice.listening}
+                    finalizing={voice.voicePhase === 'finalizing'}
+                    disabled={voice.voicePhase === 'finalizing'}
+                    micVisualState={voice.micVisualState}
                     onClick={handleMicClick}
                     title={micTitle}
-                    ariaLabel={micTitle}
+                    ariaLabel={
+                      voice.listening
+                        ? 'Остановить запись'
+                        : voice.voicePhase === 'finalizing'
+                          ? 'Распознаю речь'
+                          : 'Голосовой ввод'
+                    }
                   />
                   <div className="relative min-w-0 flex-1">
+                    {showVoiceOverlay ? (
+                      <VoiceComposerOverlay
+                        draftBeforeVoiceText={voice.draftBeforeVoiceText}
+                        livePreviewText={voice.livePreviewText}
+                        webTextMetricsFix={voiceWebMetricsClient}
+                      />
+                    ) : null}
+                    {iosChromeVoiceStatusMessage ? (
+                      <>
+                        <span role="status" aria-live="polite" style={SR_ONLY_STYLE}>
+                          {iosChromeVoiceStatusMessage}
+                        </span>
+                        <div
+                          aria-hidden="true"
+                          className={`ios-chrome-voice-status-overlay pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded-2xl px-4 font-sans text-[14px] italic leading-snug ${
+                            voiceWebMetricsActive
+                              ? getChatComposerOverlayVerticalClass(true)
+                              : getChatComposerOverlayVerticalClass(false)
+                          }`}
+                          style={{
+                            color:
+                              voice.voicePhase === 'error'
+                                ? 'var(--status-danger-text, #dc2626)'
+                                : 'var(--text-muted)',
+                          }}
+                        >
+                          {iosChromeVoiceStatusMessage}
+                        </div>
+                      </>
+                    ) : null}
                     <textarea
-                      value={draft}
+                      ref={textareaRef}
+                      value={inputValue}
                       readOnly={fieldReadOnly}
                       onChange={(event) => {
                         if (fieldReadOnly) return
-                        setDraft(event.target.value)
+                        voice.setDraftText(event.target.value)
                       }}
                       rows={1}
-                      placeholder={textEditUnlocked ? 'Поправь и отправь' : 'Повтори после сигнала…'}
-                      className={`chat-input-field min-w-0 w-full resize-none rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 py-2.5 text-base outline-none ${
-                        fieldFrozen ? 'text-[var(--text-muted)]' : 'text-[var(--text)]'
-                      } ${hasCompletedPreview && !textEditUnlocked ? 'pr-12' : ''}`}
+                      placeholder={textEditUnlocked ? 'Поправь и отправь' : ''}
+                      className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} outline-none ${
+                        showVoiceOverlay
+                          ? 'text-transparent caret-transparent placeholder:text-transparent'
+                          : fieldFrozen
+                            ? 'text-[var(--text-muted)]'
+                            : 'text-[var(--text)]'
+                      } ${showTextEditButton ? 'pr-12' : ''}`}
+                      style={{ maxHeight: VOCAB_INPUT_MAX_HEIGHT_PX }}
                     />
-                    {hasCompletedPreview && !textEditUnlocked ? (
+                    {showTextEditButton ? (
                       <button
                         type="button"
                         onPointerDown={(event) => {

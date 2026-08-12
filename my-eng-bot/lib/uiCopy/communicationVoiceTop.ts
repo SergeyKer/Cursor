@@ -7,8 +7,4 @@ export const COMMUNICATION_VOICE_TOP = {
     text: 'En: говори по-английски - я пойму',
     compact: 'En: говори - я помогу.',
   },
-  ru: {
-    text: 'Ru: пиши как удобно - ответ на En',
-    compact: 'Ru: ввод свободный, ответ En.',
-  },
 } as const
