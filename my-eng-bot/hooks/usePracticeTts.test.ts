@@ -31,7 +31,7 @@ function lastSpeakCall(): SpeakCall | undefined {
 /** Минимальная симуляция контролируемого usePracticeTts. */
 function createControlledPracticeTtsPlaybackModel(initialSpeedIndex = 0) {
   let speedIndex = initialSpeedIndex
-  let questionId = 'q-1'
+  let playbackKey = 'q-1'
   let isPlaying = false
   const text = 'It is dark outside.'
   const voiceId = 'voice-1'
@@ -59,8 +59,8 @@ function createControlledPracticeTtsPlaybackModel(initialSpeedIndex = 0) {
     }
   }
 
-  const changeQuestion = (nextQuestionId: string) => {
-    questionId = nextQuestionId
+  const changePlaybackKey = (nextPlaybackKey: string) => {
+    playbackKey = nextPlaybackKey
     stop()
   }
 
@@ -72,12 +72,12 @@ function createControlledPracticeTtsPlaybackModel(initialSpeedIndex = 0) {
     get speedIndex() {
       return speedIndex
     },
-    get questionId() {
-      return questionId
+    get playbackKey() {
+      return playbackKey
     },
     togglePlay,
     cycleSpeed,
-    changeQuestion,
+    changePlaybackKey,
     setSpeedFromParent,
   }
 }
@@ -94,9 +94,9 @@ describe('usePracticeTts speed integration', () => {
     expect(lastSpeakCall()?.options.rate).toBe(0.8)
   })
 
-  it('does not reset speed when questionId changes', () => {
+  it('does not reset speed when playbackKey changes', () => {
     const model = createControlledPracticeTtsPlaybackModel(2)
-    model.changeQuestion('q-2')
+    model.changePlaybackKey('q-2')
     expect(model.speedIndex).toBe(2)
   })
 

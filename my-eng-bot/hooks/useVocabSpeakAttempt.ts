@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { speak, stopSpeaking } from '@/lib/speech'
+import { playVocabTts, stopVocabTts } from '@/lib/vocabulary/playVocabTts'
 import { pickRecordingMimeType } from '@/lib/sttClient'
 import { playCueBeeps } from '@/lib/voice/playCueBeeps'
 import {
@@ -23,6 +23,8 @@ export type VocabSpeakPreviewResult = {
 type UseVocabSpeakAttemptParams = {
   etalonText: string
   voiceId?: string
+  /** TTS rate for mic-cycle etalon; keep in sync with AudioDeck speedIndex. */
+  rate?: number
   enabled?: boolean
   onPreview: (result: VocabSpeakPreviewResult) => void
   onCapabilityBlocked?: (message: string) => void
@@ -48,12 +50,15 @@ function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
 export function useVocabSpeakAttempt({
   etalonText,
   voiceId = '',
+  rate,
   enabled = true,
   onPreview,
   onCapabilityBlocked,
 }: UseVocabSpeakAttemptParams): UseVocabSpeakAttemptResult {
   const [runtime, dispatch] = React.useReducer(reduceVocabSpeakAttempt, initialVocabSpeakAttemptState)
   const phase = runtime.phase
+  const phaseRef = React.useRef(phase)
+  phaseRef.current = phase
 
   const playbackGenerationRef = React.useRef(0)
   const audioCtxRef = React.useRef<AudioContext | null>(null)
@@ -69,12 +74,14 @@ export function useVocabSpeakAttempt({
   const onPreviewRef = React.useRef(onPreview)
   const onBlockedRef = React.useRef(onCapabilityBlocked)
   const etalonRef = React.useRef(etalonText)
+  const rateRef = React.useRef(rate)
   const startRecordingRef = React.useRef<() => Promise<void>>(async () => undefined)
   const stopRecordingRef = React.useRef<() => void>(() => undefined)
 
   onPreviewRef.current = onPreview
   onBlockedRef.current = onCapabilityBlocked
   etalonRef.current = etalonText
+  rateRef.current = rate
 
   const clearMaxTimer = React.useCallback(() => {
     if (maxTimerRef.current != null) {
@@ -110,10 +117,14 @@ export function useVocabSpeakAttempt({
   }, [])
 
   const cancel = React.useCallback(() => {
+    const phaseNow = phaseRef.current
     playbackGenerationRef.current += 1
     stoppingRef.current = true
     clearMaxTimer()
-    stopSpeaking()
+    // Don't cancel alien TTS (AudioDeck preview) when the speak-cycle is idle.
+    if (phaseNow !== 'idle' && phaseNow !== 'preview') {
+      stopVocabTts()
+    }
     stopSpeechRecognition()
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
@@ -342,7 +353,7 @@ export function useVocabSpeakAttempt({
     void (async () => {
       playbackGenerationRef.current += 1
       const generation = playbackGenerationRef.current
-      stopSpeaking()
+      stopVocabTts()
       await unlockAudioContext()
       dispatch({ type: 'START_PLAYING' })
 
@@ -357,7 +368,9 @@ export function useVocabSpeakAttempt({
         })()
       }
 
-      speak(target, voiceId, {
+      playVocabTts(target, {
+        browserVoiceId: voiceId,
+        ...(rateRef.current != null ? { rate: rateRef.current } : {}),
         onEnd: afterEtalon,
         onError: afterEtalon,
       })

@@ -1,14 +1,14 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { speak, stopSpeaking } from '@/lib/speech'
 import {
   cyclePracticeTtsSpeedIndex,
   getPracticeTtsRateByIndex,
   getPracticeTtsSpeedPreset,
 } from '@/lib/practice/practiceTtsSpeedPresets'
+import { playVocabTts, stopVocabTts } from '@/lib/vocabulary/playVocabTts'
 
-export type UsePracticeTtsOptions = {
+export type UseVocabGrokTtsOptions = {
   text: string
   voiceId: string
   playbackKey: string
@@ -17,7 +17,7 @@ export type UsePracticeTtsOptions = {
   disabled?: boolean
 }
 
-export type UsePracticeTtsResult = {
+export type UseVocabGrokTtsResult = {
   isPlaying: boolean
   speedIndex: number
   speedPreset: ReturnType<typeof getPracticeTtsSpeedPreset>
@@ -26,16 +26,15 @@ export type UsePracticeTtsResult = {
   cycleSpeed: () => void
 }
 
-export function usePracticeTts({
+export function useVocabGrokTts({
   text,
   voiceId,
   playbackKey,
   speedIndex,
   onSpeedIndexChange,
   disabled = false,
-}: UsePracticeTtsOptions): UsePracticeTtsResult {
+}: UseVocabGrokTtsOptions): UseVocabGrokTtsResult {
   const [isPlaying, setIsPlaying] = useState(false)
-  const activeTextRef = useRef('')
   const speedIndexRef = useRef(speedIndex)
   const isPlayingRef = useRef(false)
   const playbackGenerationRef = useRef(0)
@@ -59,7 +58,7 @@ export function usePracticeTts({
 
   const stop = useCallback(() => {
     invalidatePlayback()
-    stopSpeaking()
+    stopVocabTts()
     setIsPlaying(false)
   }, [invalidatePlayback])
 
@@ -70,18 +69,16 @@ export function usePracticeTts({
 
       const generation = playbackGenerationRef.current + 1
       playbackGenerationRef.current = generation
-      activeTextRef.current = normalized
       clearSpeakTimer()
-      // Optimistic UI; Chrome often skips onstart after cancel()/speak in one turn.
       setIsPlaying(true)
 
-      // Defer past any sync cancel() from stopSpeaking / speak internals (Chrome quirk).
       speakTimerRef.current = window.setTimeout(() => {
         speakTimerRef.current = null
         if (playbackGenerationRef.current !== generation) return
 
-        speak(normalized, voiceId, {
+        playVocabTts(normalized, {
           rate,
+          browserVoiceId: voiceId,
           onStart: () => {
             if (playbackGenerationRef.current !== generation) return
             setIsPlaying(true)
@@ -122,8 +119,6 @@ export function usePracticeTts({
     }
   }, [disabled, onSpeedIndexChange, startPlayback, text])
 
-  // Stop only when the key actually changes — not on initial mount (avoids cancel()
-  // outside a user gesture, which can leave Chrome speechSynthesis silent).
   useEffect(() => {
     if (playbackKeyRef.current === playbackKey) return
     playbackKeyRef.current = playbackKey
@@ -133,14 +128,12 @@ export function usePracticeTts({
   useEffect(() => {
     return () => {
       invalidatePlayback()
-      stopSpeaking()
+      stopVocabTts()
     }
   }, [invalidatePlayback])
 
   useEffect(() => {
-    if (disabled) {
-      stop()
-    }
+    if (disabled) stop()
   }, [disabled, stop])
 
   const speedPreset = getPracticeTtsSpeedPreset(speedIndex)

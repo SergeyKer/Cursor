@@ -35,6 +35,12 @@ import {
 } from '@/lib/homeCtaStyles'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLoadStudyingPref, setLoadStudyingPref } from '@/lib/vocabulary/loadStudyingPref'
+import {
+  getVocabTtsEnginePref,
+  setVocabTtsEnginePref,
+  type VocabTtsEngine,
+} from '@/lib/vocabulary/ttsEnginePref'
+import { getVocabTtsVoicePref, setVocabTtsVoicePref } from '@/lib/vocabulary/ttsVoicePref'
 import { buildPracticeModeEconomyBlurb } from '@/lib/practice/practiceCoinExplainCopy'
 import {
   DEFAULT_LESSON_LIST_DENSITY,
@@ -247,6 +253,9 @@ export type LessonsPanel =
   | 'wordsAll'
   | 'wordsByLevel'
   | 'wordsFeed'
+  | 'wordsTts'
+  | 'wordsTtsVoice'
+  | 'wordsTtsVoiceSection'
 
 /** Контекст меню «Уроки» для восстановления после урока (теория по теме / практика). */
 export type LessonMenuContext = {
@@ -388,6 +397,9 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   wordsAll: 'Сегодня и мои списки',
   wordsByLevel: 'Слова по уровням (A1-C2)',
   wordsFeed: 'Слова в деле',
+  wordsTts: 'Озвучка',
+  wordsTtsVoice: 'Голос',
+  wordsTtsVoiceSection: 'Голос',
 }
 
 type TheoryTopicLaunchState = { tagIds: string[]; searchQuery: string | null }
@@ -823,6 +835,10 @@ export default function MenuSectionPanels({
   const [engvoPanel, setEngvoPanel] = React.useState<EngvoPanel>('summary')
   const [selectedXaiVoiceSectionId, setSelectedXaiVoiceSectionId] =
     React.useState<EngvoXaiVoiceSectionId>('classic')
+  const [vocabTtsVoiceSectionId, setVocabTtsVoiceSectionId] =
+    React.useState<EngvoXaiVoiceSectionId>('classic')
+  const [vocabTtsEngine, setVocabTtsEngineState] = React.useState<VocabTtsEngine>('grok')
+  const [vocabTtsVoice, setVocabTtsVoiceState] = React.useState<EngvoXaiCallVoice>(ENGVO_XAI_DEFAULT_VOICE)
   const [lessonsPanel, setLessonsPanel] = React.useState<LessonsPanel>('summary')
   /** Hub to return to from aiChat/engvo/practice leaf (cleared on root/Home). */
   const [menuReturnView, setMenuReturnView] = React.useState<MenuView | null>(null)
@@ -836,6 +852,8 @@ export default function MenuSectionPanels({
 
   React.useEffect(() => {
     setLoadStudyingPrefState(getLoadStudyingPref())
+    setVocabTtsEngineState(getVocabTtsEnginePref())
+    setVocabTtsVoiceState(getVocabTtsVoicePref())
   }, [])
 
   React.useEffect(() => {
@@ -2057,6 +2075,14 @@ export default function MenuSectionPanels({
         setLessonsPanel('pronunciation')
         return
       }
+      if (lessonsPanel === 'wordsTtsVoiceSection') {
+        setLessonsPanel('wordsTtsVoice')
+        return
+      }
+      if (lessonsPanel === 'wordsTtsVoice' || lessonsPanel === 'wordsTts') {
+        setLessonsPanel('words')
+        return
+      }
       if (lessonsPanel === 'wordsAll') {
         setLessonsPanel('words')
         return
@@ -2633,6 +2659,7 @@ export default function MenuSectionPanels({
               {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
                 <MenuNavRow label="Преподаватель" onClick={openPracticeTeacher} />
               ) : null}
+              <LessonTopicRow label="Разговорник" />
               {featureFlags.quickTestV1 && onOpenQuickTest ? (
                 <MenuNavRow label="Быстрый тест" showChevron={false} onClick={() => onOpenQuickTest()} />
               ) : null}
@@ -3026,18 +3053,129 @@ export default function MenuSectionPanels({
             )}
 
             {lessonsPanel === 'words' && (
+              <div className="space-y-3">
+                <div className={MENU_GROUP_OUTER}>
+                  <div className={MENU_GROUP_CLASS}>
+                    <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
+                    <MenuNavRow label="Слова по уровням (A1-C2)" onClick={() => setLessonsPanel('wordsByLevel')} />
+                    <MenuNavRow
+                      label="Сегодня и мои списки"
+                      onClick={() => setLessonsPanel('wordsAll')}
+                    />
+                    <MenuNavRow label="Слова в деле" onClick={() => setLessonsPanel('wordsFeed')} />
+                  </div>
+                </div>
+                {featureFlags.vocabGrokTtsV1 ? (
+                  <div className={MENU_GROUP_OUTER}>
+                    <div className={MENU_GROUP_CLASS}>
+                      <MenuSettingRow
+                        label="Озвучка"
+                        value={vocabTtsEngine === 'grok' ? 'Grok' : 'Системный'}
+                        onClick={() => setLessonsPanel('wordsTts')}
+                      />
+                      {vocabTtsEngine === 'grok' ? (
+                        <MenuSettingRow
+                          label="Голос"
+                          value={formatEngvoVoiceDisplayName(vocabTtsVoice)}
+                          onClick={() => {
+                            setVocabTtsVoiceSectionId(getEngvoXaiVoiceSection(vocabTtsVoice))
+                            setLessonsPanel('wordsTtsVoice')
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            )}
+
+            {lessonsPanel === 'wordsTts' && featureFlags.vocabGrokTtsV1 && (
+              <PickerList
+                options={[
+                  { id: 'system', label: 'Системный' },
+                  { id: 'grok', label: 'Grok' },
+                ]}
+                value={vocabTtsEngine}
+                onSelect={(id) => {
+                  const next = id as VocabTtsEngine
+                  setVocabTtsEnginePref(next)
+                  setVocabTtsEngineState(next)
+                  setLessonsPanel('words')
+                }}
+              />
+            )}
+
+            {lessonsPanel === 'wordsTtsVoice' && featureFlags.vocabGrokTtsV1 && (
               <div className={MENU_GROUP_OUTER}>
                 <div className={MENU_GROUP_CLASS}>
-                  <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
-                  <MenuNavRow label="Слова по уровням (A1-C2)" onClick={() => setLessonsPanel('wordsByLevel')} />
-                  <MenuNavRow
-                    label="Сегодня и мои списки"
-                    onClick={() => setLessonsPanel('wordsAll')}
-                  />
-                  <MenuNavRow label="Слова в деле" onClick={() => setLessonsPanel('wordsFeed')} />
+                  {ENGVO_XAI_VOICE_SECTIONS.map((section) => (
+                    <MenuSettingRow
+                      key={section.id}
+                      label={section.label}
+                      value={
+                        getEngvoXaiVoiceSection(vocabTtsVoice) === section.id
+                          ? formatEngvoVoiceDisplayName(vocabTtsVoice)
+                          : ''
+                      }
+                      onClick={() => {
+                        setVocabTtsVoiceSectionId(section.id)
+                        setLessonsPanel('wordsTtsVoiceSection')
+                      }}
+                    />
+                  ))}
+                  {customXaiVoices.length > 0 && (
+                    <MenuSettingRow
+                      label="Other"
+                      value={
+                        getEngvoXaiVoiceSection(vocabTtsVoice) === 'other'
+                          ? formatEngvoVoiceDisplayName(vocabTtsVoice)
+                          : ''
+                      }
+                      onClick={() => {
+                        setVocabTtsVoiceSectionId('other')
+                        setLessonsPanel('wordsTtsVoiceSection')
+                      }}
+                    />
+                  )}
                 </div>
               </div>
             )}
+
+            {lessonsPanel === 'wordsTtsVoiceSection' &&
+              featureFlags.vocabGrokTtsV1 &&
+              vocabTtsVoiceSectionId === 'other' && (
+                <PickerList
+                  options={customXaiVoices.map((voice) => ({
+                    id: voice.voiceId,
+                    label: voice.name,
+                  }))}
+                  value={vocabTtsVoice}
+                  onSelect={(id) => {
+                    setVocabTtsVoicePref(id)
+                    setVocabTtsVoiceState(getVocabTtsVoicePref())
+                    setLessonsPanel('words')
+                  }}
+                />
+              )}
+
+            {lessonsPanel === 'wordsTtsVoiceSection' &&
+              featureFlags.vocabGrokTtsV1 &&
+              vocabTtsVoiceSectionId !== 'other' && (
+                <PickerList
+                  options={(
+                    ENGVO_XAI_VOICE_SECTIONS.find((s) => s.id === vocabTtsVoiceSectionId)?.voices ?? []
+                  ).map((voice) => ({
+                    id: voice,
+                    label: formatEngvoVoiceDisplayName(voice),
+                  }))}
+                  value={vocabTtsVoice}
+                  onSelect={(id) => {
+                    setVocabTtsVoicePref(id)
+                    setVocabTtsVoiceState(getVocabTtsVoicePref())
+                    setLessonsPanel('words')
+                  }}
+                />
+              )}
 
             {lessonsPanel === 'vocabulary' && (
               <div className="space-y-3">

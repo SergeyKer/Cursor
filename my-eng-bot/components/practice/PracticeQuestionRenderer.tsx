@@ -1019,7 +1019,7 @@ export default function PracticeQuestionRenderer({
               ref={audioDeckRef}
               text={practiceAudioText}
               voiceId={voiceId}
-              questionId={question.id}
+              playbackKey={question.id}
               speedIndex={ttsSpeedIndex}
               onSpeedIndexChange={onTtsSpeedIndexChange}
               disabled={disabled || answerPanelLocked}
@@ -1068,7 +1068,7 @@ export default function PracticeQuestionRenderer({
               ref={audioDeckRef}
               text={practiceAudioText}
               voiceId={voiceId}
-              questionId={question.id}
+              playbackKey={question.id}
               speedIndex={ttsSpeedIndex}
               onSpeedIndexChange={onTtsSpeedIndexChange}
               disabled={disabled || answerPanelLocked}

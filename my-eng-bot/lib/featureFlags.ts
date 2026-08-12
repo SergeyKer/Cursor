@@ -56,5 +56,10 @@ export const featureFlags = {
    * Default on; =false аварийный rollback (micro chip off).
    */
   tutorMicroLlmV1: process.env.NEXT_PUBLIC_FEATURE_TUTOR_MICRO_LLM !== 'false',
+  /**
+   * Grok TTS for vocabulary «Слова» (menu Озвучка + Голос).
+   * Default on; =false hides Grok and forces system speechSynthesis.
+   */
+  vocabGrokTtsV1: process.env.NEXT_PUBLIC_FEATURE_VOCAB_GROK_TTS !== 'false',
 } as const
 

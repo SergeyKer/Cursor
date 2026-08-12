@@ -68,7 +68,11 @@ function speakOnce(
   }
 
   const runSpeak = () => {
-    if (synth.paused) synth.resume()
+    try {
+      if (synth.paused) synth.resume()
+    } catch {
+      // ignore
+    }
     activeSpeakSessionKey = sessionKey
     synth.speak(utterance)
   }
@@ -119,10 +123,21 @@ export function speak(text: string, voiceId: string, options: SpeakOptions = {})
     return
   }
 
-  if (!androidBrowser || synth.speaking || synth.pending) {
+  const wasBusy = Boolean(synth.speaking || synth.pending)
+  if (!androidBrowser || wasBusy) {
     synth.cancel()
   }
-  speakOnce(synth, normalized, voiceId, allowCustomVoice, sessionKey, options)
+
+  const queueSpeakOnce = () => {
+    speakOnce(synth, normalized, voiceId, allowCustomVoice, sessionKey, options)
+  }
+
+  // Chrome drops utterance when speak() follows cancel() in the same turn.
+  if (!androidBrowser) {
+    window.setTimeout(queueSpeakOnce, 0)
+  } else {
+    queueSpeakOnce()
+  }
 
   if (androidBrowser) {
     androidSpeakRetryTimer = window.setTimeout(() => {

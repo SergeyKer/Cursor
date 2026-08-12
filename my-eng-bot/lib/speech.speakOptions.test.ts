@@ -27,11 +27,21 @@ function createSpeechSynthesisMock() {
     speak: vi.fn((utterance: MockUtterance) => {
       utterances.push(utterance)
       synth.speaking = true
-      utterance.onstart?.()
     }),
   }
 
   return { synth, utterances }
+}
+
+function stubSpeechWindow(synth: ReturnType<typeof createSpeechSynthesisMock>['synth']) {
+  vi.stubGlobal('window', {
+    speechSynthesis: synth,
+    clearTimeout: vi.fn(),
+    setTimeout: (fn: () => void) => {
+      fn()
+      return 0
+    },
+  })
 }
 
 describe('speak options', () => {
@@ -57,11 +67,7 @@ describe('speak options', () => {
 
   it('passes custom rate and lifecycle callbacks', () => {
     const { synth, utterances } = createSpeechSynthesisMock()
-    vi.stubGlobal('window', {
-      speechSynthesis: synth,
-      clearTimeout: vi.fn(),
-      setTimeout: vi.fn(),
-    })
+    stubSpeechWindow(synth)
 
     const onStart = vi.fn()
     const onEnd = vi.fn()
@@ -69,6 +75,7 @@ describe('speak options', () => {
     speak('Hello', 'voice-1', { rate: 0.7, onStart, onEnd })
 
     expect(utterances[0]?.rate).toBe(0.7)
+    utterances[0]?.onstart?.()
     expect(onStart).toHaveBeenCalledTimes(1)
 
     utterances[0]?.onend?.()
@@ -77,11 +84,7 @@ describe('speak options', () => {
 
   it('stops active playback when speak is called again with the same session', () => {
     const { synth } = createSpeechSynthesisMock()
-    vi.stubGlobal('window', {
-      speechSynthesis: synth,
-      clearTimeout: vi.fn(),
-      setTimeout: vi.fn(),
-    })
+    stubSpeechWindow(synth)
 
     speak('Hello', 'voice-1', { rate: 0.85 })
     speak('Hello', 'voice-1', { rate: 0.85 })
@@ -91,11 +94,7 @@ describe('speak options', () => {
 
   it('exposes stopSpeaking helper', () => {
     const { synth } = createSpeechSynthesisMock()
-    vi.stubGlobal('window', {
-      speechSynthesis: synth,
-      clearTimeout: vi.fn(),
-      setTimeout: vi.fn(),
-    })
+    stubSpeechWindow(synth)
 
     speak('Hello', 'voice-1')
     stopSpeaking()
@@ -105,11 +104,7 @@ describe('speak options', () => {
 
   it('starts a new utterance when rate changes while another session is active', () => {
     const { synth, utterances } = createSpeechSynthesisMock()
-    vi.stubGlobal('window', {
-      speechSynthesis: synth,
-      clearTimeout: vi.fn(),
-      setTimeout: vi.fn(),
-    })
+    stubSpeechWindow(synth)
 
     speak('Hello', 'voice-1', { rate: 1 })
     expect(utterances[0]?.rate).toBe(1)
