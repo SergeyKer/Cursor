@@ -287,10 +287,16 @@ import {
   buildCallReviewFooterSheetContext,
   buildFooterSheetContext,
   buildLanguageNoteFooterSheetContext,
+  buildLessonHudFooterSheetContext,
   shouldCloseFooterSheetOnRowPress,
   type FooterSheetContext,
   type FooterSheetSource,
 } from '@/lib/footerSheet'
+import {
+  buildLessonFooterSheetView,
+  resolveLessonFooterSheetMoment,
+} from '@/lib/lessonFooterSheet'
+import { LESSON_FOOTER_SHEET_TITLE } from '@/lib/uiCopy/lessonFooterSheet'
 import {
   buildCallReview,
   callReviewCardFromLanguageNote,
@@ -10286,6 +10292,37 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               ? communicationFooterView?.sessionMeter ?? null
               : null
   const footerDisplayTypingKey = footerHydrated ? footerTypingKey : 'footer-ssr-placeholder'
+  const lessonHudMoment = resolveLessonFooterSheetMoment({
+    lessonViewStage: isReferenceSheetActive
+      ? 'reference'
+      : isLessonIntroActive
+        ? 'intro'
+        : isLessonTipsActive
+          ? 'tips'
+          : isLessonBriefingActive
+            ? 'briefing'
+            : isStructuredLessonActive
+              ? 'lesson'
+              : null,
+    structuredLessonActive: isStructuredLessonActive,
+    structuredLessonStatus: activeStructuredLessonStatus,
+    structuredLessonFeedbackType:
+      activeStructuredLessonFeedback?.type === 'error' ||
+      activeStructuredLessonFeedback?.type === 'success'
+        ? activeStructuredLessonFeedback.type
+        : null,
+    structuredLessonCompleted:
+      activeStructuredLessonIsFinale || activeStructuredLessonStatus === 'completed',
+    lessonsMenuOpenWithoutLesson:
+      !(
+        isLessonIntroActive ||
+        isLessonTipsActive ||
+        isLessonBriefingActive ||
+        isStructuredLessonActive ||
+        isReferenceSheetActive
+      ) && (homeMenuView === 'lessons' || requestedMenuView === 'lessons'),
+  })
+  const lessonHudFooterScope = lessonHudMoment != null
   const abortLanguageNoteRequest = useCallback(() => {
     languageNoteAbortRef.current?.abort()
     languageNoteAbortRef.current = null
@@ -10655,13 +10692,33 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   ])
 
   const handleFooterRowPress = useCallback(
-    (source: Exclude<FooterSheetSource, 'language-note' | 'call-review'>) => {
+    (source: Exclude<FooterSheetSource, 'language-note' | 'call-review' | 'lesson-hud'>) => {
       if (shouldCloseFooterSheetOnRowPress(footerSheetContext, source)) {
         abortLanguageNoteRequest()
         footerSheetRef.current?.close()
         return
       }
       const openSheet = () => {
+        if (lessonHudMoment) {
+          const statusFromSegments =
+            footerDisplayLessonSegments
+              ?.map((segment) => segment.text.trim())
+              .filter(Boolean)
+              .join(' · ') || null
+          setFooterSheetContext(
+            buildLessonHudFooterSheetContext(
+              buildLessonFooterSheetView({
+                moment: lessonHudMoment,
+                audience: settings.audience === 'child' ? 'child' : 'adult',
+                dynamicText: footerDisplayDynamicText,
+                staticText: footerDisplayStaticText,
+                statusLine: statusFromSegments,
+                lessonTitle: footerDisplayLessonTitle ?? activeLessonTitle,
+              })
+            )
+          )
+          return
+        }
         setFooterSheetContext(
           buildFooterSheetContext({
             source,
@@ -10684,6 +10741,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     },
     [
       abortLanguageNoteRequest,
+      activeLessonTitle,
       footerDisplayDynamicText,
       footerDisplayLessonSegments,
       footerDisplayLessonTitle,
@@ -10693,7 +10751,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       footerSheetContext,
       footerVoiceEmphasis,
       footerVoiceTone,
+      lessonHudMoment,
       menuOpen,
+      settings.audience,
     ]
   )
   const engvoBootstrapServiceIndicatorText = getEngvoBootstrapServiceIndicatorText(
@@ -11777,6 +11837,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             showWhenIdle={!dialogStarted}
             lessonFooterLessonTitle={footerDisplayLessonTitle}
             lessonFooterSegments={footerDisplayLessonSegments}
+            showLessonHudGlyph={lessonHudFooterScope}
+            footerRowAriaLabel={lessonHudFooterScope ? LESSON_FOOTER_SHEET_TITLE : null}
             onFooterRowPress={handleFooterRowPress}
           />
         </div>

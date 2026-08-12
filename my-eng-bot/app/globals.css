@@ -2470,6 +2470,32 @@ html[data-theme='glass3'] {
   align-items: center;
 }
 
+.app-footer-body__row--top:has(.app-footer-hud-glyph) .app-footer-body__row-inner {
+  width: auto;
+  flex: 1 1 auto;
+}
+
+.app-footer-hud-glyph {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  margin-inline-start: 0.35rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  opacity: 0.4;
+  color: currentColor;
+  pointer-events: none;
+  user-select: none;
+}
+
+.app-footer-hud-glyph__icon {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 /* РќРёР¶РЅСЋСЋ СЃС‚Р°С‚РёС‡РЅСѓСЋ СЃС‚СЂРѕРєСѓ СЃР»РµРіРєР° РїСЂРёРїРѕРґРЅРёРјР°РµРј РѕС‚ РЅРёР¶РЅРµРіРѕ РєСЂР°СЏ РїРѕР»РѕСЃС‹ С„СѓС‚РµСЂР°. */
 .app-footer-body__row--bottom .app-footer-body__row-inner {
   transform: translateY(-5px);

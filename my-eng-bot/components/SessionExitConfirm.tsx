@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
-import { APP_BTN_PRIMARY_COMPACT, POST_LESSON_NEUTRAL_BUTTON_CLASS } from '@/lib/homeCtaStyles'
+import { APP_BTN_NEUTRAL_WHITE_LARGE, APP_BTN_PRIMARY_LARGE } from '@/lib/homeCtaStyles'
 import {
   SESSION_EXIT_COPY,
   sessionExitConfirmBody,
@@ -121,7 +121,7 @@ export default function SessionExitConfirm({
         <div className="mt-5 flex flex-row gap-2">
           <button
             type="button"
-            className={`${POST_LESSON_NEUTRAL_BUTTON_CLASS} !border-[var(--chat-section-neutral-border)]`}
+            className={`${APP_BTN_NEUTRAL_WHITE_LARGE} flex-1`}
             onClick={onLeave}
             disabled={leaveBusy || closing}
           >
@@ -130,7 +130,7 @@ export default function SessionExitConfirm({
           <button
             ref={stayRef}
             type="button"
-            className={APP_BTN_PRIMARY_COMPACT}
+            className={`${APP_BTN_PRIMARY_LARGE} flex-1`}
             onClick={finishStay}
             disabled={leaveBusy || closing}
           >

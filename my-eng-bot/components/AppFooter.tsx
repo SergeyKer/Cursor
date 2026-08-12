@@ -21,7 +21,7 @@ import type {
 } from '@/lib/lessonFooter'
 import type { Audience } from '@/lib/types'
 
-type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note' | 'call-review'>
+type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note' | 'call-review' | 'lesson-hud'>
 
 export type AppFooterSessionMeter = {
   current: number
@@ -57,6 +57,9 @@ type AppFooterProps = {
   /** Без посимвольной анимации динамической строки (стартовый экран). */
   instantDynamicText?: boolean
   onFooterRowPress?: (source: FooterRowSheetSource) => void
+  /** Lesson-hud scope: sheet-open glyph (signal only) + shared aria. */
+  showLessonHudGlyph?: boolean
+  footerRowAriaLabel?: string | null
 }
 
 function normalizeFooterText(text?: string | null): string {
@@ -171,6 +174,8 @@ export default function AppFooter({
   hideDynamicMarker = false,
   instantDynamicText = false,
   onFooterRowPress,
+  showLessonHudGlyph = false,
+  footerRowAriaLabel = null,
 }: AppFooterProps) {
   const topLine = formatFooterDynamicLine(normalizeFooterText(dynamicText))
   const bottomLine = normalizeFooterText(staticText)
@@ -221,6 +226,15 @@ export default function AppFooter({
   const footerRowPressClassName = onFooterRowPress
     ? 'pointer-events-auto cursor-pointer touch-manipulation'
     : ''
+  const topRowAria =
+    onFooterRowPress && showFooterContent
+      ? footerRowAriaLabel?.trim() || 'Подсказка'
+      : undefined
+  const bottomRowAria =
+    onFooterRowPress && showFooterContent
+      ? footerRowAriaLabel?.trim() || 'Статистика'
+      : undefined
+  const showOpenGlyph = showLessonHudGlyph && showFooterContent && Boolean(onFooterRowPress)
 
   return (
     <div
@@ -241,7 +255,7 @@ export default function AppFooter({
           suppressHydrationWarning
           role={onFooterRowPress && showFooterContent ? 'button' : undefined}
           tabIndex={onFooterRowPress && showFooterContent ? 0 : undefined}
-          aria-label={onFooterRowPress && showFooterContent ? 'Подсказка' : undefined}
+          aria-label={topRowAria}
           onClick={
             onFooterRowPress && showFooterContent
               ? () => onFooterRowPress('dynamic')
@@ -282,13 +296,31 @@ export default function AppFooter({
               <span className="footer-dynamic-line invisible">&nbsp;</span>
             </div>
           )}
+          {showOpenGlyph ? (
+            <span className="app-footer-hud-glyph" aria-hidden>
+              <svg
+                className="app-footer-hud-glyph__icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                aria-hidden
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.25}
+                  d="M6 14.5 12 8.5l6 6"
+                />
+              </svg>
+            </span>
+          ) : null}
         </div>
         <div
           className={`${FOOTER_BOTTOM_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'} ${footerRowPressClassName}`}
           suppressHydrationWarning
           role={onFooterRowPress && showFooterContent ? 'button' : undefined}
           tabIndex={onFooterRowPress && showFooterContent ? 0 : undefined}
-          aria-label={onFooterRowPress && showFooterContent ? 'Статистика' : undefined}
+          aria-label={bottomRowAria}
           onClick={
             onFooterRowPress && showFooterContent
               ? () => onFooterRowPress('static')

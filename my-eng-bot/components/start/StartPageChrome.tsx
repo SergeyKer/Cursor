@@ -43,7 +43,7 @@ export default function StartPageChrome({
   })
 
   const handleFooterRowPress = useCallback(
-    (source: Exclude<FooterSheetSource, 'language-note' | 'call-review'>) => {
+    (source: Exclude<FooterSheetSource, 'language-note' | 'call-review' | 'lesson-hud'>) => {
       if (shouldCloseFooterSheetOnRowPress(footerSheetContext, source)) {
         footerSheetRef.current?.close()
         return

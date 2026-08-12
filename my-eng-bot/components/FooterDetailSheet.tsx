@@ -15,6 +15,7 @@ import {
   LanguageNoteSheetReady,
 } from '@/components/chat/LanguageNoteSheetBody'
 import { CallReviewSheetReady } from '@/components/chat/CallReviewSheetBody'
+import { LessonFooterSheetBody } from '@/components/chat/LessonFooterSheetBody'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { resolveAppPanelHorizontalStyle } from '@/lib/appPanelLayout'
 import {
@@ -297,6 +298,12 @@ const FooterDetailSheet = forwardRef<FooterDetailSheetHandle, FooterDetailSheetP
     const renderBody = () => {
       if (context.mode === 'placeholder') {
         return <p className="footer-sheet__placeholder">{FOOTER_SHEET_PLACEHOLDER_TEXT}</p>
+      }
+      if (context.source === 'lesson-hud') {
+        if (context.lessonHudView) {
+          return <LessonFooterSheetBody view={context.lessonHudView} />
+        }
+        return null
       }
       if (context.source === 'call-review') {
         if (context.callReviewSession) {

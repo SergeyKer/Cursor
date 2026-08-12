@@ -2,10 +2,17 @@ import type { FooterVoiceEmphasis, FooterVoiceTone } from '@/lib/footerVoice'
 import type { LessonFooterSegmentKind } from '@/lib/lessonFooter'
 import type { CallReviewSession } from '@/lib/engvo/callReview/types'
 import type { LanguageNote } from '@/lib/languageNote/types'
+import type { LessonFooterSheetView } from '@/lib/lessonFooterSheet/types'
 import { CALL_REVIEW_COPY } from '@/lib/uiCopy/callReview'
 import { LANGUAGE_NOTE_COPY } from '@/lib/uiCopy/languageNote'
+import { LESSON_FOOTER_SHEET_TITLE } from '@/lib/uiCopy/lessonFooterSheet'
 
-export type FooterSheetSource = 'dynamic' | 'static' | 'language-note' | 'call-review'
+export type FooterSheetSource =
+  | 'dynamic'
+  | 'static'
+  | 'language-note'
+  | 'call-review'
+  | 'lesson-hud'
 export type FooterSheetMode = 'placeholder' | 'smart'
 export type LanguageNoteSheetStatus = 'loading' | 'ready' | 'error'
 export type CallReviewSheetStatus = 'ready'
@@ -28,22 +35,24 @@ export interface FooterSheetContext {
   languageNoteOriginalText?: string | null
   callReviewStatus?: CallReviewSheetStatus | null
   callReviewSession?: CallReviewSession | null
+  lessonHudView?: LessonFooterSheetView | null
 }
 
 export const FOOTER_SHEET_PLACEHOLDER_TEXT = 'В разработке'
 
 /** Same visual skin as Language Note (bg/height/head). */
 export function isLanguageNoteSkin(source: FooterSheetSource): boolean {
-  return source === 'language-note' || source === 'call-review'
+  return source === 'language-note' || source === 'call-review' || source === 'lesson-hud'
 }
 
 export function resolveFooterSheetTitle(source: FooterSheetSource): string {
   if (source === 'language-note' || source === 'call-review') return LANGUAGE_NOTE_COPY.sheetTitle
+  if (source === 'lesson-hud') return LESSON_FOOTER_SHEET_TITLE
   return source === 'dynamic' ? 'Подсказка' : 'Статистика'
 }
 
 export interface BuildFooterSheetContextParams {
-  source: Exclude<FooterSheetSource, 'language-note' | 'call-review'>
+  source: Exclude<FooterSheetSource, 'language-note' | 'call-review' | 'lesson-hud'>
   dynamicText?: string | null
   staticText?: string | null
   typingKey?: string | number | null
@@ -105,11 +114,30 @@ export function buildCallReviewFooterSheetContext(
   }
 }
 
+export function buildLessonHudFooterSheetContext(
+  view: LessonFooterSheetView
+): FooterSheetContext {
+  return {
+    source: 'lesson-hud',
+    title: view.title || LESSON_FOOTER_SHEET_TITLE,
+    mode: 'smart',
+    lessonHudView: view,
+    dynamicText: view.now.body,
+    staticText: view.status.body,
+  }
+}
+
 export function shouldCloseFooterSheetOnRowPress(
   current: FooterSheetContext | null,
   source: FooterSheetSource
 ): boolean {
   if (!current) return false
-  if (current.source === 'language-note' || current.source === 'call-review') return true
+  if (
+    current.source === 'language-note' ||
+    current.source === 'call-review' ||
+    current.source === 'lesson-hud'
+  ) {
+    return true
+  }
   return current.source === source
 }
