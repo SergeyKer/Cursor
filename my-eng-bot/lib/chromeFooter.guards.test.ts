@@ -78,7 +78,7 @@ describe('chrome footer layout guards', () => {
     )
     expect(source).toMatch(/footerSessionMeterChatActive/)
     expect(source).toMatch(
-      /footerStaticText =[\s\S]*Boolean\(tutorSessionMeter\) \|\|[\s\S]*isPracticeActive \|\|[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
+      /footerStaticText =[\s\S]*Boolean\(tutorSessionMeter\) && !footerSessionMeterBlocked\)[\s\S]*isPracticeActive \|\|[\s\S]*footerSessionMeterChatActive[\s\S]*\? null/
     )
     expect(source).toMatch(/isTutorFooterActive/)
     expect(source).toMatch(/formatCompactFooterStats\(rewardsState\)/)
