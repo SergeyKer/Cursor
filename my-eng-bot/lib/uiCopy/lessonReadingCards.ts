@@ -44,9 +44,10 @@ export const LESSON_READING_CARD_ORDER: readonly LessonReadingCardKey[] = [
   'selfCheck',
 ] as const
 
-/** Cheatsheet: contrast early; no when/selfCheck. */
+/** Cheatsheet: rule after essence; contrast early; no selfCheck. */
 export const CHEATSHEET_READING_CARD_ORDER: readonly LessonReadingCardKey[] = [
   'essence',
+  'rule',
   'contrast',
   'templates',
   'examples',

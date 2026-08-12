@@ -10,6 +10,7 @@ import {
   stashTutorReturnContext,
   type TutorReturnContextSnapshot,
 } from '@/lib/tutor/tutorReturnContext'
+import { tutorTopicSheetChipsEligible } from '@/lib/tutor/tutorTopicSheetChipsEligible'
 import type { TutorExplainAnswer } from '@/lib/tutor/types'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 
@@ -33,7 +34,7 @@ export function resolveTutorCheatsheetOpen(params: {
   if (!featureFlags.referenceV1) {
     return { kind: 'unavailable', message: TUTOR_CHAT_COPY.cheatsheetUnavailable }
   }
-  if (params.answer.cheatsheetVisibility === 'hidden') {
+  if (!tutorTopicSheetChipsEligible(params.answer)) {
     return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
   }
 
@@ -75,6 +76,14 @@ export function resolveTutorCheatsheetOpen(params: {
       }
       return { kind: 'opened' }
     }
+    if (materialized.kind === 'generate') {
+      stashTutorReturnContext(params.snapshot)
+      return {
+        kind: 'needs_generate',
+        query: materialized.query || rawQuery.trim(),
+        grounded: true,
+      }
+    }
   }
 
   if (resolved.kind === 'choose') {
@@ -82,12 +91,12 @@ export function resolveTutorCheatsheetOpen(params: {
     return { kind: 'needs_choose', candidates: resolved.candidates }
   }
 
-  if (resolved.kind === 'needs_llm' && featureFlags.referenceGenerate) {
+  if (resolved.kind === 'needs_llm') {
     stashTutorReturnContext(params.snapshot)
     return { kind: 'needs_generate', query: resolved.query, grounded: true }
   }
 
-  if (featureFlags.referenceGenerate && rawQuery.trim()) {
+  if (rawQuery.trim()) {
     stashTutorReturnContext(params.snapshot)
     return { kind: 'needs_generate', query: rawQuery.trim(), grounded: true }
   }

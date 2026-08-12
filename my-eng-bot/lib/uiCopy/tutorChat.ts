@@ -109,6 +109,8 @@ export const TUTOR_CHAT_COPY = {
   chipAgain: 'Повторить проверку',
 
   cheatsheetMissing: 'Готовой шпаргалки пока нет - спроси ещё в поле или открой тему заново.',
+  cheatsheetGenerateFailed:
+    'Не удалось собрать шпаргалку по ответу. Попробуй ещё раз или уточни тему в поле.',
   cheatsheetUnavailable: 'Шпаргалку сейчас не собрать. Напиши вопрос в поле.',
   cheatsheetChipDisabledTitle: 'Шпаргалка по этой теме пока недоступна',
   cheatsheetChoose: 'Что открыть в шпаргалке? Выбери смысл:',

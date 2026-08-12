@@ -1,0 +1,6 @@
+[
+  [
+    "    isVocabularyHubActive,\n    isAccentActive,\n    isReferenceSheetActive,\n    tutorMicroLocked,\n  })\n\n  useEffect(() => {\n    sessionExitConfirmOpenRef.current = sessionExitConfirmOpen\n  }, [sessionExitConfirmOpen])",
+    "    isVocabularyHubActive,\n    isAccentActive,\n    isReferenceSheetActive: isReferenceSheetActive || tutorTopicSheetPending,\n    tutorMicroLocked,\n  })\n\n  useEffect(() => {\n    sessionExitConfirmOpenRef.current = sessionExitConfirmOpen\n  }, [sessionExitConfirmOpen])"
+  ]
+]

@@ -1,7 +1,10 @@
 import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
+import { isRewardFooterTickerActive, REWARD_FOOTER_TICKER_TTL_MS } from '@/lib/footerRewardTicker'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import { isStreakDailyBonusClaimed, streakDailyBonusXp } from '@/lib/streakDailyBonus'
+
+export { REWARD_FOOTER_TICKER_TTL_MS }
 
 export function formatStreakFooterPreview(
   state: RewardsState,
@@ -27,8 +30,7 @@ export function formatStreakFooterApplied(
   if (!lastReward?.streakBonus || lastReward.streakBonus <= 0) return null
   const streak = lastReward.dailyStreakAtAward ?? state.progress.dailyStreak
   const bonus = lastReward.streakBonus
-  const timestamp = new Date(lastReward.at).getTime()
-  if (Number.isNaN(timestamp) || nowMs - timestamp > 35_000) return null
+  if (!isRewardFooterTickerActive({ rewardAt: lastReward.at, nowMs })) return null
   if (audience === 'child') {
     return `${DAILY_STREAK_GLYPH}${streak}! +${bonus} XP за первый шаг!`
   }

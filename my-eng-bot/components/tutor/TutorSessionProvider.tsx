@@ -6,11 +6,15 @@ import {
   abandonCheatsheetGenerate,
   resolveTutorCheatsheetOpen,
 } from '@/lib/tutor/resolveTutorCheatsheetOpen'
+import { resolveGroundedCheatsheetSheet } from '@/lib/tutor/resolveGroundedCheatsheetSheet'
 import { generateReferenceSheet } from '@/lib/reference/generateReferenceSheet'
 import { materializeReferenceCandidate } from '@/lib/reference/resolveReferenceOpen'
 import type { ReferenceCandidate } from '@/lib/reference/resolveReferenceOpen'
 import type { TutorExplainAnswer } from '@/lib/tutor/types'
-import type { TutorReturnContextSnapshot } from '@/lib/tutor/tutorReturnContext'
+import {
+  peekTutorReturnContext,
+  type TutorReturnContextSnapshot,
+} from '@/lib/tutor/tutorReturnContext'
 import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 import type { AiProvider, Audience, LevelId } from '@/lib/types'
 
@@ -70,13 +74,15 @@ export function TutorSessionProvider({
         }
         return { kind: 'opened' }
       }
-      if (materialized.kind === 'generate' && featureFlags.referenceGenerate) {
+      const groundedExplain = peekTutorReturnContext()?.lastExplain ?? undefined
+      if (materialized.kind === 'generate' && (featureFlags.referenceGenerate || groundedExplain)) {
         const generated = await generateReferenceSheet({
           query: materialized.query,
           level: settings.level,
           audience: settings.audience,
           provider: settings.provider,
           openAiChatPreset: settings.openAiChatPreset,
+          groundedExplain,
         })
         if (generated.kind === 'generated' && onOpenGeneratedReference) {
           await onOpenGeneratedReference(generated.sheet)
@@ -109,20 +115,37 @@ export function TutorSessionProvider({
         return { kind: 'needs_choose', candidates: result.candidates }
       }
       if (result.kind === 'needs_generate') {
-        const generated = await generateReferenceSheet({
-          query: result.query,
+        const answer = params.answer
+        const richQuery = [
+          answer.topicAnchor.title,
+          answer.title,
+          answer.contrastPair?.join(' / '),
+          answer.paragraphs[0],
+          answer.examplesEn[0],
+        ]
+          .map((part) => (part ?? '').trim())
+          .filter(Boolean)
+          .join(' — ')
+        const resolved = await resolveGroundedCheatsheetSheet({
+          answer,
+          query: richQuery || result.query,
           level: settings.level,
           audience: settings.audience,
           provider: settings.provider,
           openAiChatPreset: settings.openAiChatPreset,
-          groundedExplain: result.grounded ? params.answer : undefined,
         })
-        if (generated.kind === 'generated' && onOpenGeneratedReference) {
-          await onOpenGeneratedReference(generated.sheet)
+        if (resolved.kind === 'opened' && onOpenGeneratedReference) {
+          await onOpenGeneratedReference(resolved.sheet)
           return { kind: 'opened' }
         }
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('[tutor] grounded cheatsheet open failed', resolved)
+        }
         abandonCheatsheetGenerate()
-        return { kind: 'missing', message: TUTOR_CHAT_COPY.cheatsheetMissing }
+        return {
+          kind: 'missing',
+          message: TUTOR_CHAT_COPY.cheatsheetGenerateFailed,
+        }
       }
       return result
     },

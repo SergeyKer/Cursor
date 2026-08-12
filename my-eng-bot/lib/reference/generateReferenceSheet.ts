@@ -63,6 +63,48 @@ export function buildReferenceSheetFromGeneratedIntro(params: {
   }
 }
 
+/** Local pack from tutor Explain — no LLM. Used when grounded generate is off/fails. */
+export function buildReferenceSheetFromTutorExplain(
+  answer: TutorExplainAnswer,
+  level?: string
+): ReferenceSheet | null {
+  const title =
+    answer.topicAnchor.title.trim() ||
+    answer.title.trim() ||
+    answer.topicAnchor.canonicalKey.trim()
+  const rule = answer.paragraphs.map((p) => p.trim()).filter(Boolean)
+  const examples = answer.examplesEn
+    .map((en) => en.trim())
+    .filter(Boolean)
+    .map((en) => ({ en, ru: '', note: '' }))
+  if (!title || (rule.length === 0 && examples.length === 0)) return null
+  const hook = answer.rememberRu?.trim() || rule[0] || examples[0]?.en || title
+  const contrast = answer.contrastPair
+    ? [`${answer.contrastPair[0].trim()} vs ${answer.contrastPair[1].trim()}`].filter(
+        (line) => line !== 'vs'
+      )
+    : []
+  const idKey = (answer.topicAnchor.canonicalKey || title)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+  return {
+    id: `tutor-grounded:${idKey}`,
+    title,
+    teaser: hook,
+    level: levelFromInput(level),
+    hasPractice: false,
+    hook,
+    rule,
+    formula: [],
+    traps: [],
+    contrast,
+    examples,
+    selfCheck: null,
+    relatedLessonId: answer.topicAnchor.lessonIdHint ?? null,
+  }
+}
+
 export async function generateReferenceSheet(
   params: GenerateReferenceSheetParams
 ): Promise<GenerateReferenceSheetResult> {
@@ -81,11 +123,13 @@ export async function generateReferenceSheet(
   }
 
   trackReferenceEvent('reference_generate')
-  if (!featureFlags.referenceGenerate) {
+  // Cold search stays behind the flag; tutor grounded path may generate without it.
+  if (!featureFlags.referenceGenerate && !params.groundedExplain) {
     trackReferenceEvent('reference_reject', { reason: 'generate_disabled' })
     return { kind: 'rejected', reason: 'generate_disabled' }
   }
-  if (matchTutorGate(query) || matchTutorGate(generateQuery)) {
+  // Grounded tutor path: skip cold-search input gate (short EN anchors like "since" are expected).
+  if (!params.groundedExplain && (matchTutorGate(query) || matchTutorGate(generateQuery))) {
     trackReferenceEvent('reference_reject', { reason: 'input_gate' })
     return { kind: 'rejected', reason: 'input_gate' }
   }

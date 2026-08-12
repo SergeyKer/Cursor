@@ -17,7 +17,19 @@ function formatList(items: string[]): string {
 }
 
 function formatExamples(examples: LessonIntro['quick']['examples']): string {
-  return examples.map((example) => `✓ ${example.en} → ${example.ru} (${example.note})`).join('\n')
+  return examples
+    .map((example) => {
+      const en = example.en.trim()
+      if (!en) return ''
+      const ru = (example.ru ?? '').trim()
+      const note = (example.note ?? '').trim()
+      let line = `✓ ${en}`
+      if (ru) line += ` → ${ru}`
+      if (note) line += ` (${note})`
+      return line
+    })
+    .filter(Boolean)
+    .join('\n')
 }
 
 export type BuildLessonReadingBubblesOptions = {

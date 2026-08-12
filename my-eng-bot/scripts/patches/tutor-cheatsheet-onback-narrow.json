@@ -1,0 +1,6 @@
+[
+  [
+    "                  onBack={\n                    referenceLaunchFrom === 'chat'\n                      ? backFromReferenceToChat\n                      : referenceLaunchFrom === 'tutor'\n                        ? backFromReferenceToTutor\n                        : backFromReferenceToMenu\n                  }",
+    "                  onBack={\n                    referenceLaunchFrom === 'chat'\n                      ? backFromReferenceToChat\n                      : backFromReferenceToMenu\n                  }"
+  ]
+]

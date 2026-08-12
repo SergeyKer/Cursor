@@ -1,0 +1,10 @@
+[
+  [
+    "  const baseFooterTypingKey = isAccentActive\n    ? accentFooterView?.typingKey ?? 'accent-footer'\n    : isVocabularyHubActive\n    ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'\n    : isTutorFooterActive\n    ? tutorFooterView?.typingKey ?? 'tutor-footer'",
+    "  const baseFooterTypingKey = isAccentActive\n    ? accentFooterView?.typingKey ?? 'accent-footer'\n    : isVocabularyHubActive\n    ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'\n    : tutorReferenceOverlayActive\n    ? 'reference-footer'\n    : isTutorFooterActive\n    ? tutorFooterView?.typingKey ?? 'tutor-footer'"
+  ],
+  [
+    "  const baseFooterVoiceTone = isAccentActive\n    ? accentFooterView?.tone ?? 'neutral'\n    : isVocabularyHubActive\n    ? 'support'\n    : isTutorFooterActive\n    ? 'neutral'",
+    "  const baseFooterVoiceTone = isAccentActive\n    ? accentFooterView?.tone ?? 'neutral'\n    : isVocabularyHubActive\n    ? 'support'\n    : tutorReferenceOverlayActive\n    ? 'neutral'\n    : isTutorFooterActive\n    ? 'neutral'"
+  ]
+]

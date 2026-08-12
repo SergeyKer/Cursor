@@ -121,7 +121,7 @@ export default function SessionExitConfirm({
         <div className="mt-5 flex flex-row gap-2">
           <button
             type="button"
-            className={`${APP_BTN_NEUTRAL_WHITE_LARGE} flex-1`}
+            className={`${APP_BTN_NEUTRAL_WHITE_LARGE} flex-1 !border-[var(--chat-section-neutral-border)]`}
             onClick={onLeave}
             disabled={leaveBusy || closing}
           >

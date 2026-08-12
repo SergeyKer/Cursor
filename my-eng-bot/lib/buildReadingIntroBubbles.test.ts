@@ -89,18 +89,38 @@ describe('buildReadingIntroBubbles', () => {
     expect(mistakesCard?.content).toContain('• Пытаться переводить дословно.')
   })
 
-  it('cheatsheet mode drops when/selfCheck and lifts contrast', () => {
+  it('cheatsheet mode keeps rule, lifts contrast, drops selfCheck', () => {
     const bubbles = buildLessonReadingBubbles(baseIntro, { mode: 'cheatsheet' })
     const labels = bubbles.map((b) => b.content.split('\n')[0])
     expect(labels).toEqual([
       REFERENCE_READING_CARD_LABELS.essence,
+      REFERENCE_READING_CARD_LABELS.rule,
       REFERENCE_READING_CARD_LABELS.contrast,
       REFERENCE_READING_CARD_LABELS.templates,
       REFERENCE_READING_CARD_LABELS.examples,
       REFERENCE_READING_CARD_LABELS.mistakes,
     ])
-    expect(labels).not.toContain(REFERENCE_READING_CARD_LABELS.rule)
     expect(labels).not.toContain(REFERENCE_READING_CARD_LABELS.selfCheck)
+  })
+
+  it('omits empty ru/note in examples (no undefined)', () => {
+    const bubbles = buildLessonReadingBubbles(
+      {
+        ...baseIntro,
+        quick: {
+          ...baseIntro.quick,
+          examples: [{ en: 'I have lived here since 2010.', ru: '', note: '' }],
+        },
+      },
+      { mode: 'cheatsheet' }
+    )
+    const examplesCard = bubbles.find((b) =>
+      b.content.startsWith(REFERENCE_READING_CARD_LABELS.examples)
+    )
+    expect(examplesCard?.content).toContain('✓ I have lived here since 2010.')
+    expect(examplesCard?.content).not.toContain('undefined')
+    expect(examplesCard?.content).not.toContain('→')
+    expect(examplesCard?.content).not.toContain('()')
   })
 })
 

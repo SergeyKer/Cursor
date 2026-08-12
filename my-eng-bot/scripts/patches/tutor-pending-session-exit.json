@@ -1,0 +1,6 @@
+[
+  [
+    "    isReferenceSheetActive,\n    tutorMicroLocked,\n  })\n  const sessionExitKind = resolveSessionExitKind({",
+    "    isReferenceSheetActive: isReferenceSheetActive || tutorTopicSheetPending,\n    tutorMicroLocked,\n  })\n  const sessionExitKind = resolveSessionExitKind({"
+  ]
+]

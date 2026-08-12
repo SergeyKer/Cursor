@@ -127,6 +127,10 @@ import {
 } from '@/lib/rewardsUiPolicy'
 import { formatRewardTopLine, getSessionTransitionTopLine } from '@/lib/footerTopLinePhrases'
 import {
+  isRewardFooterTickerActive,
+  msUntilRewardFooterTickerExpires,
+} from '@/lib/footerRewardTicker'
+import {
   formatStreakFooterApplied,
   formatStreakFooterPreview,
   resolveStreakFooterOverlayLine,
@@ -931,6 +935,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [lessonReturnBriefingAckRunKey, setLessonReturnBriefingAckRunKey] = useState<string | null>(null)
   const [lastStructuredLessonGlobalDelta, setLastStructuredLessonGlobalDelta] = useState(0)
   const [footerSessionContextNonce, setFooterSessionContextNonce] = useState(0)
+  const [footerRewardSuppressBeforeMs, setFooterRewardSuppressBeforeMs] = useState<number | null>(null)
+  const [footerRewardTickerEpoch, setFooterRewardTickerEpoch] = useState(0)
   const [streakHintConsumedForMode, setStreakHintConsumedForMode] = useState<string | null>(null)
   const [footerTransitionText, setFooterTransitionText] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -948,6 +954,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [runtimeReferenceSheet, setRuntimeReferenceSheet] = useState<ReferenceSheet | null>(null)
   const [reviewChipNavPending, setReviewChipNavPending] = useState(false)
   const reviewChipNavEpochRef = React.useRef(0)
+  const [tutorTopicSheetPending, setTutorTopicSheetPending] = useState(false)
   const languageNoteAbortRef = React.useRef<AbortController | null>(null)
   const languageNoteRequestIdRef = React.useRef(0)
   const [communicationVoiceDropdownOpen, setCommunicationVoiceDropdownOpen] = useState(false)
@@ -5227,6 +5234,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStructuredLessonVariantRegenerating(false)
       resetVariantPrepareRef.current()
       abandonPracticeSession()
+      setTutorChatSpaceActive(false)
+      setMyPlanSpaceActive(false)
+      setProgressSpaceActive(false)
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setVocabularyFooterView(null)
+      setTutorFooterView(null)
+      setTutorMicroSessionExitLocked(false)
+      setTutorTopicSheetPending(false)
+      setTutorReferenceReturnActive(false)
+      clearTutorReferenceReturnStash()
+      clearTutorReturnContext()
+      setFooterSheetContext(null)
+      setAdaptiveFooterView(null)
+      setAccentTrainerActive(false)
+      setAccentFooterView(null)
       const requestId = ++lessonOpenRequestIdRef.current
       const structuredLesson = getStructuredLessonById(lessonId)
       firstMessageRequestIdRef.current += 1
@@ -5312,13 +5335,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStructuredLessonVariantRegenerating(false)
       resetVariantPrepareRef.current()
       abandonPracticeSession()
-      setTutorChatSpaceActive(false)
+      if (from !== 'tutor') {
+        setTutorChatSpaceActive(false)
+        setTutorFooterView(null)
+      } else {
+        setTutorTopicSheetPending(false)
+        clearTutorReturnContext()
+      }
       setMyPlanSpaceActive(false)
       setProgressSpaceActive(false)
       setVocabularyWorldsActive(false)
       setVocabularyByLevelActive(false)
       setVocabularyFooterView(null)
-      setTutorFooterView(null)
       setAccentTrainerActive(false)
       setAccentFooterView(null)
       firstMessageRequestIdRef.current += 1
@@ -5371,6 +5399,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const openRuntimeReferenceFromChip = useCallback(
     (sheet: ReferenceSheet, from: 'chat' | 'menu' | 'tutor' = 'chat') => {
+      setTutorTopicSheetPending(false)
       setReferenceLaunchFrom(from)
       setRuntimeReferenceSheet({ ...sheet, hasPractice: false })
       lessonMenuLaunchSurfaceRef.current = 'slide'
@@ -5379,13 +5408,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setStructuredLessonVariantRegenerating(false)
       resetVariantPrepareRef.current()
       abandonPracticeSession()
-      setTutorChatSpaceActive(false)
+      if (from !== 'tutor') {
+        setTutorChatSpaceActive(false)
+        setTutorFooterView(null)
+      } else {
+        clearTutorReturnContext()
+      }
       setMyPlanSpaceActive(false)
       setProgressSpaceActive(false)
       setVocabularyWorldsActive(false)
       setVocabularyByLevelActive(false)
       setVocabularyFooterView(null)
-      setTutorFooterView(null)
       setAccentTrainerActive(false)
       setAccentFooterView(null)
       firstMessageRequestIdRef.current += 1
@@ -5538,6 +5571,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const backFromReferenceToTutor = useCallback(() => {
     reviewChipNavEpochRef.current += 1
     setReviewChipNavPending(false)
+    setTutorTopicSheetPending(false)
     setRuntimeReferenceSheet(null)
     setReferenceLaunchFrom(null)
     setChatMessagesSnapshotForReference(null)
@@ -5563,7 +5597,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     bumpFooterSessionContext()
     setMyPlanSpaceActive(false)
     setProgressSpaceActive(false)
-    setTutorChatMountKey((k) => k + 1)
     setTutorChatSpaceActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
@@ -5747,6 +5780,22 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       menuLessonGenerateCleanupRef.current?.()
 
       abandonPracticeSession()
+      setTutorChatSpaceActive(false)
+      setMyPlanSpaceActive(false)
+      setProgressSpaceActive(false)
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setVocabularyFooterView(null)
+      setTutorFooterView(null)
+      setTutorMicroSessionExitLocked(false)
+      setTutorTopicSheetPending(false)
+      setTutorReferenceReturnActive(false)
+      clearTutorReferenceReturnStash()
+      clearTutorReturnContext()
+      setFooterSheetContext(null)
+      setAdaptiveFooterView(null)
+      setAccentTrainerActive(false)
+      setAccentFooterView(null)
       const requestId = ++lessonOpenRequestIdRef.current
       const fetchStartedAt = Date.now()
       setMenuLessonBgError(null)
@@ -5888,7 +5937,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setActiveStructuredLessonRuntime(runtimeLesson)
           if (variantGenerateLaunchRef.current === 'briefing') {
             setActiveLessonVariantNumber((current) => current + 1)
-            acknowledgeLessonReturnBriefingRef.current(runtimeLesson)
+            setLessonReturnBriefingAckRunKey(null)
+            setLessonViewStage('briefing')
+            bumpFooterSessionContext()
+            setFooterRewardSuppressBeforeMs(Date.now())
             console.info(
               `[lesson-ui] mode=briefing-generate-bg lesson=${lessonId} source=${menuGenerationFallback ? 'fallback' : 'llm'} fetch_ms=${Date.now() - fetchStartedAt}`
             )
@@ -5921,7 +5973,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         }
       })()
     },
-    [abandonPracticeSession, bumpLessonIntroRevealSession, menuOpen, settings.provider, settings.openAiChatPreset, settings.audience]
+    [abandonPracticeSession, bumpFooterSessionContext, bumpLessonIntroRevealSession, menuOpen, settings.provider, settings.openAiChatPreset, settings.audience]
   )
 
   const handleSelectLearningAction = useCallback(
@@ -7335,6 +7387,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           setLessonOverlay(null)
           setActiveStructuredLessonRuntime(cloneStructuredLessonWithRunKey(activeStructuredLesson))
           setActiveLessonVariantNumber((current) => current + 1)
+          setLessonReturnBriefingAckRunKey(null)
+          setLessonViewStage('briefing')
+          bumpFooterSessionContext()
+          setFooterRewardSuppressBeforeMs(Date.now())
           setSelectedPostLessonAction(null)
           setPostLessonBusy(false)
           return
@@ -7350,6 +7406,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           if (runtimeLesson) {
             setActiveStructuredLessonRuntime(runtimeLesson)
             setActiveLessonVariantNumber((current) => current + 1)
+            setLessonReturnBriefingAckRunKey(null)
+            setLessonViewStage('briefing')
+            bumpFooterSessionContext()
+            setFooterRewardSuppressBeforeMs(Date.now())
           }
         } catch (error) {
           console.warn('lesson-repeat failed:', error)
@@ -7372,6 +7432,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       settings.audience,
       fetchStructuredLessonRuntime,
       openPracticeSession,
+      bumpFooterSessionContext,
     ]
   )
 
@@ -8734,6 +8795,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         (activeLearningLessonId ? buildReferenceSheetByLessonId(activeLearningLessonId) : null)
       : null
   const isReferenceSheetActive = Boolean(activeReferenceSheet && lessonViewStage === 'reference')
+  const tutorReferenceOverlayActive =
+    isReferenceSheetActive && referenceLaunchFrom === 'tutor' && isTutorChatSpaceActive
   const referenceActionsMode = runtimeReferenceSheet ? ('back-only' as const) : undefined
   const isLessonIntroActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'intro')
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
@@ -8779,7 +8842,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
     isVocabularyHubActive,
     isAccentActive,
-    isReferenceSheetActive,
+    isReferenceSheetActive: isReferenceSheetActive || tutorTopicSheetPending,
     tutorMicroLocked,
   })
   const sessionExitKind = resolveSessionExitKind({
@@ -8794,7 +8857,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     communicationSessionStatus: rewardsState.communicationSession?.status ?? null,
     isVocabularyHubActive,
     isAccentActive,
-    isReferenceSheetActive,
+    isReferenceSheetActive: isReferenceSheetActive || tutorTopicSheetPending,
     tutorMicroLocked,
   })
 
@@ -9174,7 +9237,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
 
   const activeLessonIntroKey = activeLearningLessonId ?? 'lesson'
   const lessonIntroRevealSessionKey = `${activeLessonIntroKey}:${lessonIntroRevealSession}`
-  const activeLessonBriefingKey = activeLearningLessonId ?? 'lesson'
+  const activeLessonBriefingKey = activeLearningLessonId
+    ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? 'static'}`
+    : 'lesson'
   const activeLessonTipsKey = activeLearningLessonId
     ? `${activeLearningLessonId}:${activeStructuredLesson?.runKey ?? activeStructuredLesson?.variantId ?? activeLessonVariantNumber}`
     : 'lesson'
@@ -9588,6 +9653,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const recentRewardTicker = React.useMemo(() => {
     const lastReward = rewardsState.ui.lastReward
     if (!lastReward?.at) return null
+    if (
+      !isRewardFooterTickerActive({
+        rewardAt: lastReward.at,
+        suppressBeforeMs: footerRewardSuppressBeforeMs,
+      })
+    ) {
+      return null
+    }
     const ticker = formatRewardTopLine({
       reason: lastReward.reason,
       amount: lastReward.amount,
@@ -9596,9 +9669,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     }).trim()
     if (!ticker) return null
     if (!rewardReasonAllowsDynamicTickerOverride(lastReward.reason)) return null
-    const timestamp = new Date(lastReward.at).getTime()
-    if (Number.isNaN(timestamp)) return null
-    if (Date.now() - timestamp > 35_000) return null
     if (
       engvoVoiceMode &&
       dialogStarted &&
@@ -9614,7 +9684,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     settings.audience,
     rewardsState.ui.footerTicker,
     rewardsState.ui.lastReward,
+    footerRewardSuppressBeforeMs,
+    footerRewardTickerEpoch,
   ])
+  React.useEffect(() => {
+    const remaining = msUntilRewardFooterTickerExpires({
+      rewardAt: rewardsState.ui.lastReward?.at,
+      suppressBeforeMs: footerRewardSuppressBeforeMs,
+    })
+    if (remaining == null) return
+    const timeoutId = window.setTimeout(() => {
+      setFooterRewardTickerEpoch((epoch) => epoch + 1)
+    }, remaining + 1)
+    return () => window.clearTimeout(timeoutId)
+  }, [rewardsState.ui.lastReward?.at, footerRewardSuppressBeforeMs, footerRewardTickerEpoch])
   // Тикер награды (например «Хороший шаг. +8 к уровню») - только в активной сессии (чат, шаги урока, практика).
   // На доме, введении и фишках не подмешиваем: иначе после возврата на intro остаётся текст прошлого урока до TTL.
   const footerContextRewardTicker =
@@ -9690,7 +9773,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   ])
   const structuredLessonFooterBlocksCelebrateTicker =
     isStructuredLessonActive &&
-    (activeStructuredLessonStatus === 'checking' ||
+    (activeStructuredLessonStatus === 'idle' ||
+      activeStructuredLessonStatus === 'checking' ||
       activeStructuredLessonFeedback?.type === 'error')
   const structuredLessonFooterTopLine = React.useMemo(() => {
     if (!isStructuredLessonActive || !activeStructuredLesson || structuredLessonCompletionFooterText) {
@@ -10023,6 +10107,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         vocabularyFooterView?.dynamicText ??
           (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
       )
+    : tutorReferenceOverlayActive
+    ? resolveFooterWithStreakLayer(null, null, null)
     : isTutorFooterActive
     ? resolveFooterWithStreakLayer(tutorFooterView?.dynamicText ?? null)
     : isPracticeActive
@@ -10061,6 +10147,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
     ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')
+    : tutorReferenceOverlayActive
+    ? REFERENCE_COPY.hubTitle
     : isTutorFooterActive
     ? formatCompactFooterStats(rewardsState)
     : isPracticeActive
@@ -10162,17 +10250,21 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (translationChatActive || dialogueChatActive || communicationChatActive)
   const footerStaticText =
     (isStructuredLessonActive && structuredLessonFooterLive) ||
-    Boolean(tutorSessionMeter) ||
+    (Boolean(tutorSessionMeter) && !footerSessionMeterBlocked) ||
     isPracticeActive ||
     footerSessionMeterChatActive
       ? null
-      : isTutorFooterActive
+      : tutorReferenceOverlayActive
         ? baseFooterStaticText
-        : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
+        : isTutorFooterActive
+          ? baseFooterStaticText
+          : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
     ? accentFooterView?.typingKey ?? 'accent-footer'
     : isVocabularyHubActive
     ? vocabularyFooterView?.typingKey ?? 'vocabulary-footer'
+    : tutorReferenceOverlayActive
+    ? 'reference-footer'
     : isTutorFooterActive
     ? tutorFooterView?.typingKey ?? 'tutor-footer'
     : isPracticeActive
@@ -10203,6 +10295,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     ? accentFooterView?.tone ?? 'neutral'
     : isVocabularyHubActive
     ? 'support'
+    : tutorReferenceOverlayActive
+    ? 'neutral'
     : isTutorFooterActive
     ? 'neutral'
     : isPracticeActive
@@ -10280,7 +10374,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && tutorSessionMeter
+    footerHydrated && tutorSessionMeter && !footerSessionMeterBlocked
       ? tutorSessionMeter
       : footerHydrated && isPracticeActive
         ? practiceFooterView?.sessionMeter ?? null
@@ -11334,19 +11428,49 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               )}
               <div className="flex min-h-0 flex-1 flex-col">
                 {isTutorChatSpaceActive ? (
-                  <TutorChatPanel
-                    key={tutorChatMountKey}
-                    initialPrefill={tutorChatPrefill}
-                    autoSubmitInitial={tutorChatAutoSubmitInitial}
-                    onDone={exitTutorChatSpace}
-                    onSessionExitGuardChange={setTutorMicroSessionExitLocked}
-                    onFooterViewChange={handleTutorFooterViewChange}
-                    sessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
-                    onExplainSuccess={bumpTutorExplain}
-                    onMicroFinale={bumpTutorMicroFinale}
-                    showReferenceReturnChip={tutorReferenceReturnActive}
-                    onReturnToReference={exitTutorChatSpace}
-                  />
+                  <div className="relative flex min-h-0 flex-1 flex-col">
+                    <div
+                      className={`flex min-h-0 flex-1 flex-col${tutorReferenceOverlayActive ? ' invisible pointer-events-none' : ''}`}
+                      aria-hidden={tutorReferenceOverlayActive || undefined}
+                    >
+                      <TutorChatPanel
+                        key={tutorChatMountKey}
+                        initialPrefill={tutorChatPrefill}
+                        autoSubmitInitial={tutorChatAutoSubmitInitial}
+                        onDone={exitTutorChatSpace}
+                        onSessionExitGuardChange={setTutorMicroSessionExitLocked}
+                        onFooterViewChange={handleTutorFooterViewChange}
+                        sessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
+                        onExplainSuccess={bumpTutorExplain}
+                        onMicroFinale={bumpTutorMicroFinale}
+                        showReferenceReturnChip={tutorReferenceReturnActive}
+                        onReturnToReference={exitTutorChatSpace}
+                        onTopicSheetPendingChange={setTutorTopicSheetPending}
+                      />
+                    </div>
+                    {tutorTopicSheetPending && !tutorReferenceOverlayActive ? (
+                      <div className="absolute inset-0 z-20 flex h-full min-h-0 items-center justify-center bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)] px-4">
+                        <div className="lesson-enter glass-surface w-full max-w-[24rem] rounded-[1.5rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-4 py-5 text-center shadow-sm">
+                          <p className="text-[15px] font-semibold text-[var(--text)]">
+                            {LANGUAGE_NOTE_COPY.reviewChipLoading}
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {tutorReferenceOverlayActive && activeReferenceSheet ? (
+                      <div className="absolute inset-0 z-20 flex min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
+                        <ReferenceSheetScreen
+                          key={`ref-tutor-${activeReferenceSheet.id}`}
+                          sheet={activeReferenceSheet}
+                          actionsMode={referenceActionsMode}
+                          readingMode="cheatsheet"
+                          onBack={backFromReferenceToTutor}
+                          onStartLesson={undefined}
+                          onStartPractice={undefined}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
                 ) : isMyPlanSpaceActive ? (
                   <MyPlanSheetScreen
                     rewardsState={rewardsState}
@@ -11521,18 +11645,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     </p>
                   </div>
                 </div>
-              ) : isReferenceSheetActive && activeReferenceSheet ? (
+              ) : isReferenceSheetActive && activeReferenceSheet && referenceLaunchFrom !== 'tutor' ? (
                 <ReferenceSheetScreen
                   key={`ref-${activeReferenceSheet.id}`}
                   sheet={activeReferenceSheet}
                   actionsMode={referenceActionsMode}
-                  readingMode={referenceLaunchFrom === 'tutor' ? 'cheatsheet' : 'lookup'}
+                  readingMode="lookup"
                   onBack={
                     referenceLaunchFrom === 'chat'
                       ? backFromReferenceToChat
-                      : referenceLaunchFrom === 'tutor'
-                        ? backFromReferenceToTutor
-                        : backFromReferenceToMenu
+                      : backFromReferenceToMenu
                   }
                   onStartLesson={
                     referenceActionsMode === 'back-only' || !activeReferenceSheet.relatedLessonId

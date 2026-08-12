@@ -54,6 +54,10 @@ import {
 } from '@/lib/tutor/followUpHop'
 import { canOfferTutorMicro } from '@/lib/tutor/microEligible'
 import { peekTutorCheatsheetAvailable } from '@/lib/tutor/peekTutorCheatsheetAvailable'
+import {
+  tutorTopicSheetChipLabel,
+  tutorTopicSheetChipsEligible,
+} from '@/lib/tutor/tutorTopicSheetChipsEligible'
 import { shouldRetainLastExplainOnDeepen } from '@/lib/tutor/resolveContinueLastExplain'
 import { bandFromMicroScore } from '@/lib/tutor/microScore'
 import { resolveTutorMicroPack } from '@/lib/tutor/resolveMicroPack'
@@ -164,6 +168,8 @@ export type TutorChatPanelProps = {
   showReferenceReturnChip?: boolean
   /** Miss→tutor: chip / optional parallel to onDone for reference restore. */
   onReturnToReference?: () => void
+  /** Full-main pending while grounded sheet generates (AppShell overlay). */
+  onTopicSheetPendingChange?: (pending: boolean) => void
 }
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
@@ -232,6 +238,7 @@ export default function TutorChatPanel({
   onMicroFinale,
   showReferenceReturnChip = false,
   onReturnToReference,
+  onTopicSheetPendingChange,
 }: TutorChatPanelProps) {
   const session = useTutorSessionOptional()
   const [draft, setDraft] = useState(() =>
@@ -239,6 +246,7 @@ export default function TutorChatPanel({
   )
   const [thread, setThread] = useState<ThreadMessage[]>([])
   const [triageChips, setTriageChips] = useState<TutorComposerChip[]>([])
+  const [topicChooseChips, setTopicChooseChips] = useState<TutorComposerChip[]>([])
   const [anchorQuery, setAnchorQuery] = useState<string | null>(null)
   const [postExplainChips, setPostExplainChips] = useState(false)
   const [followUpHopState, setFollowUpHopState] = useState<FollowUpHopState>(initialFollowUpHopState)
@@ -687,6 +695,7 @@ export default function TutorChatPanel({
             setPostExplainChips(true)
             setFollowUpHopState((s) => nextFollowUpHopState(s, { type: 'newExplain' }))
             setTriageChips([])
+            setTopicChooseChips([])
             append('assistant', formatExplainBubble(aligned), aligned)
             const newKey = aligned.topicAnchor.canonicalKey
             onExplainSuccess?.(newKey)
@@ -758,6 +767,7 @@ export default function TutorChatPanel({
           })
         )
         setTriageChips([])
+        setTopicChooseChips([])
         append('assistant', formatExplainBubble(answer), answer)
         if (!retain) {
           const newKey = answer.topicAnchor.canonicalKey
@@ -1220,22 +1230,29 @@ export default function TutorChatPanel({
         const candidate = cheatsheetChooseRef.current.find((c) => c.id === candId)
         if (!candidate || !session || busy) return
         append('user', candidate.title)
-        setTriageChips([])
+        setTopicChooseChips([])
         cheatsheetChooseRef.current = []
+        onTopicSheetPendingChange?.(true)
         void (async () => {
-          const result = await session.openCheatsheetCandidate(candidate)
-          if (result.kind === 'needs_choose') {
-            cheatsheetChooseRef.current = result.candidates
-            setTriageChips(
-              result.candidates.map((c) => ({
-                id: `cs:${c.id}`,
-                labelRu: c.title,
-              }))
-            )
-            append('assistant', TUTOR_CHAT_COPY.cheatsheetChoose)
-            return
+          try {
+            const result = await session.openCheatsheetCandidate(candidate)
+            if (result.kind === 'needs_choose') {
+              onTopicSheetPendingChange?.(false)
+              cheatsheetChooseRef.current = result.candidates
+              setTopicChooseChips(
+                result.candidates.slice(0, 3).map((c) => ({
+                  id: `cs:${c.id}`,
+                  labelRu: c.title,
+                }))
+              )
+              append('assistant', TUTOR_CHAT_COPY.cheatsheetChoose)
+              return
+            }
+            onTopicSheetPendingChange?.(false)
+            if (result.kind !== 'opened') append('assistant', result.message)
+          } catch {
+            onTopicSheetPendingChange?.(false)
           }
-          if (result.kind !== 'opened') append('assistant', result.message)
         })()
         return
       }
@@ -1244,10 +1261,11 @@ export default function TutorChatPanel({
       const combined = anchorQuery ? `${anchorQuery}: ${chip.labelRu}` : chip.labelRu
       append('user', chip.labelRu)
       setTriageChips([])
+      setTopicChooseChips([])
       setAnchorQuery(combined)
       void runExplain(combined)
     },
-    [anchorQuery, append, busy, runExplain, session, triageChips]
+    [anchorQuery, append, busy, onTopicSheetPendingChange, runExplain, session, triageChips]
   )
 
   const pauseMicroReveal = useCallback(
@@ -1466,25 +1484,72 @@ export default function TutorChatPanel({
     ]
   )
 
-  const cheatsheetChipVisible =
+  const topicSheetEligible =
     lastExplain != null &&
-    lastExplain.cheatsheetVisibility !== 'hidden' &&
+    tutorTopicSheetChipsEligible(lastExplain) &&
     (session?.referenceEnabled ?? true)
 
-  const cheatsheetChipAvailable = useMemo(
-    () => (lastExplain && cheatsheetChipVisible ? peekTutorCheatsheetAvailable(lastExplain) : false),
-    [cheatsheetChipVisible, lastExplain]
+  const topicSheetAvailable = useMemo(
+    () => (lastExplain && topicSheetEligible ? peekTutorCheatsheetAvailable(lastExplain) : false),
+    [lastExplain, topicSheetEligible]
   )
 
-  const cheatsheetChip = useMemo((): TutorComposerChip | null => {
-    if (!cheatsheetChipVisible) return null
-    return {
-      id: 'cheatsheet',
-      labelRu: TUTOR_CHAT_COPY.chipCheatsheet,
-      disabled: !cheatsheetChipAvailable,
-      disabledTitle: TUTOR_CHAT_COPY.cheatsheetChipDisabledTitle,
+  const topicSheetChips = useMemo((): TutorComposerChip[] => {
+    if (topicChooseChips.length > 0) return topicChooseChips.slice(0, 3)
+    if (!lastExplain || !topicSheetEligible || !topicSheetAvailable) return []
+    const label = tutorTopicSheetChipLabel(lastExplain)
+    if (!label) return []
+    return [{ id: 'topic_sheet', labelRu: label }]
+  }, [lastExplain, topicChooseChips, topicSheetAvailable, topicSheetEligible])
+
+  const openTopicSheet = useCallback(() => {
+    if (!topicSheetAvailable) return
+    if (!lastExplain || !session) {
+      append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
+      return
     }
-  }, [cheatsheetChipAvailable, cheatsheetChipVisible])
+    if (cheatsheetInflightRef.current) return
+    cheatsheetInflightRef.current = true
+    onTopicSheetPendingChange?.(true)
+    void (async () => {
+      try {
+        const result = await session.openCheatsheet({
+          answer: lastExplain,
+          snapshot: buildSnapshot(),
+        })
+        if (result.kind === 'opened') {
+          onTopicSheetPendingChange?.(false)
+          setTopicChooseChips([])
+          return
+        }
+        if (result.kind === 'needs_choose') {
+          onTopicSheetPendingChange?.(false)
+          cheatsheetChooseRef.current = result.candidates
+          setTopicChooseChips(
+            result.candidates.slice(0, 3).map((c) => ({
+              id: `cs:${c.id}`,
+              labelRu: c.title,
+            }))
+          )
+          append('assistant', TUTOR_CHAT_COPY.cheatsheetChoose)
+          return
+        }
+        onTopicSheetPendingChange?.(false)
+        append('assistant', result.message)
+      } catch {
+        onTopicSheetPendingChange?.(false)
+      } finally {
+        cheatsheetInflightRef.current = false
+      }
+    })()
+  }, [
+    append,
+    buildSnapshot,
+    lastExplain,
+    onTopicSheetPendingChange,
+    session,
+    topicSheetAvailable,
+  ])
 
   const microChipVisible =
     lastExplain != null &&
@@ -1511,7 +1576,6 @@ export default function TutorChatPanel({
     ...(microChipVisible
       ? [{ id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain } satisfies TutorComposerChip]
       : []),
-    ...(cheatsheetChip ? [cheatsheetChip] : []),
     ...(referenceReturnChip && microPhase === 'finale' ? [referenceReturnChip] : []),
     ...(onDone ? [{ id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone } satisfies TutorComposerChip] : []),
   ]
@@ -1537,7 +1601,6 @@ export default function TutorChatPanel({
                 ...(microChipVisible
                   ? [{ id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro } satisfies TutorComposerChip]
                   : []),
-                ...(cheatsheetChip ? [cheatsheetChip] : []),
                 ...(referenceReturnChip ? [referenceReturnChip] : []),
               ]
             : triageChips
@@ -1600,6 +1663,16 @@ export default function TutorChatPanel({
         return
       }
 
+      if (chipId === 'topic_sheet') {
+        openTopicSheet()
+        return
+      }
+
+      if (chipId.startsWith('cs:')) {
+        handleChipSelect(chipId)
+        return
+      }
+
       if (microPhase === 'active') {
         if (!chipId.startsWith('opt_')) return
         const idx = Number(chipId.slice(4))
@@ -1625,43 +1698,10 @@ export default function TutorChatPanel({
           onDone?.()
           return
         }
-        if (chipId === 'cheatsheet') {
-          if (!cheatsheetChipAvailable) return
-          if (!lastExplain || !session) {
-            append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
-            return
-          }
-          if (cheatsheetInflightRef.current) return
-          cheatsheetInflightRef.current = true
-          void (async () => {
-            try {
-              const result = await session.openCheatsheet({
-                answer: lastExplain,
-                snapshot: buildSnapshot(),
-              })
-              if (result.kind === 'opened') return
-              if (result.kind === 'needs_choose') {
-                cheatsheetChooseRef.current = result.candidates
-                setTriageChips(
-                  result.candidates.map((c) => ({
-                    id: `cs:${c.id}`,
-                    labelRu: c.title,
-                  }))
-                )
-                append('assistant', TUTOR_CHAT_COPY.cheatsheetChoose)
-                return
-              }
-              append('assistant', result.message)
-            } finally {
-              cheatsheetInflightRef.current = false
-            }
-          })()
-          return
-        }
         return
       }
 
-      if (chipId.startsWith('cs:') || !postExplainChips) {
+      if (!postExplainChips) {
         handleChipSelect(chipId)
         return
       }
@@ -1673,46 +1713,12 @@ export default function TutorChatPanel({
         onReturnToReference?.()
         return
       }
-      if (chipId === 'cheatsheet') {
-        if (!cheatsheetChipAvailable) return
-        if (!lastExplain || !session) {
-          append('assistant', TUTOR_CHAT_COPY.cheatsheetUnavailable)
-          return
-        }
-        if (cheatsheetInflightRef.current) return
-        cheatsheetInflightRef.current = true
-        void (async () => {
-          try {
-            const result = await session.openCheatsheet({
-              answer: lastExplain,
-              snapshot: buildSnapshot(),
-            })
-            if (result.kind === 'opened') return
-            if (result.kind === 'needs_choose') {
-              cheatsheetChooseRef.current = result.candidates
-              setTriageChips(
-                result.candidates.map((c) => ({
-                  id: `cs:${c.id}`,
-                  labelRu: c.title,
-                }))
-              )
-              append('assistant', TUTOR_CHAT_COPY.cheatsheetChoose)
-              return
-            }
-            append('assistant', result.message)
-          } finally {
-            cheatsheetInflightRef.current = false
-          }
-        })()
-      }
     },
     [
       abortMicro,
       answerMicro,
       append,
-      buildSnapshot,
       busy,
-      cheatsheetChipAvailable,
       followUpChip,
       handleChipSelect,
       lastExplain,
@@ -1720,6 +1726,7 @@ export default function TutorChatPanel({
       nextId,
       onDone,
       onReturnToReference,
+      openTopicSheet,
       postExplainChips,
       runExplain,
       session,
@@ -1735,7 +1742,13 @@ export default function TutorChatPanel({
   const composerLocked = busy || isMicroLocked
   const chipsDisabled = busy || microTypingVisible || microPhase === 'revealing'
   const chipsMode = showMicroOptions ? 'micro' : 'nav'
-  const threadFollowUpChip = chipsMode === 'micro' ? null : followUpChip
+  const threadFollowUpChips = useMemo((): TutorComposerChip[] => {
+    if (chipsMode === 'micro') return []
+    const chips: TutorComposerChip[] = []
+    if (followUpChip) chips.push(followUpChip)
+    chips.push(...topicSheetChips)
+    return chips
+  }, [chipsMode, followUpChip, topicSheetChips])
   const microChoiceFrozen = isTutorMicroChoiceFrozen(microPhase, hasMicroReveal)
   const microWrongChoiceText =
     microReveal && !microReveal.correct ? microReveal.chosenText : null
@@ -1993,7 +2006,7 @@ export default function TutorChatPanel({
                   placeholder={composerPlaceholder}
                   chips={primaryChips}
                   onChipSelect={handlePrimaryChip}
-                  followUpChip={threadFollowUpChip}
+                  followUpChips={threadFollowUpChips}
                   chipsMode={chipsMode}
                   chipsResetKey={microChipsResetKey}
                   microChoiceFrozen={microChoiceFrozen}

@@ -1,0 +1,10 @@
+[
+  [
+    "      abandonPracticeSession()\n      const requestId = ++lessonOpenRequestIdRef.current\n      const structuredLesson = getStructuredLessonById(lessonId)\n      firstMessageRequestIdRef.current += 1\n",
+    "      abandonPracticeSession()\n      setTutorChatSpaceActive(false)\n      setMyPlanSpaceActive(false)\n      setProgressSpaceActive(false)\n      setVocabularyWorldsActive(false)\n      setVocabularyByLevelActive(false)\n      setVocabularyFooterView(null)\n      setTutorFooterView(null)\n      setTutorMicroSessionExitLocked(false)\n      setTutorTopicSheetPending(false)\n      setTutorReferenceReturnActive(false)\n      clearTutorReferenceReturnStash()\n      clearTutorReturnContext()\n      setFooterSheetContext(null)\n      setAdaptiveFooterView(null)\n      setAccentTrainerActive(false)\n      setAccentFooterView(null)\n      const requestId = ++lessonOpenRequestIdRef.current\n      const structuredLesson = getStructuredLessonById(lessonId)\n      firstMessageRequestIdRef.current += 1\n"
+  ],
+  [
+    "      abandonPracticeSession()\n      const requestId = ++lessonOpenRequestIdRef.current\n      const fetchStartedAt = Date.now()\n",
+    "      abandonPracticeSession()\n      setTutorChatSpaceActive(false)\n      setMyPlanSpaceActive(false)\n      setProgressSpaceActive(false)\n      setVocabularyWorldsActive(false)\n      setVocabularyByLevelActive(false)\n      setVocabularyFooterView(null)\n      setTutorFooterView(null)\n      setTutorMicroSessionExitLocked(false)\n      setTutorTopicSheetPending(false)\n      setTutorReferenceReturnActive(false)\n      clearTutorReferenceReturnStash()\n      clearTutorReturnContext()\n      setFooterSheetContext(null)\n      setAdaptiveFooterView(null)\n      setAccentTrainerActive(false)\n      setAccentFooterView(null)\n      const requestId = ++lessonOpenRequestIdRef.current\n      const fetchStartedAt = Date.now()\n"
+  ]
+]

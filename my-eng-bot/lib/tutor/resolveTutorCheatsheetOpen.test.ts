@@ -49,7 +49,7 @@ describe('resolveTutorCheatsheetOpen P0-1', () => {
     expect(peekTutorReturnContext()).not.toBeNull()
   })
 
-  it('missing when nothing resolves and generate off', () => {
+  it('needs_generate when nothing resolves and generate flag off (grounded path)', () => {
     const opened: string[] = []
     const answer = grammarAnswer(null, 'привет')
     const result = resolveTutorCheatsheetOpen({
@@ -57,9 +57,12 @@ describe('resolveTutorCheatsheetOpen P0-1', () => {
       snapshot: snapshotBase(answer),
       openLocalReference: (id) => opened.push(id),
     })
-    expect(result.kind).toBe('missing')
+    expect(result.kind).toBe('needs_generate')
+    if (result.kind === 'needs_generate') {
+      expect(result.grounded).toBe(true)
+    }
     expect(opened).toEqual([])
-    expect(peekTutorReturnContext()).toBeNull()
+    expect(peekTutorReturnContext()).not.toBeNull()
   })
 
   it('missing prebuilt without runtime opener does not stash', () => {
@@ -117,10 +120,11 @@ describe('resolveTutorCheatsheetOpen P0-1', () => {
     expect(opened).toEqual(['4'])
   })
 
-  it('hides when cheatsheetVisibility is hidden', () => {
+  it('missing when topic sheet not eligible (translate)', () => {
     const opened: string[] = []
     const answer: TutorExplainAnswer = {
       ...grammarAnswer('4'),
+      answerKind: 'translate',
       cheatsheetVisibility: 'hidden',
     }
     const result = resolveTutorCheatsheetOpen({

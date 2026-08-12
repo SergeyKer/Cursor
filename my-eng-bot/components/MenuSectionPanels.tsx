@@ -1218,12 +1218,14 @@ export default function MenuSectionPanels({
     }
   }, [theoryLessonSourceNav, activeGrammarCategoryId, activeTheoryTagId, theoryTopicLaunch, theoryTagBrowseLevel, catalogBrowseIntent])
 
-  const submitReferenceHubSearch = React.useCallback(async () => {
+  const submitReferenceHubSearch = React.useCallback(async (): Promise<
+    'opened' | 'choose' | 'miss_ask_tutor' | 'miss' | 'need_query'
+  > => {
     const q = referenceHubSearchQuery.trim()
     if (!q) {
       setReferenceHubSearchMiss(REFERENCE_COPY.searchNeedQuery)
       setReferenceHubChooseCandidates([])
-      return
+      return 'need_query'
     }
     if (onReferenceSearchSubmit) {
       setReferenceHubSearchMiss(
@@ -1233,12 +1235,12 @@ export default function MenuSectionPanels({
       if (result.kind === 'opened') {
         setReferenceHubSearchMiss(null)
         setReferenceHubChooseCandidates([])
-        return
+        return 'opened'
       }
       if (result.kind === 'choose') {
         setReferenceHubChooseCandidates(result.candidates)
         setReferenceHubSearchMiss(REFERENCE_COPY.searchChooseHint)
-        return
+        return 'choose'
       }
       setReferenceHubChooseCandidates([])
       const canAskTutor = Boolean(featureFlags.tutorChatV1 && onOpenTutorChat)
@@ -1247,30 +1249,31 @@ export default function MenuSectionPanels({
           ? REFERENCE_COPY.searchMissAskTutor
           : result.message || REFERENCE_COPY.searchEmpty
       )
-      return
+      return canAskTutor ? 'miss_ask_tutor' : 'miss'
     }
-    if (!onOpenReferenceTopic) return
+    if (!onOpenReferenceTopic) return 'miss'
     const hit = pickReferenceSearchSubmitHit(referenceHubSearchHits)
     if (!hit) {
       setReferenceHubChooseCandidates([])
       const canAskTutor = Boolean(featureFlags.tutorChatV1 && onOpenTutorChat)
-      setReferenceHubSearchMiss(
-        onGenerateReferenceSheet && featureFlags.referenceGenerate
-          ? REFERENCE_COPY.searchGenerateHint
-          : canAskTutor
-            ? REFERENCE_COPY.searchMissAskTutor
-            : referenceHubSearchHits.length > 0
-              ? REFERENCE_COPY.searchMissHint
-              : REFERENCE_COPY.searchEmpty
-      )
       if (onGenerateReferenceSheet && featureFlags.referenceGenerate) {
+        setReferenceHubSearchMiss(REFERENCE_COPY.searchGenerateHint)
         void onGenerateReferenceSheet(q)
+        return 'miss'
       }
-      return
+      setReferenceHubSearchMiss(
+        canAskTutor
+          ? REFERENCE_COPY.searchMissAskTutor
+          : referenceHubSearchHits.length > 0
+            ? REFERENCE_COPY.searchMissHint
+            : REFERENCE_COPY.searchEmpty
+      )
+      return canAskTutor ? 'miss_ask_tutor' : 'miss'
     }
     setReferenceHubSearchMiss(null)
     setReferenceHubChooseCandidates([])
     void onOpenReferenceTopic(hit.lessonId, 'theory', buildLearningLessonMeta())
+    return 'opened'
   }, [
     buildLearningLessonMeta,
     onGenerateReferenceSheet,
@@ -1279,6 +1282,56 @@ export default function MenuSectionPanels({
     onReferenceSearchSubmit,
     referenceHubSearchHits,
     referenceHubSearchQuery,
+  ])
+
+  const openReferenceMissTutor = React.useCallback(() => {
+    if (!onOpenTutorChat) return
+    const prefill = buildReferenceMissTutorPrefill(referenceHubSearchQuery)
+    if (!prefill) return
+    onOpenTutorChat({
+      prefill,
+      returnTo: 'reference',
+      referenceSearchQuery: referenceHubSearchQuery.trim(),
+    })
+  }, [onOpenTutorChat, referenceHubSearchQuery])
+
+  const referenceHubCanAskTutor = Boolean(featureFlags.tutorChatV1 && onOpenTutorChat)
+  const referenceHubMorphToTutor =
+    referenceHubCanAskTutor &&
+    Boolean(referenceHubSearchQuery.trim()) &&
+    referenceHubChooseCandidates.length === 0 &&
+    referenceHubSearchMiss !== REFERENCE_COPY.searchNeedQuery &&
+    referenceHubSearchMiss !== REFERENCE_COPY.searchChooseHint &&
+    referenceHubSearchMiss !== REFERENCE_COPY.searchGenerateHint &&
+    (referenceHubSearchMiss === REFERENCE_COPY.searchMissAskTutor ||
+      (referenceHubSearchHits.length === 0 &&
+        (referenceHubSearchMiss == null ||
+          referenceHubSearchMiss === REFERENCE_COPY.searchEmpty)))
+
+  const handleReferenceHubPrimary = React.useCallback(async () => {
+    if (
+      referenceHubSearchMiss === REFERENCE_COPY.searchMissAskTutor &&
+      referenceHubCanAskTutor
+    ) {
+      openReferenceMissTutor()
+      return
+    }
+    if (
+      referenceHubMorphToTutor &&
+      referenceHubSearchMiss !== REFERENCE_COPY.searchMissAskTutor
+    ) {
+      // Live-empty: resolve gold/choose first; only then open tutor on true miss.
+      const outcome = await submitReferenceHubSearch()
+      if (outcome === 'miss_ask_tutor') openReferenceMissTutor()
+      return
+    }
+    await submitReferenceHubSearch()
+  }, [
+    openReferenceMissTutor,
+    referenceHubCanAskTutor,
+    referenceHubMorphToTutor,
+    referenceHubSearchMiss,
+    submitReferenceHubSearch,
   ])
 
   React.useEffect(() => {
@@ -3197,7 +3250,7 @@ export default function MenuSectionPanels({
               <div className="space-y-3">
                 {isReferenceBrowse ? (
                   <div className="space-y-2 rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                    <div className="flex gap-2">
+                    <div className="space-y-2">
                       <input
                         id={pid('reference-hub-search')}
                         type="text"
@@ -3213,46 +3266,28 @@ export default function MenuSectionPanels({
                         onKeyDown={(e) => {
                           if (e.key !== 'Enter') return
                           e.preventDefault()
-                          void submitReferenceHubSearch()
+                          void handleReferenceHubPrimary()
                         }}
-                        className="min-w-0 flex-1 rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
+                        className="w-full rounded-lg border border-[var(--border)] bg-[var(--menu-control-bg)] px-3 py-2 text-[15px] text-[var(--text)] outline-none focus:border-[var(--accent)]"
                         placeholder={referenceHubSearchFocused ? '' : REFERENCE_COPY.searchPlaceholder}
                       />
                       <button
                         type="button"
-                        className="btn-3d-menu shrink-0 rounded-lg border border-[var(--accent)] bg-[var(--accent)] px-3 py-2 text-[14px] font-medium text-[var(--accent-text)] touch-manipulation focus-visible:outline-none"
+                        className={`${MENU_PRIMARY_CTA_CLASS} w-full`}
                         onClick={() => {
-                          void submitReferenceHubSearch()
+                          void handleReferenceHubPrimary()
                         }}
                       >
-                        {REFERENCE_COPY.searchSubmit}
+                        {referenceHubMorphToTutor
+                          ? REFERENCE_COPY.searchAskTutor
+                          : REFERENCE_COPY.searchSubmit}
                       </button>
                     </div>
-                    {referenceHubSearchMiss ? (
-                      <div className="flex flex-col gap-2">
-                        <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
-                          {referenceHubSearchMiss}
-                        </p>
-                        {referenceHubSearchMiss === REFERENCE_COPY.searchMissAskTutor &&
-                        featureFlags.tutorChatV1 &&
-                        onOpenTutorChat ? (
-                          <button
-                            type="button"
-                            className={`${MENU_PRIMARY_CTA_CLASS} w-full`}
-                            onClick={() => {
-                              const prefill = buildReferenceMissTutorPrefill(referenceHubSearchQuery)
-                              if (!prefill) return
-                              onOpenTutorChat({
-                                prefill,
-                                returnTo: 'reference',
-                                referenceSearchQuery: referenceHubSearchQuery.trim(),
-                              })
-                            }}
-                          >
-                            {REFERENCE_COPY.searchAskTutor}
-                          </button>
-                        ) : null}
-                      </div>
+                    {referenceHubSearchMiss ||
+                    (referenceHubMorphToTutor && !referenceHubSearchMiss) ? (
+                      <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
+                        {referenceHubSearchMiss ?? REFERENCE_COPY.searchMissAskTutor}
+                      </p>
                     ) : null}
                     {referenceHubChooseCandidates.length > 0 ? (
                       <div className={MENU_GROUP_OUTER}>
@@ -3275,7 +3310,15 @@ export default function MenuSectionPanels({
                                     setReferenceHubSearchMiss(REFERENCE_COPY.searchChooseHint)
                                     return
                                   }
-                                  setReferenceHubSearchMiss(result.message || REFERENCE_COPY.searchEmpty)
+                                  setReferenceHubChooseCandidates([])
+                                  const canAskTutor = Boolean(
+                                    featureFlags.tutorChatV1 && onOpenTutorChat
+                                  )
+                                  setReferenceHubSearchMiss(
+                                    canAskTutor
+                                      ? REFERENCE_COPY.searchMissAskTutor
+                                      : result.message || REFERENCE_COPY.searchEmpty
+                                  )
                                 })()
                               }}
                             />
@@ -3302,7 +3345,7 @@ export default function MenuSectionPanels({
                             ))}
                           </div>
                         </div>
-                      ) : (
+                      ) : referenceHubMorphToTutor ? null : (
                         <p className="text-[13px] leading-relaxed text-[var(--text-muted)]">
                           {REFERENCE_COPY.searchEmpty}
                         </p>

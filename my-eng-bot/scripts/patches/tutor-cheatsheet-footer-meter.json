@@ -1,0 +1,10 @@
+[
+  [
+    "  const footerDisplaySessionMeter =\n    footerHydrated && tutorSessionMeter\n      ? tutorSessionMeter\n      : footerHydrated && isPracticeActive",
+    "  const footerDisplaySessionMeter =\n    footerHydrated && tutorSessionMeter && !footerSessionMeterBlocked\n      ? tutorSessionMeter\n      : footerHydrated && isPracticeActive"
+  ],
+  [
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    Boolean(tutorSessionMeter) ||\n    isPracticeActive ||\n    footerSessionMeterChatActive\n      ? null\n      : isTutorFooterActive\n        ? baseFooterStaticText\n        : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)",
+    "  const footerStaticText =\n    (isStructuredLessonActive && structuredLessonFooterLive) ||\n    (Boolean(tutorSessionMeter) && !footerSessionMeterBlocked) ||\n    isPracticeActive ||\n    footerSessionMeterChatActive\n      ? null\n      : tutorReferenceOverlayActive\n        ? baseFooterStaticText\n        : isTutorFooterActive\n          ? baseFooterStaticText\n          : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)"
+  ]
+]

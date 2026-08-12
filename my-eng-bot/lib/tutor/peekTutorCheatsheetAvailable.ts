@@ -3,15 +3,16 @@ import {
   materializeReferenceCandidate,
   resolveReferenceOpen,
 } from '@/lib/reference/resolveReferenceOpen'
+import { tutorTopicSheetChipsEligible } from '@/lib/tutor/tutorTopicSheetChipsEligible'
 import type { TutorExplainAnswer } from '@/lib/tutor/types'
 
 /**
- * Dry-run: would cheatsheet open or need choose, assuming runtime sheet opener exists
- * (as TutorSessionProvider). No stash / no side effects. needs_generate → false.
+ * Dry-run: would topic sheet open, need choose, or grounded generate.
+ * No stash / no side effects.
  */
 export function peekTutorCheatsheetAvailable(answer: TutorExplainAnswer): boolean {
   if (!featureFlags.referenceV1) return false
-  if (answer.cheatsheetVisibility === 'hidden') return false
+  if (!tutorTopicSheetChipsEligible(answer)) return false
 
   const rawQuery =
     answer.topicAnchor.title || answer.title || answer.topicAnchor.canonicalKey || ''
@@ -32,13 +33,18 @@ export function peekTutorCheatsheetAvailable(answer: TutorExplainAnswer): boolea
 
   if (resolved.kind === 'open') {
     const materialized = materializeReferenceCandidate(resolved.candidate)
-    if (materialized.kind !== 'open') return false
-    const openLocal =
-      resolved.candidate.openKind === 'local_lesson' && Boolean(resolved.candidate.lessonId)
-    // Assume runtime sheet opener is available (product path).
-    if (openLocal || materialized.sheet) return true
-    return Boolean(resolved.candidate.lessonId)
+    if (materialized.kind === 'open') {
+      const openLocal =
+        resolved.candidate.openKind === 'local_lesson' && Boolean(resolved.candidate.lessonId)
+      if (openLocal || materialized.sheet) return true
+      return Boolean(resolved.candidate.lessonId)
+    }
+    // Generate candidate: tutor grounded path can open without global flag.
+    if (materialized.kind === 'generate') return true
   }
 
-  return false
+  if (resolved.kind === 'needs_llm') return true
+
+  // Grounded generate fallback when no gold/choose.
+  return Boolean(rawQuery.trim())
 }

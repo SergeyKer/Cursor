@@ -64,7 +64,9 @@ export type TutorComposerProps = {
   onPaperclipClick?: () => void
   chips?: TutorComposerChip[]
   onChipSelect?: (chipId: string) => void
-  /** Post-explain one-hop follow-up suggestion (nav mode only; hidden during micro). */
+  /** Post-explain follow-up + topic sheet chips (nav mode; hidden during micro). */
+  followUpChips?: TutorComposerChip[]
+  /** @deprecated Prefer followUpChips; single chip still supported. */
   followUpChip?: TutorComposerChip | null
   /** Micro = larger choice chips; nav = compact pills. Both use practice idle colors + enter. */
   chipsMode?: 'micro' | 'nav'
@@ -103,6 +105,7 @@ export default function TutorComposer({
   onPaperclipClick,
   chips = [],
   onChipSelect,
+  followUpChips,
   followUpChip = null,
   chipsMode = 'nav',
   chipsResetKey,
@@ -139,6 +142,9 @@ export default function TutorComposer({
     if (!canSend) return
     onSubmit()
   }
+
+  const resolvedFollowUpChips =
+    followUpChips ?? (followUpChip ? [followUpChip] : [])
 
   const handleKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey) {
@@ -199,21 +205,27 @@ export default function TutorComposer({
         </div>
       ) : null}
 
-      {followUpChip ? (
+      {resolvedFollowUpChips.length > 0 ? (
         <div
           className="flex w-full min-w-0 flex-wrap justify-end gap-1.5 px-0.5"
           role="group"
           aria-label="Подсказка вопроса"
         >
-          <button
-            key={`follow-up-${followUpChip.labelRu}`}
-            type="button"
-            disabled={chipsDisabled}
-            onClick={() => onChipSelect?.(followUpChip.id)}
-            className="lesson-choice-chip lesson-choice-chip-enter max-w-[min(100%,22rem)] shrink-0 break-words touch-manipulation rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-left text-[15px] font-normal leading-[1.5] text-blue-700 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 [@media(hover:hover)]:hover:bg-blue-100 disabled:opacity-50"
-          >
-            {followUpChip.labelRu}
-          </button>
+          {resolvedFollowUpChips.map((chip) => (
+            <button
+              key={`follow-up-${chip.id}-${chip.labelRu}`}
+              type="button"
+              disabled={chipsDisabled || chip.disabled}
+              title={chip.disabled ? chip.disabledTitle : undefined}
+              onClick={() => {
+                if (chip.disabled) return
+                onChipSelect?.(chip.id)
+              }}
+              className="lesson-choice-chip lesson-choice-chip-enter max-w-[min(100%,22rem)] shrink-0 break-words touch-manipulation rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-left text-[15px] font-normal leading-[1.5] text-blue-700 transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 [@media(hover:hover)]:hover:bg-blue-100 disabled:opacity-50"
+            >
+              {chip.labelRu}
+            </button>
+          ))}
         </div>
       ) : null}
 

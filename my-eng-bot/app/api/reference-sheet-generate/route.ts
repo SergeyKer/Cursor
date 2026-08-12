@@ -38,15 +38,16 @@ function extractJsonObject(raw: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  if (!featureFlags.referenceGenerate) {
-    return NextResponse.json({ error: 'Генерация справочника отключена.' }, { status: 404 })
-  }
-
   let body: Body
   try {
     body = (await req.json()) as Body
   } catch {
     return NextResponse.json({ error: 'Неверный JSON.' }, { status: 400 })
+  }
+
+  // Cold search stays behind the flag; tutor groundedExplain may proceed without it.
+  if (!featureFlags.referenceGenerate && !body.groundedExplain) {
+    return NextResponse.json({ error: 'Генерация справочника отключена.' }, { status: 404 })
   }
 
   const generateQuery = (body.generateQuery || body.query || '').trim()
