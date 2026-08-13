@@ -15,13 +15,25 @@ export const COMMUNICATION_FOOTER_TOP = {
     adult: 'Идём дальше. {n}/8 · +2 XP.',
     child: 'Дальше! {n}/8 · +2 XP.',
   },
+  no_xp: {
+    adult: 'Без XP — нужен английский кусок.',
+    child: 'Без XP. Добавь слово на En.',
+  },
   complete: {
     adult: 'Цель 8/8. +{xp} XP к уровню.',
     child: 'Цель 8/8! +{xp} XP к уровню!',
   },
+  complete_zero: {
+    adult: 'Цель 8/8. К уровню +0.',
+    child: 'Цель 8/8. К уровню +0.',
+  },
   post_complete: {
     adult: 'Можно продолжать — XP уже начислен.',
     child: 'Можно дальше — XP уже начислен.',
+  },
+  post_complete_zero: {
+    adult: 'Цель закрыта. XP за En-попытку.',
+    child: 'Цель есть. XP — за слово на En.',
   },
   daily_cap: {
     adult: 'XP дня набран. Можно общаться.',

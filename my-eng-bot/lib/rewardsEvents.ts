@@ -38,6 +38,7 @@ import {
   startDialogueSessionState,
   startTranslationSessionState,
   startTutorSessionState,
+  withDailyActivity,
   type RewardsState,
 } from './rewardsState'
 
@@ -51,6 +52,7 @@ export type RewardsEvent =
   | {
       type: 'communication_step_resolved'
       assistantKey: string
+      englishAttempt: boolean
     }
   | { type: 'communication_session_started' }
   | { type: 'communication_session_abandoned' }
@@ -230,7 +232,11 @@ function applyDialogueStepResolved(
   return next
 }
 
-function applyCommunicationStepResolved(state: RewardsState, assistantKey: string): RewardsState {
+function applyCommunicationStepResolved(
+  state: RewardsState,
+  assistantKey: string,
+  englishAttempt: boolean
+): RewardsState {
   const today = getTodayDateString()
   const key = typeof assistantKey === 'string' ? assistantKey.trim() : ''
   if (!key) return state
@@ -249,12 +255,14 @@ function applyCommunicationStepResolved(state: RewardsState, assistantKey: strin
     session = next.communicationSession
   }
 
-  const stepWant = xpForCommunicationStep()
-  const stepActual = clampCommunicationDailyXp(session.dailyXpAwarded, stepWant)
+  const stepWant = englishAttempt ? xpForCommunicationStep() : 0
+  const stepActual = stepWant > 0 ? clampCommunicationDailyXp(session.dailyXpAwarded, stepWant) : 0
   const nextProgress = Math.min(session.target, session.progress + 1)
   const completedNow = nextProgress >= session.target
+  const nextAttemptCount = session.englishAttemptCount + (englishAttempt ? 1 : 0)
   const afterStepDaily = session.dailyXpAwarded + stepActual
-  const completionWant = completedNow ? COMMUNICATION_XP_COMPLETION : 0
+  const completionWant =
+    completedNow && nextAttemptCount >= 1 ? COMMUNICATION_XP_COMPLETION : 0
   const completionActual = completedNow
     ? clampCommunicationDailyXp(afterStepDaily, completionWant)
     : 0
@@ -272,6 +280,8 @@ function applyCommunicationStepResolved(state: RewardsState, assistantKey: strin
       lastAwardedAssistantKey: key,
       dailyXpAwarded: nextDaily,
       dailyXpDate: today,
+      englishAttemptCount: nextAttemptCount,
+      lastStepAwardedXp: stepActual,
     },
   }
 
@@ -293,6 +303,8 @@ function applyCommunicationStepResolved(state: RewardsState, assistantKey: strin
       },
     }
   }
+
+  next = withDailyActivity(next, today)
 
   const reason = completedNow ? 'communication_session_completed' : 'communication_step_resolved'
   if (totalActual > 0) {
@@ -432,7 +444,7 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       // Legacy: XP moved to communication_step_resolved (+ assistantKey).
       return state
     case 'communication_step_resolved':
-      return applyCommunicationStepResolved(state, event.assistantKey)
+      return applyCommunicationStepResolved(state, event.assistantKey, event.englishAttempt)
     case 'communication_session_started':
       return startCommunicationSessionState(state)
     case 'communication_session_abandoned':

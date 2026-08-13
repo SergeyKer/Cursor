@@ -27,6 +27,12 @@ import { speak } from '@/lib/speech'
 import { playCommunicationTts, stopCommunicationTts } from '@/lib/communication/playCommunicationTts'
 import { resolveCommunicationSpeakText } from '@/lib/communication/resolveCommunicationSpeakText'
 import {
+  communicationTtsRevealTimeoutMs,
+  makeCommunicationAutoSpeakKey,
+  resolveCommunicationTtsRevealEngine,
+  shouldHoldCommunicationTtsReveal,
+} from '@/lib/communication/ttsRevealHold'
+import {
   extractCommunicationSpeakText,
   splitCommunicationOpening,
 } from '@/lib/communication/extractCommunicationSpeakText'
@@ -2039,10 +2045,67 @@ export default function Chat({
   const isEngvoActive = Boolean(engvo?.active)
   const communicationAutoSpeakKeyRef = useRef<string | null>(null)
   const communicationAutoTtsPrevEnabledRef = useRef(communicationAutoTtsEnabled)
+  const [communicationTtsRevealKey, setCommunicationTtsRevealKey] = useState<string | null>(null)
+  const communicationTtsRevealKeyRef = useRef<string | null>(null)
+  const communicationTtsRevealTimerRef = useRef<number | null>(null)
+
+  const clearCommunicationTtsReveal = useCallback(() => {
+    if (communicationTtsRevealTimerRef.current != null) {
+      window.clearTimeout(communicationTtsRevealTimerRef.current)
+      communicationTtsRevealTimerRef.current = null
+    }
+    if (communicationTtsRevealKeyRef.current === null) return
+    communicationTtsRevealKeyRef.current = null
+    setCommunicationTtsRevealKey(null)
+  }, [])
+
+  const armCommunicationTtsReveal = useCallback((key: string, speakText: string) => {
+    if (communicationTtsRevealTimerRef.current != null) {
+      window.clearTimeout(communicationTtsRevealTimerRef.current)
+      communicationTtsRevealTimerRef.current = null
+    }
+    communicationTtsRevealKeyRef.current = key
+    setCommunicationTtsRevealKey(key)
+    const timeoutMs = communicationTtsRevealTimeoutMs(resolveCommunicationTtsRevealEngine(speakText))
+    communicationTtsRevealTimerRef.current = window.setTimeout(() => {
+      communicationTtsRevealTimerRef.current = null
+      if (communicationTtsRevealKeyRef.current !== key) return
+      communicationTtsRevealKeyRef.current = null
+      setCommunicationTtsRevealKey(null)
+    }, timeoutMs)
+  }, [])
+
+  const playCommunicationAutoTts = useCallback(
+    (text: string, trigger: 'new-message' | 'bootstrap' | 'toggle-on') => {
+      const key = makeCommunicationAutoSpeakKey(messages.length, text)
+      const hold = shouldHoldCommunicationTtsReveal(trigger)
+      if (hold) {
+        armCommunicationTtsReveal(key, text)
+        playCommunicationTts(text, {
+          browserVoiceId: settings.voiceId,
+          rate: defaultTtsSpeechRate,
+          onStart: () => {
+            if (communicationTtsRevealKeyRef.current === key) clearCommunicationTtsReveal()
+          },
+        })
+        return
+      }
+      playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+    },
+    [
+      armCommunicationTtsReveal,
+      clearCommunicationTtsReveal,
+      defaultTtsSpeechRate,
+      messages.length,
+      settings.voiceId,
+    ]
+  )
 
   useEffect(() => {
-    if (listening) stopCommunicationTts()
-  }, [listening])
+    if (!listening) return
+    stopCommunicationTts()
+    clearCommunicationTtsReveal()
+  }, [clearCommunicationTtsReveal, listening])
 
   useEffect(() => {
     const wasEnabled = communicationAutoTtsPrevEnabledRef.current
@@ -2051,20 +2114,22 @@ export default function Chat({
     if (settings.mode !== 'communication' || isEngvoActive) {
       communicationAutoTtsPrevEnabledRef.current = communicationAutoTtsEnabled
       communicationAutoSpeakKeyRef.current = null
+      clearCommunicationTtsReveal()
       return
     }
     if (wasEnabled && !communicationAutoTtsEnabled) {
       communicationAutoTtsPrevEnabledRef.current = communicationAutoTtsEnabled
       stopCommunicationTts()
+      clearCommunicationTtsReveal()
       return
     }
     if (loading || searchingInternet) return
     communicationAutoTtsPrevEnabledRef.current = communicationAutoTtsEnabled
-    const key = text ? `${messages.length}:${text}` : `${messages.length}:`
+    const key = makeCommunicationAutoSpeakKey(messages.length, text)
     if (communicationAutoSpeakKeyRef.current === null) {
       communicationAutoSpeakKeyRef.current = key
       if (communicationAutoTtsEnabled && text) {
-        playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+        playCommunicationAutoTts(text, 'bootstrap')
       }
       return
     }
@@ -2074,7 +2139,7 @@ export default function Chat({
     }
     if (!wasEnabled && communicationAutoTtsEnabled && text) {
       communicationAutoSpeakKeyRef.current = key
-      playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+      playCommunicationAutoTts(text, 'toggle-on')
       return
     }
     if (communicationAutoSpeakKeyRef.current === key || !text) {
@@ -2082,17 +2147,26 @@ export default function Chat({
       return
     }
     communicationAutoSpeakKeyRef.current = key
-    playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+    playCommunicationAutoTts(text, 'new-message')
   }, [
+    clearCommunicationTtsReveal,
     communicationAutoTtsEnabled,
-    defaultTtsSpeechRate,
     isEngvoActive,
     loading,
     messages,
+    playCommunicationAutoTts,
     searchingInternet,
     settings.mode,
-    settings.voiceId,
+    // communicationTtsRevealKey must not be a dep: replay would stop+restart TTS.
   ])
+
+  useEffect(() => {
+    if (!communicationTtsRevealKey) return
+    const last = messages[messages.length - 1]
+    const text = last ? resolveCommunicationSpeakText(last) : ''
+    const key = makeCommunicationAutoSpeakKey(messages.length, text)
+    if (key !== communicationTtsRevealKey) clearCommunicationTtsReveal()
+  }, [clearCommunicationTtsReveal, communicationTtsRevealKey, messages])
   const isEngvoTeacherCall =
     isEngvoActive && engvo?.sessionKind === 'teacher'
   const isEngvoAssistantPending = Boolean(engvo?.active && engvo.showAssistantPending)
@@ -2138,7 +2212,9 @@ export default function Chat({
     voicePhase,
   ])
 
-  const typingIndicatorSourceActive = loading || engvoBootstrapTypingActive
+  const awaitingCommunicationTtsReveal = Boolean(communicationTtsRevealKey)
+  const typingIndicatorSourceActive =
+    loading || engvoBootstrapTypingActive || awaitingCommunicationTtsReveal
 
   useEffect(() => {
     if (!typingIndicatorSourceActive || (messages.length === 0 && !isEngvoAssistantPending)) {
@@ -2148,7 +2224,7 @@ export default function Chat({
       return
     }
 
-    if (engvoBootstrapTypingActive) {
+    if (engvoBootstrapTypingActive || awaitingCommunicationTtsReveal) {
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
       setShowTypingIndicator(true)
@@ -2167,15 +2243,23 @@ export default function Chat({
       if (typingDelayTimerRef.current) window.clearTimeout(typingDelayTimerRef.current)
       typingDelayTimerRef.current = null
     }
-  }, [typingIndicatorSourceActive, messages.length, engvoBootstrapTypingActive, isEngvoAssistantPending])
+  }, [awaitingCommunicationTtsReveal, typingIndicatorSourceActive, messages.length, engvoBootstrapTypingActive, isEngvoAssistantPending])
 
   /** Синхронно гасим «типинг» при появлении пузыря Engvo/общения, чтобы не было кадра с showTypingIndicator=true. */
   React.useLayoutEffect(() => {
+    if (awaitingCommunicationTtsReveal) return
     if ((!isEngvoActive && settings.mode !== 'communication') || loading) return
     if (!engvoBootstrapTypingActive && showTypingIndicator) {
       setShowTypingIndicator(false)
     }
-  }, [isEngvoActive, settings.mode, loading, engvoBootstrapTypingActive, showTypingIndicator])
+  }, [
+    awaitingCommunicationTtsReveal,
+    isEngvoActive,
+    settings.mode,
+    loading,
+    engvoBootstrapTypingActive,
+    showTypingIndicator,
+  ])
 
   const lastMessageRole = messages[messages.length - 1]?.role ?? null
   const lastAssistantInviteKeyRef = useRef<string | null>(null)
@@ -2192,11 +2276,11 @@ export default function Chat({
 
   React.useEffect(() => {
     if (!lastAssistantInviteKey) return
-    if (loading || listening || isVoiceActive) return
+    if (loading || listening || isVoiceActive || awaitingCommunicationTtsReveal) return
     if (lastAssistantInviteKeyRef.current === lastAssistantInviteKey) return
     lastAssistantInviteKeyRef.current = lastAssistantInviteKey
     setMicVisualState((current) => (current === 'idle' ? 'invite' : current))
-  }, [isVoiceActive, lastAssistantInviteKey, loading, listening])
+  }, [awaitingCommunicationTtsReveal, isVoiceActive, lastAssistantInviteKey, loading, listening])
 
   React.useEffect(() => {
     if (micVisualState !== 'invite') return
@@ -2215,6 +2299,10 @@ export default function Chat({
     return () => {
       clearFinalizingWatchdog()
       clearMicAnimationTimers()
+      if (communicationTtsRevealTimerRef.current != null) {
+        window.clearTimeout(communicationTtsRevealTimerRef.current)
+        communicationTtsRevealTimerRef.current = null
+      }
     }
   }, [clearFinalizingWatchdog, clearMicAnimationTimers])
 
@@ -2356,7 +2444,9 @@ export default function Chat({
 
   const canShowTypingIndicator =
     showTypingIndicator &&
-    ((loading && lastMessageRole === 'user') || engvoBootstrapTypingActive)
+    ((loading && lastMessageRole === 'user') ||
+      engvoBootstrapTypingActive ||
+      awaitingCommunicationTtsReveal)
 
   const isCommunicationFeed = settings.mode === 'communication' && !isEngvoActive
   const feedSlideEnter = isEngvoActive || isCommunicationFeed
@@ -2389,6 +2479,7 @@ export default function Chat({
     chatFeedScrollTailKey,
     isLearningFlow,
     engvo?.showAssistantPending,
+    communicationTtsRevealKey,
   ])
 
   useDialogFeedKeyboardScroll(scrollContainerRef, !isEngvoActive)
@@ -2474,6 +2565,16 @@ export default function Chat({
                 )
               )}
               {messages.map((msg, i) => {
+                const hideLastAssistantForTts =
+                  awaitingCommunicationTtsReveal &&
+                  i === messages.length - 1 &&
+                  msg.role === 'assistant' &&
+                  makeCommunicationAutoSpeakKey(
+                    messages.length,
+                    resolveCommunicationSpeakText(msg)
+                  ) === communicationTtsRevealKey
+                if (hideLastAssistantForTts) return null
+
                 const defaultBubblePosition = getBubblePosition(messages[i - 1]?.role, msg.role, messages[i + 1]?.role)
                 const bubblePosition =
                   isLearningFlow && msg.role === 'assistant'

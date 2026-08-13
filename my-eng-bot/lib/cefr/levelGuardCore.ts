@@ -213,3 +213,32 @@ export function applyCefrOutputGuardWithDeps(
     violations: secondViolations.length > 0 ? secondViolations : firstViolations,
   }
 }
+
+/** Keep only sentences that already pass the CEFR detector (after simplify). */
+export function keepCefrSafeEnglishSentencesWithDeps(
+  deps: CefrGuardDeps,
+  params: {
+    content: string
+    level: LevelId
+    audience: Audience
+  }
+): string {
+  const raw = params.content.trim()
+  if (!raw) return ''
+  if (params.level === 'all') return raw
+  const parts = raw
+    .split(/\n+|(?<=[.!?])\s+/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+  const kept = parts.filter((part) => {
+    if (!/[A-Za-z]/.test(part)) return false
+    return (
+      detectEnglishViolations(deps, {
+        text: part,
+        level: params.level,
+        audience: params.audience,
+      }).length === 0
+    )
+  })
+  return kept.join(' ').trim()
+}

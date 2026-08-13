@@ -1,6 +1,7 @@
 import { getCefrDenyWords, getCefrSpec } from '@/lib/cefr/cefrSpec.server'
 import {
   applyCefrOutputGuardWithDeps,
+  keepCefrSafeEnglishSentencesWithDeps,
   type CefrGuardResult,
   type GuardMode,
 } from '@/lib/cefr/levelGuardCore'
@@ -17,4 +18,12 @@ export function applyCefrOutputGuard(params: {
   communicationTargetLang?: 'ru' | 'en'
 }): CefrGuardResult {
   return applyCefrOutputGuardWithDeps(serverDeps, params)
+}
+
+export function keepCefrSafeEnglishSentences(params: {
+  content: string
+  level: import('@/lib/types').LevelId
+  audience: import('@/lib/types').Audience
+}): string {
+  return keepCefrSafeEnglishSentencesWithDeps(serverDeps, params)
 }

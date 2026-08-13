@@ -1,6 +1,5 @@
-import { featureFlags } from '@/lib/featureFlags'
 import { clampVocabTtsSpeed } from '@/lib/vocabulary/clampVocabTtsSpeed'
-import { getCommunicationTtsEnginePref } from '@/lib/communication/ttsEnginePref'
+import { isCommunicationGrokTts } from '@/lib/communication/isCommunicationGrokTts'
 import { getCommunicationTtsVoicePref, setCommunicationTtsVoicePref } from '@/lib/communication/ttsVoicePref'
 import {
   getCommunicationTtsRotationModePref,
@@ -12,7 +11,6 @@ import {
   makeCommunicationTtsCacheKey,
 } from '@/lib/communication/ttsCache'
 import { pickNextXaiVoice } from '@/lib/engvo/xaiVoiceRotation'
-import { COMMUNICATION_TTS_MAX_CHARS } from '@/lib/communication/ttsLimits'
 import {
   clearUnaryGrokSession,
   isUnaryTtsGenerationCurrent,
@@ -65,12 +63,7 @@ export function playCommunicationTts(text: string, options: PlayCommunicationTts
     rate: options.rate ?? 0.9,
   }
 
-  const useGrok =
-    featureFlags.communicationGrokTtsV1 &&
-    getCommunicationTtsEnginePref() === 'grok' &&
-    normalized.length <= COMMUNICATION_TTS_MAX_CHARS
-
-  if (!useGrok) {
+  if (!isCommunicationGrokTts(normalized)) {
     playSystemUnaryTts(normalized, systemOpts)
     return
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyCefrOutputGuard } from './levelGuard'
+import { applyCefrOutputGuard, keepCefrSafeEnglishSentences } from './levelGuard'
 
 describe('applyCefrOutputGuard', () => {
   it('keeps RU communication untouched', () => {
@@ -52,5 +52,17 @@ describe('applyCefrOutputGuard', () => {
     expect(result.content).toContain('Комментарий:')
     expect(result.content).toContain('Скажи:')
     expect(result.content.toLowerCase()).not.toContain('additionally')
+  })
+
+  it('keeps only CEFR-safe sentences after a residual leak', () => {
+    const text = 'The sun is hot. Stakeholders leverage synergy every day.'
+    const safe = keepCefrSafeEnglishSentences({
+      content: text,
+      level: 'a1',
+      audience: 'adult',
+    })
+    expect(safe.toLowerCase()).toContain('the sun is hot')
+    expect(safe.toLowerCase()).not.toContain('stakeholder')
+    expect(safe.toLowerCase()).not.toContain('synergy')
   })
 })

@@ -111,6 +111,7 @@ import {
 import { resolveCommunicationSessionExitChips } from '@/lib/communication/resolveCommunicationSessionExitChips'
 import type { CommunicationSessionExitChip } from '@/lib/communication/resolveCommunicationSessionExitChips'
 import { hashCommunicationAssistantKey } from '@/lib/communication/communicationSessionEconomy'
+import { hasCommunicationEnglishAttempt } from '@/lib/communication/englishAttempt'
 import { COMMUNICATION_VOICE_TOP } from '@/lib/uiCopy/communicationVoiceTop'
 import {
   nextCommunicationVoiceInputMode,
@@ -1521,10 +1522,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const bumpFooterSessionContext = useCallback(() => {
     setFooterSessionContextNonce((prev) => prev + 1)
   }, [])
-  const bumpCommunicationStep = useCallback((assistantContent: string) => {
+  const bumpCommunicationStep = useCallback((assistantContent: string, userText: string) => {
     const key = hashCommunicationAssistantKey(assistantContent)
     setRewardsState((prev) =>
-      applyRewardsEvent(prev, { type: 'communication_step_resolved', assistantKey: key })
+      applyRewardsEvent(prev, {
+        type: 'communication_step_resolved',
+        assistantKey: key,
+        englishAttempt: hasCommunicationEnglishAttempt(userText),
+      })
     )
   }, [])
   const abandonCommunicationSession = useCallback(() => {
@@ -8299,7 +8304,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           dialogueCorrect: response.dialogueCorrect,
         })
         if (settings.mode === 'communication') {
-          bumpCommunicationStep(main)
+          bumpCommunicationStep(main, text)
         } else if (settings.mode === 'translation') {
           bumpTranslationStep(main, text)
         } else if (settings.mode === 'dialogue') {
@@ -10014,7 +10019,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       lastKey != null &&
       lastKey === session.lastAwardedAssistantKey
     const lastOutcome =
-      lastKey != null && lastKey === session.lastAwardedAssistantKey ? 'success' : null
+      lastKey != null && lastKey === session.lastAwardedAssistantKey
+        ? session.lastStepAwardedXp > 0
+          ? 'success'
+          : 'no_xp'
+        : null
     const moment = resolveCommunicationFooterMoment({
       loading,
       lastOutcome,

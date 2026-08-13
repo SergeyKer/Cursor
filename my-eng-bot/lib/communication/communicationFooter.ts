@@ -14,8 +14,11 @@ export type CommunicationFooterMoment =
   | 'idle'
   | 'checking'
   | 'success'
+  | 'no_xp'
   | 'complete'
+  | 'complete_zero'
   | 'post_complete'
+  | 'post_complete_zero'
   | 'daily_cap'
 
 export type CommunicationSessionMeter = {
@@ -45,15 +48,16 @@ export function communicationStatusLabel(params: {
 
 export function resolveCommunicationFooterMoment(params: {
   loading: boolean
-  lastOutcome: 'success' | null
+  lastOutcome: 'success' | 'no_xp' | null
   session: CommunicationSessionState
   justCompleted: boolean
 }): CommunicationFooterMoment {
   const { loading, lastOutcome, session, justCompleted } = params
   if (loading) return 'checking'
+  const zeroXp = session.sessionXpAwarded <= 0
   if (justCompleted || (session.status === 'completed' && session.progress >= session.target)) {
-    if (justCompleted) return 'complete'
-    return 'post_complete'
+    if (justCompleted) return zeroXp ? 'complete_zero' : 'complete'
+    return zeroXp ? 'post_complete_zero' : 'post_complete'
   }
   if (
     session.dailyXpAwarded >= COMMUNICATION_DAILY_GLOBAL_XP_CAP &&
@@ -62,6 +66,7 @@ export function resolveCommunicationFooterMoment(params: {
     return 'daily_cap'
   }
   if (lastOutcome === 'success') return 'success'
+  if (lastOutcome === 'no_xp') return 'no_xp'
   return 'idle'
 }
 
@@ -80,7 +85,10 @@ export function buildCommunicationFooterView(params: {
   const topTemplate = COMMUNICATION_FOOTER_TOP[moment][audience]
   let dynamicText = formatCommunicationFooterTop(topTemplate, {
     n,
-    xp: moment === 'complete' ? lastAwardedXp || session.sessionXpAwarded : session.sessionXpAwarded,
+    xp:
+      moment === 'complete' || moment === 'complete_zero'
+        ? lastAwardedXp || session.sessionXpAwarded
+        : session.sessionXpAwarded,
   })
   if (moment === 'idle' && voiceTopOverride && voiceTopOverride.trim()) {
     dynamicText = voiceTopOverride.trim()

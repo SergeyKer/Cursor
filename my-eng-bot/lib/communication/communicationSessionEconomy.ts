@@ -17,6 +17,10 @@ export type CommunicationSessionState = {
   lastAwardedAssistantKey: string | null
   dailyXpAwarded: number
   dailyXpDate: string | null
+  /** Learner turns with an English/mix attempt in this session. */
+  englishAttemptCount: number
+  /** XP granted for the last counted step (0 or 2 after daily clamp). */
+  lastStepAwardedXp: number
 }
 
 export function createDefaultCommunicationSession(): CommunicationSessionState {
@@ -29,6 +33,8 @@ export function createDefaultCommunicationSession(): CommunicationSessionState {
     lastAwardedAssistantKey: null,
     dailyXpAwarded: 0,
     dailyXpDate: null,
+    englishAttemptCount: 0,
+    lastStepAwardedXp: 0,
   }
 }
 

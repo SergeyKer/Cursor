@@ -661,6 +661,8 @@ function abandonCommunicationSessionSlice(
     status: 'abandoned',
     sessionStartedAt: null,
     lastAwardedAssistantKey: null,
+    englishAttemptCount: 0,
+    lastStepAwardedXp: 0,
   }
 }
 
@@ -705,6 +707,12 @@ export function normalizeCommunicationSession(
       dailyXpAwarded:
         typeof src.dailyXpAwarded === 'number' ? Math.max(0, Math.floor(src.dailyXpAwarded)) : 0,
       dailyXpDate: typeof src.dailyXpDate === 'string' ? src.dailyXpDate : null,
+      englishAttemptCount:
+        typeof src.englishAttemptCount === 'number'
+          ? Math.max(0, Math.floor(src.englishAttemptCount))
+          : 0,
+      lastStepAwardedXp:
+        typeof src.lastStepAwardedXp === 'number' ? Math.max(0, Math.floor(src.lastStepAwardedXp)) : 0,
     },
     today
   )
@@ -732,6 +740,8 @@ export function startCommunicationSessionState(
       status: 'in_progress',
       sessionStartedAt: new Date().toISOString(),
       lastAwardedAssistantKey: null,
+      englishAttemptCount: 0,
+      lastStepAwardedXp: 0,
     },
   }
 }

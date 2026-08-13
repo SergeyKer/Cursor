@@ -48,6 +48,7 @@ import {
   buildCommunicationMaxTokens,
   detectCommunicationDetailLevel,
   extractExplicitTranslateTarget,
+  pickUsableCommunicationEnglish,
   shouldPreferEnglishContinuationFallback,
 } from '@/lib/communicationMode'
 import {
@@ -83,6 +84,7 @@ import {
   isCommunicationDetailOnlyMessage,
 } from '@/lib/communicationReplyLanguage'
 import { buildCommunicationMixLearningRule } from '@/lib/communicationMixLearningRule'
+import { buildCommunicationPersonalizationRule as buildCommunicationPersonalizationFromLib } from '@/lib/communication/personalization'
 import { normalizeCommunicationVoiceInputMode } from '@/lib/communicationVoiceInputMode'
 import { callProviderChat } from '@/lib/callProviderChat'
 import {
@@ -168,7 +170,7 @@ import { applyFreeTalkTopicChoiceTenseAnchorFallback } from '@/lib/freeTalkTopic
 import { buildStrictTopicPromptBlock } from '@/lib/topicGuardPrompts'
 import { RUSSIAN_TRANSLATION_DRILL_HINTS } from '@/lib/russianDrillAndTranslateHints'
 import { buildCefrPromptBlock } from '@/lib/cefr/cefrSpec.server'
-import { applyCefrOutputGuard } from '@/lib/cefr/levelGuard'
+import { applyCefrOutputGuard, keepCefrSafeEnglishSentences } from '@/lib/cefr/levelGuard'
 import { getCefrLevelConfig } from '@/lib/cefr/cefrConfig.server'
 import {
   collectLearnerEnglishSamples,
@@ -445,27 +447,9 @@ function buildCommunicationPersonalizationRule(params: {
   audience: Audience
   level: string
   lastUserText: string
+  lastAssistantText?: string
 }): string {
-  const seedWords = (params.lastUserText.match(/[A-Za-zА-Яа-яЁё]{3,}/g) ?? [])
-    .slice(-4)
-    .map((w) => w.toLowerCase())
-  const seedHint = seedWords.length > 0 ? `Key words from last user message: ${seedWords.join(', ')}.` : ''
-  const lowLevel = ['starter', 'a1', 'a2'].includes(params.level)
-  const childHint =
-    params.audience === 'child'
-      ? 'For child audience, keep follow-up playful and concrete (friends, games, school, pets, hobbies).'
-      : 'For adult audience, keep follow-up practical and respectful.'
-  const brevityHint = lowLevel
-    ? 'Keep follow-up short (1 reaction + 1 simple question).'
-    : 'Use natural concise follow-up (1 reaction + 1 question, optionally a short context sentence).'
-  return [
-    'Personalization rule: connect your next follow-up to the user message context instead of generic templates.',
-    seedHint,
-    childHint,
-    brevityHint,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  return buildCommunicationPersonalizationFromLib(params)
 }
 
 function logRetentionSignals(params: {
@@ -551,6 +535,7 @@ function buildSystemPrompt(params: {
   grammarFocus?: string | null
   style?: string
   lastUserText?: string
+  lastAssistantText?: string
   audience?: 'child' | 'adult'
   freeTalkTopicSuggestions?: string[]
   forcedRepeatSentence?: string | null
@@ -577,6 +562,7 @@ function buildSystemPrompt(params: {
     grammarFocus = null,
     style = 'neutral',
     lastUserText = '',
+    lastAssistantText = '',
     audience = 'adult',
     freeTalkTopicSuggestions = [],
     forcedRepeatSentence = null,
@@ -634,6 +620,7 @@ function buildSystemPrompt(params: {
       audience,
       level,
       lastUserText,
+      lastAssistantText,
     })
     void communicationLanguageHint
     void communicationDetailOnly
@@ -1139,6 +1126,18 @@ function finalizeCommunicationContentWithCefr(params: {
   }
 
   const reassemble = (en: string) => (ruPrefix ? `${ruPrefix}\n${en}`.trim() : en)
+  const lastResort = () =>
+    params.firstTurn
+      ? buildCommunicationFirstMessage({
+          audience: params.audience,
+          level: params.level,
+          seedText: params.seedText,
+        })
+      : buildCommunicationEnglishContinuationFallback(
+          params.audience,
+          params.level,
+          params.seedText
+        )
 
   const guarded = applyCefrOutputGuard({
     mode: 'communication',
@@ -1148,21 +1147,17 @@ function finalizeCommunicationContentWithCefr(params: {
     communicationTargetLang: 'en',
   })
 
-  // A-levels: on residual leak, prefer CEFR-safe fallback (do not show hard leaked wording).
+  const usableGuarded = pickUsableCommunicationEnglish(guarded.content)
+  // A-levels: keep simplified English that still passes CEFR. Residual leaks are dropped, not shown.
   if (isA && guarded.leaked) {
-    const levelFallback = params.firstTurn
-      ? buildCommunicationFirstMessage({
-          audience: params.audience,
-          level: params.level,
-          seedText: params.seedText,
-        })
-      : buildCommunicationFallbackMessage({
-          audience: params.audience,
-          language: 'en',
-          level: params.level,
-          firstTurn: false,
-          seedText: params.seedText,
-        })
+    const safe = keepCefrSafeEnglishSentences({
+      content: guarded.content,
+      level: params.level,
+      audience: params.audience,
+    })
+    const usableSafe = pickUsableCommunicationEnglish(safe)
+    if (usableSafe) return reassemble(usableSafe)
+    const levelFallback = lastResort()
     if (params.firstTurn && isCommunicationALevelForRuWarn(params.level)) {
       return levelFallback
     }
@@ -1173,20 +1168,17 @@ function finalizeCommunicationContentWithCefr(params: {
       audience: params.audience,
       communicationTargetLang: 'en',
     })
-    if (guardedFallback.content.trim()) return reassemble(guardedFallback.content)
-    return reassemble('Can you say it another way?')
+    const usableFallback = pickUsableCommunicationEnglish(guardedFallback.content) || guardedFallback.content.trim()
+    if (usableFallback) return reassemble(usableFallback)
+    return reassemble(levelFallback)
   }
 
-  // B/C (and clean A): best-effort model text. C must not be force-downgraded to B fallbacks here.
-  if (guarded.content.trim()) return reassemble(guarded.content)
+  if (usableGuarded) return reassemble(usableGuarded)
+  if (guarded.content.trim() && /[A-Za-z]/.test(guarded.content)) {
+    return reassemble(guarded.content.trim())
+  }
 
-  const levelFallback = buildCommunicationFallbackMessage({
-    audience: params.audience,
-    language: 'en',
-    level: params.level,
-    firstTurn: params.firstTurn,
-    seedText: params.seedText,
-  })
+  const levelFallback = lastResort()
   const guardedFallback = applyCefrOutputGuard({
     mode: 'communication',
     content: levelFallback,
@@ -1200,17 +1192,7 @@ function finalizeCommunicationContentWithCefr(params: {
       : reassemble(guardedFallback.content)
   }
 
-  return ['starter', 'a1', 'a2'].includes(params.level)
-    ? params.firstTurn
-      ? buildCommunicationFirstMessage({
-          audience: params.audience,
-          level: params.level,
-          seedText: params.seedText,
-        })
-      : 'Can you say it another way?'
-    : params.firstTurn
-      ? 'Hello! What would you like to talk about today?'
-      : 'Could you clarify what you mean?'
+  return lastResort()
 }
 
 function finalizeCommunicationWebSearchContentWithCefr(params: {
@@ -7547,6 +7529,7 @@ export async function POST(req: NextRequest) {
         grammarFocus: normalizedGrammarFocus,
         style,
         lastUserText,
+        lastAssistantText: getLastAssistantContent(recentMessages) ?? '',
         audience,
         freeTalkTopicSuggestions,
         forcedRepeatSentence,
@@ -7775,6 +7758,7 @@ export async function POST(req: NextRequest) {
       grammarFocus: normalizedGrammarFocus,
       style,
       lastUserText,
+      lastAssistantText: getLastAssistantContent(recentMessages) ?? '',
       audience,
       freeTalkTopicSuggestions,
       forcedRepeatSentence,
@@ -7958,12 +7942,16 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         return NextResponse.json({
           content: preferEnContinuation
             ? finalizeCommunicationContentWithCefr({
-                content: buildCommunicationEnglishContinuationFallback(audience, level),
+                content: buildCommunicationEnglishContinuationFallback(
+                  audience,
+                  level,
+                  lastUserContentForResponse
+                ),
                 level: level as LevelId,
                 audience,
                 targetLang: detectedUserLang,
                 firstTurn: false,
-                seedText: dialogSeed,
+                seedText: lastUserContentForResponse || dialogSeed,
               })
             : finalizeCommunicationContentWithCefr({
                 content: buildCommunicationFallbackMessage({
@@ -9113,7 +9101,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         targetLang
       )
       const fallback = preferEnContinuation
-        ? buildCommunicationEnglishContinuationFallback(audience, level)
+        ? buildCommunicationEnglishContinuationFallback(audience, level, lastUserContentForResponse)
         : buildCommunicationFallbackMessage({
             audience,
             language: targetLang,
@@ -9124,10 +9112,20 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
 
       if (!cleaned) cleaned = fallback
 
+      const usableEnglish = pickUsableCommunicationEnglish(cleaned)
+      if (usableEnglish) cleaned = usableEnglish
+
       let responseLang = detectLangFromText(
         targetLang === 'en' ? extractCommunicationSpeakText(cleaned) || cleaned : cleaned,
         targetLang
       )
+      if (responseLang !== targetLang) {
+        const alreadyEnglish = pickUsableCommunicationEnglish(cleaned)
+        if (alreadyEnglish && targetLang === 'en') {
+          cleaned = alreadyEnglish
+          responseLang = 'en'
+        }
+      }
       if (responseLang !== targetLang) {
         // Repair: принудительно просим вернуть ответ на нужном языке (RU/EN) и без протокольных маркеров.
         const repairApiMessages = [...apiMessages]
@@ -9166,11 +9164,17 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
               })
             }
             if (!cleaned) cleaned = fallback
-            responseLang = detectLangFromText(
-              targetLang === 'en' ? extractCommunicationSpeakText(cleaned) || cleaned : cleaned,
-              targetLang
-            )
-            if (responseLang !== targetLang) cleaned = fallback
+            const usableRepaired = pickUsableCommunicationEnglish(cleaned)
+            if (usableRepaired && targetLang === 'en') {
+              cleaned = usableRepaired
+              responseLang = 'en'
+            } else {
+              responseLang = detectLangFromText(
+                targetLang === 'en' ? extractCommunicationSpeakText(cleaned) || cleaned : cleaned,
+                targetLang
+              )
+              if (responseLang !== targetLang) cleaned = fallback
+            }
           } else {
             cleaned = fallback
           }
@@ -9189,7 +9193,7 @@ When you detect a confirmed topic change: do NOT output "Комментарий:
         audience,
         targetLang,
         firstTurn: isFirstTurn,
-        seedText: dialogSeed,
+        seedText: lastUserContentForResponse || dialogSeed,
       })
 
       // Гарантия приветствия на первом ассистентском сообщении в `communication`.

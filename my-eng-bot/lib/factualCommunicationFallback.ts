@@ -16,6 +16,8 @@ export function isGenericEnglishClarification(text: string): boolean {
     /what do you mean/i,
     /can you say it another way/i,
     /please clarify/i,
+    /keep talking in english/i,
+    /continue in english/i,
   ].some((re) => re.test(t))
 }
 

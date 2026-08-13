@@ -21,13 +21,13 @@ Engvo наверху **не запрещает общение** — ограни
 | Параметр | Значение |
 |----------|----------|
 | Длина сессии | 8 |
-| step (successful turn) | +2 XP, N+1 |
+| step (successful turn) | N+1 всегда; +2 XP только при английской попытке (mix / своё EN-слово) |
 | bootstrap / API error / dup key | N без изменений |
-| completion 8/8 | +8 XP (atomic с последним шагом) |
-| Daily cap | 24 XP / день (только communication) |
+| completion 8/8 | +8 XP, только если в сессии была ≥1 EN-попытка |
+| Daily cap | 24 XP / день (только communication; максимум = 8×2+8 при всех EN) |
 | После 8/8 | чат можно; XP 0 до рестарта |
 
-N = успешный user→assistant turn (ответ EN). RU-вход ученика **засчитывается**.
+N = успешный user→assistant turn (ответ бота EN). Чистый RU-вход двигает N, XP не даёт.
 
 ## Exit chips (после 8/8)
 

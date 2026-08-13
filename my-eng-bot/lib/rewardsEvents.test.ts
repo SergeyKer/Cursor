@@ -17,6 +17,7 @@ describe('applyRewardsEvent', () => {
     const next = applyRewardsEvent(state, {
       type: 'communication_step_resolved',
       assistantKey: 'c:test:1',
+      englishAttempt: true,
     })
     expect(next.communicationSession.progress).toBe(1)
     expect(next.progress.totalXP).toBeGreaterThanOrEqual(2)
@@ -45,6 +46,7 @@ describe('applyRewardsEvent', () => {
       state = applyRewardsEvent(state, {
         type: 'communication_step_resolved',
         assistantKey: `c:test:${i}`,
+        englishAttempt: true,
       })
     }
     expect(state.communicationSession.progress).toBe(8)
@@ -92,6 +94,7 @@ describe('applyRewardsEvent', () => {
     const next = applyRewardsEvent(state, {
       type: 'communication_step_resolved',
       assistantKey: 'c:streak:1',
+      englishAttempt: true,
     })
     expect(next.progress.dailyStreak).toBe(3)
     expect(next.ui.lastReward?.amount).toBeGreaterThanOrEqual(2)
@@ -100,6 +103,7 @@ describe('applyRewardsEvent', () => {
     const again = applyRewardsEvent(next, {
       type: 'communication_step_resolved',
       assistantKey: 'c:streak:2',
+      englishAttempt: true,
     })
     expect(again.ui.lastReward?.amount).toBe(2)
     expect(again.ui.lastReward?.streakBonus).toBeUndefined()
@@ -110,6 +114,39 @@ describe('applyRewardsEvent', () => {
     const next = applyRewardsEvent(state, { type: 'communication_turn_completed' })
     expect(next.communicationSession.progress).toBe(0)
     expect(next.progress.totalXP).toBe(0)
+  })
+
+  it('counts a Russian communication turn without step XP', () => {
+    const state = createDefaultRewardsState()
+    const next = applyRewardsEvent(state, {
+      type: 'communication_step_resolved',
+      assistantKey: 'c:ru:1',
+      englishAttempt: false,
+    })
+    expect(next.communicationSession.progress).toBe(1)
+    expect(next.communicationSession.lastStepAwardedXp).toBe(0)
+    expect(next.communicationSession.englishAttemptCount).toBe(0)
+    expect(next.communicationSession.sessionXpAwarded).toBe(0)
+    expect(next.progress.totalXP).toBe(0)
+    expect(next.progress.lastActiveDate).toBe(getTodayDateString())
+  })
+
+  it('does not award completion XP for eight Russian-only turns', () => {
+    let state = createDefaultRewardsState()
+    for (let i = 0; i < 8; i += 1) {
+      state = applyRewardsEvent(state, {
+        type: 'communication_step_resolved',
+        assistantKey: `c:ru-only:${i}`,
+        englishAttempt: false,
+      })
+    }
+    expect(state.communicationSession.progress).toBe(8)
+    expect(state.communicationSession.status).toBe('completed')
+    expect(state.modeGoals.communication.completed).toBe(true)
+    expect(state.communicationSession.sessionXpAwarded).toBe(0)
+    expect(state.progress.totalXP).toBe(0)
+    expect(state.ui.lastReward?.reason).toBe('communication_session_completed')
+    expect(state.ui.lastReward?.amount).toBe(0)
   })
 
   it('awards tutor explain +1 once per canonicalKey day', () => {

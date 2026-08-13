@@ -6,9 +6,12 @@ describe('buildCommunicationMixLearningRule', () => {
     for (const mode of ['mix', 'ru', 'en'] as const) {
       const systemPrompt = buildCommunicationMixLearningRule(mode)
       expect(systemPrompt).toContain('ALWAYS reply in English only')
-      expect(systemPrompt).toContain('For longer or denser Russian input')
-      expect(systemPrompt).toContain('one concise natural English paraphrase of the main meaning')
+      expect(systemPrompt).toContain('Fully Russian input is valid chat')
+      expect(systemPrompt).toContain('one short English gist of the intent')
       expect(systemPrompt).toContain('Safety override')
+      expect(systemPrompt).toContain('answers the last assistant question')
+      expect(systemPrompt).toContain('Follow-up in an open thread: no gist')
+      expect(systemPrompt).toContain('history of that place')
     }
   })
 })
