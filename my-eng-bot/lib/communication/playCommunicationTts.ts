@@ -21,6 +21,7 @@ import {
 } from '@/lib/tts/unaryTtsPlayback'
 import { playPcmBuffer, playTtsPcmResponse } from '@/lib/tts/streamTtsPlayback'
 import { fetchTtsPcmResponse, getPcmInflight, runPcmInflight } from '@/lib/tts/grokPcmClient'
+import { clearMessageSpeakPlayback } from '@/lib/communication/messageSpeakPlayback'
 
 export type PlayCommunicationTtsOptions = {
   rate?: number
@@ -31,6 +32,7 @@ export type PlayCommunicationTtsOptions = {
 }
 
 export function stopCommunicationTts(): void {
+  clearMessageSpeakPlayback()
   stopUnaryTts()
 }
 

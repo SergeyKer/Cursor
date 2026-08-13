@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
 import { parseCorrection } from '@/lib/parseCorrection'
 import {
@@ -25,6 +25,12 @@ import {
 } from '@/lib/normalizeCommentBulbEmoji'
 import { speak } from '@/lib/speech'
 import { playCommunicationTts, stopCommunicationTts } from '@/lib/communication/playCommunicationTts'
+import {
+  createMessageSpeakSession,
+  getMessageSpeakPlayingIndex,
+  subscribeMessageSpeakPlayback,
+} from '@/lib/communication/messageSpeakPlayback'
+import { toggleMessageSpeak } from '@/lib/communication/toggleMessageSpeak'
 import { resolveCommunicationSpeakText } from '@/lib/communication/resolveCommunicationSpeakText'
 import {
   communicationTtsRevealTimeoutMs,
@@ -99,6 +105,7 @@ import {
 import type { LearningLessonAction } from '@/lib/learningLessons'
 import { ChatBubbleFrame, getBubblePosition, type BubblePosition, CHAT_FEED_SERVICE_STATUS_ROW_CLASS } from '@/components/chat/ChatBubble'
 import { LanguageNoteInfoMark } from '@/components/chat/LanguageNoteInfoMark'
+import SpeakerIcon from '@/components/chat/SpeakerIcon'
 import { shouldShowLanguageNoteMark } from '@/lib/languageNote/eligibility'
 import TypingIndicator from '@/components/TypingIndicator'
 import EngvoFeedServiceTypingText from '@/components/engvo/EngvoFeedServiceTypingText'
@@ -2079,24 +2086,33 @@ export default function Chat({
     (text: string, trigger: 'new-message' | 'bootstrap' | 'toggle-on') => {
       const key = makeCommunicationAutoSpeakKey(messages.length, text)
       const hold = shouldHoldCommunicationTtsReveal(trigger)
-      if (hold) {
-        armCommunicationTtsReveal(key, text)
-        playCommunicationTts(text, {
-          browserVoiceId: settings.voiceId,
-          rate: defaultTtsSpeechRate,
-          onStart: () => {
-            if (communicationTtsRevealKeyRef.current === key) clearCommunicationTtsReveal()
-          },
-        })
-        return
+      let lastAssistantIndex = -1
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i]?.role === 'assistant') {
+          lastAssistantIndex = i
+          break
+        }
       }
-      playCommunicationTts(text, { browserVoiceId: settings.voiceId, rate: defaultTtsSpeechRate })
+      const session = createMessageSpeakSession()
+      if (hold) armCommunicationTtsReveal(key, text)
+      playCommunicationTts(text, {
+        browserVoiceId: settings.voiceId,
+        rate: defaultTtsSpeechRate,
+        onStart: hold
+          ? () => {
+              if (communicationTtsRevealKeyRef.current === key) clearCommunicationTtsReveal()
+            }
+          : undefined,
+        onEnd: session.endHandler,
+        onError: session.endHandler,
+      })
+      if (lastAssistantIndex >= 0) session.begin(lastAssistantIndex)
     },
     [
       armCommunicationTtsReveal,
       clearCommunicationTtsReveal,
       defaultTtsSpeechRate,
-      messages.length,
+      messages,
       settings.voiceId,
     ]
   )
@@ -3061,6 +3077,13 @@ function MessageBubble({
   const engvoCallTranslationRequestedRef = useRef(false)
   const prevTranslationErrorRef = useRef<string | undefined>(undefined)
   const prevActiveAssistantIndexRef = useRef(activeAssistantIndex)
+  const speakPlayingIndex = useSyncExternalStore(
+    subscribeMessageSpeakPlayback,
+    getMessageSpeakPlayingIndex,
+    getMessageSpeakPlayingIndex
+  )
+  const speakPlaying = speakPlayingIndex !== null
+  const speakPlayingHere = speakPlayingIndex === messageIndex
   const { comment, rest } =
     message.role === 'assistant' ? parseCorrection(visibleContent) : { comment: null, rest: visibleContent }
 
@@ -3380,8 +3403,13 @@ function MessageBubble({
   const handleSpeak = () => {
     const speakText = stripRepeatLeadForSpeak(speakSourceText)
     if (!speakText) return
-    stopCommunicationTts()
-    speak(speakText, voiceId, { rate: defaultTtsSpeechRate })
+    toggleMessageSpeak({
+      playing: speakPlaying,
+      text: speakText,
+      voiceId,
+      rate: defaultTtsSpeechRate,
+      messageIndex,
+    })
   }
 
   /**
@@ -3664,6 +3692,7 @@ function MessageBubble({
                     singleLine={section.singleLine}
                     trailingAction={section.trailingAction}
                     onSpeak={section.trailingAction === 'speak' ? handleSpeak : undefined}
+                    speakPlaying={section.trailingAction === 'speak' ? speakPlayingHere : false}
                     inlineMarkdownBold
                     emphasizeMainText={section.emphasizeMainText}
                     engvoRepeatCue={section.engvoRepeatCue}
@@ -3678,10 +3707,10 @@ function MessageBubble({
                     type="button"
                     onClick={handleSpeak}
                     className="chat-assistant-chip-button chat-action-button flex w-fit items-center justify-center gap-1 rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] px-2.5 py-0.5 text-xs text-[var(--chat-speaker-text)]"
-                    title="Озвучить"
-                    aria-label="Озвучить сообщение"
+                    title={speakPlayingHere ? 'Остановить озвучку' : 'Озвучить'}
+                    aria-label={speakPlayingHere ? 'Остановить озвучку' : 'Озвучить сообщение'}
                   >
-                    <SpeakerIcon /> Озвучить
+                    <SpeakerIcon playing={speakPlayingHere} /> Озвучить
                   </button>
                 )}
                 {hasEngvoCallTranslationButton && (
@@ -3847,6 +3876,7 @@ function SectionCard({
   singleLine,
   trailingAction,
   onSpeak,
+  speakPlaying = false,
   inlineMarkdownBold,
   emphasizeMainText,
   engvoRepeatCue,
@@ -3860,6 +3890,7 @@ function SectionCard({
   singleLine?: boolean
   trailingAction?: 'speak'
   onSpeak?: () => void
+  speakPlaying?: boolean
   /** Только `communication`: жирный по парам `**...**` в теле текста. */
   inlineMarkdownBold?: boolean
   /** Режимы «Диалог» и «Общение»: без префикса, стиль как у основного блока ассистента. */
@@ -3991,10 +4022,10 @@ function SectionCard({
               type="button"
               onClick={onSpeak}
               className="chat-action-button ml-1 inline-flex h-6 w-6 translate-y-[1px] items-center justify-center rounded-full border border-[var(--chat-speaker-border)] bg-[var(--chat-speaker-bg)] text-[var(--chat-speaker-text)]"
-              title="Озвучить"
-              aria-label="Озвучить"
+              title={speakPlaying ? 'Остановить озвучку' : 'Озвучить'}
+              aria-label={speakPlaying ? 'Остановить озвучку' : 'Озвучить'}
             >
-              <SpeakerIcon />
+              <SpeakerIcon playing={speakPlaying} />
             </button>
           )}
         </div>
@@ -4015,15 +4046,3 @@ function SectionCard({
   )
 }
 
-function SpeakerIcon() {
-  return (
-    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
-      />
-    </svg>
-  )
-}
