@@ -5,9 +5,7 @@ import {
   VOCAB_CARD_FOOTER_EXPAND,
   VOCAB_CARD_FOOTER_LAUNCH,
   VOCAB_INSET_EXPAND_BTN,
-  VOCAB_INSET_EXPAND_BTN_FLUSH,
   VOCAB_INSET_LAUNCH_BTN,
-  VOCAB_INSET_LAUNCH_BTN_FLUSH,
 } from '@/lib/vocabulary/cardStyles'
 
 export type VocabCardFooterVariant = 'launch' | 'expand' | 'action'
@@ -22,8 +20,6 @@ type Props = {
   roundBottom?: boolean
   /** Default flush. Action always uses the action layout (ignores placement). */
   placement?: VocabCardFooterPlacement
-  /** Drop mt-3 on inset buttons (pair in a grid). */
-  flushTop?: boolean
 }
 
 export default function VocabCardFooterButton({
@@ -34,7 +30,6 @@ export default function VocabCardFooterButton({
   ariaLabel,
   roundBottom = true,
   placement = 'flush',
-  flushTop = false,
 }: Props) {
   if (variant === 'action') {
     const actionInset = roundBottom ? 'mx-3 mb-3 mt-2 rounded-xl' : 'mt-1 rounded-xl'
@@ -52,14 +47,7 @@ export default function VocabCardFooterButton({
   }
 
   if (placement === 'inset') {
-    const insetClass =
-      variant === 'launch'
-        ? flushTop
-          ? VOCAB_INSET_LAUNCH_BTN_FLUSH
-          : VOCAB_INSET_LAUNCH_BTN
-        : flushTop
-          ? VOCAB_INSET_EXPAND_BTN_FLUSH
-          : VOCAB_INSET_EXPAND_BTN
+    const insetClass = variant === 'launch' ? VOCAB_INSET_LAUNCH_BTN : VOCAB_INSET_EXPAND_BTN
     return (
       <button
         type="button"

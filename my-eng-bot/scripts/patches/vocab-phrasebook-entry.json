@@ -1,0 +1,18 @@
+[
+  [
+    "  const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)",
+    "  const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)\n  const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook'>('hub')"
+  ],
+  [
+    "    setVocabularyPackId(null)\n    setVocabularyWorldsActive(true)\n    // Сбрасываем снимок меню: намеренный выход в слова, не «закрыли меню после правок чата».\n    menuOpenSnapshotRef.current = null\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })\n  }, [resetStructuredLessonSession])",
+    "    setVocabularyPackId(null)\n    setVocabHubEntry('hub')\n    setVocabularyWorldsActive(true)\n    // Сбрасываем снимок меню: намеренный выход в слова, не «закрыли меню после правок чата».\n    menuOpenSnapshotRef.current = null\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })\n  }, [resetStructuredLessonSession])\n\n  const openVocabularyPhrasebook = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('phrasebook')\n    setVocabularyWorldsActive(true)\n    menuOpenSnapshotRef.current = null\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })\n  }, [resetStructuredLessonSession])"
+  ],
+  [
+    "                    <VocabularyHubScreen\n                      audience={settings.audience}\n                      onBackToLessons={backToVocabularyMenu}",
+    "                    <VocabularyHubScreen\n                      key={vocabHubEntry}\n                      initialView={vocabHubEntry}\n                      audience={settings.audience}\n                      onBackToLessons={backToVocabularyMenu}"
+  ],
+  [
+    "        onOpenVocabularyWorlds={openVocabularyWorlds}",
+    "        onOpenVocabularyWorlds={openVocabularyWorlds}\n        onOpenVocabularyPhrasebook={openVocabularyPhrasebook}"
+  ]
+]

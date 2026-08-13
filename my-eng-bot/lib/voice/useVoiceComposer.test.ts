@@ -5,6 +5,7 @@ import {
   buildVoiceLivePreviewText,
   chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
+  resolveCommittedSpeechText,
   initialVoiceComposerState,
   mergeSpeechDisplayText,
   mergeSpeechFinalSegment,
@@ -248,6 +249,13 @@ describe('useVoiceComposer helpers', () => {
 
   it('keeps the final text when interim is an unrelated hypothesis', () => {
     expect(chooseFinalSpeechText('hello there', 'what time is it')).toBe('hello there')
+  })
+
+  it('commits independent interim tails that overlap-only merge would drop', () => {
+    expect(resolveCommittedSpeechText('Hello', 'how are you')).toBe('Hello how are you')
+    expect(resolveCommittedSpeechText('hello there', 'what time is it')).toBe(
+      'hello there what time is it'
+    )
   })
 
   it('collapses case-only differences instead of cascading My/my', () => {

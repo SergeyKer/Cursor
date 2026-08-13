@@ -155,6 +155,11 @@ export function mergeSpeechDisplayText(finalText: string, interimText: string): 
   return mergeAdjacentTranscriptSegments(normalizedFinal, normalizedInterim)
 }
 
+/** Commit snapshot: keep independent interim tails (Hello + how are you). */
+export function resolveCommittedSpeechText(finalText: string, interimText: string): string {
+  return mergeSpeechDisplayText(finalText, interimText)
+}
+
 export function buildVoiceDisplayText(params: {
   draftBeforeVoiceText: string
   voiceFinalText: string

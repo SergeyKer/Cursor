@@ -70,6 +70,7 @@ import {
   type LessonListDensity,
 } from '@/lib/lessonListDensity'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
+import { PHRASEBOOK_COPY } from '@/lib/uiCopy/phrasebook'
 import { buildReferenceMissTutorPrefill } from '@/lib/reference/buildReferenceMissTutorPrefill'
 import type { CatalogBrowseIntent } from '@/lib/reference/types'
 import { getReferenceLessonTopics, isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
@@ -717,6 +718,7 @@ export interface MenuSectionPanelsProps {
   }) => void | Promise<void>
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => void | Promise<void>
+  onOpenVocabularyPhrasebook?: () => void | Promise<void>
   onOpenVocabularyByLevel?: () => void | Promise<void>
   onOpenVocabularyFeed?: () => void | Promise<void>
   onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
@@ -830,6 +832,7 @@ export default function MenuSectionPanels({
   onGeneratePracticeSession,
   onOpenAccentTrainer,
   onOpenVocabularyWorlds,
+  onOpenVocabularyPhrasebook,
   onOpenVocabularyByLevel,
   onOpenVocabularyFeed,
   onOpenTranslationVocabNag,
@@ -1531,7 +1534,7 @@ export default function MenuSectionPanels({
     const restoreKey = `${initialLessonsPanel}|${initialLessonMenuContextKey}`
     if (lessonsRestoreAppliedKeyRef.current === restoreKey) return
     lessonsRestoreAppliedKeyRef.current = restoreKey
-    setLessonsPanel(initialLessonsPanel)
+    setLessonsPanel(initialLessonsPanel === 'wordsByLevel' ? 'words' : initialLessonsPanel)
     if (!initialLessonMenuContext) return
     setActiveGrammarCategoryId(initialLessonMenuContext.activeGrammarCategoryId ?? null)
     setActiveTheoryTagId(initialLessonMenuContext.activeTheoryTagId ?? null)
@@ -3076,6 +3079,7 @@ export default function MenuSectionPanels({
                     />
                   ) : null}
                   <MenuNavRow label="Слова" onClick={() => void onOpenVocabularyWorlds?.()} />
+                  <MenuNavRow label={PHRASEBOOK_COPY.menuLabel} onClick={() => void onOpenVocabularyPhrasebook?.()} />
                 </div>
               </div>
             )}
@@ -3085,7 +3089,6 @@ export default function MenuSectionPanels({
                 <div className={MENU_GROUP_OUTER}>
                   <div className={MENU_GROUP_CLASS}>
                     <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
-                    <MenuNavRow label="Слова по уровням (A1-C2)" onClick={() => setLessonsPanel('wordsByLevel')} />
                     <MenuNavRow
                       label="Сегодня и мои списки"
                       onClick={() => setLessonsPanel('wordsAll')}
@@ -3219,27 +3222,6 @@ export default function MenuSectionPanels({
                     className={`${MENU_PRIMARY_CTA_CLASS} mt-3`}
                   >
                     Открыть миры слов
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {lessonsPanel === 'wordsByLevel' && (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Слова по уровням (A1-C2)</p>
-                  <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-                    Уровень CEFR, тематические подборки и отдельный список выученных слов. Прогресс общий с режимом «миры».
-                  </p>
-                </div>
-                <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  <button
-                    type="button"
-                    onClick={() => void onOpenVocabularyByLevel?.()}
-                    disabled={!onOpenVocabularyByLevel}
-                    className={`${MENU_PRIMARY_CTA_CLASS} mt-1`}
-                  >
-                    Открыть слова по уровням
                   </button>
                 </div>
               </div>

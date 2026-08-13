@@ -34,8 +34,8 @@ import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useMicInviteAnimation } from '@/lib/voice/useMicInviteAnimation'
 import {
-  chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
+  resolveCommittedSpeechText,
   stabilizeInterimAcrossTicks,
   useVoiceComposer,
 } from '@/lib/voice/useVoiceComposer'
@@ -181,9 +181,6 @@ export default function PracticeQuestionRenderer({
     resetComposer: resetChoiceVoiceComposer,
     isVoiceActive: isChoiceVoiceActive,
     isTextareaReadOnly: isChoiceVoiceTextareaReadOnly,
-    displayText: choiceVoiceDisplayText,
-    livePreviewText: choiceVoiceLivePreviewText,
-    draftBeforeVoiceText: choiceVoiceDraftBefore,
     voicePhase: choiceVoicePhase,
   } = choiceVoice
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
@@ -282,7 +279,7 @@ export default function PracticeQuestionRenderer({
     (question.type === 'roleplay-mini' ||
       question.type === 'boss-challenge' ||
       question.type === 'free-response')
-  const BROWSER_SILENCE_MS = 1200
+  const BROWSER_SILENCE_MS = 2000
   const CHOICE_CORRECTION_INPUT_MAX_HEIGHT_PX = 132
   const DEFAULT_INPUT_MAX_HEIGHT_PX = 132
   const recognitionRef = useRef<SpeechRecognition | null>(null)
@@ -294,10 +291,9 @@ export default function PracticeQuestionRenderer({
   const choiceCorrectionTextareaRef = useRef<HTMLTextAreaElement | null>(null)
   const [voiceListening, setVoiceListening] = useState(false)
   const choiceVoiceActive = voiceListening || isChoiceVoiceActive
-  const choiceComposerText = isChoiceVoiceActive ? choiceVoiceDisplayText : draft
-  const showChoiceVoiceOverlay =
-    isVoiceFirstComposer && isChoiceVoiceActive && choiceComposerText.length > 0
-  const choiceVoiceWebMetricsActive = showChoiceVoiceOverlay && voiceWebMetricsClient
+  const choiceComposerText = isChoiceVoiceActive ? '' : draft
+  const showChoiceVoiceOverlay = isVoiceFirstComposer && choiceVoicePhase === 'recording'
+  const choiceVoiceWebMetricsActive = isChoiceVoiceActive && voiceWebMetricsClient
   const [textFallbackUnlocked, setTextFallbackUnlocked] = useState(false)
   const [choiceTapHintVisible, setChoiceTapHintVisible] = useState(false)
   const [fieldTapEngaged, setFieldTapEngaged] = useState(false)
@@ -502,7 +498,7 @@ export default function PracticeQuestionRenderer({
       recognitionCompleteHandled = true
       const shouldSkipCommit = skipRecognitionCommitRef.current
       skipRecognitionCommitRef.current = false
-      const resolvedFinalText = chooseFinalSpeechText(
+      const resolvedFinalText = resolveCommittedSpeechText(
         latestFinalTextRef.current,
         latestInterimTextRef.current
       )
@@ -623,7 +619,7 @@ export default function PracticeQuestionRenderer({
       setFieldTapEngaged(false)
 
       if (voiceListening) {
-        const pendingText = chooseFinalSpeechText(
+        const pendingText = resolveCommittedSpeechText(
           latestFinalTextRef.current,
           latestInterimTextRef.current
         ).trim()
@@ -874,11 +870,7 @@ export default function PracticeQuestionRenderer({
             </p>
           ) : null}
           {showChoiceVoiceOverlay ? (
-            <VoiceComposerOverlay
-              draftBeforeVoiceText={choiceVoiceDraftBefore}
-              livePreviewText={choiceVoiceLivePreviewText}
-              webTextMetricsFix={voiceWebMetricsClient}
-            />
+            <VoiceComposerOverlay webTextMetricsFix={voiceWebMetricsClient} />
           ) : null}
           {showChoiceInviteOverlay ? (
             <>
@@ -923,7 +915,7 @@ export default function PracticeQuestionRenderer({
             className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${choiceCorrectionComposerMetricsClass(
               { voiceWebMetrics: choiceVoiceWebMetricsActive, micOffPr12: showMicOffInline }
             )} ${
-              showChoiceVoiceOverlay || hideChoiceComposerTextForTapHint || showChoiceInviteOverlay
+              showChoiceVoiceOverlay || isChoiceVoiceActive || hideChoiceComposerTextForTapHint || showChoiceInviteOverlay
                 ? 'text-transparent caret-transparent placeholder:text-transparent'
                 : choiceVoiceFrozenDisplay
                   ? 'text-[var(--text-muted)]'

@@ -558,7 +558,6 @@ import {
   MyPlanSheetScreen,
   MenuSectionPanels,
   PracticeScreen,
-  VocabularyByLevelScreen,
 } from '@/lib/start/appBranchComponents'
 import VocabularyFeedBrowseScreen from '@/components/vocabulary/VocabularyFeedBrowseScreen'
 import VocabularyHubScreen from '@/components/vocabulary/VocabularyHubScreen'
@@ -1186,6 +1185,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [accentLessonRequestKey, setAccentLessonRequestKey] = useState(0)
   const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
+  const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook'>('hub')
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
   const [vocabularyFeedActive, setVocabularyFeedActive] = useState(false)
   const [vocabularyPackId, setVocabularyPackId] = useState<string | null>(null)
@@ -6329,6 +6329,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setVocabularyByLevelActive(false)
     setVocabularyFeedActive(false)
     setVocabularyPackId(null)
+    setVocabHubEntry('hub')
     setVocabularyWorldsActive(true)
     // Сбрасываем снимок меню: намеренный выход в слова, не «закрыли меню после правок чата».
     menuOpenSnapshotRef.current = null
@@ -6336,6 +6337,21 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMenuOpen(false)
     setHomeMenuView('lessons')
     setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })
+  }, [resetStructuredLessonSession])
+
+  const openVocabularyPhrasebook = useCallback(() => {
+    resetStructuredLessonSession()
+    setAdaptiveFooterView(null)
+    setVocabularyByLevelActive(false)
+    setVocabularyFeedActive(false)
+    setVocabularyPackId(null)
+    setVocabHubEntry('phrasebook')
+    setVocabularyWorldsActive(true)
+    menuOpenSnapshotRef.current = null
+    setDialogStarted(true)
+    setMenuOpen(false)
+    setHomeMenuView('lessons')
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
   }, [resetStructuredLessonSession])
 
   const openVocabularyByLevel = useCallback(() => {
@@ -11606,22 +11622,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
-                  ) : vocabularyWorldsActive ? (
-                    <VocabularyHubScreen
-                      audience={settings.audience}
-                      onBackToLessons={backToVocabularyMenu}
-                      onFooterViewChange={setVocabularyFooterView}
-                      onSessionActiveChange={setVocabularySessionActive}
-                      onRegisterLeaveHandler={(handler) => {
-                        vocabularyLeaveHandlerRef.current = handler
-                      }}
-                      exitRequestKey={vocabularyExitRequestKey}
-                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
-                      onOpenCallWithHandoff={openCallFromVocabHandoff}
-                      onOpenByLevel={settings.audience === 'child' ? undefined : openVocabularyByLevel}
-                    />
                   ) : (
-                    <VocabularyByLevelScreen
+                    <VocabularyHubScreen
+                      key={vocabHubEntry}
+                      initialView={vocabHubEntry}
+                      audience={settings.audience}
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
                       onSessionActiveChange={setVocabularySessionActive}
@@ -12132,6 +12137,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onGeneratePracticeSession={generatePracticeSession}
         onOpenAccentTrainer={openAccentTrainer}
         onOpenVocabularyWorlds={openVocabularyWorlds}
+        onOpenVocabularyPhrasebook={openVocabularyPhrasebook}
         onOpenVocabularyByLevel={openVocabularyByLevel}
         onOpenVocabularyFeed={openVocabularyFeed}
         onOpenTranslationVocabNag={openTranslationVocabNag}

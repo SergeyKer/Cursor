@@ -152,6 +152,7 @@ interface SlideOutMenuProps {
   }) => Promise<void> | void
   onOpenAccentTrainer?: (lessonId?: string) => void
   onOpenVocabularyWorlds?: () => Promise<void> | void
+  onOpenVocabularyPhrasebook?: () => Promise<void> | void
   onOpenVocabularyByLevel?: () => Promise<void> | void
   onOpenVocabularyFeed?: () => Promise<void> | void
   onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
@@ -255,6 +256,7 @@ export default function SlideOutMenu({
   onGeneratePracticeSession,
   onOpenAccentTrainer,
   onOpenVocabularyWorlds,
+  onOpenVocabularyPhrasebook,
   onOpenVocabularyByLevel,
   onOpenVocabularyFeed,
   onOpenTranslationVocabNag,
@@ -473,6 +475,7 @@ export default function SlideOutMenu({
         onGeneratePracticeSession={onGeneratePracticeSession}
         onOpenAccentTrainer={onOpenAccentTrainer}
         onOpenVocabularyWorlds={onOpenVocabularyWorlds}
+        onOpenVocabularyPhrasebook={onOpenVocabularyPhrasebook}
         onOpenVocabularyByLevel={onOpenVocabularyByLevel}
         onOpenVocabularyFeed={onOpenVocabularyFeed}
         onOpenTranslationVocabNag={onOpenTranslationVocabNag}

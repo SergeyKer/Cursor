@@ -1765,23 +1765,22 @@ export default function TutorChatPanel({
         paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM,
       }
     : undefined
-  const composerValue = voice.isVoiceActive || voice.listening ? voice.displayText : draft
-  const showVoiceOverlay = voice.isVoiceActive && composerValue.length > 0
+  const composerValue = voice.isVoiceActive || voice.listening ? '' : draft
+  const showVoiceOverlay = voice.voicePhase === 'recording'
   const rawVoiceStatusMessage = voice.voiceStatusMessage ?? ''
   const filteredVoiceStatus = shouldHideVoiceStatusMessage(rawVoiceStatusMessage)
     ? ''
     : rawVoiceStatusMessage
   const showVoiceStatusBelow =
-    Boolean(filteredVoiceStatus) && (!isIosDeviceClient || isHardVoiceErrorMessage(filteredVoiceStatus))
+    Boolean(filteredVoiceStatus) &&
+    (!isIosDeviceClient || isHardVoiceErrorMessage(filteredVoiceStatus)) &&
+    voice.voicePhase !== 'recording' &&
+    voice.voicePhase !== 'finalizing'
   const iosChromeVoiceStatusMessage = !isIosChromeClient
     ? null
-    : voice.voicePhase === 'recording'
-      ? 'Голосовой ввод...'
-      : voice.voicePhase === 'finalizing'
-        ? 'Распознаю речь...'
-        : voice.voicePhase === 'error'
-          ? rawVoiceStatusMessage || null
-          : null
+    : voice.voicePhase === 'error'
+      ? rawVoiceStatusMessage || null
+      : null
   const voiceStatusIsDanger =
     voice.voicePhase === 'error' || isHardVoiceErrorMessage(filteredVoiceStatus || rawVoiceStatusMessage)
 
@@ -1925,8 +1924,6 @@ export default function TutorChatPanel({
                   paperclipDisabled={false}
                   onPaperclipClick={handlePaperclipClick}
                   showVoiceOverlay={showVoiceOverlay}
-                  draftBeforeVoiceText={voice.draftBeforeVoiceText}
-                  livePreviewText={voice.livePreviewText}
                   voiceWebMetricsClient={voiceWebMetricsClient}
                   iosChromeVoiceStatusMessage={iosChromeVoiceStatusMessage}
                   voiceStatusMessage={showVoiceStatusBelow ? filteredVoiceStatus : null}
@@ -2023,8 +2020,6 @@ export default function TutorChatPanel({
                   paperclipDisabled={false}
                   onPaperclipClick={handlePaperclipClick}
                   showVoiceOverlay={showVoiceOverlay}
-                  draftBeforeVoiceText={voice.draftBeforeVoiceText}
-                  livePreviewText={voice.livePreviewText}
                   voiceWebMetricsClient={voiceWebMetricsClient}
                   iosChromeVoiceStatusMessage={iosChromeVoiceStatusMessage}
                   voiceStatusMessage={showVoiceStatusBelow ? filteredVoiceStatus : null}

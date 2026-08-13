@@ -42,12 +42,6 @@ import type {
 const COMPOSER_GLASS_SHADOW = { boxShadow: 'var(--chat-composer-shadow)' } as const
 const VOCAB_INPUT_MAX_HEIGHT_PX = 260
 
-const HIDDEN_VOICE_STATUS_MESSAGES = new Set([
-  'Голосовой ввод...',
-  'Распознаю речь...',
-  '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
-])
-
 const SR_ONLY_STYLE: CSSProperties = {
   position: 'absolute',
   width: '1px',
@@ -158,20 +152,15 @@ export default function VocabularyThinSession({
     if (voice.voiceStatusMessage) setVoiceHint(voice.voiceStatusMessage)
   }, [voice.voicePhase, voice.voiceStatusMessage])
 
-  const composerText = voice.isVoiceActive ? voice.displayText : voice.draftText
-  const inputValue =
-    voice.isVoiceActive && HIDDEN_VOICE_STATUS_MESSAGES.has(voice.displayText) ? '' : composerText
-  const showVoiceOverlay = voice.isVoiceActive && composerText.length > 0
-  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
+  const composerText = voice.isVoiceActive ? '' : voice.draftText
+  const inputValue = composerText
+  const showVoiceOverlay = voice.voicePhase === 'recording'
+  const voiceWebMetricsActive = voice.isVoiceActive && voiceWebMetricsClient
   const iosChromeVoiceStatusMessage = !isIosChromeClient
     ? null
-    : voice.voicePhase === 'recording'
-      ? 'Голосовой ввод...'
-      : voice.voicePhase === 'finalizing'
-        ? 'Распознаю речь...'
-        : voice.voicePhase === 'error'
-          ? voice.voiceStatusMessage
-          : null
+    : voice.voicePhase === 'error'
+      ? voice.voiceStatusMessage
+      : null
 
   useAutoGrowTextarea({
     textareaRef,
@@ -509,11 +498,7 @@ export default function VocabularyThinSession({
                   />
                   <div className="relative min-w-0 flex-1">
                     {showVoiceOverlay ? (
-                      <VoiceComposerOverlay
-                        draftBeforeVoiceText={voice.draftBeforeVoiceText}
-                        livePreviewText={voice.livePreviewText}
-                        webTextMetricsFix={voiceWebMetricsClient}
-                      />
+                      <VoiceComposerOverlay webTextMetricsFix={voiceWebMetricsClient} />
                     ) : null}
                     {iosChromeVoiceStatusMessage ? (
                       <>
@@ -549,7 +534,7 @@ export default function VocabularyThinSession({
                       rows={1}
                       placeholder={textEditUnlocked ? 'Поправь и отправь' : ''}
                       className={`chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} outline-none ${
-                        showVoiceOverlay
+                        voice.isVoiceActive
                           ? 'text-transparent caret-transparent placeholder:text-transparent'
                           : fieldFrozen
                             ? 'text-[var(--text-muted)]'

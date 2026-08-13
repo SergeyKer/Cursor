@@ -59,16 +59,24 @@ export function useAutoGrowTextarea(params: {
 
     const baseHeight = measureSingleLineHeight(el, minHeightPx)
 
-    if (!params.showVoiceOverlay && !params.isVoiceActive) {
+    const freezeSingleLine = Boolean(params.showVoiceOverlay || params.isVoiceActive)
+
+    if (!freezeSingleLine) {
       idleSingleLineInputHeightRef.current = baseHeight
     }
 
     // Freeze single-line at idle while STT overlay is on — web-metrics baseHeight can be
     // 46 vs idle 45; max(base, idle) used to grow the field and jitter the composer.
-    const effectiveSingleLine = params.showVoiceOverlay
+    const effectiveSingleLine = freezeSingleLine
       ? Math.max(minHeightPx, idleSingleLineInputHeightRef.current)
       : baseHeight
     singleLineInputHeightRef.current = effectiveSingleLine
+
+    if (freezeSingleLine) {
+      el.style.height = `${effectiveSingleLine}px`
+      el.style.overflowY = 'hidden'
+      return
+    }
 
     el.style.height = `${effectiveSingleLine}px`
     const fullScroll = el.scrollHeight
@@ -91,7 +99,7 @@ export function useAutoGrowTextarea(params: {
 
   useLayoutEffect(() => {
     applyHeight()
-  }, [applyHeight, params.value, params.voiceWebMetricsActive, params.showVoiceOverlay])
+  }, [applyHeight, params.value, params.voiceWebMetricsActive, params.showVoiceOverlay, params.isVoiceActive])
 
   return { applyHeight }
 }

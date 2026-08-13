@@ -4,8 +4,8 @@ import * as React from 'react'
 import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
 import {
-  chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
+  resolveCommittedSpeechText,
   stabilizeInterimAcrossTicks,
   useVoiceComposer,
   type VoicePhase,
@@ -75,12 +75,38 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
     startRecording: startVoiceSession,
     updateTranscript: updateVoiceTranscript,
     beginFinalizing: beginVoiceFinalizing,
-    commitVoiceText,
-    failVoiceSession,
-    finishVoiceSession,
+    commitVoiceText: dispatchCommitVoiceText,
+    failVoiceSession: dispatchFailVoiceSession,
+    finishVoiceSession: dispatchFinishVoiceSession,
     setStatusMessage: setVoiceStatusMessage,
     resetComposer,
   } = useVoiceComposer()
+  const voiceSessionGenerationRef = React.useRef(0)
+  const bumpVoiceSessionGeneration = React.useCallback(() => {
+    voiceSessionGenerationRef.current += 1
+  }, [])
+  const failVoiceSession = React.useCallback(
+    (message: string) => {
+      bumpVoiceSessionGeneration()
+      dispatchFailVoiceSession(message)
+    },
+    [bumpVoiceSessionGeneration, dispatchFailVoiceSession]
+  )
+  const finishVoiceSession = React.useCallback(
+    (message?: string | null) => {
+      bumpVoiceSessionGeneration()
+      dispatchFinishVoiceSession(message)
+    },
+    [bumpVoiceSessionGeneration, dispatchFinishVoiceSession]
+  )
+  const commitVoiceTextIfCurrent = React.useCallback(
+    (generation: number, text: string) => {
+      if (generation !== voiceSessionGenerationRef.current) return false
+      dispatchCommitVoiceText(text)
+      return true
+    },
+    [dispatchCommitVoiceText]
+  )
 
   const micActionActive = listening || voicePhase === 'finalizing'
   const isInputLocked = shouldLockLessonTextInput({ listening, voicePhase })
@@ -150,7 +176,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
     if (typeof window === 'undefined') return
 
     const LISTENING_MAX_MS = 25_000
-    const BROWSER_SILENCE_MS = 1_200
+    const BROWSER_SILENCE_MS = 2_000
     const MEDIA_FALLBACK_MAX_MS = 15_000
     const userAgent = window.navigator.userAgent
     const isIosDevice = isIosLikeDevice(userAgent)
@@ -168,6 +194,8 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
       failVoiceSession(message)
     }
 
+    bumpVoiceSessionGeneration()
+    const sessionGeneration = voiceSessionGenerationRef.current
     startVoiceSession()
     setVoiceStatusMessage(null)
 
@@ -258,6 +286,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
               return
             }
             const correctedText = await finalizeVoiceTranscript(data.text.trim())
+            if (sessionGeneration !== voiceSessionGenerationRef.current) return
             if (!correctedText) {
               finishVoiceSession()
               return
@@ -266,7 +295,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
               finishVoiceSession()
               return
             }
-            commitVoiceText(correctedText)
+            commitVoiceTextIfCurrent(sessionGeneration, correctedText)
           } catch {
             failVoiceSoft('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
           }
@@ -472,7 +501,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
         if (
           isIosChrome &&
           !didFallbackToRecorder &&
-          !chooseFinalSpeechText(latestFinalText, latestInterimText)
+          !resolveCommittedSpeechText(latestFinalText, latestInterimText)
         ) {
           if (retryMixWithSecondaryLocale()) return
           didFallbackToRecorder = true
@@ -481,7 +510,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
           void startMediaRecorderFallback(sttLangForApi)
           return
         }
-        const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
+        const resolvedFinalText = resolveCommittedSpeechText(latestFinalText, latestInterimText)
         if (!resolvedFinalText && retryMixWithSecondaryLocale()) {
           return
         }
@@ -498,12 +527,13 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
           }
           beginVoiceFinalizing()
           const correctedFinalText = await finalizeVoiceTranscript(resolvedFinalText)
+          if (sessionGeneration !== voiceSessionGenerationRef.current) return
           if (correctedFinalText) {
             if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
               finishVoiceSession()
               return
             }
-            commitVoiceText(correctedFinalText)
+            commitVoiceTextIfCurrent(sessionGeneration, correctedFinalText)
             return
           }
           if (timedOut) {
@@ -598,7 +628,8 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
     }
   }, [
     beginVoiceFinalizing,
-    commitVoiceText,
+    bumpVoiceSessionGeneration,
+    commitVoiceTextIfCurrent,
     failVoiceSession,
     finishVoiceSession,
     releaseMediaRecorderResources,
@@ -648,6 +679,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
   }, [beginVoiceFinalizing, releaseMediaRecorderResources, resetMicAnimation, voicePhase])
 
   const resetVoiceInput = React.useCallback(() => {
+    bumpVoiceSessionGeneration()
     if (mediaStopTimerRef.current != null) {
       window.clearTimeout(mediaStopTimerRef.current)
       mediaStopTimerRef.current = null
@@ -680,7 +712,7 @@ export function useLessonVoiceInput({ inviteKey, speechMode = 'en' }: UseLessonV
     setMicVisualState('idle')
     lastInviteKeyRef.current = null
     resetComposer()
-  }, [clearFinalizingWatchdog, clearMicAnimationTimers, releaseMediaRecorderResources, resetComposer])
+  }, [bumpVoiceSessionGeneration, clearFinalizingWatchdog, clearMicAnimationTimers, releaseMediaRecorderResources, resetComposer])
 
   const setDraftText = React.useCallback((text: string) => {
     dispatchSetDraftText(text)

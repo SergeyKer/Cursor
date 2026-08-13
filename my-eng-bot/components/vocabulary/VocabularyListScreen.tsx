@@ -17,6 +17,8 @@ type Props = {
   allowSearch?: boolean
   emptyText?: string
   extra?: React.ReactNode
+  /** Phrasebook: allow «Знаю» for every audience. */
+  forceShowKnow?: boolean
 }
 
 export default function VocabularyListScreen({
@@ -30,6 +32,7 @@ export default function VocabularyListScreen({
   allowSearch = false,
   emptyText,
   extra,
+  forceShowKnow = false,
 }: Props) {
   const copy = vocabHubCopy(audience)
   const [query, setQuery] = React.useState('')
@@ -61,7 +64,7 @@ export default function VocabularyListScreen({
               key={word.id}
               word={word}
               showMarks={showMarks}
-              showKnow={audience !== 'child'}
+              showKnow={forceShowKnow || audience !== 'child'}
               studyActive={progress?.userMark === 'study'}
               knowActive={progress?.userMark === 'know'}
               studyLabel={copy.study}

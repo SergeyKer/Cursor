@@ -79,8 +79,6 @@ export type TutorComposerProps = {
   voiceStatusMessage?: string | null
   voiceStatusIsDanger?: boolean
   showVoiceOverlay?: boolean
-  draftBeforeVoiceText?: string
-  livePreviewText?: string
   voiceWebMetricsClient?: boolean
   iosChromeVoiceStatusMessage?: string | null
   /** Menu tutor: menu-card elevation (border + soft shadow), no chat glass. */
@@ -114,15 +112,13 @@ export default function TutorComposer({
   voiceStatusMessage = null,
   voiceStatusIsDanger = false,
   showVoiceOverlay = false,
-  draftBeforeVoiceText = '',
-  livePreviewText = '',
   voiceWebMetricsClient = false,
   iosChromeVoiceStatusMessage = null,
   menuDock = false,
 }: TutorComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
+  const voiceWebMetricsActive = isVoiceActive && voiceWebMetricsClient
   const isMicroChoicePanel = chipsMode === 'micro' && chips.length > 0
   const canSend =
     value.trim().length > 0 && !composerLocked && !listening && !finalizing && !isVoiceActive
@@ -253,11 +249,7 @@ export default function TutorComposer({
 
         <div className="relative isolate min-w-0 flex-1">
           {showVoiceOverlay ? (
-            <VoiceComposerOverlay
-              draftBeforeVoiceText={draftBeforeVoiceText}
-              livePreviewText={livePreviewText}
-              webTextMetricsFix={voiceWebMetricsClient}
-            />
+            <VoiceComposerOverlay webTextMetricsFix={voiceWebMetricsClient} />
           ) : null}
           {iosChromeVoiceStatusMessage ? (
             <>
@@ -284,7 +276,7 @@ export default function TutorComposer({
             readOnly={readOnly || composerLocked}
             aria-label="Текст вопроса"
             className={`chat-input-field relative z-[1] min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 pr-12 outline-none ${CHAT_COMPOSER_TYPO_CLASS} placeholder:text-[var(--text-muted)] placeholder:transition-colors focus:placeholder:text-transparent ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} ${
-              showVoiceOverlay || iosChromeVoiceStatusMessage
+              isVoiceActive || iosChromeVoiceStatusMessage
                 ? 'caret-transparent text-transparent placeholder:text-transparent'
                 : 'text-[var(--text)]'
             }`}

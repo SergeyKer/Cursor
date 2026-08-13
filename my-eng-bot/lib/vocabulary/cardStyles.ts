@@ -37,8 +37,11 @@ export const VOCAB_CARD_BODY =
 export const VOCAB_CARD_BODY_BEFORE_INSET =
   'space-y-1.5 border-t border-[var(--chat-section-card-divider)] bg-white px-4 pt-2.5'
 
-/** Streak-tile inset: px-2.5 sm:px-3, bottom 0.625rem. No border-t above the button. */
-export const VOCAB_INSET_CTA_WRAP = 'bg-white px-2.5 pb-2.5 sm:px-3'
+/**
+ * Inset CTA: padding (not button margin) so the gap stays on the white wrap.
+ * Button mt-3 collapses through this wrap and leaks --chat-assistant-shell.
+ */
+export const VOCAB_INSET_CTA_WRAP = 'bg-white px-2.5 pt-3 pb-2.5 sm:px-3'
 
 export const VOCAB_CARD_BODY_TITLE =
   'break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]'
@@ -60,17 +63,8 @@ export const VOCAB_CARD_FOOTER_LAUNCH = [
 const VOCAB_INSET_BTN_BOX =
   'flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center'
 
-/** Progress streak STATUS_INSET_LAUNCH_BTN — copy, do not import Progress. */
+/** Progress streak STATUS_INSET_LAUNCH_BTN — copy, do not import Progress. Spacing is on VOCAB_INSET_CTA_WRAP. */
 export const VOCAB_INSET_LAUNCH_BTN = [
-  BTN_INTERACTION_BASE,
-  LAUNCH_SKIN,
-  BTN_FONT_INLINE,
-  BTN_DISABLED_CLASS,
-  `mt-3 ${VOCAB_INSET_BTN_BOX}`,
-].join(' ')
-
-/** Inset launch without mt-3 — for a grid row of two CTAs. */
-export const VOCAB_INSET_LAUNCH_BTN_FLUSH = [
   BTN_INTERACTION_BASE,
   LAUNCH_SKIN,
   BTN_FONT_INLINE,
@@ -88,14 +82,6 @@ export const VOCAB_CARD_FOOTER_EXPAND = [
 
 /** Same geometry as VOCAB_INSET_LAUNCH_BTN; expand skin. */
 export const VOCAB_INSET_EXPAND_BTN = [
-  BTN_INTERACTION_BASE,
-  EXPAND_SKIN,
-  BTN_FONT_INLINE,
-  BTN_DISABLED_CLASS,
-  `mt-3 ${VOCAB_INSET_BTN_BOX}`,
-].join(' ')
-
-export const VOCAB_INSET_EXPAND_BTN_FLUSH = [
   BTN_INTERACTION_BASE,
   EXPAND_SKIN,
   BTN_FONT_INLINE,

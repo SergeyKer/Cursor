@@ -678,16 +678,10 @@ export default function LessonStepRenderer({
     setVoiceWebMetricsClient(needsVoiceComposerWebMetrics(ua))
   }, [])
 
-  const composerText = lessonVoiceInput.isVoiceActive
-    ? lessonVoiceInput.displayText
-    : lessonVoiceInput.draftText
-  const inputValue =
-    lessonVoiceInput.isVoiceActive &&
-    LESSON_HIDDEN_VOICE_STATUS_MESSAGES.has(lessonVoiceInput.displayText)
-      ? ''
-      : composerText
-  const showVoiceOverlay = lessonVoiceInput.isVoiceActive && composerText.length > 0
-  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
+  const composerText = lessonVoiceInput.isVoiceActive ? '' : lessonVoiceInput.draftText
+  const inputValue = composerText
+  const showVoiceOverlay = lessonVoiceInput.voicePhase === 'recording'
+  const voiceWebMetricsActive = lessonVoiceInput.isVoiceActive && voiceWebMetricsClient
   const showVoicePlaybackButton =
     isTextInputAvailable &&
     !lessonVoiceInput.isVoiceActive &&
@@ -701,16 +695,14 @@ export default function LessonStepRenderer({
   const iosChromeVoiceStatusMessage =
     !isIosChromeClient
       ? null
-      : lessonVoiceInput.voicePhase === 'recording'
-        ? 'Голосовой ввод...'
-        : lessonVoiceInput.voicePhase === 'finalizing'
-          ? 'Распознаю речь...'
-          : lessonVoiceInput.voicePhase === 'error'
-            ? rawVoiceStatusMessage
-            : null
+      : lessonVoiceInput.voicePhase === 'error'
+        ? rawVoiceStatusMessage
+        : null
   const showVoiceStatusMessageBelowInput =
     Boolean(voiceStatusMessage) &&
-    (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage))
+    (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage)) &&
+    lessonVoiceInput.voicePhase !== 'recording' &&
+    lessonVoiceInput.voicePhase !== 'finalizing'
 
   useAutoGrowTextarea({
     textareaRef: lessonAnswerTextareaRef,
@@ -2123,8 +2115,6 @@ export default function LessonStepRenderer({
                     <div className="relative isolate min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
-                          draftBeforeVoiceText={lessonVoiceInput.draftBeforeVoiceText}
-                          livePreviewText={lessonVoiceInput.livePreviewText}
                           webTextMetricsFix={voiceWebMetricsClient}
                         />
                       )}
@@ -2167,7 +2157,7 @@ export default function LessonStepRenderer({
                         className={`chat-input-field lesson-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} outline-none focus:placeholder:text-transparent disabled:cursor-not-allowed disabled:opacity-70 ${
                           showVoicePlaybackButton ? 'pr-12' : ''
                         } ${
-                          showVoiceOverlay
+                          lessonVoiceInput.isVoiceActive
                             ? 'text-transparent caret-transparent placeholder:text-transparent'
                             : 'text-[var(--text)]'
                         }`}

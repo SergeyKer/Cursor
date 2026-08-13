@@ -70,6 +70,7 @@ export type VocabularySessionRoute =
   | { kind: 'world'; worldId: VocabularyWorldId }
   | { kind: 'level'; levelId: VocabularyLevelId; topicId: VocabularyTopicId }
   | { kind: 'pack'; packId: string }
+  | { kind: 'phrasebook'; topicId: string }
 
 /** WordFeed lifecycle (UI: К изучению / В деле / Умею). */
 export type VocabularyFeedStatus = 'none' | 'in_feed' | 'mastered' | 'returned'

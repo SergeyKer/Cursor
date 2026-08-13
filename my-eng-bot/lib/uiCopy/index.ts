@@ -26,5 +26,6 @@ export {
   formatTranslationFooterTop,
 } from '@/lib/uiCopy/translationFooter'
 export { vocabHubCopy, vocabNowBody, vocabHubFooter, vocabTileLabel } from '@/lib/uiCopy/vocabularyHub'
+export { PHRASEBOOK_COPY } from '@/lib/uiCopy/phrasebook'
 export { DIALOGUE_SESSION_EXIT_COPY } from '@/lib/uiCopy/dialogueSessionExit'
 

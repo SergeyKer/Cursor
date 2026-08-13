@@ -1,5 +1,7 @@
 import { customPackToNecessaryWords } from '@/lib/vocabulary/customPackAdapter'
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
+import { loadActivePhrasebookTopicId } from '@/lib/phrasebook/activeTopic'
+import { resolvePhrasebookWords } from '@/lib/phrasebook/toNecessaryWords'
 import { vocabMistakeLemmaKeys } from '@/lib/vocabulary/mistakesList'
 import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
@@ -57,12 +59,14 @@ export function pickVocabFuel(params: {
   progressMap: ProgressMap
   n?: number
   packWords?: NecessaryWord[]
+  phrasebookWords?: NecessaryWord[]
   mistakeLemmaKeys?: Set<string>
   pushLemmas?: VocabularyFocusLemma[]
 }): VocabularyFocusLemma[] {
   const n = params.n ?? 3
   const mistakeKeys = params.mistakeLemmaKeys ?? new Set<string>()
   const packWords = params.packWords ?? []
+  const phrasebookWords = params.phrasebookWords ?? []
   const result: VocabularyFocusLemma[] = []
   const usedKeys = new Set<string>()
   const usedIds = new Set<number>()
@@ -82,9 +86,11 @@ export function pickVocabFuel(params: {
   const byId = new Map<number, NecessaryWord>()
   for (const word of params.words) byId.set(word.id, word)
   for (const word of packWords) byId.set(word.id, word)
+  for (const word of phrasebookWords) byId.set(word.id, word)
 
   const errors: NecessaryWord[] = []
   const packs: NecessaryWord[] = []
+  const phrasebook: NecessaryWord[] = []
   const study: NecessaryWord[] = []
 
   const consider = (word: NecessaryWord) => {
@@ -102,6 +108,10 @@ export function pickVocabFuel(params: {
       packs.push(word)
       return
     }
+    if (phrasebookWords.some((item) => item.id === word.id)) {
+      phrasebook.push(word)
+      return
+    }
     if (progress?.userMark === 'study') study.push(word)
   }
 
@@ -115,6 +125,7 @@ export function pickVocabFuel(params: {
 
   for (const word of errors) take(toLemma(word, params.progressMap[String(word.id)]))
   for (const word of packs) take(toLemma(word, params.progressMap[String(word.id)]))
+  for (const word of phrasebook) take(toLemma(word, params.progressMap[String(word.id)]))
   for (const word of study) take(toLemma(word, params.progressMap[String(word.id)]))
 
   return result.slice(0, n)
@@ -137,6 +148,7 @@ export function pickVocabFuelDefault(params: {
   return pickVocabFuel({
     ...params,
     packWords: loadPackWords(),
+    phrasebookWords: resolvePhrasebookWords(loadActivePhrasebookTopicId(), params.words),
     mistakeLemmaKeys: vocabMistakeLemmaKeys(),
   })
 }
@@ -173,9 +185,17 @@ function hasFreshFuel(
   words: NecessaryWord[],
   progressMap: ProgressMap,
   packWords: NecessaryWord[],
-  mistakeKeys: Set<string>
+  mistakeKeys: Set<string>,
+  phrasebookWords: NecessaryWord[] = []
 ): boolean {
-  return pickVocabFuel({ words, progressMap, packWords, mistakeLemmaKeys: mistakeKeys, n: 1 }).length > 0
+  return pickVocabFuel({
+    words,
+    progressMap,
+    packWords,
+    phrasebookWords,
+    mistakeLemmaKeys: mistakeKeys,
+    n: 1,
+  }).length > 0
 }
 
 function countInFeed(progressMap: ProgressMap): number {
@@ -186,11 +206,13 @@ export function rankVocabNowCta(params: {
   words: NecessaryWord[]
   progressMap: ProgressMap
   packWords?: NecessaryWord[]
+  phrasebookWords?: NecessaryWord[]
   mistakeLemmaKeys?: Set<string>
   now?: number
   lastVocabAt?: number | null
 }): VocabNowKind {
   const packWords = params.packWords ?? loadPackWords()
+  const phrasebookWords = params.phrasebookWords ?? []
   const mistakeKeys = params.mistakeLemmaKeys ?? vocabMistakeLemmaKeys()
   const pool = [...params.words]
   for (const word of packWords) {
@@ -200,7 +222,7 @@ export function rankVocabNowCta(params: {
   if (errors.total > 0) {
     return errors.neverBanked > 0 ? 'errors-sprint' : 'errors-bridge'
   }
-  if (hasFreshFuel(pool, params.progressMap, packWords, mistakeKeys)) return 'fresh-sprint'
+  if (hasFreshFuel(pool, params.progressMap, packWords, mistakeKeys, phrasebookWords)) return 'fresh-sprint'
   if (countInFeed(params.progressMap) > 0) return 'bank-bridge'
   const now = params.now ?? Date.now()
   const last = params.lastVocabAt

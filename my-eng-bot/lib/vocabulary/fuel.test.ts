@@ -29,20 +29,35 @@ describe('pickVocabFuel', () => {
     expect(picked).toEqual([])
   })
 
-  it('orders errors then packs then study', () => {
+  it('orders errors then packs then phrasebook then study', () => {
     const catalog = [word(1, 'err'), word(2, 'pack'), word(3, 'study'), word(4, 'fresh')]
     const pack = [word(2, 'pack', { source: 'pack:u', tags: ['custom-pack'] })]
+    const phrasebook = [word(9, 'hello')]
     const picked = pickVocabFuel({
       words: catalog,
       packWords: pack,
-      n: 3,
+      phrasebookWords: phrasebook,
+      n: 4,
       mistakeLemmaKeys: new Set(['err']),
       progressMap: {
         '2': { ...createEmptyWordProgress(2), source: 'pack', lemmaKey: 'pack' },
         '3': { ...createEmptyWordProgress(3), userMark: 'study', lemmaKey: 'study' },
       },
     })
-    expect(picked.map((row) => row.en)).toEqual(['err', 'pack', 'study'])
+    expect(picked.map((row) => row.en)).toEqual(['err', 'pack', 'hello', 'study'])
+  })
+
+  it('skips know on phrasebook words', () => {
+    const picked = pickVocabFuel({
+      words: [],
+      packWords: [],
+      phrasebookWords: [word(9, 'hello')],
+      n: 3,
+      progressMap: {
+        '9': { ...createEmptyWordProgress(9), userMark: 'know' },
+      },
+    })
+    expect(picked).toEqual([])
   })
 
   it('skips know, mastered and in_feed', () => {

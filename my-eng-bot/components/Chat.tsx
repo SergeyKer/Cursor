@@ -114,8 +114,8 @@ import VoiceMicButton from '@/components/voice/VoiceMicButton'
 import { finalizeVoiceTranscript } from '@/lib/voice/punctuateSttText'
 import { isLikelySttSilenceHallucination } from '@/lib/voice/isLikelySttSilenceHallucination'
 import {
-  chooseFinalSpeechText,
   extractSpeechRecognitionTranscript,
+  resolveCommittedSpeechText,
   stabilizeInterimAcrossTicks,
   useVoiceComposer,
 } from '@/lib/voice/useVoiceComposer'
@@ -1339,11 +1339,8 @@ export default function Chat({
   const appliedComposerSessionKeyRef = React.useRef<number>(0)
   const {
     draftText: input,
-    draftBeforeVoiceText,
-    livePreviewText,
     voicePhase,
     statusMessage: voiceStatusMessage,
-    displayText: voiceDisplayText,
     lastCommittedVoiceText,
     isVoiceActive,
     isTextareaReadOnly,
@@ -1351,12 +1348,38 @@ export default function Chat({
     startRecording: startVoiceSession,
     updateTranscript: updateVoiceTranscript,
     beginFinalizing: beginVoiceFinalizing,
-    commitVoiceText,
-    failVoiceSession,
-    finishVoiceSession,
+    commitVoiceText: dispatchCommitVoiceText,
+    failVoiceSession: dispatchFailVoiceSession,
+    finishVoiceSession: dispatchFinishVoiceSession,
     setStatusMessage: setVoiceStatusMessage,
     resetComposer,
   } = useVoiceComposer()
+  const voiceSessionGenerationRef = useRef(0)
+  const bumpVoiceSessionGeneration = useCallback(() => {
+    voiceSessionGenerationRef.current += 1
+  }, [])
+  const failVoiceSession = useCallback(
+    (message: string) => {
+      bumpVoiceSessionGeneration()
+      dispatchFailVoiceSession(message)
+    },
+    [bumpVoiceSessionGeneration, dispatchFailVoiceSession]
+  )
+  const finishVoiceSession = useCallback(
+    (message?: string | null) => {
+      bumpVoiceSessionGeneration()
+      dispatchFinishVoiceSession(message)
+    },
+    [bumpVoiceSessionGeneration, dispatchFinishVoiceSession]
+  )
+  const commitVoiceTextIfCurrent = useCallback(
+    (generation: number, text: string) => {
+      if (generation !== voiceSessionGenerationRef.current) return false
+      dispatchCommitVoiceText(text)
+      return true
+    },
+    [dispatchCommitVoiceText]
+  )
   const recognitionRef = useRef<SpeechRecognition | null>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const mediaStreamRef = useRef<MediaStream | null>(null)
@@ -1378,9 +1401,9 @@ export default function Chat({
   const [isIosDeviceClient, setIsIosDeviceClient] = useState(false)
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
-  const composerText = isVoiceActive ? voiceDisplayText : input
-  const showVoiceOverlay = isVoiceActive && composerText.length > 0
-  const voiceWebMetricsActive = showVoiceOverlay && voiceWebMetricsClient
+  const composerText = isVoiceActive ? '' : input
+  const showVoiceOverlay = voicePhase === 'recording'
+  const voiceWebMetricsActive = isVoiceActive && voiceWebMetricsClient
   const showVoicePlaybackButton =
     !isVoiceActive &&
     !isLessonLoadingState &&
@@ -1389,17 +1412,15 @@ export default function Chat({
   const iosChromeVoiceStatusMessage =
     !isIosChromeClient
       ? null
-      : voicePhase === 'recording'
-        ? 'Голосовой ввод...'
-        : voicePhase === 'finalizing'
-          ? 'Распознаю речь...'
-          : voicePhase === 'error'
-            ? voiceStatusMessage
-            : null
+      : voicePhase === 'error'
+        ? voiceStatusMessage
+        : null
   const showVoiceStatusMessageBelowInput =
     Boolean(voiceStatusMessage) &&
     !shouldHideVoiceStatusMessage(voiceStatusMessage) &&
-    (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage))
+    (!isIosDeviceClient || isHardVoiceErrorMessage(voiceStatusMessage)) &&
+    voicePhase !== 'recording' &&
+    voicePhase !== 'finalizing'
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1478,7 +1499,7 @@ export default function Chat({
     if (typeof window === 'undefined') return
 
     const LISTENING_MAX_MS = 25_000
-    const BROWSER_SILENCE_MS = 1_200
+    const BROWSER_SILENCE_MS = 2_000
     const MEDIA_FALLBACK_MAX_MS = settings.mode === 'communication' ? 12_000 : 15_000
     const userAgent = window.navigator.userAgent
     const isIosDevice = isIosLikeDevice(userAgent)
@@ -1508,6 +1529,8 @@ export default function Chat({
       failVoiceSession(message)
     }
 
+    bumpVoiceSessionGeneration()
+    const sessionGeneration = voiceSessionGenerationRef.current
     startVoiceSession()
     setVoiceStatusMessage(null)
 
@@ -1594,6 +1617,7 @@ export default function Chat({
               return
             }
             const correctedText = await finalizeVoiceTranscript(data.text.trim())
+            if (sessionGeneration !== voiceSessionGenerationRef.current) return
             if (!correctedText) {
               finishVoiceSession()
               return
@@ -1602,7 +1626,7 @@ export default function Chat({
               finishVoiceSession()
               return
             }
-            commitVoiceText(correctedText)
+            commitVoiceTextIfCurrent(sessionGeneration, correctedText)
           } catch {
             failVoiceSoft('[Ошибка сети при распознавании речи. Попробуйте ещё раз.]')
           }
@@ -1803,7 +1827,7 @@ export default function Chat({
         if (
           isIosChrome &&
           !didFallbackToRecorder &&
-          !chooseFinalSpeechText(latestFinalText, latestInterimText)
+          !resolveCommittedSpeechText(latestFinalText, latestInterimText)
         ) {
           didFallbackToRecorder = true
           fellBackToRecorder = true
@@ -1811,7 +1835,7 @@ export default function Chat({
           void startMediaRecorderFallback(sttLangForApi)
           return
         }
-        const resolvedFinalText = chooseFinalSpeechText(latestFinalText, latestInterimText)
+        const resolvedFinalText = resolveCommittedSpeechText(latestFinalText, latestInterimText)
         if (!resolvedFinalText && retryMixWithSecondaryLocale()) {
           return
         }
@@ -1828,12 +1852,13 @@ export default function Chat({
           }
           beginVoiceFinalizing()
           const correctedFinalText = await finalizeVoiceTranscript(resolvedFinalText)
+          if (sessionGeneration !== voiceSessionGenerationRef.current) return
           if (correctedFinalText) {
             if (isIosDevice && isLikelySttSilenceHallucination(correctedFinalText)) {
               finishVoiceSession()
               return
             }
-            commitVoiceText(correctedFinalText)
+            commitVoiceTextIfCurrent(sessionGeneration, correctedFinalText)
             return
           }
           if (timedOut) {
@@ -1954,12 +1979,13 @@ export default function Chat({
     communicationVoiceInputMode,
     forceNextMicLang,
     onConsumeForceNextMicLang,
+    bumpVoiceSessionGeneration,
     startVoiceSession,
     setVoiceStatusMessage,
     failVoiceSession,
     finishVoiceSession,
     beginVoiceFinalizing,
-    commitVoiceText,
+    commitVoiceTextIfCurrent,
     updateVoiceTranscript,
     releaseMediaRecorderResources,
   ])
@@ -2004,6 +2030,7 @@ export default function Chat({
   }, [beginVoiceFinalizing, releaseMediaRecorderResources, resetMicAnimation, voicePhase])
 
   const resetComposerForNewSession = useCallback(() => {
+    bumpVoiceSessionGeneration()
     if (mediaStopTimerRef.current != null) {
       window.clearTimeout(mediaStopTimerRef.current)
       mediaStopTimerRef.current = null
@@ -2035,7 +2062,7 @@ export default function Chat({
     clearMicAnimationTimers()
     setMicVisualState('idle')
     resetComposer()
-  }, [clearFinalizingWatchdog, clearMicAnimationTimers, releaseMediaRecorderResources, resetComposer])
+  }, [bumpVoiceSessionGeneration, clearFinalizingWatchdog, clearMicAnimationTimers, releaseMediaRecorderResources, resetComposer])
 
   React.useEffect(() => {
     if (composerSessionKey === 0) return
@@ -2362,16 +2389,22 @@ export default function Chat({
     const measuredSingleLineHeight = Math.round(lineHeight + verticalPadding + verticalBorder)
     const baseHeight = Math.max(INPUT_MIN_HEIGHT_PX, measuredSingleLineHeight)
 
-    if (!showVoiceOverlay && !isVoiceActive) {
+    if (!isVoiceActive) {
       idleSingleLineInputHeightRef.current = baseHeight
     }
 
     // Freeze single-line at idle while STT overlay is on — web-metrics baseHeight can be
     // 46 vs idle 45; max(base, idle) used to grow the field and jitter the composer.
-    const effectiveSingleLine = showVoiceOverlay
+    const effectiveSingleLine = isVoiceActive
       ? Math.max(INPUT_MIN_HEIGHT_PX, idleSingleLineInputHeightRef.current)
       : baseHeight
     singleLineInputHeightRef.current = effectiveSingleLine
+
+    if (isVoiceActive) {
+      el.style.height = `${singleLineInputHeightRef.current}px`
+      el.style.overflowY = 'hidden'
+      return
+    }
 
     // Baseline одной строки, затем рост по scrollHeight (в т.ч. при надиктовке).
     el.style.height = `${singleLineInputHeightRef.current}px`
@@ -2379,7 +2412,7 @@ export default function Chat({
     const h = Math.max(singleLineInputHeightRef.current, Math.min(fullScroll, INPUT_MAX_HEIGHT_PX))
     el.style.height = `${h}px`
     el.style.overflowY = fullScroll > INPUT_MAX_HEIGHT_PX ? 'auto' : ''
-  }, [INPUT_MAX_HEIGHT_PX, INPUT_MIN_HEIGHT_PX, isVoiceActive, showVoiceOverlay])
+  }, [INPUT_MAX_HEIGHT_PX, INPUT_MIN_HEIGHT_PX, isVoiceActive])
 
   const syncComposerHeight = useCallback(() => {
     const form = formRef.current
@@ -2859,8 +2892,6 @@ export default function Chat({
                     <div className="relative min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
-                          draftBeforeVoiceText={draftBeforeVoiceText}
-                          livePreviewText={livePreviewText}
                           webTextMetricsFix={voiceWebMetricsClient}
                         />
                       )}
@@ -2911,7 +2942,7 @@ export default function Chat({
                         className={`chat-input-field communication-chat-input-field min-w-0 w-full resize-none overflow-y-hidden rounded-2xl border border-[var(--chat-input-border)] bg-[var(--chat-input-bg)] px-4 ${CHAT_COMPOSER_TYPO_CLASS} ${getChatComposerTextareaVerticalClass(voiceWebMetricsActive)} ${
                           showVoicePlaybackButton ? 'pr-12' : ''
                         } ${
-                          showVoiceOverlay
+                          isVoiceActive
                             ? 'text-transparent caret-transparent placeholder:text-transparent'
                             : 'text-[var(--text)] placeholder:text-[var(--text-muted)]'
                         }`}

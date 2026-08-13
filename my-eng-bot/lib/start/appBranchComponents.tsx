@@ -7,7 +7,6 @@ import type LessonExtraTipsScreenComponent from '@/components/LessonExtraTipsScr
 import type LessonIntroScreenComponent from '@/components/LessonIntroScreen'
 import type LessonStepRendererComponent from '@/components/LessonStepRenderer'
 import type ReferenceSheetScreenComponent from '@/components/ReferenceSheetScreen'
-import type VocabularyByLevelScreenComponent from '@/components/vocabulary/VocabularyByLevelScreen'
 import type VocabularyWorldsScreenComponent from '@/components/vocabulary/VocabularyWorldsScreen'
 
 function branchNamed<P>(
@@ -55,9 +54,4 @@ export const VocabularyWorldsScreen = branchNamed<ComponentProps<typeof Vocabula
   import('@/components/branches/VocabularyBranch').then((m) => ({
     default: m.VocabularyWorldsScreen,
   })) as Promise<{ default: ComponentType<ComponentProps<typeof VocabularyWorldsScreenComponent>> }>
-)
-export const VocabularyByLevelScreen = branchNamed<ComponentProps<typeof VocabularyByLevelScreenComponent>>(() =>
-  import('@/components/branches/VocabularyBranch').then((m) => ({
-    default: m.VocabularyByLevelScreen,
-  })) as Promise<{ default: ComponentType<ComponentProps<typeof VocabularyByLevelScreenComponent>> }>
 )

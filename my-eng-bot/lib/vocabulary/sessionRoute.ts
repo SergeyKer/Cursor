@@ -1,3 +1,4 @@
+import { getPhrasebookTopic, isPhrasebookTopicId } from '@/lib/phrasebook/topics'
 import { VOCABULARY_LEVELS } from '@/lib/vocabulary/levels'
 import { VOCABULARY_TOPICS } from '@/lib/vocabulary/topics'
 import { VOCABULARY_WORLDS } from '@/lib/vocabulary/worlds'
@@ -33,6 +34,9 @@ export function normalizeVocabularySessionRoute(
   if (route?.kind === 'pack' && typeof route.packId === 'string' && route.packId.trim()) {
     return { kind: 'pack', packId: route.packId.trim() }
   }
+  if (route?.kind === 'phrasebook' && typeof route.topicId === 'string' && isPhrasebookTopicId(route.topicId)) {
+    return { kind: 'phrasebook', topicId: route.topicId }
+  }
 
   const legacyWorld = row.worldId
   if (legacyWorld && WORLD_IDS.has(legacyWorld as VocabularyWorldId)) {
@@ -48,6 +52,9 @@ export function formatVocabularySessionRouteTitle(route: VocabularySessionRoute)
   }
   if (route.kind === 'pack') {
     return route.packId
+  }
+  if (route.kind === 'phrasebook') {
+    return isPhrasebookTopicId(route.topicId) ? getPhrasebookTopic(route.topicId).title : route.topicId
   }
   const levelPrefix = VOCABULARY_LEVELS.find((level) => level.id === route.levelId)?.prefixLabel ?? route.levelId
   const topicTitle = VOCABULARY_TOPICS.find((topic) => topic.id === route.topicId)?.title ?? route.topicId

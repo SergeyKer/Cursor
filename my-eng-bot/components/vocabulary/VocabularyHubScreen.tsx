@@ -47,6 +47,10 @@ import {
 import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
 import { lemmaKeyFromEn, listByFeedStatus, setUserMark } from '@/lib/vocabulary/wordFeed'
 import { vocabHubCopy, vocabHubFooter, vocabNowBody, vocabShelfLabel, vocabTileLabel, VOCAB_SHELF_CHIP_ORDER } from '@/lib/uiCopy/vocabularyHub'
+import { PHRASEBOOK_COPY } from '@/lib/uiCopy/phrasebook'
+import { loadActivePhrasebookTopicId, saveActivePhrasebookTopicId } from '@/lib/phrasebook/activeTopic'
+import { PHRASEBOOK_TOPICS, isPhrasebookTopicId, type PhrasebookTopicId } from '@/lib/phrasebook/topics'
+import { resolvePhrasebookWords } from '@/lib/phrasebook/toNecessaryWords'
 import { createEmptyWordProgress, pickNextSessionWords, sessionSizeForTempo } from '@/lib/vocabulary/srs'
 import { VOCABULARY_WORLDS } from '@/lib/vocabulary/worlds'
 import type { Audience } from '@/lib/types'
@@ -61,7 +65,7 @@ import type {
   VocabularyWorldId,
 } from '@/types/vocabulary'
 
-type HubView = 'hub' | 'catalog' | 'list' | 'import' | 'session' | 'bridge' | 'shelves'
+type HubView = 'hub' | 'catalog' | 'list' | 'import' | 'session' | 'bridge' | 'shelves' | 'phrasebook' | 'phrasebook-list'
 
 /** Equal chip width: one quarter of the row minus three `gap-2` gutters. */
 const SHELF_CHIP_QUARTER_CLASS = 'w-[calc((100%-1.5rem)/4)] shrink-0'
@@ -113,7 +117,7 @@ type Props = {
   exitRequestKey?: number
   onOpenTranslationWithHandoff?: () => void
   onOpenCallWithHandoff?: () => void
-  onOpenByLevel?: () => void
+  initialView?: 'hub' | 'phrasebook'
 }
 
 export default function VocabularyHubScreen({
@@ -125,11 +129,12 @@ export default function VocabularyHubScreen({
   exitRequestKey = 0,
   onOpenTranslationWithHandoff,
   onOpenCallWithHandoff,
-  onOpenByLevel,
+  initialView = 'hub',
 }: Props) {
   const copy = vocabHubCopy(audience)
   const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
-  const [view, setView] = React.useState<HubView>('hub')
+  const [view, setView] = React.useState<HubView>(initialView === 'phrasebook' ? 'phrasebook' : 'hub')
+  const [phrasebookTopicId, setPhrasebookTopicId] = React.useState<PhrasebookTopicId>(loadActivePhrasebookTopicId)
   const [listKey, setListKey] = React.useState<ListKey | null>(null)
   const [catalog, setCatalog] = React.useState<NecessaryWordsCatalog | null>(null)
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
@@ -147,6 +152,10 @@ export default function VocabularyHubScreen({
     [catalog]
   )
   const packWords = React.useMemo(() => loadPackWords(), [progress, view])
+  const phrasebookWords = React.useMemo(
+    () => resolvePhrasebookWords(phrasebookTopicId, activeWords),
+    [phrasebookTopicId, activeWords]
+  )
   const packs = React.useMemo(() => loadCustomWordPacks(), [progress, view])
   const mistakes = React.useMemo(() => loadVocabMistakes(), [progress, view])
   const poolWords = React.useMemo(() => uniqueWords([...activeWords, ...packWords]), [activeWords, packWords])
@@ -178,6 +187,7 @@ export default function VocabularyHubScreen({
         words,
         progressMap: map,
         packWords: loadPackWords(),
+        phrasebookWords: resolvePhrasebookWords(loadActivePhrasebookTopicId(), words),
       })
     )
   }, [])
@@ -214,22 +224,30 @@ export default function VocabularyHubScreen({
 
   React.useEffect(() => {
     onRegisterLeaveHandler?.(() => {
-      setView('hub')
+      setView(initialView === 'phrasebook' ? 'phrasebook' : 'hub')
       setSessionWords([])
       resetShelvesNav()
     })
     return () => onRegisterLeaveHandler?.(null)
-  }, [onRegisterLeaveHandler, resetShelvesNav])
+  }, [initialView, onRegisterLeaveHandler, resetShelvesNav])
 
   React.useEffect(() => {
     if (exitRequestKey <= 0) return
-    setView('hub')
+    setView(initialView === 'phrasebook' ? 'phrasebook' : 'hub')
     setSessionWords([])
     resetShelvesNav()
-  }, [exitRequestKey, resetShelvesNav])
+  }, [exitRequestKey, initialView, resetShelvesNav])
 
   React.useEffect(() => {
     if (view === 'session' || view === 'bridge') return
+    if (view === 'phrasebook' || view === 'phrasebook-list') {
+      onFooterViewChange?.({
+        dynamicText: view === 'phrasebook' ? PHRASEBOOK_COPY.footerPick : PHRASEBOOK_COPY.footerList,
+        staticText: PHRASEBOOK_COPY.footerStatic,
+        typingKey: `vocab-phrasebook-${view}`,
+      })
+      return () => onFooterViewChange?.(null)
+    }
     const footer = vocabHubFooter(nowKind)
     onFooterViewChange?.({
       dynamicText: view === 'shelves' ? copy.shelvesFooterDynamic : footer.dynamicText,
@@ -257,12 +275,13 @@ export default function VocabularyHubScreen({
       words,
       progressMap: progress.words,
       packWords: extraPack,
+      phrasebookWords,
       n: tempoSize,
       mistakeLemmaKeys: new Set(mistakes.map((item) => item.lemmaKey)),
     })
 
   const lemmasToWords = (lemmas: VocabularyFocusLemma[]) => {
-    const pool = [...activeWords, ...packWords]
+    const pool = [...activeWords, ...packWords, ...phrasebookWords]
     return lemmas
       .map((lemma) => pool.find((word) => word.id === lemma.wordId || lemmaKeyFromEn(word.en) === lemma.lemmaKey))
       .filter((word): word is NecessaryWord => Boolean(word))
@@ -308,6 +327,16 @@ export default function VocabularyHubScreen({
       const words = pack ? customPackToNecessaryWords(pack) : []
       const fromFuel = lemmasToWords(fuelLemmas(words, words))
       startSession(fromFuel.length ? fromFuel : words.slice(0, tempoSize), sessionRoute)
+      return
+    }
+    if (sessionRoute.kind === 'phrasebook' && isPhrasebookTopicId(sessionRoute.topicId)) {
+      const pool = resolvePhrasebookWords(sessionRoute.topicId, activeWords).filter(
+        (word) => progress.words[String(word.id)]?.userMark !== 'know'
+      )
+      startSession(
+        pickNextSessionWords({ words: pool, progressMap: progress.words, size: tempoSize }),
+        sessionRoute
+      )
       return
     }
     startSession(lemmasToWords(fuelLemmas()), sessionRoute)
@@ -578,7 +607,7 @@ export default function VocabularyHubScreen({
           )
         }
         onAgain={startAgain}
-        onExit={() => setView('hub')}
+        onExit={() => setView(sessionRoute.kind === 'phrasebook' ? 'phrasebook-list' : 'hub')}
       />
     )
   }
@@ -600,7 +629,7 @@ export default function VocabularyHubScreen({
 
   if (view === 'import') {
     return (
-      <VocabHubShell backLabel={copy.back} onBack={backToHub}>
+      <VocabHubShell key="import" backLabel={copy.back} onBack={backToHub}>
         <VocabularyPackImportScreen catalog={activeWords} audience={audience} onSaved={backToHub} />
       </VocabHubShell>
     )
@@ -639,6 +668,7 @@ export default function VocabularyHubScreen({
       ) : null
     return (
       <VocabHubShell
+        key="list"
         backLabel={copy.back}
         onBack={backToHub}
         actionLabel={bundle.sticky}
@@ -719,6 +749,7 @@ export default function VocabularyHubScreen({
       ) : null
     return (
       <VocabHubShell
+        key="shelves"
         backLabel={copy.back}
         onBack={backToHub}
         actionLabel={sticky}
@@ -806,10 +837,65 @@ export default function VocabularyHubScreen({
     )
   }
 
+  if (view === 'phrasebook') {
+    return (
+      <VocabHubShell key="phrasebook" backLabel={copy.back} onBack={onBackToLessons}>
+        <p className="text-[17px] font-semibold text-[var(--text)]">{PHRASEBOOK_COPY.screenTitle}</p>
+        <p className="text-[14px] text-[var(--text-muted)]">{PHRASEBOOK_COPY.listHint}</p>
+        {PHRASEBOOK_TOPICS.map((topic) => (
+          <button
+            key={topic.id}
+            type="button"
+            className="flex w-full min-h-[44px] items-center justify-between rounded-[1.15rem] border border-[var(--chat-section-neutral-border)] bg-white px-4 py-3 text-left text-[15px] font-semibold text-[var(--text)]"
+            onClick={() => {
+              saveActivePhrasebookTopicId(topic.id)
+              setPhrasebookTopicId(topic.id)
+              setView('phrasebook-list')
+            }}
+          >
+            {topic.title}
+            <span className="font-medium text-[var(--text-muted)]">›</span>
+          </button>
+        ))}
+      </VocabHubShell>
+    )
+  }
+
+  if (view === 'phrasebook-list') {
+    const topic = PHRASEBOOK_TOPICS.find((item) => item.id === phrasebookTopicId) ?? PHRASEBOOK_TOPICS[0]!
+    const remaining = phrasebookWords.filter((word) => progress.words[String(word.id)]?.userMark !== 'know')
+    const planned = pickNextSessionWords({
+      words: remaining,
+      progressMap: progress.words,
+      size: tempoSize,
+    })
+    return (
+      <VocabHubShell
+        key={`phrasebook-list-${topic.id}`}
+        backLabel={copy.back}
+        onBack={() => setView('phrasebook')}
+        actionLabel={PHRASEBOOK_COPY.studyCta}
+        onAction={() => startSession(planned, { kind: 'phrasebook', topicId: topic.id })}
+        actionDisabled={planned.length === 0}
+      >
+        <VocabularyListScreen
+          title={topic.title}
+          audience={audience}
+          words={phrasebookWords}
+          progressMap={progress.words}
+          showMarks
+          forceShowKnow
+          onStudy={(word) => persistMark(word, 'study')}
+          onKnow={(word) => persistMark(word, progress.words[String(word.id)]?.userMark === 'know' ? null : 'know')}
+        />
+      </VocabHubShell>
+    )
+  }
+
   if (view === 'catalog') {
     const worlds = audience === 'child' ? VOCABULARY_WORLDS.filter((world) => world.id !== 'core') : VOCABULARY_WORLDS
     return (
-      <VocabHubShell backLabel={copy.back} onBack={backToHub}>
+      <VocabHubShell key="catalog" backLabel={copy.back} onBack={backToHub}>
         {worlds.map((world) => {
           const words = worldPool(world.id)
           const reviewed = countReviewed(words, progress.words)
@@ -828,11 +914,10 @@ export default function VocabularyHubScreen({
               key={world.id}
               title={`${world.badge} ${world.title}`}
               insetCta={
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <VocabCardFooterButton
                     placement="inset"
                     variant="expand"
-                    flushTop
                     label={copy.tempoSprintCta}
                     disabled={plannedSprint.length === 0}
                     onClick={() => startWorldTempo(world.id, 'sprint')}
@@ -840,7 +925,6 @@ export default function VocabularyHubScreen({
                   <VocabCardFooterButton
                     placement="inset"
                     variant="launch"
-                    flushTop
                     label={copy.tempoFullCta}
                     disabled={plannedFull.length === 0}
                     onClick={() => startWorldTempo(world.id, 'full')}
@@ -864,16 +948,6 @@ export default function VocabularyHubScreen({
             </VocabCard>
           )
         })}
-        {audience === 'adult' && onOpenByLevel ? (
-          <button
-            type="button"
-            className="flex w-full min-h-[44px] items-center justify-between rounded-[1.15rem] border border-[var(--chat-section-neutral-border)] bg-white px-4 py-3 text-left text-[15px] text-[var(--text-muted)]"
-            onClick={onOpenByLevel}
-          >
-            {copy.byLevel}
-            <span>›</span>
-          </button>
-        ) : null}
       </VocabHubShell>
     )
   }
@@ -881,7 +955,7 @@ export default function VocabularyHubScreen({
   const packTitle = packs[0]?.title
 
   return (
-    <VocabHubShell backLabel={copy.back} onBack={onBackToLessons}>
+    <VocabHubShell key="hub" backLabel={copy.back} onBack={onBackToLessons}>
       <div className="grid grid-cols-3 gap-2">
         {tiles.map((tile) => (
           <button key={tile.id} type="button" className={VOCAB_STATUS_TILE} onClick={() => openTile(tile.id)}>

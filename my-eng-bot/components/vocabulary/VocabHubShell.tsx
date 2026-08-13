@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, type ReactNode } from 'react'
 import LessonReadingShell from '@/components/LessonReadingShell'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import { APP_BTN_TERTIARY_BACK } from '@/lib/homeCtaStyles'
@@ -26,6 +26,9 @@ export default function VocabHubShell({
   actionDisabled = false,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' })
+  }, [])
   return (
     <LessonReadingShell
       scrollRef={scrollRef}
