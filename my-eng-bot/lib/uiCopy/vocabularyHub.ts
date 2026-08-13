@@ -44,7 +44,20 @@ export function vocabHubCopy(audience: Audience) {
     studyTitle: 'Учу',
     worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
     importTitle: child ? 'Добавить слова' : 'Залить список',
-    importParse: 'Разобрать текст',
+    importParse: 'Сделать список',
+    importPhoto: child ? 'Сфотографировать список' : 'Камера',
+    importGallery: child ? 'Из галереи' : 'Фото или скрин',
+    importPaste: 'Вставить слова',
+    importExcel: 'Excel',
+    importPastePlaceholder: 'Medium\napple - яблоко',
+    importRetryPhoto: 'Не прочитал фото, сними ещё раз.',
+    importNoPairs: 'Нет пар для сохранения.',
+    importFound: (found: number) => (child ? `Нашёл ${found} — учим 3.` : `Нашёл ${found}. Проверь перевод.`),
+    importAlreadyLine: (mastered: number, inFeed: number) =>
+      [mastered > 0 ? `уже умею: ${mastered}` : '', inFeed > 0 ? `уже в деле: ${inFeed}` : '']
+        .filter(Boolean)
+        .join('. '),
+    listsDrained: child ? 'Эти слова уже в деле или умею.' : 'Списки уже в обороте.',
     shelvesTitle: 'ПОЛКИ',
     shelvesScreenTitle: 'Полки',
     shelvesBody: child

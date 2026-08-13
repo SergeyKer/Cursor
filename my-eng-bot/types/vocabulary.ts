@@ -104,6 +104,10 @@ export interface VocabularyWordProgress {
   lemmaKey?: string
   lastFocusUsedAt?: number | null
   userMark?: VocabularyUserMark | null
+  /** First time the lemma entered study from import. Set once. */
+  firstAddedAt?: number | null
+  /** First time live speech set mastered. Set once. */
+  masteredAt?: number | null
 }
 
 export interface VocabularyFocusLemma {

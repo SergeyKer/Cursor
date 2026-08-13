@@ -5,6 +5,10 @@ import {
   buildTutorSchoolPhotoPrompt,
   normalizeTutorSchoolPhoto,
 } from '@/lib/tutor/normalizeSchoolPhoto'
+import {
+  buildVocabListPhotoPrompt,
+  normalizeVocabListPhoto,
+} from '@/lib/vocabulary/vocabListPhoto'
 import type { AiProvider, ImageAnalysisResult, LevelId, Audience, OpenAiChatPreset } from '@/lib/types'
 
 type AnalyzeImageBody = {
@@ -15,13 +19,14 @@ type AnalyzeImageBody = {
   audience?: Audience
   customFocus?: string
   /** Tutor chat school-photo path. Absent/other = legacy analysis (unchanged). */
-  mode?: 'default' | 'tutorSchoolPhoto'
+  mode?: 'default' | 'tutorSchoolPhoto' | 'vocabListPhoto'
 }
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024
 const RATE_WINDOW_MS = 60_000
 const RATE_MAX = 20
 const schoolPhotoRateBuckets = new Map<string, { count: number; resetAt: number }>()
+const vocabListPhotoRateBuckets = new Map<string, { count: number; resetAt: number }>()
 
 function estimateDataUrlBytes(dataUrl: string): number {
   const commaIdx = dataUrl.indexOf(',')
@@ -142,11 +147,12 @@ export async function POST(req: NextRequest) {
   }
 
   const isSchoolPhoto = body.mode === 'tutorSchoolPhoto'
-  if (isSchoolPhoto) {
+  const isVocabListPhoto = body.mode === 'vocabListPhoto'
+  if (isSchoolPhoto || isVocabListPhoto) {
     const ip = clientIpFromRequest(req.headers)
     if (
       !checkIpRateLimit({
-        buckets: schoolPhotoRateBuckets,
+        buckets: isVocabListPhoto ? vocabListPhotoRateBuckets : schoolPhotoRateBuckets,
         ip,
         windowMs: RATE_WINDOW_MS,
         max: RATE_MAX,
@@ -180,7 +186,9 @@ export async function POST(req: NextRequest) {
 
   const prompt = isSchoolPhoto
     ? buildTutorSchoolPhotoPrompt(level, audience)
-    : buildPrompt(level, audience, customFocus)
+    : isVocabListPhoto
+      ? buildVocabListPhotoPrompt(level, audience)
+      : buildPrompt(level, audience, customFocus)
 
   const modelResult = await callProviderVision({
     provider,
@@ -188,6 +196,7 @@ export async function POST(req: NextRequest) {
     imageDataUrl,
     prompt,
     openAiChatPreset,
+    maxTokens: isVocabListPhoto ? 1200 : 700,
   })
   if (!modelResult.ok) {
     const text = modelResult.errText || 'Не удалось выполнить анализ изображения.'
@@ -208,6 +217,17 @@ export async function POST(req: NextRequest) {
 
   if (isSchoolPhoto) {
     return NextResponse.json({ schoolPhoto: normalizeTutorSchoolPhoto(parsed) })
+  }
+
+  if (isVocabListPhoto) {
+    const vocabListPhoto = normalizeVocabListPhoto(parsed)
+    if (vocabListPhoto.vocabulary.length === 0) {
+      return NextResponse.json(
+        { error: 'empty_vocabulary', userMessage: 'Не прочитал фото, сними ещё раз.', vocabListPhoto },
+        { status: 422 }
+      )
+    }
+    return NextResponse.json({ vocabListPhoto })
   }
 
   const analysis = normalizeResult(parsed)

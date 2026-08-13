@@ -4,6 +4,8 @@ import { loadActivePhrasebookTopicId } from '@/lib/phrasebook/activeTopic'
 import { resolvePhrasebookWords } from '@/lib/phrasebook/toNecessaryWords'
 import { vocabMistakeLemmaKeys } from '@/lib/vocabulary/mistakesList'
 import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
+import { getCachedNecessaryWords } from '@/lib/vocabulary/catalogCache'
+import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
 import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
 import type {
   NecessaryWord,
@@ -133,7 +135,9 @@ export function pickVocabFuel(params: {
 
 export function loadPackWords(): NecessaryWord[] {
   try {
-    return loadCustomWordPacks().flatMap(customPackToNecessaryWords)
+    const catalog = getCachedNecessaryWords() ?? []
+    const progressMap = loadVocabularyProgress().words
+    return loadCustomWordPacks().flatMap((pack) => customPackToNecessaryWords(pack, { catalog, progressMap }))
   } catch {
     return []
   }

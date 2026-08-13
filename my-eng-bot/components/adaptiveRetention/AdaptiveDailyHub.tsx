@@ -3,6 +3,14 @@
 import React from 'react'
 import { buildCustomWordPackTitle, parseCustomWordListText } from '@/lib/adaptiveRetention/customWordListParser'
 import { createCustomWordPack, saveCustomWordPack } from '@/lib/adaptiveRetention/customWordPackStorage'
+import { getCachedNecessaryWords } from '@/lib/vocabulary/catalogCache'
+import {
+  applyImportedStudyMarks,
+  pairsForPack,
+  resolveImportRows,
+  toCustomWordItems,
+} from '@/lib/vocabulary/resolveImportRows'
+import { loadVocabularyProgress, saveVocabularyProgress } from '@/lib/vocabulary/storage'
 import { recordAdaptiveEvent } from '@/lib/adaptiveRetention/events'
 import { buildLearnerSnapshot } from '@/lib/adaptiveRetention/learnerSnapshot'
 import { buildDailyPlan } from '@/lib/adaptiveRetention/nextBestAction'
@@ -149,19 +157,40 @@ export default function AdaptiveDailyHub({
   )
 
   const saveParsedCustomPack = React.useCallback(
-    (text: string, source: 'paste' | 'excel' | 'word' | 'photo' = 'paste') => {
+    async (text: string, source: 'paste' | 'excel' | 'word' | 'photo' = 'paste') => {
       const parsed = parseCustomWordListText(text)
-      if (parsed.validItems.length === 0) {
+      const catalog = getCachedNecessaryWords() ?? []
+      const progressState = loadVocabularyProgress()
+      let resolved = resolveImportRows({
+        rows: parsed.rows.map((row) => ({ en: row.en, ru: row.ru })),
+        catalog,
+        progressMap: progressState.words,
+      })
+      if (resolved.needsTranslation.length > 0) {
+        const response = await fetch('/api/vocab/fill-translations', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: resolved.needsTranslation }),
+        })
+        const data = (await response.json()) as { items?: Array<{ en?: string; ru?: string }> }
+        const filled = (data.items ?? []).map((row) => ({ en: row.en ?? '', ru: row.ru ?? '' }))
+        resolved = resolveImportRows({
+          rows: [...parsed.rows.map((row) => ({ en: row.en, ru: row.ru })), ...filled],
+          catalog,
+          progressMap: progressState.words,
+        })
+      }
+      const packPairs = pairsForPack(resolved.ready)
+      if (packPairs.length === 0) {
         setImportMessage('Не нашёл готовых пар слово-перевод. Проверьте формат и попробуйте ещё раз.')
         return
       }
       const title = importTitle.trim() || buildCustomWordPackTitle(source)
-      const pack = createCustomWordPack({ title, source, items: parsed.validItems })
+      const pack = createCustomWordPack({ title, source, items: toCustomWordItems(packPairs) })
       saveCustomWordPack(pack)
+      saveVocabularyProgress(applyImportedStudyMarks(progressState, packPairs, pack.id))
       setLatestPack(pack)
-      setImportMessage(
-        `Сохранено: ${parsed.validItems.length} слов. Дубли: ${parsed.duplicateCount}. Строк с ошибками: ${parsed.errorCount}.`
-      )
+      setImportMessage(`Сохранено: ${packPairs.length} слов.`)
       setCustomText('')
       setImportTitle('')
       setNonce((value) => value + 1)
@@ -174,8 +203,8 @@ export default function AdaptiveDailyHub({
         actionId: pack.id,
         result: 'completed',
         metadata: {
-          words: parsed.validItems.length,
-          duplicates: parsed.duplicateCount,
+          words: packPairs.length,
+          duplicates: resolved.duplicateInBatch,
           errors: parsed.errorCount,
           source,
         },
@@ -206,7 +235,7 @@ export default function AdaptiveDailyHub({
         if (!sheet) throw new Error('В файле нет листов.')
         const rows = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, blankrows: false })
         const text = rows.map((row) => row.join('\t')).join('\n')
-        saveParsedCustomPack(text, 'excel')
+        await saveParsedCustomPack(text, 'excel')
       } catch (error) {
         setImportMessage(error instanceof Error ? error.message : 'Не удалось импортировать Excel.')
       } finally {
@@ -240,36 +269,26 @@ export default function AdaptiveDailyHub({
             audience: settings.audience,
             provider: settings.provider,
             openAiChatPreset: settings.openAiChatPreset,
-            customFocus:
-              'Extract bilingual vocabulary list from homework or textbook photo. Prefer English word + Russian translation pairs.',
+            mode: 'vocabListPhoto',
           }),
         })
         const data = (await response.json()) as {
-          analysis?: {
-            whatToLearn?: {
-              vocabulary?: Array<{ word?: string; translation?: string }>
-            }
-          }
+          vocabListPhoto?: { vocabulary?: Array<{ word?: string; translation?: string }> }
           error?: string
           userMessage?: string
         }
-        if (!response.ok || !data.analysis) {
+        if (!response.ok || !data.vocabListPhoto) {
           throw new Error(data.userMessage || data.error || 'Не удалось разобрать фото.')
         }
-        const vocab = data.analysis.whatToLearn?.vocabulary ?? []
+        const vocab = data.vocabListPhoto.vocabulary ?? []
         const text = vocab
-          .map((row) => {
-            const word = typeof row.word === 'string' ? row.word.trim() : ''
-            const translation = typeof row.translation === 'string' ? row.translation.trim() : ''
-            if (!word || !translation) return ''
-            return `${word} - ${translation}`
-          })
-          .filter(Boolean)
+          .map((row) => `${row.word ?? ''} - ${row.translation ?? ''}`.trim())
+          .filter((line) => line !== '-')
           .join('\n')
         if (!text) {
-          throw new Error('На фото не нашлось пар слово-перевод.')
+          throw new Error('Не прочитал фото, сними ещё раз.')
         }
-        saveParsedCustomPack(text, 'photo')
+        await saveParsedCustomPack(text, 'photo')
       } catch (error) {
         setImportMessage(error instanceof Error ? error.message : 'Не удалось импортировать фото.')
       } finally {
@@ -380,7 +399,7 @@ export default function AdaptiveDailyHub({
               <button
                 type="button"
                 disabled={!customText.trim() || importBusy}
-                onClick={() => saveParsedCustomPack(customText, 'paste')}
+                onClick={() => void saveParsedCustomPack(customText, 'paste')}
                 className="btn-3d-menu rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Сохранить список

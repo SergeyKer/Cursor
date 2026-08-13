@@ -26,6 +26,17 @@ describe('parseCustomWordListText', () => {
 
     expect(result.validItems).toHaveLength(1)
     expect(result.duplicateCount).toBe(1)
-    expect(result.errorCount).toBe(2)
+    expect(result.errorCount).toBe(1)
+    expect(result.needsTranslationCount).toBe(1)
+    expect(result.rows.find((row) => row.en === 'window')?.error).toBeUndefined()
+  })
+
+  it('keeps an English-only column as rows to translate, not errors', () => {
+    const result = parseCustomWordListText('Medium\nwindow')
+
+    expect(result.validItems).toHaveLength(0)
+    expect(result.errorCount).toBe(0)
+    expect(result.needsTranslationCount).toBe(2)
+    expect(result.rows.map((row) => row.en)).toEqual(['Medium', 'window'])
   })
 })

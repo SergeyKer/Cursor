@@ -5,6 +5,7 @@ import VocabularyTempoToggle from '@/components/vocabulary/VocabularyTempoToggle
 import VocabularyThinSession from '@/components/vocabulary/VocabularyThinSession'
 import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { customPackToNecessaryWords } from '@/lib/vocabulary/customPackAdapter'
+import { getCachedNecessaryWords } from '@/lib/vocabulary/catalogCache'
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
 import { pickNextSessionWords } from '@/lib/vocabulary/srs'
 import {
@@ -41,7 +42,13 @@ export default function VocabularyPackSessionScreen({
   const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
   const [started, setStarted] = React.useState(false)
   const pack = React.useMemo(() => loadCustomWordPacks().find((item) => item.id === packId) ?? null, [packId])
-  const pool = React.useMemo(() => (pack ? customPackToNecessaryWords(pack) : []), [pack])
+  const pool = React.useMemo(() => {
+    if (!pack) return []
+    return customPackToNecessaryWords(pack, {
+      catalog: getCachedNecessaryWords() ?? [],
+      progressMap: progress.words,
+    })
+  }, [pack, progress.words])
   const [nonce, setNonce] = React.useState(0)
   const words = React.useMemo(() => {
     return pickNextSessionWords({

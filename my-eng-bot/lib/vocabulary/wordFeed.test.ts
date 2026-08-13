@@ -92,6 +92,9 @@ describe('wordFeed', () => {
       4
     )
     expect(hit.feedStatus).toBe('mastered')
+    expect(hit.masteredAt).toBe(4)
+    const again = recordLiveLemmaUse(hit, 'I ate an apple', 'apple', 9)
+    expect(again.masteredAt).toBe(4)
     const failed = recordFeedFail(hit, 5)
     expect(failed.feedStatus).toBe('returned')
     expect(failed.useStreak).toBe(0)

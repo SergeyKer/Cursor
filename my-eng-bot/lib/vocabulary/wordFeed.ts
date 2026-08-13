@@ -100,6 +100,7 @@ export function recordLiveLemmaUse(
     feedStatus: 'mastered',
     lastFocusUsedAt: now,
     useStreak: (progress.useStreak ?? 0) + 1,
+    masteredAt: progress.masteredAt ?? now,
   }
 }
 

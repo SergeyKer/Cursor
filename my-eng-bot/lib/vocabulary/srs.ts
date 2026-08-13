@@ -26,6 +26,8 @@ export function createEmptyWordProgress(wordId: number): VocabularyWordProgress 
     lemmaKey: undefined,
     lastFocusUsedAt: null,
     userMark: null,
+    firstAddedAt: null,
+    masteredAt: null,
   }
 }
 

@@ -12,6 +12,7 @@ import VocabShelfRow from '@/components/vocabulary/VocabShelfRow'
 import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
 import { customPackToNecessaryWords } from '@/lib/vocabulary/customPackAdapter'
+import { isPackDrained } from '@/lib/vocabulary/resolveImportRows'
 import {
   VOCAB_CARD_BODY_REASON,
   VOCAB_CARD_BODY_TITLE,
@@ -157,6 +158,10 @@ export default function VocabularyHubScreen({
     [phrasebookTopicId, activeWords]
   )
   const packs = React.useMemo(() => loadCustomWordPacks(), [progress, view])
+  const visiblePacks = React.useMemo(
+    () => packs.filter((pack) => !isPackDrained(pack.items, progress.words, activeWords)),
+    [activeWords, packs, progress.words]
+  )
   const mistakes = React.useMemo(() => loadVocabMistakes(), [progress, view])
   const poolWords = React.useMemo(() => uniqueWords([...activeWords, ...packWords]), [activeWords, packWords])
   const shelvedRows = React.useMemo(
@@ -324,7 +329,7 @@ export default function VocabularyHubScreen({
     }
     if (sessionRoute.kind === 'pack') {
       const pack = packs.find((item) => item.id === sessionRoute.packId)
-      const words = pack ? customPackToNecessaryWords(pack) : []
+      const words = pack ? customPackToNecessaryWords(pack, { catalog: activeWords, progressMap: progress.words }) : []
       const fromFuel = lemmasToWords(fuelLemmas(words, words))
       startSession(fromFuel.length ? fromFuel : words.slice(0, tempoSize), sessionRoute)
       return
@@ -428,7 +433,7 @@ export default function VocabularyHubScreen({
       const pack = packs.find((item) => item.id === listKey.packId)
       return {
         title: pack?.title ?? copy.myLists,
-        words: pack ? customPackToNecessaryWords(pack) : [],
+        words: pack ? customPackToNecessaryWords(pack, { catalog: activeWords, progressMap: progress.words }) : [],
         showMarks: true,
         sticky: copy.studyList,
         empty: copy.emptyList,
@@ -630,7 +635,20 @@ export default function VocabularyHubScreen({
   if (view === 'import') {
     return (
       <VocabHubShell key="import" backLabel={copy.back} onBack={backToHub}>
-        <VocabularyPackImportScreen catalog={activeWords} audience={audience} onSaved={backToHub} />
+        <VocabularyPackImportScreen
+          catalog={activeWords}
+          audience={audience}
+          progressMap={progress.words}
+          onSaved={(packId) => {
+            const next = loadVocabularyProgress()
+            setProgress(next)
+            const pack = loadCustomWordPacks().find((item) => item.id === packId)
+            const words = pack
+              ? customPackToNecessaryWords(pack, { catalog: activeWords, progressMap: next.words })
+              : []
+            startSession(words.slice(0, tempoSize), { kind: 'pack', packId })
+          }}
+        />
       </VocabHubShell>
     )
   }
@@ -952,7 +970,7 @@ export default function VocabularyHubScreen({
     )
   }
 
-  const packTitle = packs[0]?.title
+  const packTitle = visiblePacks[0]?.title
 
   return (
     <VocabHubShell key="hub" backLabel={copy.back} onBack={onBackToLessons}>
@@ -1004,22 +1022,27 @@ export default function VocabularyHubScreen({
           />
         }
       >
-        {packs.length === 0 ? <p className={VOCAB_CARD_BODY_TITLE}>{copy.listsEmpty}</p> : null}
-        {packs.length === 1 && packs[0] ? (
+        {visiblePacks.length === 0 && packs.length === 0 ? (
+          <p className={VOCAB_CARD_BODY_TITLE}>{copy.listsEmpty}</p>
+        ) : null}
+        {visiblePacks.length === 0 && packs.length > 0 ? (
+          <p className={VOCAB_CARD_BODY_TITLE}>{copy.listsDrained}</p>
+        ) : null}
+        {visiblePacks.length === 1 && visiblePacks[0] ? (
           <button
             type="button"
             className={`block w-full text-left ${VOCAB_CARD_BODY_TITLE}`}
             onClick={() => {
-              setListKey({ kind: 'pack', packId: packs[0].id })
+              setListKey({ kind: 'pack', packId: visiblePacks[0].id })
               setView('list')
             }}
           >
-            {copy.listsFilled(packTitle ?? packs[0].title)}
+            {copy.listsFilled(packTitle ?? visiblePacks[0].title)}
           </button>
         ) : null}
-        {packs.length > 1 ? (
+        {visiblePacks.length > 1 ? (
           <div className="space-y-1">
-            {packs.map((pack) => (
+            {visiblePacks.map((pack) => (
               <button
                 key={pack.id}
                 type="button"

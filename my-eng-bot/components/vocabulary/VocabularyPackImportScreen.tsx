@@ -5,198 +5,284 @@ import VocabCardFooterButton from '@/components/vocabulary/VocabCardFooterButton
 import VocabWordCard from '@/components/vocabulary/VocabWordCard'
 import { buildCustomWordPackTitle, parseCustomWordListText } from '@/lib/adaptiveRetention/customWordListParser'
 import { createCustomWordPack, saveCustomWordPack } from '@/lib/adaptiveRetention/customWordPackStorage'
-import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
+import {
+  applyImportedStudyMarks,
+  pairsForPack,
+  resolveImportRows,
+  toCustomWordItems,
+  type ResolvedImportPair,
+} from '@/lib/vocabulary/resolveImportRows'
+import { VOCAB_INSET_EXPAND_BTN, VOCAB_INSET_LAUNCH_BTN } from '@/lib/vocabulary/cardStyles'
+import { loadVocabularyProgress, saveVocabularyProgress } from '@/lib/vocabulary/storage'
 import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import type { Audience } from '@/lib/types'
-import type { NecessaryWord } from '@/types/vocabulary'
+import type { CustomWordPackSource } from '@/types/adaptiveRetention'
+import type { NecessaryWord, VocabularyWordProgress } from '@/types/vocabulary'
 
 type Props = {
   catalog: NecessaryWord[]
   audience?: Audience
-  onSaved: () => void
+  progressMap: Record<string, VocabularyWordProgress>
+  onSaved: (packId: string) => void
 }
 
-function fillFromCatalog(en: string, ru: string, catalog: NecessaryWord[]): { en: string; ru: string } | null {
-  const hasEn = /[A-Za-z]/.test(en)
-  const hasRu = /[А-Яа-яЁё]/.test(ru) || /[А-Яа-яЁё]/.test(en)
-  if (hasEn && ru.trim()) return { en: en.trim(), ru: ru.trim() }
-  if (hasEn && !ru.trim()) {
-    const key = lemmaKeyFromEn(en)
-    const hits = catalog.filter((word) => lemmaKeyFromEn(word.en) === key)
-    if (hits.length === 1) return { en: hits[0].en, ru: hits[0].ru }
-    return null
-  }
-  if (!hasEn && hasRu) {
-    const needle = (ru || en).trim().toLowerCase()
-    const hits = catalog.filter((word) => word.ru.trim().toLowerCase() === needle)
-    if (hits.length === 1) return { en: hits[0].en, ru: hits[0].ru }
-    return null
-  }
-  return en.trim() && ru.trim() ? { en: en.trim(), ru: ru.trim() } : null
+const fileLabelClass = `${VOCAB_INSET_LAUNCH_BTN} cursor-pointer`
+
+async function fillMissingTranslations(items: string[]): Promise<Array<{ en: string; ru: string }>> {
+  if (items.length === 0) return []
+  const response = await fetch('/api/vocab/fill-translations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+  })
+  const data = (await response.json()) as { items?: Array<{ en?: string; ru?: string }>; userMessage?: string }
+  if (!response.ok) throw new Error(data.userMessage || 'Не удалось подставить перевод.')
+  return (data.items ?? []).flatMap((row) => {
+    const en = row.en?.trim() ?? ''
+    const ru = row.ru?.trim() ?? ''
+    return en && ru ? [{ en, ru }] : []
+  })
 }
 
-export default function VocabularyPackImportScreen({ catalog, audience = 'adult', onSaved }: Props) {
+export default function VocabularyPackImportScreen({
+  catalog,
+  audience = 'adult',
+  progressMap,
+  onSaved,
+}: Props) {
   const copy = vocabHubCopy(audience)
+  const child = audience === 'child'
   const [title, setTitle] = React.useState('')
   const [text, setText] = React.useState('')
+  const [pasteOpen, setPasteOpen] = React.useState(false)
   const [message, setMessage] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
-  const [preview, setPreview] = React.useState<{ en: string; ru: string }[]>([])
+  const [preview, setPreview] = React.useState<ResolvedImportPair[]>([])
+  const [source, setSource] = React.useState<CustomWordPackSource>('paste')
 
-  const parseText = (raw: string) => {
-    const parsed = parseCustomWordListText(raw)
-    const items: { en: string; ru: string }[] = []
-    let incomplete = 0
-    for (const row of parsed.rows) {
-      if (row.error && !row.en) {
-        incomplete += 1
-        continue
+  const ingestRows = React.useCallback(
+    async (rows: Array<{ en?: string; ru?: string }>, nextSource: CustomWordPackSource) => {
+      setSource(nextSource)
+      let resolved = resolveImportRows({ rows, catalog, progressMap })
+      if (resolved.needsTranslation.length > 0) {
+        const filled = await fillMissingTranslations(resolved.needsTranslation)
+        resolved = resolveImportRows({
+          rows: [...rows, ...filled],
+          catalog,
+          progressMap,
+        })
       }
-      const filled = fillFromCatalog(row.en ?? '', row.ru ?? '', catalog)
-      if (!filled) {
-        incomplete += 1
-        continue
+      const packPairs = pairsForPack(resolved.ready)
+      const mastered = resolved.ready.filter((row) => row.already === 'mastered').length
+      const inFeed = resolved.ready.filter((row) => row.already === 'in_feed').length
+      const already = copy.importAlreadyLine(mastered, inFeed)
+      setPreview(packPairs)
+      if (packPairs.length === 0 && resolved.ready.length === 0) {
+        setMessage(copy.importNoPairs)
+        return []
       }
-      items.push(filled)
+      setMessage([copy.importFound(resolved.ready.length), already].filter(Boolean).join(' '))
+      return packPairs
+    },
+    [catalog, copy, progressMap]
+  )
+
+  const persistPack = React.useCallback(
+    (pairs: ResolvedImportPair[], nextSource: CustomWordPackSource) => {
+      const items = toCustomWordItems(pairs)
+      if (items.length === 0) {
+        setMessage(copy.importNoPairs)
+        return
+      }
+      const pack = createCustomWordPack({
+        title: title.trim() || buildCustomWordPackTitle(nextSource),
+        source: nextSource,
+        items,
+      })
+      saveCustomWordPack(pack)
+      const nextProgress = applyImportedStudyMarks(loadVocabularyProgress(), pairs, pack.id)
+      saveVocabularyProgress(nextProgress)
+      onSaved(pack.id)
+    },
+    [copy.importNoPairs, onSaved, title]
+  )
+
+  const handlePaste = async () => {
+    setBusy(true)
+    try {
+      const parsed = parseCustomWordListText(text)
+      const pairs = await ingestRows(
+        parsed.rows.map((row) => ({ en: row.en, ru: row.ru })),
+        'paste'
+      )
+      if (child && pairs.length > 0) persistPack(pairs, 'paste')
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : copy.importNoPairs)
+    } finally {
+      setBusy(false)
     }
-    for (const item of parsed.validItems) {
-      if (!items.some((row) => lemmaKeyFromEn(row.en) === lemmaKeyFromEn(item.en))) {
-        items.push({ en: item.en, ru: item.ru })
-      }
-    }
-    setPreview(items)
-    setMessage(`Сохранено в превью: ${items.length}. Неполных: ${incomplete}. Дубли: ${parsed.duplicateCount}.`)
   }
 
-  const save = () => {
-    if (preview.length === 0) {
-      setMessage('Нет пар для сохранения.')
-      return
+  const handleExcel = async (file: File) => {
+    setBusy(true)
+    try {
+      const XLSX = await import('xlsx')
+      const buffer = await file.arrayBuffer()
+      const workbook = XLSX.read(buffer, { type: 'array' })
+      const sheet = workbook.Sheets[workbook.SheetNames[0] ?? '']
+      const table = sheet ? XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, blankrows: false }) : []
+      const raw = table.map((row) => row.join('\t')).join('\n')
+      setText(raw)
+      const parsed = parseCustomWordListText(raw)
+      const pairs = await ingestRows(
+        parsed.rows.map((row) => ({ en: row.en, ru: row.ru })),
+        'excel'
+      )
+      if (child && pairs.length > 0) persistPack(pairs, 'excel')
+    } catch {
+      setMessage('Не удалось импортировать Excel.')
+    } finally {
+      setBusy(false)
     }
-    const pack = createCustomWordPack({
-      title: title.trim() || buildCustomWordPackTitle('paste'),
-      source: 'paste',
-      items: preview.map((row, index) => ({
-        id: `imp-${index}-${row.en}`,
-        en: row.en,
-        ru: row.ru,
-      })),
-    })
-    saveCustomWordPack(pack)
-    onSaved()
+  }
+
+  const handlePhoto = async (file: File) => {
+    setBusy(true)
+    try {
+      const reader = new FileReader()
+      const imageDataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(new Error('read'))
+        reader.readAsDataURL(file)
+      })
+      const response = await fetch('/api/analyze-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageDataUrl,
+          audience,
+          mode: 'vocabListPhoto',
+        }),
+      })
+      const data = (await response.json()) as {
+        vocabListPhoto?: { vocabulary?: Array<{ word?: string; translation?: string }> }
+        userMessage?: string
+      }
+      if (!response.ok) {
+        setMessage(data.userMessage || copy.importRetryPhoto)
+        return
+      }
+      const vocab = data.vocabListPhoto?.vocabulary ?? []
+      const rows = vocab.map((row) => ({ en: row.word ?? '', ru: row.translation ?? '' }))
+      const pairs = await ingestRows(rows, 'photo')
+      if (child && pairs.length > 0) persistPack(pairs, 'photo')
+    } catch {
+      setMessage(copy.importRetryPhoto)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const resetFile = (event: React.ChangeEvent<HTMLInputElement>) => {
+    event.currentTarget.value = ''
   }
 
   return (
     <div className="space-y-2.5">
-        <p className="text-[17px] font-semibold text-[var(--text)]">{copy.importTitle}</p>
+      <p className="text-[17px] font-semibold text-[var(--text)]">{copy.importTitle}</p>
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Название (необязательно)"
+        className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px]"
+      />
+      <label className={fileLabelClass}>
+        {copy.importPhoto}
         <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Название (необязательно)"
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px]"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            resetFile(e)
+            if (file) void handlePhoto(file)
+          }}
         />
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          rows={6}
-          placeholder="apple - яблоко"
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px]"
+      </label>
+      <label className={fileLabelClass}>
+        {copy.importGallery}
+        <input
+          type="file"
+          accept="image/*"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            resetFile(e)
+            if (file) void handlePhoto(file)
+          }}
         />
-        <div className="flex flex-col gap-2">
-          <VocabCardFooterButton variant="launch" label={copy.importParse} onClick={() => parseText(text)} roundBottom={false} />
-          <label className="text-center text-[13px] text-[var(--text-muted)]">
-            Excel
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                setBusy(true)
-                try {
-                  const XLSX = await import('xlsx')
-                  const buffer = await file.arrayBuffer()
-                  const workbook = XLSX.read(buffer, { type: 'array' })
-                  const sheet = workbook.Sheets[workbook.SheetNames[0] ?? '']
-                  const rows = sheet ? XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, blankrows: false }) : []
-                  const next = rows.map((row) => row.join('\t')).join('\n')
-                  setText(next)
-                  parseText(next)
-                } finally {
-                  setBusy(false)
-                }
-              }}
-            />
-          </label>
-          <label className="text-center text-[13px] text-[var(--text-muted)]">
-            Фото
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={async (e) => {
-                const file = e.target.files?.[0]
-                if (!file) return
-                setBusy(true)
-                try {
-                  const reader = new FileReader()
-                  const imageDataUrl = await new Promise<string>((resolve, reject) => {
-                    reader.onload = () => resolve(String(reader.result))
-                    reader.onerror = () => reject(new Error('read'))
-                    reader.readAsDataURL(file)
-                  })
-                  const response = await fetch('/api/analyze-image', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      imageDataUrl,
-                      customFocus:
-                        'Extract bilingual vocabulary list. Prefer English word + Russian translation pairs.',
-                    }),
-                  })
-                  const data = (await response.json()) as {
-                    analysis?: { whatToLearn?: { vocabulary?: Array<{ word?: string; translation?: string }> } }
-                  }
-                  const vocab = data.analysis?.whatToLearn?.vocabulary ?? []
-                  const next = vocab
-                    .map((row) => `${row.word ?? ''} - ${row.translation ?? ''}`.trim())
-                    .filter((line) => line !== '-')
-                    .join('\n')
-                  if (!next) {
-                    setMessage('не нашёл пары')
-                    return
-                  }
-                  setText(next)
-                  parseText(next)
-                } finally {
-                  setBusy(false)
-                }
-              }}
-            />
-          </label>
-        </div>
-        {message ? <p className="text-[13px] text-[var(--text-muted)]">{message}</p> : null}
-        {busy ? <p className="text-[13px]">Готовим…</p> : null}
+      </label>
+      <label className={`${VOCAB_INSET_EXPAND_BTN} cursor-pointer`}>
+        {copy.importExcel}
+        <input
+          type="file"
+          accept=".xlsx,.xls"
+          className="hidden"
+          disabled={busy}
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            resetFile(e)
+            if (file) void handleExcel(file)
+          }}
+        />
+      </label>
+      <button type="button" className={`${VOCAB_INSET_EXPAND_BTN} w-full`} onClick={() => setPasteOpen((open) => !open)}>
+        {copy.importPaste}
+      </button>
+      {pasteOpen ? (
+        <>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={6}
+            placeholder={copy.importPastePlaceholder}
+            className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px]"
+          />
+          <VocabCardFooterButton variant="expand" label={copy.importParse} onClick={() => void handlePaste()} roundBottom={false} />
+        </>
+      ) : null}
+      {message ? <p className="text-[13px] text-[var(--text-muted)]">{message}</p> : null}
+      {busy ? <p className="text-[13px]">Готовим…</p> : null}
+      {!child && preview.length > 0 ? (
         <div className="space-y-2">
           {preview.map((row) => (
-            <VocabWordCard key={`${row.en}-${row.ru}`} word={{
-              id: Math.abs(row.en.split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) || 1,
-              en: row.en,
-              ru: row.ru,
-              transcription: '',
-              source: 'preview',
-              tags: [],
-              status: 'active',
-              primaryWorld: 'core',
-              primaryLevel: 'a2',
-              primaryVocabularyTopic: 'core',
-            }} />
+            <VocabWordCard
+              key={`${row.wordId}-${row.en}`}
+              word={{
+                id: row.wordId,
+                en: row.en,
+                ru: row.ru,
+                transcription: '',
+                source: 'preview',
+                tags: [],
+                status: 'active',
+                primaryWorld: 'core',
+                primaryLevel: 'a2',
+                primaryVocabularyTopic: 'core',
+              }}
+            />
           ))}
+          <VocabCardFooterButton
+            variant="expand"
+            label={copy.studyList}
+            onClick={() => persistPack(preview, source)}
+            roundBottom={false}
+          />
         </div>
-        {preview.length > 0 ? (
-          <VocabCardFooterButton variant="expand" label={copy.studyList} onClick={save} roundBottom={false} />
-        ) : null}
+      ) : null}
     </div>
   )
 }

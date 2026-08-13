@@ -69,6 +69,8 @@ function normalizeWordProgress(raw: unknown): VocabularyWordProgress | null {
     lemmaKey: typeof row.lemmaKey === 'string' ? row.lemmaKey : undefined,
     lastFocusUsedAt: typeof row.lastFocusUsedAt === 'number' ? row.lastFocusUsedAt : null,
     userMark: row.userMark === 'study' || row.userMark === 'know' ? (row.userMark as VocabularyUserMark) : null,
+    firstAddedAt: typeof row.firstAddedAt === 'number' ? row.firstAddedAt : null,
+    masteredAt: typeof row.masteredAt === 'number' ? row.masteredAt : null,
   }
 
   return {

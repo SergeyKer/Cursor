@@ -20,8 +20,9 @@ export async function callProviderVision(params: {
   imageDataUrl: string
   prompt: string
   openAiChatPreset?: OpenAiChatPreset
+  maxTokens?: number
 }): Promise<{ ok: true; content: string } | { ok: false; status: number; errText: string }> {
-  const { provider, imageDataUrl, prompt, openAiChatPreset = 'gpt-4o-mini' } = params
+  const { provider, imageDataUrl, prompt, openAiChatPreset = 'gpt-4o-mini', maxTokens = 700 } = params
 
   // В текущей конфигурации OpenRouter использует free-модель без гарантии vision.
   if (provider === 'openrouter') {
@@ -60,7 +61,7 @@ export async function callProviderVision(params: {
               ],
             },
           ],
-          max_tokens: 700,
+          max_tokens: maxTokens,
         }),
       })
     )

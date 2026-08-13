@@ -11,6 +11,7 @@ export interface CustomWordListParseResult {
   validItems: CustomWordItem[]
   duplicateCount: number
   errorCount: number
+  needsTranslationCount: number
 }
 
 const HEADER_ALIASES = new Map([
@@ -81,7 +82,6 @@ function parseRowFromCells(cells: string[], rowNumber: number, headerMap?: Recor
     ru,
     ...(example ? { example } : {}),
     ...(topic ? { topic } : {}),
-    ...(!ru ? { error: 'Не найден перевод.' } : {}),
   }
 }
 
@@ -92,7 +92,7 @@ export function parseCustomWordListText(text: string): CustomWordListParseResult
     .filter(Boolean)
 
   if (lines.length === 0) {
-    return { rows: [], validItems: [], duplicateCount: 0, errorCount: 0 }
+    return { rows: [], validItems: [], duplicateCount: 0, errorCount: 0, needsTranslationCount: 0 }
   }
 
   const firstCells = splitDelimitedLine(lines[0] ?? '')
@@ -133,6 +133,7 @@ export function parseCustomWordListText(text: string): CustomWordListParseResult
     validItems,
     duplicateCount,
     errorCount: rows.filter((row) => row.error).length,
+    needsTranslationCount: rows.filter((row) => !row.error && row.en && !row.ru).length,
   }
 }
 
