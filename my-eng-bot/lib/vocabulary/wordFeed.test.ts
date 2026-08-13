@@ -7,6 +7,7 @@ import {
   pickFeedForInjection,
   recordFeedFail,
   recordFeedUse,
+  recordLiveLemmaUse,
 } from '@/lib/vocabulary/wordFeed'
 import type { NecessaryWord } from '@/types/vocabulary'
 
@@ -70,7 +71,7 @@ describe('wordFeed', () => {
     ).toBeNull()
   })
 
-  it('masters after useStreak >= 2 and resets on fail', () => {
+  it('translation use keeps in_feed and live use masters', () => {
     const banked = markWordPassed({
       progress: createEmptyWordProgress(1),
       checkPassed: true,
@@ -81,9 +82,17 @@ describe('wordFeed', () => {
     const once = recordFeedUse(banked, 1)
     expect(once.feedStatus).toBe('in_feed')
     const twice = recordFeedUse(once, 2)
-    expect(twice.feedStatus).toBe('mastered')
-    expect(twice.useStreak).toBe(2)
-    const failed = recordFeedFail(twice, 3)
+    expect(twice.feedStatus).toBe('in_feed')
+    const spoken = recordLiveLemmaUse(twice, 'I need a ticket', 'circus', 3)
+    expect(spoken.feedStatus).toBe('in_feed')
+    const hit = recordLiveLemmaUse(
+      { ...twice, lemmaKey: 'apple' },
+      'I ate an apple',
+      'apple',
+      4
+    )
+    expect(hit.feedStatus).toBe('mastered')
+    const failed = recordFeedFail(hit, 5)
     expect(failed.feedStatus).toBe('returned')
     expect(failed.useStreak).toBe(0)
   })

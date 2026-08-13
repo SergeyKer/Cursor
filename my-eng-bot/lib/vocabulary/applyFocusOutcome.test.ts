@@ -47,7 +47,7 @@ describe('applyFocusLemmasOutcome', () => {
       value: { localStorage: storage },
       configurable: true,
     })
-    setCachedNecessaryWords([word(7, 'shashlik', 'шашлык')])
+    setCachedNecessaryWords([word(7, 'shashlik', 'шашлык'), word(8, 'apple', 'яблоко')])
     const state = createEmptyVocabularyProgress()
     state.words['7'] = {
       ...createEmptyWordProgress(7),
@@ -64,7 +64,7 @@ describe('applyFocusLemmasOutcome', () => {
     Reflect.deleteProperty(globalThis, 'window')
   })
 
-  it('increments useStreak on success and can master', () => {
+  it('does not master from translation success', () => {
     applyFocusLemmasOutcome({
       lemmas: [{ en: 'shashlik', ru: 'шашлык', wordId: 7 }],
       outcome: 'success',
@@ -76,8 +76,22 @@ describe('applyFocusLemmasOutcome', () => {
       source: 'translation',
     })
     const progress = loadVocabularyProgress().words['7']
-    expect(progress?.useStreak).toBe(2)
-    expect(progress?.feedStatus).toBe('mastered')
+    expect(progress?.feedStatus).toBe('in_feed')
+  })
+
+  it('masters only lemmas present in live utterance', () => {
+    applyFocusLemmasOutcome({
+      lemmas: [
+        { en: 'shashlik', ru: 'шашлык', wordId: 7 },
+        { en: 'apple', ru: 'яблоко', wordId: 8 },
+      ],
+      outcome: 'success',
+      userText: 'I ate shashlik yesterday',
+      source: 'communication',
+    })
+    const state = loadVocabularyProgress()
+    expect(state.words['7']?.feedStatus).toBe('mastered')
+    expect(state.words['8']?.feedStatus).not.toBe('mastered')
   })
 
   it('records fail + mistake on code-switch', () => {

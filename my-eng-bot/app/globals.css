@@ -1659,6 +1659,21 @@ button.tutor-composer-paperclip-button:focus-visible:not(:disabled) {
   overflow-anchor: none;
 }
 
+/* Vocab hub/list: same height:0 flex chain as start-screen / lesson viewport. */
+html[data-ios-safari-dialog] .vocab-space-host,
+html[data-ios-webkit-dialog] .vocab-space-host {
+  height: 0;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.vocab-space-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
+}
+
 /* iOS dialog: спейсер и fixed chrome синхронны с visual viewport. */
 html[data-ios-webkit-dialog],
 html[data-ios-safari-dialog] {

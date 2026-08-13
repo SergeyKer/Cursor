@@ -3,6 +3,7 @@ import type {
   NecessaryWord,
   VocabularyFeedStatus,
   VocabularyFocusLemma,
+  VocabularyUserMark,
   VocabularyWordProgress,
   VocabularyWordSource,
 } from '@/types/vocabulary'
@@ -58,17 +59,55 @@ export function recordFeedUse(
   progress: VocabularyWordProgress,
   now: number = Date.now()
 ): VocabularyWordProgress {
-  const streak = (progress.useStreak ?? 0) + 1
-  const mastered = streak >= MASTERED_USE_STREAK
+  return recordTranslationLemmaUse(progress, now)
+}
+
+/** Перевод: крепит «в деле», никогда не ставит Умею. */
+export function recordTranslationLemmaUse(
+  progress: VocabularyWordProgress,
+  now: number = Date.now()
+): VocabularyWordProgress {
+  if (progress.feedStatus === 'mastered') {
+    return { ...progress, lastFocusUsedAt: now }
+  }
   return {
     ...progress,
-    useStreak: streak,
     lastFocusUsedAt: now,
-    feedStatus: mastered ? 'mastered' : progress.feedStatus === 'returned' ? 'in_feed' : progress.feedStatus ?? 'in_feed',
-    nextReviewAt: mastered
-      ? now + 30 * 24 * 60 * 60 * 1000
-      : progress.nextReviewAt,
+    feedStatus: progress.feedStatus === 'returned' ? 'in_feed' : progress.feedStatus ?? 'in_feed',
   }
+}
+
+export function utteranceHasLemma(userText: string, lemmaEn: string): boolean {
+  const key = lemmaKeyFromEn(lemmaEn)
+  if (!key || !userText.trim()) return false
+  const normalized = lemmaKeyFromEn(userText)
+  if (normalized === key) return true
+  if (key.includes(' ') && normalized.includes(key)) return true
+  const tokens = normalized.split(/[^a-z0-9']+/).filter(Boolean)
+  return tokens.includes(key)
+}
+
+/** Общение/звонок: Умею только если лемма есть в реплике. */
+export function recordLiveLemmaUse(
+  progress: VocabularyWordProgress,
+  userText: string,
+  lemmaEn: string,
+  now: number = Date.now()
+): VocabularyWordProgress {
+  if (!utteranceHasLemma(userText, lemmaEn)) return progress
+  return {
+    ...progress,
+    feedStatus: 'mastered',
+    lastFocusUsedAt: now,
+    useStreak: (progress.useStreak ?? 0) + 1,
+  }
+}
+
+export function setUserMark(
+  progress: VocabularyWordProgress,
+  mark: VocabularyUserMark | null
+): VocabularyWordProgress {
+  return { ...progress, userMark: mark }
 }
 
 export function recordFeedFail(
@@ -81,6 +120,7 @@ export function recordFeedFail(
     feedStatus: 'returned',
     lastFocusUsedAt: now,
     nextReviewAt: now,
+    userMark: progress.userMark === 'know' ? null : progress.userMark,
   }
 }
 

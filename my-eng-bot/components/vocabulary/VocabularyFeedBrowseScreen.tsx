@@ -8,6 +8,7 @@ import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
 } from '@/lib/vocabulary/storage'
+import VocabularySpaceScroll from '@/components/vocabulary/VocabularySpaceScroll'
 import type {
   NecessaryWord,
   NecessaryWordsCatalog,
@@ -156,8 +157,7 @@ export default function VocabularyFeedBrowseScreen({
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3 overflow-y-auto py-3">
+    <VocabularySpaceScroll>
         <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
           <div>
             <p className="text-[17px] font-semibold text-[var(--text)]">Слова в деле</p>
@@ -237,7 +237,6 @@ export default function VocabularyFeedBrowseScreen({
             ))
           )}
         </div>
-      </div>
-    </div>
+    </VocabularySpaceScroll>
   )
 }

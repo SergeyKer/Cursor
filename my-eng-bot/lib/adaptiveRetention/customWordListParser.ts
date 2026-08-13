@@ -49,6 +49,8 @@ function splitDelimitedLine(line: string): string[] {
       return line.split(delimiter).map(normalizeCell)
     }
   }
+  const scriptSplit = line.match(/^(.*?[A-Za-z][A-Za-z' -]*)\s+([А-Яа-яЁё].*)$/)
+  if (scriptSplit) return [normalizeCell(scriptSplit[1] ?? ''), normalizeCell(scriptSplit[2] ?? '')]
   return [normalizeCell(line)]
 }
 

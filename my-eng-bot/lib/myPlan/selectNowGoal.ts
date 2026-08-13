@@ -335,7 +335,10 @@ function buildWeakSpot(
   spot: { id: string; label: string },
   audience: MyPlanAudience
 ): MyPlanRecommendation {
-  const target: 'vocabulary' | 'practice' = spot.id === 'vocab-errors' ? 'vocabulary' : 'practice'
+  const target: 'vocabulary' | 'practice' =
+    spot.id === 'vocab-errors' || spot.id === 'vocab-mistakes-inbox' || spot.id === 'vocab-bank-waiting'
+      ? 'vocabulary'
+      : 'practice'
   const title =
     target === 'vocabulary'
       ? myPlanTopicLine('words', spot.label)

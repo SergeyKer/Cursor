@@ -76,6 +76,9 @@ export type VocabularyFeedStatus = 'none' | 'in_feed' | 'mastered' | 'returned'
 
 export type VocabularyWordSource = 'catalog' | 'mistake' | 'pack'
 
+/** Витрина: учу / знаю (пропуск). null = библиотека, не топливо. */
+export type VocabularyUserMark = 'study' | 'know'
+
 export type VocabularyTempo = 'sprint' | 'full'
 
 export interface VocabularyWordProgress {
@@ -99,6 +102,7 @@ export interface VocabularyWordProgress {
   packId?: string
   lemmaKey?: string
   lastFocusUsedAt?: number | null
+  userMark?: VocabularyUserMark | null
 }
 
 export interface VocabularyFocusLemma {
@@ -139,4 +143,11 @@ export interface VocabularyFooterView {
   dynamicText: string
   staticText: string
   typingKey: string
+  sessionMeter?: {
+    current: number
+    target: number
+    sessionXp: number
+    statusLabel: string
+    fillPercent?: number
+  } | null
 }

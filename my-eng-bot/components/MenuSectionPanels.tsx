@@ -3075,7 +3075,7 @@ export default function MenuSectionPanels({
                       }}
                     />
                   ) : null}
-                  <MenuNavRow label="Слова" onClick={() => setLessonsPanel('words')} />
+                  <MenuNavRow label="Слова" onClick={() => void onOpenVocabularyWorlds?.()} />
                 </div>
               </div>
             )}

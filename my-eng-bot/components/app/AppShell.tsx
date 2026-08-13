@@ -559,9 +559,9 @@ import {
   MenuSectionPanels,
   PracticeScreen,
   VocabularyByLevelScreen,
-  VocabularyWorldsScreen,
 } from '@/lib/start/appBranchComponents'
 import VocabularyFeedBrowseScreen from '@/components/vocabulary/VocabularyFeedBrowseScreen'
+import VocabularyHubScreen from '@/components/vocabulary/VocabularyHubScreen'
 import VocabularyPackSessionScreen from '@/components/vocabulary/VocabularyPackSessionScreen'
 import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
 import {
@@ -1548,10 +1548,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const abandonTutorSession = useCallback(() => {
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'tutor_session_abandoned' }))
   }, [])
-  const bumpEngvoGoal = useCallback(() => {
+  const bumpEngvoGoal = useCallback((userText?: string | null) => {
     const focus = vocabFocusLemmasRef.current
     if (focus.length > 0) {
-      applyFocusLemmasOutcome({ lemmas: focus, outcome: 'success', source: 'call' })
+      applyFocusLemmasOutcome({
+        lemmas: focus,
+        outcome: 'success',
+        userText: userText ?? null,
+        source: 'call',
+      })
     }
     setRewardsState((prev) => applyRewardsEvent(prev, { type: 'engvo_turn_completed' }))
   }, [])
@@ -3330,7 +3335,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 }
                 return insertEngvoUserMessage(prev, transcript, insertBeforeAssistant)
               })
-              bumpEngvoGoal()
+              bumpEngvoGoal(transcript)
               engvoLastFinalUserTranscriptRef.current = transcript
               if (engvoSessionKindRef.current === 'teacher') {
                 engvoTeacherUserFinalCountRef.current += 1
@@ -4452,12 +4457,25 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                           }
                         : {}),
                     }
-                  : settings.mode === 'dialogue' && settings.tenses.includes('all')
+                  : settings.mode === 'dialogue' || settings.mode === 'communication'
                     ? {
-                        ...(dialogueCurrentDrillAxisRef.current
-                          ? { currentDrillAxis: dialogueCurrentDrillAxisRef.current }
+                        ...(settings.mode === 'dialogue' && settings.tenses.includes('all')
+                          ? {
+                              ...(dialogueCurrentDrillAxisRef.current
+                                ? { currentDrillAxis: dialogueCurrentDrillAxisRef.current }
+                                : {}),
+                              usedAnyTenses: dialogueUsedAnyTensesRef.current,
+                            }
                           : {}),
-                        usedAnyTenses: dialogueUsedAnyTensesRef.current,
+                        ...(() => {
+                          const focus = vocabFocusLemmasRef.current
+                          return focus.length > 0
+                            ? {
+                                focusLemmas: focus.map((lemma) => lemma.en),
+                                focusLemmaPairs: focus,
+                              }
+                            : {}
+                        })(),
                       }
                     : {}),
               }),
@@ -8277,6 +8295,16 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setSearchingInternet(shouldSearchInternet)
       setLoading(true)
       try {
+        if (
+          (settings.mode === 'communication' || settings.mode === 'dialogue') &&
+          vocabFocusLemmasRef.current.length === 0
+        ) {
+          try {
+            vocabFocusLemmasRef.current = await resolveSmartMixFocusLemmas({ n: 3 })
+          } catch {
+            // fuel is optional
+          }
+        }
         const response = await sendToApi(nextMessages, { onRetryStatus: setRetryMessage })
         incrementUsageToday()
         const { content: main, translation } = parseContentWithTranslation(response.content)
@@ -8305,6 +8333,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         })
         if (settings.mode === 'communication') {
           bumpCommunicationStep(main, text)
+          const focus = vocabFocusLemmasRef.current
+          if (focus.length > 0) {
+            applyFocusLemmasOutcome({
+              lemmas: focus,
+              outcome: 'success',
+              userText: text,
+              source: 'communication',
+            })
+          }
         } else if (settings.mode === 'translation') {
           bumpTranslationStep(main, text)
         } else if (settings.mode === 'dialogue') {
@@ -8315,6 +8352,15 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             prevAssistantContent: prevAssistant?.content,
             dialogueCorrect: response.dialogueCorrect,
           })
+          const focus = vocabFocusLemmasRef.current
+          if (focus.length > 0) {
+            applyFocusLemmasOutcome({
+              lemmas: focus,
+              outcome: 'success',
+              userText: text,
+              source: 'communication',
+            })
+          }
         }
         setSettingsAtLastSend(settings)
         void fetchUsage()
@@ -10117,7 +10163,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : isVocabularyHubActive
     ? resolveFooterWithStreakLayer(
         vocabularyFooterView?.dynamicText ??
-          (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Выбери мир и начни короткую сессию.')
+          (vocabularyByLevelActive ? 'Выбери уровень CEFR или тему.' : 'Отметь слова — и можно учить.'),
+        null,
+        null
       )
     : tutorReferenceOverlayActive
     ? resolveFooterWithStreakLayer(null, null, null)
@@ -10158,7 +10206,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const baseFooterStaticText = isAccentActive
     ? accentFooterView?.staticText ?? 'Произношение'
     : isVocabularyHubActive
-    ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Необходимые слова')
+    ? vocabularyFooterView?.staticText ?? (vocabularyByLevelActive ? 'Слова по уровням' : 'Слова')
     : tutorReferenceOverlayActive
     ? REFERENCE_COPY.hubTitle
     : isTutorFooterActive
@@ -10249,6 +10297,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     activeStructuredLessonIsFinale,
   ])
 
+  const vocabSessionMeter =
+    vocabularyFooterView?.sessionMeter && vocabularyFooterView.sessionMeter.target > 0
+      ? vocabularyFooterView.sessionMeter
+      : null
   const footerSessionMeterBlocked =
     isReferenceSheetActive ||
     isStructuredLessonActive ||
@@ -10256,7 +10308,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isLessonTipsActive ||
     isLessonBriefingActive ||
     isAccentActive ||
-    isVocabularyHubActive
+    (isVocabularyHubActive && !vocabSessionMeter)
   const footerSessionMeterChatActive =
     !footerSessionMeterBlocked &&
     (translationChatActive || dialogueChatActive || communicationChatActive)
@@ -10264,11 +10316,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     (isStructuredLessonActive && structuredLessonFooterLive) ||
     (Boolean(tutorSessionMeter) && !footerSessionMeterBlocked) ||
     isPracticeActive ||
-    footerSessionMeterChatActive
+    footerSessionMeterChatActive ||
+    Boolean(vocabSessionMeter && !footerSessionMeterBlocked)
       ? null
       : tutorReferenceOverlayActive
         ? baseFooterStaticText
-        : isTutorFooterActive
+        : isVocabularyHubActive
+          ? baseFooterStaticText
+          : isTutorFooterActive
           ? baseFooterStaticText
           : appendFooterRewardSnapshot(baseFooterStaticText, rewardsState)
   const baseFooterTypingKey = isAccentActive
@@ -10386,7 +10441,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     : null
   const footerDisplayVariantProgress = footerHydrated ? activeStructuredLessonFooterVariantProgress : null
   const footerDisplaySessionMeter =
-    footerHydrated && tutorSessionMeter && !footerSessionMeterBlocked
+    footerHydrated && vocabSessionMeter && !footerSessionMeterBlocked
+      ? vocabSessionMeter
+      : footerHydrated && tutorSessionMeter && !footerSessionMeterBlocked
       ? tutorSessionMeter
       : footerHydrated && isPracticeActive
         ? practiceFooterView?.sessionMeter ?? null
@@ -11282,14 +11339,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       </header>
 
       <main
-        className={`flex min-h-0 flex-col ${
+        className={`flex min-h-0 flex-col overflow-hidden ${
           dialogStarted ? `${homeShellGradientClass} min-h-0 flex-1` : 'min-h-0 flex-1 bg-transparent'
-        } ${
-          !dialogStarted
-            ? 'overflow-hidden'
-            : isVocabularyHubActive
-              ? 'overflow-y-auto'
-              : 'overflow-hidden'
         }`}
         style={{
           paddingTop: 'var(--app-top-offset)',
@@ -11556,7 +11607,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />
                   ) : vocabularyWorldsActive ? (
-                    <VocabularyWorldsScreen
+                    <VocabularyHubScreen
+                      audience={settings.audience}
                       onBackToLessons={backToVocabularyMenu}
                       onFooterViewChange={setVocabularyFooterView}
                       onSessionActiveChange={setVocabularySessionActive}
@@ -11566,6 +11618,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       exitRequestKey={vocabularyExitRequestKey}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
+                      onOpenByLevel={settings.audience === 'child' ? undefined : openVocabularyByLevel}
                     />
                   ) : (
                     <VocabularyByLevelScreen

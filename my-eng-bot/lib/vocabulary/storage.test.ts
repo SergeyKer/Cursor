@@ -71,4 +71,21 @@ describe('vocabulary storage', () => {
     expect(restored.stats.unlockedWorldIds).toContain('travel')
     expect(restored.history[0]?.id).toBe('session-1')
   })
+
+  it('persists userMark study/know and treats unknown as null', () => {
+    withWindowStorage()
+    const progress = createEmptyVocabularyProgress()
+    progress.words['3'] = {
+      wordId: 3,
+      stage: 0,
+      attempts: 0,
+      successes: 0,
+      failures: 0,
+      lastReviewedAt: null,
+      nextReviewAt: null,
+      userMark: 'study',
+    }
+    saveVocabularyProgress(progress)
+    expect(loadVocabularyProgress().words['3']?.userMark).toBe('study')
+  })
 })

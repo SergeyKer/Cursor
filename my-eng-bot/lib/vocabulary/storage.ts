@@ -8,6 +8,7 @@ import type {
   VocabularySessionHistoryItem,
   VocabularyWordProgress,
   VocabularyWordSource,
+  VocabularyUserMark,
   VocabularyWorldId,
 } from '@/types/vocabulary'
 
@@ -67,6 +68,7 @@ function normalizeWordProgress(raw: unknown): VocabularyWordProgress | null {
     packId: typeof row.packId === 'string' ? row.packId : undefined,
     lemmaKey: typeof row.lemmaKey === 'string' ? row.lemmaKey : undefined,
     lastFocusUsedAt: typeof row.lastFocusUsedAt === 'number' ? row.lastFocusUsedAt : null,
+    userMark: row.userMark === 'study' || row.userMark === 'know' ? (row.userMark as VocabularyUserMark) : null,
   }
 
   return {

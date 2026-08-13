@@ -12,7 +12,9 @@ import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import {
   lemmaKeyFromEn,
   recordFeedFail,
-  recordFeedUse,
+  recordLiveLemmaUse,
+  recordTranslationLemmaUse,
+  utteranceHasLemma,
 } from '@/lib/vocabulary/wordFeed'
 
 export type FocusLemmaRef = { en: string; ru?: string; wordId?: number }
@@ -28,16 +30,18 @@ function resolveWordId(lemma: FocusLemmaRef, stateWords: ReturnType<typeof loadV
 }
 
 /**
- * Apply Translation/Call focus outcome to WordFeed + optional mistakes inbox.
- * Best-effort localStorage; never throws into UX.
+ * Translation: крепит in_feed, не mastered.
+ * Call/communication success: Умею только если лемма в userText (без текста — пакет не мастерится).
+ * Fail: returned + inbox; снимает Знаю.
  */
 export function applyFocusLemmasOutcome(params: {
   lemmas: FocusLemmaRef[]
   outcome: 'success' | 'fail'
   userText?: string | null
-  source?: 'translation' | 'call'
+  source?: 'translation' | 'call' | 'communication'
 }): void {
   if (params.lemmas.length === 0) return
+  const source = params.source ?? 'translation'
 
   try {
     let state = loadVocabularyProgress()
@@ -48,20 +52,34 @@ export function applyFocusLemmasOutcome(params: {
       if (typeof wordId === 'number') {
         const current = state.words[String(wordId)] ?? createEmptyWordProgress(wordId)
         const withKey = { ...current, lemmaKey: current.lemmaKey ?? key }
-        const next =
-          params.outcome === 'success' ? recordFeedUse(withKey) : recordFeedFail(withKey)
-        state = patchWordProgress(state, wordId, next)
+
+        if (params.outcome === 'success') {
+          if (source === 'translation') {
+            state = patchWordProgress(state, wordId, recordTranslationLemmaUse(withKey))
+          } else if (params.userText && utteranceHasLemma(params.userText, lemma.en)) {
+            state = patchWordProgress(state, wordId, recordLiveLemmaUse(withKey, params.userText, lemma.en))
+          }
+        } else {
+          const liveMiss =
+            source === 'translation' ||
+            Boolean(params.userText && extractLemmaMistake({ userText: params.userText, focusEn: lemma.en }))
+          if (liveMiss) {
+            state = patchWordProgress(state, wordId, recordFeedFail(withKey))
+          }
+        }
       }
 
       if (params.outcome === 'fail') {
         const extracted = params.userText
           ? extractLemmaMistake({ userText: params.userText, focusEn: lemma.en })
-          : { en: lemma.en }
+          : source === 'translation'
+            ? { en: lemma.en }
+            : null
         if (extracted) {
           appendVocabMistake({
             en: extracted.en,
             ru: lemma.ru,
-            source: params.source ?? 'translation',
+            source: source === 'call' ? 'call' : 'translation',
             lemmaKey: key,
           })
         }

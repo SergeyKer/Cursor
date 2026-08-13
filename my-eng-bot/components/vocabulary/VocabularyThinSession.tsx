@@ -71,6 +71,7 @@ type VocabularyThinSessionProps = {
   onSessionActiveChange?: (active: boolean) => void
   onHandoffTranslation: (bankedWords: NecessaryWord[]) => void
   onHandoffCall?: (bankedWords: NecessaryWord[]) => void
+  onOpenBridge?: (bankedWords: NecessaryWord[]) => void
   onAgain: () => void
   onExit: () => void
 }
@@ -87,6 +88,7 @@ export default function VocabularyThinSession({
   onSessionActiveChange,
   onHandoffTranslation,
   onHandoffCall,
+  onOpenBridge,
   onAgain,
   onExit,
 }: VocabularyThinSessionProps) {
@@ -239,6 +241,12 @@ export default function VocabularyThinSession({
     onHandoffCall(banked)
   }, [onHandoffCall, session.bankedWords])
 
+  const handleBridge = React.useCallback(() => {
+    const banked = session.bankedWords
+    if (banked.length === 0 || !onOpenBridge) return
+    onOpenBridge(banked)
+  }, [onOpenBridge, session.bankedWords])
+
   const handleMicClick = React.useCallback(() => {
     audioDeckRef.current?.stopTts()
     voice.resetMicAnimation()
@@ -381,11 +389,20 @@ export default function VocabularyThinSession({
         <DialogComposerStack>
           {isFinale ? (
             <div className="flex w-full flex-col gap-2 px-1 pb-1">
+              {session.finaleStats.banked > 0 && onOpenBridge ? (
+                <button
+                  type="button"
+                  onClick={handleBridge}
+                  className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
+                >
+                  Сказать боту
+                </button>
+              ) : null}
               {session.finaleStats.banked > 0 ? (
                 <button
                   type="button"
                   onClick={handleHandoff}
-                  className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
+                  className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
                 >
                   Закрепить в переводе
                 </button>
@@ -394,7 +411,7 @@ export default function VocabularyThinSession({
                 <button
                   type="button"
                   onClick={handleHandoffCall}
-                  className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-4 py-3 text-base font-semibold text-[var(--text)]"
+                  className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
                 >
                   В звонок
                 </button>
@@ -402,9 +419,9 @@ export default function VocabularyThinSession({
               <button
                 type="button"
                 onClick={onAgain}
-                className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-4 py-3 text-base font-semibold text-[var(--text)]"
+                className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
               >
-                Ещё
+                Ещё раз
               </button>
               <button
                 type="button"
@@ -412,7 +429,7 @@ export default function VocabularyThinSession({
                   session.abort()
                   onExit()
                 }}
-                className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-[var(--menu-control-bg)] px-4 py-3 text-base font-semibold text-[var(--text)]"
+                className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
               >
                 К списку
               </button>

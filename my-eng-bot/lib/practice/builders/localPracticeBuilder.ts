@@ -48,6 +48,9 @@ import {
   collectPriorSessionPhrases,
   selectRoleplayAnchor,
 } from '@/lib/practice/roleplaySessionContinuity'
+import { pickVocabFuel, loadPackWords } from '@/lib/vocabulary/fuel'
+import { vocabMistakeLemmaKeys } from '@/lib/vocabulary/mistakesList'
+import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
 import { isTranslateBackedFreeResponseExercise } from '@/lib/practice/prompt/freeResponseTranslateMode'
 import { resolveBossPatternAnchors } from '@/lib/practice/bossChallengeAnswerValidation'
 import { extractSemanticKeywords, normalizePracticeEmDashes, stripAnswerLeakFromHint } from '@/lib/practice/prompt/promptSourceUtils'
@@ -354,6 +357,23 @@ function createQuestion(params: {
       : undefined
   const roleplayKeywords =
     params.type === 'roleplay-mini' ? extractRoleplayKeywords(targetAnswer, params.lesson) : undefined
+  let keywords = roleplayKeywords
+  if (params.type === 'roleplay-mini') {
+    try {
+      const fuel = pickVocabFuel({
+        words: [],
+        progressMap: loadVocabularyProgress().words,
+        packWords: loadPackWords(),
+        mistakeLemmaKeys: vocabMistakeLemmaKeys(),
+        n: 1,
+      })[0]
+      if (fuel?.en && targetAnswer.toLowerCase().includes(fuel.en.toLowerCase())) {
+        keywords = Array.from(new Set([...(keywords ?? []), fuel.en]))
+      }
+    } catch {
+      // optional fuel
+    }
+  }
   const variantSuffix = params.variantIndex != null ? `-v${params.variantIndex}` : ''
   const extraWords =
     params.type === 'word-builder-pro'
@@ -397,7 +417,7 @@ function createQuestion(params: {
               ? extractSemanticKeywords(targetAnswer)
               : targetAnswer.split(/\s+/).slice(0, 3)
             : params.type === 'roleplay-mini'
-              ? roleplayKeywords
+              ? keywords
               : undefined,
     minWords:
       isBossChallenge
