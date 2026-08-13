@@ -1,17 +1,18 @@
 'use client'
 
 import React from 'react'
-import ProgressCtaButton from '@/components/ProgressCtaButton'
-import VocabularySpaceScroll from '@/components/vocabulary/VocabularySpaceScroll'
-import VocabularyWordRow from '@/components/vocabulary/VocabularyWordRow'
+import VocabCardFooterButton from '@/components/vocabulary/VocabCardFooterButton'
+import VocabWordCard from '@/components/vocabulary/VocabWordCard'
 import { buildCustomWordPackTitle, parseCustomWordListText } from '@/lib/adaptiveRetention/customWordListParser'
 import { createCustomWordPack, saveCustomWordPack } from '@/lib/adaptiveRetention/customWordPackStorage'
 import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
+import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
+import type { Audience } from '@/lib/types'
 import type { NecessaryWord } from '@/types/vocabulary'
 
 type Props = {
   catalog: NecessaryWord[]
-  onBack: () => void
+  audience?: Audience
   onSaved: () => void
 }
 
@@ -34,7 +35,8 @@ function fillFromCatalog(en: string, ru: string, catalog: NecessaryWord[]): { en
   return en.trim() && ru.trim() ? { en: en.trim(), ru: ru.trim() } : null
 }
 
-export default function VocabularyPackImportScreen({ catalog, onBack, onSaved }: Props) {
+export default function VocabularyPackImportScreen({ catalog, audience = 'adult', onSaved }: Props) {
+  const copy = vocabHubCopy(audience)
   const [title, setTitle] = React.useState('')
   const [text, setText] = React.useState('')
   const [message, setMessage] = React.useState<string | null>(null)
@@ -85,13 +87,8 @@ export default function VocabularyPackImportScreen({ catalog, onBack, onSaved }:
   }
 
   return (
-    <VocabularySpaceScroll>
-        <div className="flex items-center justify-between">
-          <p className="text-[17px] font-semibold text-[var(--text)]">Залить список</p>
-          <button type="button" onClick={onBack} className="text-[14px] font-semibold">
-            ← Назад
-          </button>
-        </div>
+    <div className="space-y-2.5">
+        <p className="text-[17px] font-semibold text-[var(--text)]">{copy.importTitle}</p>
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -106,7 +103,7 @@ export default function VocabularyPackImportScreen({ catalog, onBack, onSaved }:
           className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px]"
         />
         <div className="flex flex-col gap-2">
-          <ProgressCtaButton onClick={() => parseText(text)}>Разобрать текст</ProgressCtaButton>
+          <VocabCardFooterButton variant="launch" label={copy.importParse} onClick={() => parseText(text)} roundBottom={false} />
           <label className="text-center text-[13px] text-[var(--text-muted)]">
             Excel
             <input
@@ -183,7 +180,7 @@ export default function VocabularyPackImportScreen({ catalog, onBack, onSaved }:
         {busy ? <p className="text-[13px]">Готовим…</p> : null}
         <div className="space-y-2">
           {preview.map((row) => (
-            <VocabularyWordRow key={`${row.en}-${row.ru}`} word={{
+            <VocabWordCard key={`${row.en}-${row.ru}`} word={{
               id: Math.abs(row.en.split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)) || 1,
               en: row.en,
               ru: row.ru,
@@ -197,7 +194,9 @@ export default function VocabularyPackImportScreen({ catalog, onBack, onSaved }:
             }} />
           ))}
         </div>
-        {preview.length > 0 ? <ProgressCtaButton onClick={save}>Учить этот список</ProgressCtaButton> : null}
-    </VocabularySpaceScroll>
+        {preview.length > 0 ? (
+          <VocabCardFooterButton variant="expand" label={copy.studyList} onClick={save} roundBottom={false} />
+        ) : null}
+    </div>
   )
 }

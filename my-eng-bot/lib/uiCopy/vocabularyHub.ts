@@ -1,31 +1,90 @@
 import type { Audience } from '@/lib/types'
 import type { VocabNowKind } from '@/lib/vocabulary/fuel'
+import type { HubTileId, VocabShelfId } from '@/lib/vocabulary/hubBuckets'
 
 export function vocabHubCopy(audience: Audience) {
   const child = audience === 'child'
   return {
     spaceTitle: 'Слова',
     back: '← Назад',
-    tabUnlearned: 'Не выучено',
-    tabLearned: 'Выучено',
-    unlearnedEmpty: 'Все активные слова уже в «Выучено».',
-    learnedEmpty: 'Пока нет выученных слов. Скажи боту слова из «В деле».',
-    searchPlaceholder: 'Поиск…',
-    emptyList: 'Пока пусто.',
     nowTitle: 'СЕЙЧАС',
-    debtErrors: (n: number) => `Ошибки ${n}`,
+    tileMastered: child ? 'Умею' : 'Запас',
+    tileInFeed: 'В деле',
+    tileErrors: child ? 'Починить' : 'Ошибки',
+    tileStudy: 'Учу',
+    listsTitle: child ? 'МОИ СЛОВА' : 'МОИ СПИСКИ',
+    listsEmpty: child ? 'Можно добавить свои' : 'Залейте список или откройте пакет.',
+    listsFilled: (title: string) => title,
+    fillList: child ? 'Добавить' : 'Залить список',
+    catalogTitle: child ? 'ЕЩЁ СЛОВА' : 'КАТАЛОГ',
+    catalogBody: child ? 'Дом, школа…' : 'Миры и уровни',
+    catalogOpen: 'Открыть',
+    byLevel: 'По уровню',
     vitrine: 'Витрина',
     myLists: 'Мои списки',
-    fillList: 'Залить список',
     tts: 'Озвучка',
     study: 'Учить',
+    tempoSprintCta: 'Быстро 3 слова',
+    tempoFullCta: 'Учить 5 слов',
     know: 'Знаю',
     studyList: 'Учить этот список',
     start: 'Начать',
     say: 'Сказать боту',
-    pick: child ? 'Выбрать слова' : 'Выбрать слова',
+    pick: 'Выбрать слова',
     more: 'ещё',
+    searchPlaceholder: 'Поиск…',
+    emptyList: 'Пока пусто.',
+    listen: 'Слушать',
+    handoffTranslation: 'Закрепить в переводе',
+    handoffCall: 'В звонок',
+    catalogScreenTitle: child ? 'Ещё слова' : 'Каталог',
+    masteredEmpty: child ? 'Пока пусто — скажи боту слово.' : 'Пока нет слов в запасе. Скажи боту слова из «В деле».',
+    errorsTitle: child ? 'Починить' : 'Ошибки',
+    bankTitle: 'В деле',
+    masteredTitle: child ? 'Умею' : 'Запас',
+    studyTitle: 'Учу',
+    worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
+    importTitle: child ? 'Добавить слова' : 'Залить список',
+    importParse: 'Разобрать текст',
+    shelvesTitle: 'ПОЛКИ',
+    shelvesScreenTitle: 'Полки',
+    shelvesBody: child
+      ? 'Учу · В деле · Умею · Вернулись · Ошибки'
+      : 'Учу · Знаю · В деле · Умею · Вернулись · Ошибки',
+    shelvesAll: 'Все',
+    shelfReturned: 'Вернулись',
+    shelfMastered: 'Умею',
+    shelfErrors: 'Ошибки',
+    shelvesFooterStatic: 'Слова | Полки',
+    shelvesFooterDynamic: 'Слова по полкам.',
   }
+}
+
+export const VOCAB_SHELF_CHIP_ORDER: VocabShelfId[] = [
+  'study',
+  'know',
+  'in_feed',
+  'mastered',
+  'returned',
+  'errors',
+]
+
+export function vocabShelfLabel(id: VocabShelfId, audience: Audience): string {
+  const copy = vocabHubCopy(audience)
+  if (id === 'returned') return copy.shelfReturned
+  if (id === 'errors') return copy.shelfErrors
+  if (id === 'mastered') return copy.shelfMastered
+  if (id === 'in_feed') return copy.bankTitle
+  if (id === 'know') return copy.know
+  return copy.studyTitle
+}
+
+export function vocabTileLabel(id: HubTileId, audience: Audience): string {
+  const copy = vocabHubCopy(audience)
+  if (id === 'mastered') return copy.tileMastered
+  if (id === 'in_feed') return copy.tileInFeed
+  if (id === 'errors') return copy.tileErrors
+  return copy.tileStudy
 }
 
 export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
@@ -36,9 +95,9 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
   const child = audience === 'child'
   switch (kind) {
     case 'errors-sprint':
-      return { title: 'Поймали слово', reason: 'Почини в короткой порции.', cta: 'start' }
+      return { title: child ? 'Поймали слово' : 'Поймали слово', reason: 'Почини в короткой порции.', cta: 'start' }
     case 'errors-bridge':
-      return { title: 'Поймали слово', reason: 'Скажи боту ещё раз.', cta: 'say' }
+      return { title: child ? 'Скажи боту ещё раз' : 'Поймали слово', reason: 'Скажи боту ещё раз.', cta: 'say' }
     case 'fresh-sprint':
       return {
         title: child ? 'Ты отметил' : 'Твой список',

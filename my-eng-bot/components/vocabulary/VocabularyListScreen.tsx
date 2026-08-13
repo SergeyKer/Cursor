@@ -1,14 +1,10 @@
 'use client'
 
 import React from 'react'
-import ProgressCtaButton from '@/components/ProgressCtaButton'
-import VocabularySpaceScroll from '@/components/vocabulary/VocabularySpaceScroll'
-import VocabularyWordRow from '@/components/vocabulary/VocabularyWordRow'
+import VocabWordCard from '@/components/vocabulary/VocabWordCard'
 import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import type { Audience } from '@/lib/types'
 import type { NecessaryWord, VocabularyWordProgress } from '@/types/vocabulary'
-
-export type VocabListKind = 'world' | 'pack' | 'errors' | 'mastered' | 'bank' | 'study' | 'vitrine'
 
 type Props = {
   title: string
@@ -16,12 +12,11 @@ type Props = {
   words: NecessaryWord[]
   progressMap: Record<string, VocabularyWordProgress>
   showMarks: boolean
-  stickyLabel?: string | null
-  onBack: () => void
   onStudy: (word: NecessaryWord) => void
   onKnow: (word: NecessaryWord) => void
-  onSticky?: () => void
   allowSearch?: boolean
+  emptyText?: string
+  extra?: React.ReactNode
 }
 
 export default function VocabularyListScreen({
@@ -30,12 +25,11 @@ export default function VocabularyListScreen({
   words,
   progressMap,
   showMarks,
-  stickyLabel,
-  onBack,
   onStudy,
   onKnow,
-  onSticky,
   allowSearch = false,
+  emptyText,
+  extra,
 }: Props) {
   const copy = vocabHubCopy(audience)
   const [query, setQuery] = React.useState('')
@@ -48,59 +42,51 @@ export default function VocabularyListScreen({
   const visible = filtered.slice(0, shown)
 
   return (
-    <VocabularySpaceScroll
-      footer={
-        stickyLabel && onSticky ? (
-          <div className="mx-auto w-full max-w-[29rem] shrink-0 px-3 pb-[calc(var(--app-footer-chrome-height)+0.75rem)]">
-            <ProgressCtaButton onClick={onSticky}>{stickyLabel}</ProgressCtaButton>
-          </div>
-        ) : null
-      }
-    >
-        <div className="flex items-center justify-between gap-2 px-1">
-          <p className="text-[17px] font-semibold text-[var(--text)]">{title}</p>
-          <button type="button" onClick={onBack} className="text-[14px] font-semibold text-[var(--text)]">
-            {copy.back}
+    <div className="space-y-2.5">
+      <p className="text-[17px] font-semibold text-[var(--text)]">{title}</p>
+      {allowSearch ? (
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={copy.searchPlaceholder}
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--text)] outline-none"
+        />
+      ) : null}
+      {extra}
+      <div className="space-y-2">
+        {visible.map((word) => {
+          const progress = progressMap[String(word.id)]
+          return (
+            <VocabWordCard
+              key={word.id}
+              word={word}
+              showMarks={showMarks}
+              showKnow={audience !== 'child'}
+              studyActive={progress?.userMark === 'study'}
+              knowActive={progress?.userMark === 'know'}
+              studyLabel={copy.study}
+              knowLabel={copy.know}
+              listenLabel={copy.listen}
+              onStudy={() => onStudy(word)}
+              onKnow={() => onKnow(word)}
+            />
+          )
+        })}
+        {filtered.length > shown ? (
+          <button
+            type="button"
+            className="w-full py-2 text-[14px] text-[var(--text-muted)]"
+            onClick={() => setShown((n) => n + 20)}
+          >
+            {copy.more}
           </button>
-        </div>
-        {allowSearch ? (
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Поиск…"
-            className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--text)] outline-none"
-          />
         ) : null}
-        <div className="space-y-2 pb-24">
-          {visible.map((word) => {
-            const progress = progressMap[String(word.id)]
-            return (
-              <VocabularyWordRow
-                key={word.id}
-                word={word}
-                showMarks={showMarks}
-                studyActive={progress?.userMark === 'study'}
-                knowActive={progress?.userMark === 'know'}
-                onStudy={() => onStudy(word)}
-                onKnow={() => onKnow(word)}
-              />
-            )
-          })}
-          {filtered.length > shown ? (
-            <button
-              type="button"
-              className="w-full py-2 text-[14px] text-[var(--text-muted)]"
-              onClick={() => setShown((n) => n + 20)}
-            >
-              {copy.more}
-            </button>
-          ) : null}
-          {filtered.length === 0 ? (
-            <p className="rounded-xl border border-[var(--border)] bg-[var(--chat-shell-bg)] px-3 py-4 text-[14px] text-[var(--text-muted)]">
-              Пока пусто.
-            </p>
-          ) : null}
-        </div>
-    </VocabularySpaceScroll>
+        {filtered.length === 0 ? (
+          <p className="rounded-xl border border-[var(--border)] bg-white px-3 py-4 text-[14px] text-[var(--text-muted)]">
+            {query.trim() ? copy.emptyList : emptyText ?? copy.emptyList}
+          </p>
+        ) : null}
+      </div>
+    </div>
   )
 }

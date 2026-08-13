@@ -1,18 +1,24 @@
 'use client'
 
 import React from 'react'
-import MyPlanCard from '@/components/myPlan/MyPlanCard'
-import MyPlanCardFooterButton from '@/components/myPlan/MyPlanCardFooterButton'
 import VocabularyBridgeScreen from '@/components/vocabulary/VocabularyBridgeScreen'
 import VocabularyListScreen from '@/components/vocabulary/VocabularyListScreen'
 import VocabularyPackImportScreen from '@/components/vocabulary/VocabularyPackImportScreen'
-import VocabularySpaceScroll from '@/components/vocabulary/VocabularySpaceScroll'
-import VocabularyTempoToggle from '@/components/vocabulary/VocabularyTempoToggle'
 import VocabularyThinSession from '@/components/vocabulary/VocabularyThinSession'
-import VocabularyWordRow from '@/components/vocabulary/VocabularyWordRow'
+import VocabCard from '@/components/vocabulary/VocabCard'
+import VocabCardFooterButton from '@/components/vocabulary/VocabCardFooterButton'
+import VocabHubShell from '@/components/vocabulary/VocabHubShell'
+import VocabShelfRow from '@/components/vocabulary/VocabShelfRow'
 import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
 import { customPackToNecessaryWords } from '@/lib/vocabulary/customPackAdapter'
+import {
+  VOCAB_CARD_BODY_REASON,
+  VOCAB_CARD_BODY_TITLE,
+  VOCAB_SHELF_CHIP,
+  VOCAB_SHELF_CHIP_ACTIVE,
+  VOCAB_STATUS_TILE,
+} from '@/lib/vocabulary/cardStyles'
 import {
   loadPackWords,
   pauseSessionWords,
@@ -20,6 +26,16 @@ import {
   rankVocabNowCta,
   type VocabNowKind,
 } from '@/lib/vocabulary/fuel'
+import {
+  hubTiles,
+  listShelvedWords,
+  listStudyWords,
+  resolveMistakeWords,
+  shelfIdsForAudience,
+  uniqueWords,
+  type HubTileId,
+  type VocabShelfId,
+} from '@/lib/vocabulary/hubBuckets'
 import { isWordInProgress } from '@/lib/vocabulary/learned'
 import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
 import {
@@ -28,9 +44,10 @@ import {
   patchWordProgress,
   saveVocabularyProgress,
 } from '@/lib/vocabulary/storage'
+import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
 import { lemmaKeyFromEn, listByFeedStatus, setUserMark } from '@/lib/vocabulary/wordFeed'
-import { vocabHubCopy, vocabHubFooter, vocabNowBody } from '@/lib/uiCopy/vocabularyHub'
-import { createEmptyWordProgress, pickNextSessionWords } from '@/lib/vocabulary/srs'
+import { vocabHubCopy, vocabHubFooter, vocabNowBody, vocabShelfLabel, vocabTileLabel, VOCAB_SHELF_CHIP_ORDER } from '@/lib/uiCopy/vocabularyHub'
+import { createEmptyWordProgress, pickNextSessionWords, sessionSizeForTempo } from '@/lib/vocabulary/srs'
 import { VOCABULARY_WORLDS } from '@/lib/vocabulary/worlds'
 import type { Audience } from '@/lib/types'
 import type {
@@ -40,21 +57,38 @@ import type {
   VocabularyFooterView,
   VocabularyProgressState,
   VocabularySessionRoute,
+  VocabularyTempo,
   VocabularyWorldId,
 } from '@/types/vocabulary'
 
-type HubView = 'hub' | 'list' | 'import' | 'session' | 'bridge'
-type HubWordsTab = 'unlearned' | 'learned'
+type HubView = 'hub' | 'catalog' | 'list' | 'import' | 'session' | 'bridge' | 'shelves'
 
-function uniqueWords(words: NecessaryWord[]): NecessaryWord[] {
-  const seen = new Set<number>()
-  const result: NecessaryWord[] = []
-  for (const word of words) {
-    if (seen.has(word.id)) continue
-    seen.add(word.id)
-    result.push(word)
-  }
-  return result
+/** Equal chip width: one quarter of the row minus three `gap-2` gutters. */
+const SHELF_CHIP_QUARTER_CLASS = 'w-[calc((100%-1.5rem)/4)] shrink-0'
+
+function ShelfFilterChip({
+  id,
+  label,
+  selected,
+  widthClass,
+  onPick,
+}: {
+  id: VocabShelfId | null
+  label: string
+  selected: boolean
+  widthClass: string
+  onPick: (id: VocabShelfId | null) => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      className={`${VOCAB_SHELF_CHIP} ${widthClass} ${selected ? VOCAB_SHELF_CHIP_ACTIVE : ''}`}
+      onClick={() => onPick(id)}
+    >
+      {label}
+    </button>
+  )
 }
 
 function countReviewed(words: NecessaryWord[], map: VocabularyProgressState['words']): number {
@@ -66,6 +100,9 @@ type ListKey =
   | { kind: 'errors' }
   | { kind: 'pack'; packId: string }
   | { kind: 'vitrine' }
+  | { kind: 'mastered' }
+  | { kind: 'bank' }
+  | { kind: 'study' }
 
 type Props = {
   audience?: Audience
@@ -77,21 +114,6 @@ type Props = {
   onOpenTranslationWithHandoff?: () => void
   onOpenCallWithHandoff?: () => void
   onOpenByLevel?: () => void
-}
-
-function resolveMistakeWords(catalog: NecessaryWord[], packWords: NecessaryWord[]): NecessaryWord[] {
-  const pool = [...catalog, ...packWords]
-  const mistakes = loadVocabMistakes()
-  const result: NecessaryWord[] = []
-  for (const item of mistakes) {
-    const found = pool.find((word) => lemmaKeyFromEn(word.en) === item.lemmaKey)
-    if (found && !result.some((row) => row.id === found.id)) result.push(found)
-  }
-  for (const word of pool) {
-    const progress = loadVocabularyProgress().words[String(word.id)]
-    if (progress?.feedStatus === 'returned' && !result.some((row) => row.id === word.id)) result.push(word)
-  }
-  return result
 }
 
 export default function VocabularyHubScreen({
@@ -116,9 +138,9 @@ export default function VocabularyHubScreen({
   const [sessionKey, setSessionKey] = React.useState(0)
   const [bridgeLemmas, setBridgeLemmas] = React.useState<VocabularyFocusLemma[]>([])
   const [nowKind, setNowKind] = React.useState<VocabNowKind>('empty')
-  const [wordsTab, setWordsTab] = React.useState<HubWordsTab>('unlearned')
-  const [hubQuery, setHubQuery] = React.useState('')
-  const [hubShown, setHubShown] = React.useState(20)
+  const [shelfFilter, setShelfFilter] = React.useState<VocabShelfId | null>(null)
+  const [shelfQuery, setShelfQuery] = React.useState('')
+  const [shelfShown, setShelfShown] = React.useState(20)
 
   const activeWords = React.useMemo(
     () => (catalog?.words ?? []).filter((word) => word.status === 'active'),
@@ -126,19 +148,39 @@ export default function VocabularyHubScreen({
   )
   const packWords = React.useMemo(() => loadPackWords(), [progress, view])
   const packs = React.useMemo(() => loadCustomWordPacks(), [progress, view])
-
-  const refreshNow = React.useCallback(
-    (words: NecessaryWord[], map: VocabularyProgressState['words']) => {
-      setNowKind(
-        rankVocabNowCta({
-          words,
-          progressMap: map,
-          packWords: loadPackWords(),
-        })
-      )
-    },
-    []
+  const mistakes = React.useMemo(() => loadVocabMistakes(), [progress, view])
+  const poolWords = React.useMemo(() => uniqueWords([...activeWords, ...packWords]), [activeWords, packWords])
+  const shelvedRows = React.useMemo(
+    () =>
+      listShelvedWords({
+        words: poolWords,
+        progressMap: progress.words,
+        mistakes,
+        audience,
+        shelf: shelfFilter,
+      }),
+    [audience, mistakes, poolWords, progress.words, shelfFilter]
   )
+  const shelvedAllCount = React.useMemo(
+    () =>
+      listShelvedWords({
+        words: poolWords,
+        progressMap: progress.words,
+        mistakes,
+        audience,
+      }).length,
+    [audience, mistakes, poolWords, progress.words]
+  )
+
+  const refreshNow = React.useCallback((words: NecessaryWord[], map: VocabularyProgressState['words']) => {
+    setNowKind(
+      rankVocabNowCta({
+        words,
+        progressMap: map,
+        packWords: loadPackWords(),
+      })
+    )
+  }, [])
 
   React.useEffect(() => {
     setProgress(loadVocabularyProgress())
@@ -164,50 +206,46 @@ export default function VocabularyHubScreen({
     }
   }, [refreshNow])
 
+  const resetShelvesNav = React.useCallback(() => {
+    setShelfFilter(null)
+    setShelfQuery('')
+    setShelfShown(20)
+  }, [])
+
   React.useEffect(() => {
     onRegisterLeaveHandler?.(() => {
       setView('hub')
       setSessionWords([])
+      resetShelvesNav()
     })
     return () => onRegisterLeaveHandler?.(null)
-  }, [onRegisterLeaveHandler])
+  }, [onRegisterLeaveHandler, resetShelvesNav])
 
   React.useEffect(() => {
     if (exitRequestKey <= 0) return
     setView('hub')
     setSessionWords([])
-  }, [exitRequestKey])
+    resetShelvesNav()
+  }, [exitRequestKey, resetShelvesNav])
 
   React.useEffect(() => {
-    if (view !== 'hub') return
+    if (view === 'session' || view === 'bridge') return
     const footer = vocabHubFooter(nowKind)
     onFooterViewChange?.({
-      dynamicText: footer.dynamicText,
-      staticText: footer.staticText,
-      typingKey: `vocab-hub-${nowKind}`,
+      dynamicText: view === 'shelves' ? copy.shelvesFooterDynamic : footer.dynamicText,
+      staticText:
+        view === 'catalog' ? copy.catalogScreenTitle : view === 'shelves' ? copy.shelvesFooterStatic : footer.staticText,
+      typingKey: `vocab-hub-${nowKind}-${view}`,
     })
     return () => onFooterViewChange?.(null)
-  }, [nowKind, onFooterViewChange, view])
+  }, [audience, copy.catalogScreenTitle, copy.shelvesFooterDynamic, copy.shelvesFooterStatic, nowKind, onFooterViewChange, view])
 
-  const poolWords = React.useMemo(() => uniqueWords([...activeWords, ...packWords]), [activeWords, packWords])
-  const unlearnedWords = React.useMemo(
-    () => poolWords.filter((word) => progress.words[String(word.id)]?.feedStatus !== 'mastered'),
-    [poolWords, progress.words]
-  )
-  const learnedWords = React.useMemo(
-    () => listByFeedStatus(poolWords, progress.words, 'mastered'),
-    [poolWords, progress.words]
-  )
-  const hubTabWords = wordsTab === 'learned' ? learnedWords : unlearnedWords
-  const hubFilteredWords = React.useMemo(() => {
-    const q = hubQuery.trim().toLowerCase()
-    if (!q) return hubTabWords
-    return hubTabWords.filter(
-      (word) => word.en.toLowerCase().includes(q) || word.ru.toLowerCase().includes(q)
-    )
-  }, [hubQuery, hubTabWords])
-  const hubVisibleWords = hubFilteredWords.slice(0, hubShown)
-  const errorCount = resolveMistakeWords(activeWords, packWords).length
+  const tiles = hubTiles({
+    audience,
+    words: poolWords,
+    progressMap: progress.words,
+    mistakes,
+  })
   const nowBody = vocabNowBody(nowKind, audience)
   const nowCtaLabel = nowBody.cta === 'say' ? copy.say : nowBody.cta === 'pick' ? copy.pick : copy.start
 
@@ -220,7 +258,7 @@ export default function VocabularyHubScreen({
       progressMap: progress.words,
       packWords: extraPack,
       n: tempoSize,
-      mistakeLemmaKeys: new Set(loadVocabMistakes().map((item) => item.lemmaKey)),
+      mistakeLemmaKeys: new Set(mistakes.map((item) => item.lemmaKey)),
     })
 
   const lemmasToWords = (lemmas: VocabularyFocusLemma[]) => {
@@ -237,16 +275,27 @@ export default function VocabularyHubScreen({
       size: tempoSize,
     })
 
-  const startSession = (words: NecessaryWord[], route: VocabularySessionRoute) => {
+  const startSession = (words: NecessaryWord[], route: VocabularySessionRoute, size = tempoSize) => {
     if (words.length === 0) {
       setListKey({ kind: 'vitrine' })
       setView('list')
       return
     }
-    setSessionWords(words.slice(0, tempoSize))
+    setSessionWords(words.slice(0, size))
     setSessionRoute(route)
     setSessionKey((n) => n + 1)
     setView('session')
+  }
+
+  const startWorldTempo = (worldId: VocabularyWorldId, nextTempo: VocabularyTempo) => {
+    const size = sessionSizeForTempo(nextTempo)
+    const planned = pickNextSessionWords({
+      words: worldPool(worldId),
+      progressMap: progress.words,
+      size,
+    })
+    setTempo(nextTempo)
+    startSession(planned, { kind: 'world', worldId }, size)
   }
 
   const startAgain = () => {
@@ -282,7 +331,7 @@ export default function VocabularyHubScreen({
       return
     }
     if (nowBody.cta === 'say') {
-      const bank = listByFeedStatus([...activeWords, ...packWords], progress.words, 'in_feed').slice(0, 3)
+      const bank = listByFeedStatus(poolWords, progress.words, 'in_feed').slice(0, 3)
       const fromFuel = lemmasToWords(fuelLemmas())
       const source = nowKind === 'errors-bridge' || bank.length === 0 ? fromFuel : bank
       startBridge(
@@ -307,20 +356,44 @@ export default function VocabularyHubScreen({
 
   const persistMark = (word: NecessaryWord, mark: 'study' | 'know' | null) => {
     const current = progress.words[String(word.id)] ?? createEmptyWordProgress(word.id)
-    const nextState = patchWordProgress(progress, word.id, setUserMark({ ...current, lemmaKey: lemmaKeyFromEn(word.en) }, mark))
+    const nextState = patchWordProgress(
+      progress,
+      word.id,
+      setUserMark({ ...current, lemmaKey: lemmaKeyFromEn(word.en) }, mark)
+    )
     saveVocabularyProgress(nextState)
     setProgress(nextState)
     refreshNow(activeWords, nextState.words)
   }
 
-  const listBundle = (): { title: string; words: NecessaryWord[]; showMarks: boolean; sticky: string | null } => {
-    if (!listKey) return { title: copy.spaceTitle, words: [], showMarks: false, sticky: null }
+  const openTile = (id: HubTileId) => {
+    if (id === 'mastered') setListKey({ kind: 'mastered' })
+    else if (id === 'in_feed') setListKey({ kind: 'bank' })
+    else if (id === 'study') setListKey({ kind: 'study' })
+    else setListKey({ kind: 'errors' })
+    setView('list')
+  }
+
+  const backToHub = () => {
+    setView('hub')
+    setListKey(null)
+    resetShelvesNav()
+  }
+
+  const listBundle = (): {
+    title: string
+    words: NecessaryWord[]
+    showMarks: boolean
+    sticky: string | null
+    empty: string
+  } => {
+    if (!listKey) return { title: copy.spaceTitle, words: [], showMarks: false, sticky: null, empty: copy.emptyList }
     if (listKey.kind === 'world' || listKey.kind === 'vitrine') {
       const worldId = listKey.kind === 'world' ? listKey.worldId : 'home'
       const title = VOCABULARY_WORLDS.find((world) => world.id === worldId)?.title ?? copy.vitrine
       let words = worldPool(worldId)
       if (listKey.kind === 'vitrine') words = words.slice(0, 12)
-      return { title, words, showMarks: true, sticky: copy.studyList }
+      return { title, words, showMarks: true, sticky: copy.studyList, empty: copy.emptyList }
     }
     if (listKey.kind === 'pack') {
       const pack = packs.find((item) => item.id === listKey.packId)
@@ -329,9 +402,154 @@ export default function VocabularyHubScreen({
         words: pack ? customPackToNecessaryWords(pack) : [],
         showMarks: true,
         sticky: copy.studyList,
+        empty: copy.emptyList,
       }
     }
-    return { title: 'Ошибки', words: resolveMistakeWords(activeWords, packWords), showMarks: false, sticky: copy.start }
+    if (listKey.kind === 'mastered') {
+      return {
+        title: copy.masteredTitle,
+        words: listByFeedStatus(poolWords, progress.words, 'mastered'),
+        showMarks: false,
+        sticky: null,
+        empty: copy.masteredEmpty,
+      }
+    }
+    if (listKey.kind === 'bank') {
+      return {
+        title: copy.bankTitle,
+        words: listByFeedStatus(poolWords, progress.words, 'in_feed'),
+        showMarks: false,
+        sticky: copy.say,
+        empty: copy.emptyList,
+      }
+    }
+    if (listKey.kind === 'study') {
+      return {
+        title: copy.studyTitle,
+        words: listStudyWords(poolWords, progress.words),
+        showMarks: true,
+        sticky: copy.studyList,
+        empty: copy.emptyList,
+      }
+    }
+    return {
+      title: copy.errorsTitle,
+      words: resolveMistakeWords(activeWords, packWords, progress.words, mistakes),
+      showMarks: true,
+      sticky: copy.say,
+      empty: copy.emptyList,
+    }
+  }
+
+  const handoffBank = () => {
+    const bank = listByFeedStatus(poolWords, progress.words, 'in_feed').slice(0, 3)
+    if (bank.length === 0) return
+    writeVocabTranslationHandoff({
+      lemmas: bank.map((word) => ({
+        en: word.en,
+        ru: word.ru,
+        wordId: word.id,
+        lemmaKey: lemmaKeyFromEn(word.en),
+      })),
+      source: 'feed_browse',
+      loadStudying: true,
+    })
+    onOpenTranslationWithHandoff?.()
+  }
+
+  const handoffErrors = (open: 'translation' | 'call') => {
+    const errorWords = resolveMistakeWords(activeWords, packWords, progress.words, mistakes).slice(0, 3)
+    const lemmas =
+      errorWords.length > 0
+        ? errorWords.map((word) => ({
+            en: word.en,
+            ru: word.ru,
+            wordId: word.id,
+            lemmaKey: lemmaKeyFromEn(word.en),
+          }))
+        : mistakes.slice(0, 3).map((item) => ({
+            en: item.en,
+            ru: item.ru ?? '',
+            lemmaKey: item.lemmaKey,
+          }))
+    if (lemmas.length === 0) return
+    writeVocabTranslationHandoff({ lemmas, source: 'feed_browse', loadStudying: true })
+    if (open === 'call') onOpenCallWithHandoff?.()
+    else     onOpenTranslationWithHandoff?.()
+  }
+
+  const handoffShelfWords = (
+    words: NecessaryWord[],
+    open: 'translation' | 'call',
+    allowInboxFallback: boolean
+  ) => {
+    const picked = words.slice(0, 3)
+    const lemmas =
+      picked.length > 0
+        ? picked.map((word) => ({
+            en: word.en,
+            ru: word.ru,
+            wordId: word.id,
+            lemmaKey: lemmaKeyFromEn(word.en),
+          }))
+        : allowInboxFallback
+          ? mistakes.slice(0, 3).map((item) => ({
+              en: item.en,
+              ru: item.ru ?? '',
+              lemmaKey: item.lemmaKey,
+            }))
+          : []
+    if (lemmas.length === 0) return
+    writeVocabTranslationHandoff({ lemmas, source: 'feed_browse', loadStudying: true })
+    if (open === 'call') onOpenCallWithHandoff?.()
+    else onOpenTranslationWithHandoff?.()
+  }
+
+  const runListSticky = (bundle: ReturnType<typeof listBundle>) => {
+    if (!listKey) return
+    if (listKey.kind === 'bank' || (listKey.kind === 'errors' && nowKind === 'errors-bridge')) {
+      startBridge(
+        bundle.words.slice(0, 3).map((word) => ({
+          en: word.en,
+          ru: word.ru,
+          wordId: word.id,
+          lemmaKey: lemmaKeyFromEn(word.en),
+        }))
+      )
+      return
+    }
+    if (listKey.kind === 'world' || listKey.kind === 'vitrine') {
+      const worldId = listKey.kind === 'world' ? listKey.worldId : 'home'
+      startSession(pickWorldWords(worldId), { kind: 'world', worldId })
+      return
+    }
+    const fromList = lemmasToWords(fuelLemmas(bundle.words, listKey.kind === 'pack' ? bundle.words : packWords))
+    const fallback = bundle.words
+      .filter((word) => {
+        const mark = progress.words[String(word.id)]?.userMark
+        return mark === 'study' || listKey.kind === 'pack' || listKey.kind === 'errors' || listKey.kind === 'study'
+      })
+      .slice(0, tempoSize)
+    startSession(
+      fromList.length ? fromList : fallback,
+      listKey.kind === 'pack' ? { kind: 'pack', packId: listKey.packId } : { kind: 'world', worldId: 'home' }
+    )
+  }
+
+  const runShelvesSticky = (words: NecessaryWord[]) => {
+    if (shelfFilter === 'in_feed') {
+      startBridge(
+        words.slice(0, 3).map((word) => ({
+          en: word.en,
+          ru: word.ru,
+          wordId: word.id,
+          lemmaKey: lemmaKeyFromEn(word.en),
+        }))
+      )
+      return
+    }
+    const fromFuel = lemmasToWords(fuelLemmas(words, packWords))
+    startSession(fromFuel.length ? fromFuel : words.slice(0, tempoSize), { kind: 'world', worldId: 'home' })
   }
 
   if (view === 'session' && sessionWords.length > 0) {
@@ -342,7 +560,7 @@ export default function VocabularyHubScreen({
         distractorPool={activeWords}
         route={sessionRoute}
         tempo={tempo}
-        routeTitle="Слова"
+        routeTitle={copy.spaceTitle}
         audience={audience}
         setProgress={setProgress}
         onFooterViewChange={onFooterViewChange}
@@ -382,262 +600,381 @@ export default function VocabularyHubScreen({
 
   if (view === 'import') {
     return (
-      <VocabularyPackImportScreen
-        catalog={activeWords}
-        onBack={() => setView('hub')}
-        onSaved={() => {
-          setProgress(loadVocabularyProgress())
-          setView('hub')
-        }}
-      />
+      <VocabHubShell backLabel={copy.back} onBack={backToHub}>
+        <VocabularyPackImportScreen catalog={activeWords} audience={audience} onSaved={backToHub} />
+      </VocabHubShell>
     )
   }
 
   if (view === 'list' && listKey) {
     const bundle = listBundle()
+    const extra =
+      listKey.kind === 'bank' ? (
+        <VocabCardFooterButton
+          variant="expand"
+          label={copy.handoffTranslation}
+          onClick={handoffBank}
+          disabled={bundle.words.length === 0}
+          roundBottom={false}
+        />
+      ) : listKey.kind === 'errors' ? (
+        <div className="space-y-2">
+          <VocabCardFooterButton
+            variant="expand"
+            label={copy.handoffTranslation}
+            onClick={() => handoffErrors('translation')}
+            disabled={bundle.words.length === 0 && mistakes.length === 0}
+            roundBottom={false}
+          />
+          {onOpenCallWithHandoff ? (
+            <VocabCardFooterButton
+              variant="action"
+              label={copy.handoffCall}
+              onClick={() => handoffErrors('call')}
+              disabled={bundle.words.length === 0 && mistakes.length === 0}
+              roundBottom={false}
+            />
+          ) : null}
+        </div>
+      ) : null
     return (
-      <VocabularyListScreen
-        title={bundle.title}
-        audience={audience}
-        words={bundle.words}
-        progressMap={progress.words}
-        showMarks={bundle.showMarks}
-        stickyLabel={bundle.sticky}
-        allowSearch={listKey.kind === 'pack' || audience === 'adult'}
-        onBack={() => setView('hub')}
-        onStudy={(word) => persistMark(word, 'study')}
-        onKnow={(word) => persistMark(word, 'know')}
-        onSticky={() => {
-          if (listKey.kind === 'errors' && nowKind === 'errors-bridge') {
-            startBridge(
-              bundle.words.slice(0, 3).map((word) => ({
-                en: word.en,
-                ru: word.ru,
-                wordId: word.id,
-                lemmaKey: lemmaKeyFromEn(word.en),
-              }))
-            )
-            return
-          }
-          if (listKey.kind === 'world' || listKey.kind === 'vitrine') {
-            const worldId = listKey.kind === 'world' ? listKey.worldId : 'home'
-            startSession(pickWorldWords(worldId), { kind: 'world', worldId })
-            return
-          }
-          const fromList = lemmasToWords(
-            fuelLemmas(bundle.words, listKey.kind === 'pack' ? bundle.words : packWords)
-          )
-          const fallback = bundle.words
-            .filter((word) => {
-              const mark = progress.words[String(word.id)]?.userMark
-              return mark === 'study' || listKey.kind === 'pack' || listKey.kind === 'errors'
-            })
-            .slice(0, tempoSize)
-          startSession(
-            fromList.length ? fromList : fallback,
-            listKey.kind === 'pack' ? { kind: 'pack', packId: listKey.packId } : { kind: 'world', worldId: 'home' }
-          )
-        }}
-      />
+      <VocabHubShell
+        backLabel={copy.back}
+        onBack={backToHub}
+        actionLabel={bundle.sticky}
+        onAction={bundle.sticky ? () => runListSticky(bundle) : undefined}
+        actionDisabled={bundle.words.length === 0}
+      >
+        <VocabularyListScreen
+          title={bundle.title}
+          audience={audience}
+          words={bundle.words}
+          progressMap={progress.words}
+          showMarks={bundle.showMarks}
+          allowSearch
+          emptyText={bundle.empty}
+          extra={extra}
+          onStudy={(word) => persistMark(word, 'study')}
+          onKnow={(word) => persistMark(word, 'know')}
+        />
+      </VocabHubShell>
     )
   }
 
-  const worlds = audience === 'child' ? VOCABULARY_WORLDS.filter((world) => world.id !== 'core') : VOCABULARY_WORLDS
-
-  return (
-    <VocabularySpaceScroll>
-        <div className="flex items-center justify-between px-1">
-          <p className="text-[17px] font-semibold text-[var(--text)]">{copy.spaceTitle}</p>
-          <button type="button" onClick={onBackToLessons} className="text-[14px] font-semibold text-[var(--text)]">
-            {copy.back}
-          </button>
-        </div>
-
-        <MyPlanCard
-          title={copy.nowTitle}
-          footer={
-            <MyPlanCardFooterButton variant="launch" label={nowCtaLabel} onClick={handleNow} />
-          }
-        >
-          <p className="text-[15px] font-semibold text-[var(--text)]">{nowBody.title}</p>
-          <p className="mt-1 text-[13px] text-[var(--text-muted)]">{nowBody.reason}</p>
-        </MyPlanCard>
-
-        {errorCount > 0 ? (
-          <button
-            type="button"
-            className="px-1 text-left text-[13px] text-[var(--text-muted)]"
-            onClick={() => {
-              setListKey({ kind: 'errors' })
-              setView('list')
-            }}
-          >
-            {copy.debtErrors(errorCount)}
-          </button>
-        ) : null}
-
-        <div className="space-y-3">
-          <VocabularyTempoToggle value={tempo} onChange={setTempo} />
-          {worlds.map((world) => {
-            const words = worldPool(world.id)
-            const reviewed = countReviewed(words, progress.words)
-            const planned = pickNextSessionWords({
-              words,
-              progressMap: progress.words,
-              size: tempoSize,
-            })
-            const plannedCount = planned.length
-            return (
-              <div
-                key={world.id}
-                className="rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-4 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left"
-                    onClick={() => {
-                      setListKey({ kind: 'world', worldId: world.id })
-                      setView('list')
-                    }}
-                  >
-                    <p className="text-[17px] font-semibold text-[var(--text)]">
-                      {world.badge} {world.title}
-                    </p>
-                    <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">{world.description}</p>
-                    <p className="mt-2 text-[12px] font-medium text-[var(--text-muted)]">
-                      Пройдено слов: {reviewed}/{words.length}
-                    </p>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={plannedCount === 0}
-                    onClick={() => startSession(planned, { kind: 'world', worldId: world.id })}
-                    className="btn-3d-menu shrink-0 rounded-lg border border-[var(--border)] bg-white px-3 py-2 text-[13px] font-semibold text-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {plannedCount > 0 ? `Учить · ${plannedCount}` : 'Учить'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-          {audience === 'adult' && onOpenByLevel ? (
-            <button
-              type="button"
-              className="flex w-full min-h-[44px] items-center justify-between rounded-[1.15rem] border border-[var(--border)] bg-[var(--menu-card-bg)] px-4 py-3 text-left text-[15px] text-[var(--text-muted)]"
-              onClick={onOpenByLevel}
-            >
-              По уровню
-              <span>›</span>
-            </button>
+  if (view === 'shelves') {
+    const q = shelfQuery.trim().toLowerCase()
+    const filtered = q
+      ? shelvedRows.filter(
+          (row) => row.word.en.toLowerCase().includes(q) || row.word.ru.toLowerCase().includes(q)
+        )
+      : shelvedRows
+    const visible = filtered.slice(0, shelfShown)
+    const shelfWords = filtered.map((row) => row.word)
+    const chips = VOCAB_SHELF_CHIP_ORDER.filter((id) => shelfIdsForAudience(audience).includes(id))
+    const chipItems: Array<{ id: VocabShelfId | null; label: string }> = [
+      { id: null, label: copy.shelvesAll },
+      ...chips.map((id) => ({ id, label: vocabShelfLabel(id, audience) })),
+    ]
+    const topCount = chipItems.length === 7 ? 4 : 3
+    const chipTop = chipItems.slice(0, topCount)
+    const chipBottom = chipItems.slice(topCount)
+    const pickShelfChip = (id: VocabShelfId | null) => {
+      setShelfFilter(id)
+      setShelfShown(20)
+    }
+    const sticky =
+      shelfFilter === 'study' || shelfFilter === 'returned'
+        ? copy.studyList
+        : shelfFilter === 'in_feed'
+          ? copy.say
+          : null
+    const extra =
+      shelfFilter === 'in_feed' ? (
+        <VocabCardFooterButton
+          variant="expand"
+          label={copy.handoffTranslation}
+          onClick={() => handoffShelfWords(shelfWords, 'translation', false)}
+          disabled={shelfWords.length === 0}
+          roundBottom={false}
+        />
+      ) : shelfFilter === 'errors' ? (
+        <div className="space-y-2">
+          <VocabCardFooterButton
+            variant="expand"
+            label={copy.handoffTranslation}
+            onClick={() => handoffShelfWords(shelfWords, 'translation', true)}
+            disabled={shelfWords.length === 0 && mistakes.length === 0}
+            roundBottom={false}
+          />
+          {onOpenCallWithHandoff ? (
+            <VocabCardFooterButton
+              variant="action"
+              label={copy.handoffCall}
+              onClick={() => handoffShelfWords(shelfWords, 'call', true)}
+              disabled={shelfWords.length === 0 && mistakes.length === 0}
+              roundBottom={false}
+            />
           ) : null}
         </div>
-
-        <div className="flex gap-2 rounded-[1rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] p-1 shadow-sm">
-          {(
-            [
-              { id: 'unlearned' as const, label: copy.tabUnlearned, count: unlearnedWords.length },
-              { id: 'learned' as const, label: copy.tabLearned, count: learnedWords.length },
-            ] as const
-          ).map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => {
-                setWordsTab(tab.id)
-                setHubShown(20)
-              }}
-              className={`flex-1 rounded-lg px-3 py-2 text-[13px] font-semibold ${
-                wordsTab === tab.id ? 'bg-white text-[var(--text)] shadow-sm' : 'text-[var(--text-muted)]'
-              }`}
-            >
-              {tab.label} {tab.count}
-            </button>
-          ))}
-        </div>
-
+      ) : null
+    return (
+      <VocabHubShell
+        backLabel={copy.back}
+        onBack={backToHub}
+        actionLabel={sticky}
+        onAction={sticky ? () => runShelvesSticky(shelfWords) : undefined}
+        actionDisabled={shelfWords.length === 0}
+      >
+        <p className="text-[17px] font-semibold text-[var(--text)]">{copy.shelvesScreenTitle}</p>
         <input
-          value={hubQuery}
+          value={shelfQuery}
           onChange={(event) => {
-            setHubQuery(event.target.value)
-            setHubShown(20)
+            setShelfQuery(event.target.value)
+            setShelfShown(20)
           }}
           placeholder={copy.searchPlaceholder}
           className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--text)] outline-none"
         />
-
-        <div className="space-y-2">
-          {hubVisibleWords.map((word) => {
-            const row = progress.words[String(word.id)]
-            return (
-              <VocabularyWordRow
-                key={word.id}
-                word={word}
-                showMarks={wordsTab === 'unlearned'}
-                studyActive={row?.userMark === 'study'}
-                knowActive={row?.userMark === 'know'}
-                onStudy={() => persistMark(word, 'study')}
-                onKnow={() => persistMark(word, 'know')}
+        <div className="rounded-xl border border-[var(--border)] bg-white p-2">
+          {chipItems.length === 7 ? (
+            <div className="grid grid-cols-4 gap-2">
+              {chipTop.map((item) => (
+                <ShelfFilterChip
+                  key={item.id ?? 'all'}
+                  id={item.id}
+                  label={item.label}
+                  selected={shelfFilter === item.id}
+                  widthClass="w-full"
+                  onPick={pickShelfChip}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex justify-center gap-2">
+              {chipTop.map((item) => (
+                <ShelfFilterChip
+                  key={item.id ?? 'all'}
+                  id={item.id}
+                  label={item.label}
+                  selected={shelfFilter === item.id}
+                  widthClass={SHELF_CHIP_QUARTER_CLASS}
+                  onPick={pickShelfChip}
+                />
+              ))}
+            </div>
+          )}
+          <div className="mt-2 flex justify-center gap-2">
+            {chipBottom.map((item) => (
+              <ShelfFilterChip
+                key={item.id ?? 'all'}
+                id={item.id}
+                label={item.label}
+                selected={shelfFilter === item.id}
+                widthClass={item.id === 'returned' ? 'w-fit shrink-0' : SHELF_CHIP_QUARTER_CLASS}
+                onPick={pickShelfChip}
               />
-            )
-          })}
-          {hubFilteredWords.length > hubShown ? (
+            ))}
+          </div>
+        </div>
+        {extra}
+        <div className="space-y-2">
+          {visible.map((row) => (
+            <VocabShelfRow
+              key={row.word.id}
+              en={row.word.en}
+              ru={row.word.ru}
+              statusLabel={vocabShelfLabel(row.shelf, audience)}
+              listenLabel={copy.listen}
+            />
+          ))}
+          {filtered.length > shelfShown ? (
             <button
               type="button"
               className="w-full py-2 text-[14px] text-[var(--text-muted)]"
-              onClick={() => setHubShown((n) => n + 20)}
+              onClick={() => setShelfShown((n) => n + 20)}
             >
               {copy.more}
             </button>
           ) : null}
-          {hubFilteredWords.length === 0 ? (
-            <p className="rounded-xl border border-[var(--border)] bg-[var(--chat-shell-bg)] px-3 py-4 text-[14px] text-[var(--text-muted)]">
-              {hubQuery.trim()
-                ? copy.emptyList
-                : wordsTab === 'learned'
-                  ? copy.learnedEmpty
-                  : copy.unlearnedEmpty}
+          {filtered.length === 0 ? (
+            <p className="rounded-xl border border-[var(--border)] bg-white px-3 py-4 text-[14px] text-[var(--text-muted)]">
+              {copy.emptyList}
             </p>
           ) : null}
         </div>
+      </VocabHubShell>
+    )
+  }
 
-        <div className="overflow-hidden rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-          {packs.length === 0 ? (
-            <button
-              type="button"
-              className="flex w-full min-h-[44px] items-center justify-between px-3 py-2.5 text-left text-[15px]"
-              onClick={() => setView('import')}
+  if (view === 'catalog') {
+    const worlds = audience === 'child' ? VOCABULARY_WORLDS.filter((world) => world.id !== 'core') : VOCABULARY_WORLDS
+    return (
+      <VocabHubShell backLabel={copy.back} onBack={backToHub}>
+        {worlds.map((world) => {
+          const words = worldPool(world.id)
+          const reviewed = countReviewed(words, progress.words)
+          const plannedSprint = pickNextSessionWords({
+            words,
+            progressMap: progress.words,
+            size: sessionSizeForTempo('sprint'),
+          })
+          const plannedFull = pickNextSessionWords({
+            words,
+            progressMap: progress.words,
+            size: sessionSizeForTempo('full'),
+          })
+          return (
+            <VocabCard
+              key={world.id}
+              title={`${world.badge} ${world.title}`}
+              insetCta={
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <VocabCardFooterButton
+                    placement="inset"
+                    variant="expand"
+                    flushTop
+                    label={copy.tempoSprintCta}
+                    disabled={plannedSprint.length === 0}
+                    onClick={() => startWorldTempo(world.id, 'sprint')}
+                  />
+                  <VocabCardFooterButton
+                    placement="inset"
+                    variant="launch"
+                    flushTop
+                    label={copy.tempoFullCta}
+                    disabled={plannedFull.length === 0}
+                    onClick={() => startWorldTempo(world.id, 'full')}
+                  />
+                </div>
+              }
             >
-              {copy.fillList}
-              <span className="text-[var(--text-muted)]">›</span>
-            </button>
-          ) : (
-            <>
-              {packs.map((pack) => (
-                <button
-                  key={pack.id}
-                  type="button"
-                  className="flex w-full min-h-[44px] items-center justify-between border-b border-[var(--border)]/70 px-3 py-2.5 text-left text-[15px]"
-                  onClick={() => {
-                    setListKey({ kind: 'pack', packId: pack.id })
-                    setView('list')
-                  }}
-                >
-                  {pack.title}
-                  <span className="text-[var(--text-muted)]">›</span>
-                </button>
-              ))}
               <button
                 type="button"
-                className="flex w-full min-h-[44px] items-center justify-between px-3 py-2.5 text-left text-[15px]"
-                onClick={() => setView('import')}
+                className="w-full text-left"
+                onClick={() => {
+                  setListKey({ kind: 'world', worldId: world.id })
+                  setView('list')
+                }}
               >
-                {copy.fillList}
-                <span className="text-[var(--text-muted)]">›</span>
+                <p className={VOCAB_CARD_BODY_REASON}>{world.description}</p>
+                <p className={`mt-2 ${VOCAB_CARD_BODY_REASON}`}>
+                  {copy.worldReviewed(reviewed, words.length)}
+                </p>
               </button>
-            </>
-          )}
-        </div>
-    </VocabularySpaceScroll>
+            </VocabCard>
+          )
+        })}
+        {audience === 'adult' && onOpenByLevel ? (
+          <button
+            type="button"
+            className="flex w-full min-h-[44px] items-center justify-between rounded-[1.15rem] border border-[var(--chat-section-neutral-border)] bg-white px-4 py-3 text-left text-[15px] text-[var(--text-muted)]"
+            onClick={onOpenByLevel}
+          >
+            {copy.byLevel}
+            <span>›</span>
+          </button>
+        ) : null}
+      </VocabHubShell>
+    )
+  }
+
+  const packTitle = packs[0]?.title
+
+  return (
+    <VocabHubShell backLabel={copy.back} onBack={onBackToLessons}>
+      <div className="grid grid-cols-3 gap-2">
+        {tiles.map((tile) => (
+          <button key={tile.id} type="button" className={VOCAB_STATUS_TILE} onClick={() => openTile(tile.id)}>
+            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">{tile.count}</p>
+            <p className="text-[13px] text-[var(--text-muted)]">{vocabTileLabel(tile.id, audience)}</p>
+          </button>
+        ))}
+      </div>
+
+      <VocabCard
+        title={copy.nowTitle}
+        insetCta={
+          <VocabCardFooterButton placement="inset" variant="launch" label={nowCtaLabel} onClick={handleNow} />
+        }
+      >
+        <p className={VOCAB_CARD_BODY_TITLE}>{nowBody.title}</p>
+        <p className={VOCAB_CARD_BODY_REASON}>{nowBody.reason}</p>
+      </VocabCard>
+
+      <VocabCard
+        title={copy.shelvesTitle}
+        insetCta={
+          <VocabCardFooterButton
+            placement="inset"
+            variant="expand"
+            label={copy.catalogOpen}
+            onClick={() => {
+              resetShelvesNav()
+              setView('shelves')
+            }}
+          />
+        }
+      >
+        <p className={VOCAB_CARD_BODY_TITLE}>{String(shelvedAllCount)}</p>
+        <p className={VOCAB_CARD_BODY_REASON}>{copy.shelvesBody}</p>
+      </VocabCard>
+
+      <VocabCard
+        title={copy.listsTitle}
+        insetCta={
+          <VocabCardFooterButton
+            placement="inset"
+            variant="expand"
+            label={copy.fillList}
+            onClick={() => setView('import')}
+          />
+        }
+      >
+        {packs.length === 0 ? <p className={VOCAB_CARD_BODY_TITLE}>{copy.listsEmpty}</p> : null}
+        {packs.length === 1 && packs[0] ? (
+          <button
+            type="button"
+            className={`block w-full text-left ${VOCAB_CARD_BODY_TITLE}`}
+            onClick={() => {
+              setListKey({ kind: 'pack', packId: packs[0].id })
+              setView('list')
+            }}
+          >
+            {copy.listsFilled(packTitle ?? packs[0].title)}
+          </button>
+        ) : null}
+        {packs.length > 1 ? (
+          <div className="space-y-1">
+            {packs.map((pack) => (
+              <button
+                key={pack.id}
+                type="button"
+                className="block w-full text-left text-[14px] font-semibold text-[var(--text)]"
+                onClick={() => {
+                  setListKey({ kind: 'pack', packId: pack.id })
+                  setView('list')
+                }}
+              >
+                {pack.title}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </VocabCard>
+
+      <VocabCard
+        title={copy.catalogTitle}
+        insetCta={
+          <VocabCardFooterButton
+            placement="inset"
+            variant="expand"
+            label={copy.catalogOpen}
+            onClick={() => setView('catalog')}
+          />
+        }
+      >
+        <p className={VOCAB_CARD_BODY_REASON}>{copy.catalogBody}</p>
+      </VocabCard>
+    </VocabHubShell>
   )
 }
