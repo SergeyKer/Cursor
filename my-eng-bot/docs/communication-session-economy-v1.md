@@ -38,12 +38,11 @@ N = успешный user→assistant turn (ответ бота EN). Чисты�
 
 ## Футер
 
-- Верх: комментарий момента (≤ 38).
+- Верх: комментарий момента (≤ 38). До 8/8 — раунд (`{n}/8`, остаток), не дневной кап XP.
 - Низ: `AppFooter.sessionMeter` — LEFT `⭐ +XP` · CENTER bar · RIGHT glyph:
   - active: `🎯{remaining}`
   - completed: `🏁`
-  - daily cap (не completed): `👍`
-- daily_cap TOP: «XP дня набран. Можно общаться.»
+- Дневной кап XP остаётся в данных; до 8/8 не меняет TOP и RIGHT.
 - Смена RIGHT: crossfade ~200ms.
 - `sessionMeter` XOR `lessonFooterSegments`.
 

@@ -1,5 +1,4 @@
 import {
-  DIALOGUE_DAILY_GLOBAL_XP_CAP,
   DIALOGUE_SESSION_LENGTH,
   dialogueFillPercent,
   type DialogueSessionState,
@@ -18,7 +17,6 @@ export type DialogueFooterMoment =
   | 'success'
   | 'complete'
   | 'post_complete'
-  | 'daily_cap'
 
 export type DialogueSessionMeter = {
   current: number
@@ -40,11 +38,9 @@ export function dialogueStatusLabel(params: {
   moment: DialogueFooterMoment
   remaining: number
   status: DialogueSessionState['status']
-  dailyXpAwarded: number
 }): string {
-  const { moment, remaining, status, dailyXpAwarded } = params
+  const { moment, remaining, status } = params
   if (status === 'completed') return '🏁'
-  if (dailyXpAwarded >= DIALOGUE_DAILY_GLOBAL_XP_CAP) return '👍'
   if (moment === 'error') return '🔁'
   return `🎯${Math.max(0, Math.floor(remaining))}`
 }
@@ -62,12 +58,6 @@ export function resolveDialogueFooterMoment(params: {
     if (justCompleted) return 'complete'
     return 'post_complete'
   }
-  if (
-    session.dailyXpAwarded >= DIALOGUE_DAILY_GLOBAL_XP_CAP &&
-    session.status === 'in_progress'
-  ) {
-    return 'daily_cap'
-  }
   if (lastAssistantContent && REPEAT_LINE_RE.test(lastAssistantContent)) return 'error'
   if (lastOutcome === 'recovered') return 'recovered'
   if (lastOutcome === 'success') return 'success'
@@ -84,9 +74,11 @@ export function buildDialogueFooterView(params: {
   const n = session.progress
   const target = session.target || DIALOGUE_SESSION_LENGTH
   const remaining = Math.max(0, target - n)
-  const topTemplate = DIALOGUE_FOOTER_TOP[moment][audience]
+  const copyKey = moment === 'idle' && n > 0 ? 'idle_mid' : moment
+  const topTemplate = DIALOGUE_FOOTER_TOP[copyKey][audience]
   const dynamicText = formatDialogueFooterTop(topTemplate, {
     n,
+    r: remaining,
     xp: moment === 'complete' ? lastAwardedXp || session.sessionXpAwarded : session.sessionXpAwarded,
   })
   return {
@@ -99,7 +91,6 @@ export function buildDialogueFooterView(params: {
         moment,
         remaining,
         status: session.status,
-        dailyXpAwarded: session.dailyXpAwarded,
       }),
       fillPercent: dialogueFillPercent(n, target),
     },

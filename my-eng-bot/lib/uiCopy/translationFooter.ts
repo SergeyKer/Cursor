@@ -7,6 +7,10 @@ export const TRANSLATION_FOOTER_TOP = {
     adult: '8 предложений до цели сессии.',
     child: '8 предложений до цели. Погнали!',
   },
+  idle_mid: {
+    adult: 'Ещё {r} до цели. {n}/8.',
+    child: 'Ещё {r} до цели. {n}/8.',
+  },
   checking: {
     adult: 'Проверяю формулировку.',
     child: 'Проверяю формулировку…',
@@ -16,12 +20,12 @@ export const TRANSLATION_FOOTER_TOP = {
     child: 'Ещё раз это предложение. {n}/8.',
   },
   soft_fail: {
-    adult: 'Идём дальше. {n}/8 · +1 XP.',
-    child: 'Идём дальше. {n}/8 · +1 XP.',
+    adult: 'Идём дальше. {n}/8.',
+    child: 'Идём дальше. {n}/8.',
   },
   success: {
-    adult: 'Верно. {n}/8 · +4 XP.',
-    child: 'Верно! {n}/8 · +4 XP.',
+    adult: 'Верно. {n}/8.',
+    child: 'Верно! {n}/8.',
   },
   complete: {
     adult: 'Цель 8/8. +{xp} XP к уровню.',
@@ -30,10 +34,6 @@ export const TRANSLATION_FOOTER_TOP = {
   post_complete: {
     adult: 'Можно продолжать — XP уже начислен.',
     child: 'Можно дальше — XP уже начислен.',
-  },
-  daily_cap: {
-    adult: 'XP дня набран. Можно переводить.',
-    child: 'XP дня готов! Можно переводить!',
   },
 } as const
 
@@ -47,9 +47,10 @@ export const TRANSLATION_FOOTER_STATUS = {
 
 export function formatTranslationFooterTop(
   template: string,
-  vars: { n?: number; xp?: number }
+  vars: { n?: number; xp?: number; r?: number }
 ): string {
   return template
     .replaceAll('{n}', String(vars.n ?? 0))
     .replaceAll('{xp}', String(vars.xp ?? 0))
+    .replaceAll('{r}', String(vars.r ?? 0))
 }

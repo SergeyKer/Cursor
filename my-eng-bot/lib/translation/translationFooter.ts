@@ -1,5 +1,4 @@
 import {
-  TRANSLATION_DAILY_GLOBAL_XP_CAP,
   TRANSLATION_SESSION_LENGTH,
   translationFillPercent,
   type TranslationSessionState,
@@ -18,7 +17,6 @@ export type TranslationFooterMoment =
   | 'success'
   | 'complete'
   | 'post_complete'
-  | 'daily_cap'
 
 export type TranslationSessionMeter = {
   current: number
@@ -38,11 +36,9 @@ export function translationStatusLabel(params: {
   moment: TranslationFooterMoment
   remaining: number
   status: TranslationSessionState['status']
-  dailyXpAwarded: number
 }): string {
-  const { moment, remaining, status, dailyXpAwarded } = params
+  const { moment, remaining, status } = params
   if (status === 'completed') return '🏁'
-  if (dailyXpAwarded >= TRANSLATION_DAILY_GLOBAL_XP_CAP) return '👍'
   if (moment === 'error') return '🔁'
   return `🎯${Math.max(0, Math.floor(remaining))}`
 }
@@ -59,12 +55,6 @@ export function resolveTranslationFooterMoment(params: {
     if (justCompleted) return 'complete'
     return 'post_complete'
   }
-  if (
-    session.dailyXpAwarded >= TRANSLATION_DAILY_GLOBAL_XP_CAP &&
-    session.status === 'in_progress'
-  ) {
-    return 'daily_cap'
-  }
   if (protocolStatus === 'error_repeat' || protocolStatus === 'junk_repeat') return 'error'
   if (protocolStatus === 'soft_fail_advance') return 'soft_fail'
   if (protocolStatus === 'success') return 'success'
@@ -79,13 +69,15 @@ export function buildTranslationFooterView(params: {
 }): TranslationFooterView {
   const { session, moment, audience, lastAwardedXp = 0 } = params
   const n = session.progress
-  const topTemplate = TRANSLATION_FOOTER_TOP[moment][audience]
-  const dynamicText = formatTranslationFooterTop(topTemplate, {
-    n,
-    xp: moment === 'complete' ? lastAwardedXp || session.sessionXpAwarded : session.sessionXpAwarded,
-  })
   const target = session.target || TRANSLATION_SESSION_LENGTH
   const remaining = Math.max(0, target - n)
+  const copyKey = moment === 'idle' && n > 0 ? 'idle_mid' : moment
+  const topTemplate = TRANSLATION_FOOTER_TOP[copyKey][audience]
+  const dynamicText = formatTranslationFooterTop(topTemplate, {
+    n,
+    r: remaining,
+    xp: moment === 'complete' ? lastAwardedXp || session.sessionXpAwarded : session.sessionXpAwarded,
+  })
   return {
     dynamicText,
     sessionMeter: {
@@ -96,7 +88,6 @@ export function buildTranslationFooterView(params: {
         moment,
         remaining,
         status: session.status,
-        dailyXpAwarded: session.dailyXpAwarded,
       }),
       fillPercent: translationFillPercent(n, target),
     },

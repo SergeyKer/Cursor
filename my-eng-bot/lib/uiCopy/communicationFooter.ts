@@ -7,17 +7,21 @@ export const COMMUNICATION_FOOTER_TOP = {
     adult: '8 обменов до цели сессии.',
     child: '8 обменов до цели. Погнали!',
   },
+  idle_mid: {
+    adult: 'Ещё {r} до цели. {n}/8.',
+    child: 'Ещё {r} до цели. {n}/8.',
+  },
   checking: {
     adult: 'Слушаю вашу реплику.',
     child: 'Слушаю…',
   },
   success: {
-    adult: 'Идём дальше. {n}/8 · +2 XP.',
-    child: 'Дальше! {n}/8 · +2 XP.',
+    adult: 'Идём дальше. {n}/8.',
+    child: 'Дальше! {n}/8.',
   },
   no_xp: {
-    adult: 'Без XP — нужен английский кусок.',
-    child: 'Без XP. Добавь слово на En.',
+    adult: 'Нужен английский кусок. {n}/8.',
+    child: 'Добавь слово на En. {n}/8.',
   },
   complete: {
     adult: 'Цель 8/8. +{xp} XP к уровню.',
@@ -35,17 +39,14 @@ export const COMMUNICATION_FOOTER_TOP = {
     adult: 'Цель закрыта. XP за En-попытку.',
     child: 'Цель есть. XP — за слово на En.',
   },
-  daily_cap: {
-    adult: 'XP дня набран. Можно общаться.',
-    child: 'XP дня готов! Можно общаться!',
-  },
 } as const
 
 export function formatCommunicationFooterTop(
   template: string,
-  vars: { n?: number; xp?: number }
+  vars: { n?: number; xp?: number; r?: number }
 ): string {
   return template
     .replaceAll('{n}', String(vars.n ?? 0))
     .replaceAll('{xp}', String(vars.xp ?? 0))
+    .replaceAll('{r}', String(vars.r ?? 0))
 }

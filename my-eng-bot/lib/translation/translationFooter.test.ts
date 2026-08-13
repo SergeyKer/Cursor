@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { FOOTER_DYNAMIC_MAX_LENGTH, formatFooterDynamicLine } from '@/lib/footerVoice'
-import { createDefaultTranslationSession } from '@/lib/translation/translationSessionEconomy'
+import {
+  TRANSLATION_DAILY_GLOBAL_XP_CAP,
+  createDefaultTranslationSession,
+} from '@/lib/translation/translationSessionEconomy'
 import {
   buildTranslationFooterView,
   resolveTranslationFooterMoment,
@@ -14,6 +17,7 @@ describe('translationFooter', () => {
         const raw = formatTranslationFooterTop(TRANSLATION_FOOTER_TOP[moment][audience], {
           n: 8,
           xp: 40,
+          r: 8,
         })
         const shown = formatFooterDynamicLine(raw)
         expect(shown.length).toBeLessThanOrEqual(FOOTER_DYNAMIC_MAX_LENGTH)
@@ -39,7 +43,7 @@ describe('translationFooter', () => {
     expect(view.sessionMeter.sessionXp).toBe(12)
     expect(view.sessionMeter.statusLabel).toBe('🎯5')
     expect(view.dynamicText).toContain('3/8')
-    expect(view.dynamicText).toContain('+4 XP')
+    expect(view.dynamicText).not.toContain('+4 XP')
   })
 
   it('shows 🎯8 at zero progress', () => {
@@ -73,21 +77,29 @@ describe('translationFooter', () => {
     expect(view.sessionMeter.statusLabel).toBe('🏁')
   })
 
-  it('shows 👍 when daily XP cap is reached', () => {
+  it('keeps round coaching when daily XP cap is already full', () => {
     const session = {
       ...createDefaultTranslationSession(),
       status: 'in_progress' as const,
-      progress: 0,
-      dailyXpAwarded: 40,
+      progress: 2,
+      dailyXpAwarded: TRANSLATION_DAILY_GLOBAL_XP_CAP,
       sessionStartedAt: new Date().toISOString(),
     }
+    expect(
+      resolveTranslationFooterMoment({
+        loading: false,
+        protocolStatus: 'success',
+        session,
+        justCompleted: false,
+      })
+    ).toBe('success')
     const view = buildTranslationFooterView({
       session,
-      moment: 'daily_cap',
+      moment: 'success',
       audience: 'adult',
     })
-    expect(view.sessionMeter.statusLabel).toBe('👍')
-    expect(view.dynamicText).toContain('Можно переводить')
+    expect(view.sessionMeter.statusLabel).toBe('🎯6')
+    expect(view.dynamicText).toBe('Верно. 2/8.')
   })
 
   it('shows 🔁 on error moment', () => {
@@ -114,5 +126,20 @@ describe('translationFooter', () => {
         justCompleted: false,
       })
     ).toBe('checking')
+  })
+
+  it('uses idle_mid after progress', () => {
+    const session = {
+      ...createDefaultTranslationSession(),
+      status: 'in_progress' as const,
+      progress: 3,
+      sessionStartedAt: new Date().toISOString(),
+    }
+    const view = buildTranslationFooterView({
+      session,
+      moment: 'idle',
+      audience: 'adult',
+    })
+    expect(view.dynamicText).toBe('Ещё 5 до цели. 3/8.')
   })
 })

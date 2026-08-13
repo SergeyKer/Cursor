@@ -1,5 +1,4 @@
 import {
-  COMMUNICATION_DAILY_GLOBAL_XP_CAP,
   COMMUNICATION_SESSION_LENGTH,
   communicationFillPercent,
   type CommunicationSessionState,
@@ -19,7 +18,6 @@ export type CommunicationFooterMoment =
   | 'complete_zero'
   | 'post_complete'
   | 'post_complete_zero'
-  | 'daily_cap'
 
 export type CommunicationSessionMeter = {
   current: number
@@ -38,11 +36,9 @@ export type CommunicationFooterView = {
 export function communicationStatusLabel(params: {
   remaining: number
   status: CommunicationSessionState['status']
-  dailyXpAwarded: number
 }): string {
-  const { remaining, status, dailyXpAwarded } = params
+  const { remaining, status } = params
   if (status === 'completed') return '🏁'
-  if (dailyXpAwarded >= COMMUNICATION_DAILY_GLOBAL_XP_CAP) return '👍'
   return `🎯${Math.max(0, Math.floor(remaining))}`
 }
 
@@ -59,12 +55,6 @@ export function resolveCommunicationFooterMoment(params: {
     if (justCompleted) return zeroXp ? 'complete_zero' : 'complete'
     return zeroXp ? 'post_complete_zero' : 'post_complete'
   }
-  if (
-    session.dailyXpAwarded >= COMMUNICATION_DAILY_GLOBAL_XP_CAP &&
-    session.status === 'in_progress'
-  ) {
-    return 'daily_cap'
-  }
   if (lastOutcome === 'success') return 'success'
   if (lastOutcome === 'no_xp') return 'no_xp'
   return 'idle'
@@ -75,22 +65,24 @@ export function buildCommunicationFooterView(params: {
   moment: CommunicationFooterMoment
   audience: CommunicationFooterCopyAudience
   lastAwardedXp?: number
-  /** When idle, prefer voice TOP from AppShell instead of economy idle. */
+  /** When idle at 0, prefer voice TOP from AppShell instead of economy idle. */
   voiceTopOverride?: string | null
 }): CommunicationFooterView {
   const { session, moment, audience, lastAwardedXp = 0, voiceTopOverride } = params
   const n = session.progress
   const target = session.target || COMMUNICATION_SESSION_LENGTH
   const remaining = Math.max(0, target - n)
-  const topTemplate = COMMUNICATION_FOOTER_TOP[moment][audience]
+  const copyKey = moment === 'idle' && n > 0 ? 'idle_mid' : moment
+  const topTemplate = COMMUNICATION_FOOTER_TOP[copyKey][audience]
   let dynamicText = formatCommunicationFooterTop(topTemplate, {
     n,
+    r: remaining,
     xp:
       moment === 'complete' || moment === 'complete_zero'
         ? lastAwardedXp || session.sessionXpAwarded
         : session.sessionXpAwarded,
   })
-  if (moment === 'idle' && voiceTopOverride && voiceTopOverride.trim()) {
+  if (moment === 'idle' && n === 0 && voiceTopOverride && voiceTopOverride.trim()) {
     dynamicText = voiceTopOverride.trim()
   }
   return {
@@ -102,7 +94,6 @@ export function buildCommunicationFooterView(params: {
       statusLabel: communicationStatusLabel({
         remaining,
         status: session.status,
-        dailyXpAwarded: session.dailyXpAwarded,
       }),
       fillPercent: communicationFillPercent(n, target),
     },

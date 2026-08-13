@@ -33,6 +33,13 @@ const CONTINUE_EXACT_RE =
 
 const CONTINUE_CHECK_RE = /^(проверь|правильно\s+ли)(?::|\s|$)|^is\s+this\s+correct\b/i
 
+/** Whole-query example-ask (chip/footer paraphrases). Not «пример из учебника…». */
+const CONTINUE_EXAMPLE_ASK_RE =
+  /^(дай|покажи|напиши|пришли|нужны?|можно)\s+(ещ[её]\s+)?(коротки[ей]\s+)?примеры?\??$|^попрос(и|ите)\s+примеры?\??$|^(ещ[её]\s+)?(коротки[ей]\s+)?примеры?\??$|^(ещ[её]|еще)\??$/i
+
+/** Short polarity deepeners not covered by CONTINUE_A_RE (а в / а пример). */
+const CONTINUE_POLARITY_RE = /^(а\s+)?с\s+(not|don'?t|doesn'?t|отриц\w*)\??$/i
+
 const SWITCH_PHRASE_RE = /^(а\s+теперь|другая\s+тема|давай\s+про|сменим)\b/i
 
 function explainCorpus(answer: TutorExplainAnswer): string {
@@ -62,10 +69,24 @@ function mentionsCurrentTopic(query: string, answer: TutorExplainAnswer): boolea
   return false
 }
 
+function isLiveTopicDeepen(query: string, lastExplain: TutorExplainAnswer): boolean {
+  if (SWITCH_PHRASE_RE.test(query)) return false
+  if (hasExplicitTopicSwitch(query, explainCorpus(lastExplain))) return false
+  if (
+    hasExplicitTutorIntent(query) &&
+    !mentionsCurrentTopic(query, lastExplain) &&
+    !CONTINUE_CHECK_RE.test(query)
+  ) {
+    return false
+  }
+  return CONTINUE_EXAMPLE_ASK_RE.test(query) || CONTINUE_POLARITY_RE.test(query)
+}
+
 function isContinueFollowUp(query: string, lastExplain: TutorExplainAnswer): boolean {
   if (SWITCH_PHRASE_RE.test(query)) return false
   if (CONTINUE_EXACT_RE.test(query)) return true
   if (CONTINUE_CHECK_RE.test(query)) return true
+  if (isLiveTopicDeepen(query, lastExplain)) return true
   if (CONTINUE_A_RE.test(query) && !hasExplicitTopicSwitch(query, explainCorpus(lastExplain))) {
     if (mentionsCurrentTopic(query, lastExplain) || CONTINUE_A_GRAMMAR_TAIL_RE.test(query)) {
       return true

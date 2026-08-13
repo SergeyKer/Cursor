@@ -51,6 +51,27 @@ describe('routeTutorTurn', () => {
     )
   })
 
+  it('continues chip paraphrases and footer example-ask', () => {
+    const continueQueries = [
+      'примеры',
+      'пример',
+      'дай примеры',
+      'покажи примеры',
+      'еще',
+      'ещё',
+      'а с not',
+      'попроси примеры',
+      'попросите примеры',
+    ]
+    for (const query of continueQueries) {
+      expect(routeTutorTurn({ query, lastExplain: ppExplain }).kind).toBe('continue')
+    }
+  })
+
+  it('keeps first hop for bare примеры without lastExplain', () => {
+    expect(routeTutorTurn({ query: 'примеры', lastExplain: null }).kind).toBe('first')
+  })
+
   it('switches on new grammar (anti false-continue)', () => {
     expect(routeTutorTurn({ query: 'а зачем Do?', lastExplain: ppExplain }).kind).toBe('switch')
     expect(routeTutorTurn({ query: 'зачем Do в вопросе', lastExplain: ppExplain }).kind).toBe(
@@ -59,6 +80,9 @@ describe('routeTutorTurn', () => {
     expect(routeTutorTurn({ query: 'а теперь артикли', lastExplain: ppExplain }).kind).toBe('switch')
     expect(routeTutorTurn({ query: 'глаголы', lastExplain: ppExplain }).kind).toBe('switch')
     expect(routeTutorTurn({ query: 'научи англицкому', lastExplain: ppExplain }).kind).toBe('switch')
+    expect(
+      routeTutorTurn({ query: 'пример из учебника про артикли', lastExplain: ppExplain }).kind
+    ).toBe('switch')
   })
 
   it('does not continue off-topic а почему without grammar tail', () => {
