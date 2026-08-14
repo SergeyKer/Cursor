@@ -17,7 +17,7 @@ type Props = {
   allowSearch?: boolean
   emptyText?: string
   extra?: React.ReactNode
-  /** Phrasebook: allow «Знаю» for every audience. */
+  /** Phrasebook: allow «Пропускаю» for every audience. */
   forceShowKnow?: boolean
 }
 

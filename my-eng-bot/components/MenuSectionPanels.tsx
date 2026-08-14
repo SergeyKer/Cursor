@@ -422,7 +422,7 @@ const LESSONS_PANEL_TITLE: Record<LessonsPanel, string> = {
   words: 'Слова',
   wordsAll: 'Сегодня и мои списки',
   wordsByLevel: 'Слова по уровням (A1-C2)',
-  wordsFeed: 'Слова в деле',
+  wordsFeed: 'Сказать боту',
   wordsTts: 'Озвучка',
   wordsTtsVoice: 'Голос',
   wordsTtsRotation: 'Случайный',
@@ -3093,7 +3093,7 @@ export default function MenuSectionPanels({
                       label="Сегодня и мои списки"
                       onClick={() => setLessonsPanel('wordsAll')}
                     />
-                    <MenuNavRow label="Слова в деле" onClick={() => setLessonsPanel('wordsFeed')} />
+                    <MenuNavRow label="Сказать боту" onClick={() => setLessonsPanel('wordsFeed')} />
                   </div>
                 </div>
                 {featureFlags.vocabGrokTtsV1 ? (
@@ -3230,9 +3230,9 @@ export default function MenuSectionPanels({
             {lessonsPanel === 'wordsFeed' && (
               <div className="space-y-3">
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
-                  <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Слова в деле</p>
+                  <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Сказать боту</p>
                   <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-                    К изучению · В деле · Умею. Банк для закрепления в переводе.
+                    Учу · Сказать боту · Умею. Слова ждут речи в переводе.
                   </p>
                   <button
                     type="button"
@@ -3240,7 +3240,7 @@ export default function MenuSectionPanels({
                     disabled={!onOpenVocabularyFeed}
                     className={`${MENU_PRIMARY_CTA_CLASS} mt-3`}
                   >
-                    Открыть слова в деле
+                    Открыть «Сказать боту»
                   </button>
                 </div>
               </div>

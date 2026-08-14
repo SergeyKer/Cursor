@@ -12,6 +12,7 @@ import {
 import { useCallback, useRef, useState } from 'react'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { START_RUNTIME_COPY } from '@/lib/uiCopy/startRuntimeCopy'
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
 import {
   createFooterSsrPlaceholderRewardsState,
   formatGlobalFooterStats,
@@ -69,7 +70,7 @@ export default function StartPageChrome({
         <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
           <div
             ref={appColumnRef}
-            className="relative mx-auto grid w-full max-w-[23.2rem] grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2"
+            className={`relative mx-auto grid w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2`}
           >
             <button
               type="button"
@@ -98,7 +99,7 @@ export default function StartPageChrome({
           className="fixed left-0 right-0 z-[60] flex justify-center px-4"
           style={{ top: 'var(--app-top-offset)' }}
         >
-          <div className="glass-surface max-w-[23.2rem] rounded-[1rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-4 py-3 text-center shadow-sm">
+          <div className={`glass-surface ${DIALOG_SESSION_COLUMN_MAX_CLASS} rounded-[1rem] border border-[var(--chat-section-neutral-border)] bg-[var(--chat-assistant-shell)] px-4 py-3 text-center shadow-sm`}>
             <p className="text-[14px] leading-relaxed text-[var(--text-muted)]">
               {START_RUNTIME_COPY.appShellLoadError}
             </p>

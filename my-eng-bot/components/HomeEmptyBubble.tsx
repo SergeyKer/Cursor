@@ -2,6 +2,7 @@
 
 import React from 'react'
 import { manropeHome } from '@/lib/manropeHome'
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
 
 type HomeEmptyBubbleProps = {
   text?: string | null
@@ -17,7 +18,7 @@ export default function HomeEmptyBubble({ text, className = '' }: HomeEmptyBubbl
 
   return (
     <section
-      className={`w-full max-w-[23.2rem] ${className}`}
+      className={`w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} ${className}`}
       aria-hidden={hasText ? undefined : 'true'}
       aria-label={hasText ? 'Факт Engvo AI' : undefined}
     >

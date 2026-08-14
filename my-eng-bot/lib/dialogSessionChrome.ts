@@ -1,6 +1,7 @@
 /**
- * Dialog session chrome: wallpaper/frame full width; content capped at 29rem.
- * Start/home stays `max-w-[23.2rem]` elsewhere. Gutter keeps `chat-shell-x` for closest().
+ * Dialog session chrome: content capped at 29rem.
+ * Flush below 768px and on iOS dialog (dock). From 768px: 29rem postcard + py-2 air.
+ * One content width: `max-w-[29rem]` (start and session). Gutter keeps `chat-shell-x` for closest().
  */
 
 export const DIALOG_SESSION_GUTTER_CLASS =

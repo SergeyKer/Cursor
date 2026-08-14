@@ -56,9 +56,9 @@ function buildVocabularyWeakSpots(
       {
         id: 'vocab-bank-waiting',
         label: `${n} слова ждут перевод`,
-        reason: 'Слова в деле давно не использовались как фокус в переводе.',
+        reason: 'Слова давно не использовались как фокус в переводе.',
         severity: n >= 8 ? 'high' : n >= 3 ? 'medium' : 'low',
-        actionHint: 'Открыть банк слов и закрепить в переводе.',
+        actionHint: 'Открыть «Сказать боту» и закрепить в переводе.',
       },
     ]
   }

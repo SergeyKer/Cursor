@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import {
-  hubTiles,
+  hubDisplayTiles,
+  listByDisplayFilter,
   listKnowWords,
   listShelvedWords,
   listStudyWords,
@@ -31,7 +32,7 @@ describe('hubBuckets', () => {
       '2': { ...createEmptyWordProgress(2), userMark: 'study' as const, lemmaKey: 'study' },
       '3': { ...createEmptyWordProgress(3), feedStatus: 'mastered' as const, lemmaKey: 'said' },
     }
-    const tiles = hubTiles({ audience: 'adult', words, progressMap, mistakes: [] })
+    const tiles = hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes: [] })
     expect(tiles.find((tile) => tile.id === 'mastered')?.count).toBe(1)
     expect(listKnowWords(words, progressMap).map((row) => row.en)).toEqual(['know'])
     expect(listStudyWords(words, progressMap).map((row) => row.en)).toEqual(['study'])
@@ -48,10 +49,10 @@ describe('hubBuckets', () => {
       },
     }
     expect(listKnowWords(words, progressMap)).toEqual([])
-    expect(hubTiles({ audience: 'adult', words, progressMap, mistakes: [] }).find((tile) => tile.id === 'mastered')?.count).toBe(1)
+    expect(hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes: [] }).find((tile) => tile.id === 'mastered')?.count).toBe(1)
   })
 
-  it('same six tiles for child and adult, returned not in errors', () => {
+  it('same five display tiles for child and adult, returned counts as fix', () => {
     const words = [word(1, 'a'), word(2, 'b'), word(3, 'c'), word(4, 'd')]
     const progressMap = {
       '1': { ...createEmptyWordProgress(1), feedStatus: 'mastered' as const },
@@ -59,12 +60,34 @@ describe('hubBuckets', () => {
       '3': { ...createEmptyWordProgress(3), feedStatus: 'returned' as const },
       '4': { ...createEmptyWordProgress(4), userMark: 'know' as const, lemmaKey: 'd' },
     }
-    const child = hubTiles({ audience: 'child', words, progressMap, mistakes: [] })
-    const adult = hubTiles({ audience: 'adult', words, progressMap, mistakes: [] })
-    expect(child.map((tile) => tile.id)).toEqual(['study', 'know', 'in_feed', 'mastered', 'returned', 'errors'])
+    const child = hubDisplayTiles({ audience: 'child', words, progressMap, mistakes: [] })
+    const adult = hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes: [] })
+    expect(child.map((tile) => tile.id)).toEqual(['study', 'in_feed', 'mastered', 'know', 'fix'])
     expect(adult.map((tile) => tile.id)).toEqual(child.map((tile) => tile.id))
-    expect(child.map((tile) => tile.count)).toEqual([1, 1, 0, 1, 1, 0])
+    expect(child.map((tile) => tile.count)).toEqual([1, 0, 1, 1, 1])
     expect(adult.map((tile) => tile.count)).toEqual(child.map((tile) => tile.count))
+  })
+
+  it('sums returned and inbox into fix without double-counting a lemma', () => {
+    const words = [word(1, 'back'), word(2, 'cat')]
+    const progressMap = {
+      '1': { ...createEmptyWordProgress(1), feedStatus: 'returned' as const, lemmaKey: 'back' },
+    }
+    const mistakes = [
+      { lemmaKey: 'back', en: 'back', at: 1, source: 'translation' as const },
+      { lemmaKey: 'cat', en: 'cat', at: 1, source: 'translation' as const },
+    ]
+    const tiles = hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes })
+    expect(tiles.find((tile) => tile.id === 'fix')?.count).toBe(2)
+    const fixRows = listByDisplayFilter({
+      audience: 'adult',
+      words,
+      progressMap,
+      mistakes,
+      filter: 'fix',
+    })
+    expect(fixRows.map((row) => row.word.en)).toEqual(['back', 'cat'])
+    expect(fixRows.map((row) => row.shelf)).toEqual(['returned', 'errors'])
   })
 
   it('merges inbox mistakes with returned status', () => {

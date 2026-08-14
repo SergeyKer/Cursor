@@ -72,7 +72,7 @@ export type VocabularySessionRoute =
   | { kind: 'pack'; packId: string }
   | { kind: 'phrasebook'; topicId: string }
 
-/** WordFeed lifecycle (UI: К изучению / В деле / Умею). */
+/** WordFeed lifecycle (UI: Учу / Сказать боту / Умею). */
 export type VocabularyFeedStatus = 'none' | 'in_feed' | 'mastered' | 'returned'
 
 export type VocabularyWordSource = 'catalog' | 'mistake' | 'pack'

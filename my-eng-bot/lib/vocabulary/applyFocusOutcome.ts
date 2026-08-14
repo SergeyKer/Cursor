@@ -32,7 +32,7 @@ function resolveWordId(lemma: FocusLemmaRef, stateWords: ReturnType<typeof loadV
 /**
  * Translation: крепит in_feed, не mastered.
  * Call/communication success: Умею только если лемма в userText (без текста — пакет не мастерится).
- * Fail: returned + inbox; снимает Знаю.
+ * Fail: returned + inbox; снимает пометку know (Пропускаю).
  */
 export function applyFocusLemmasOutcome(params: {
   lemmas: FocusLemmaRef[]

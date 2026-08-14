@@ -27,8 +27,8 @@ export default function VocabularyBridgeScreen({ lemmas, onDone, onFooterViewCha
 
   React.useEffect(() => {
     onFooterViewChange?.({
-      dynamicText: done ? (hits > 0 ? 'Теперь в Умею.' : 'Осталось в деле.') : 'Скажи слово в ответе.',
-      staticText: done ? (hits > 0 ? 'Слова | Умею' : 'Слова | В деле') : 'Слова',
+      dynamicText: done ? (hits > 0 ? 'Теперь в Умею.' : 'Осталось сказать боту.') : 'Скажи слово в ответе.',
+      staticText: done ? (hits > 0 ? 'Слова | Умею' : 'Слова | Сказать боту') : 'Слова',
       typingKey: `vocab-bridge-${turn}-${done ? 'done' : 'live'}`,
       sessionMeter: done
         ? null
@@ -75,7 +75,7 @@ export default function VocabularyBridgeScreen({ lemmas, onDone, onFooterViewCha
         {done ? (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--chat-shell-bg)] px-4 py-4">
             <p className="text-[15px] text-[var(--text)]">
-              {hits > 0 ? `+${hits} в Умею` : 'Слово осталось в деле.'}
+              {hits > 0 ? `+${hits} в Умею` : 'Слово осталось сказать боту.'}
             </p>
           </div>
         ) : (

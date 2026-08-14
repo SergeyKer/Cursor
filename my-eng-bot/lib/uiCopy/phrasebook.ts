@@ -5,5 +5,5 @@ export const PHRASEBOOK_COPY = {
   studyCta: 'Учить',
   footerStatic: 'Разговорник',
   footerPick: 'Выбери тему.',
-  footerList: 'Вычеркни «Знаю» или начни порцию.',
+  footerList: 'Вычеркни «Пропускаю» или начни порцию.',
 }

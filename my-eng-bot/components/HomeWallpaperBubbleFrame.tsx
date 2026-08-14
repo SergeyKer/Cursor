@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
 
 /** Класс пузыря ассистента (как в приветствии на старте). */
 export const HOME_ASSISTANT_BUBBLE_CLASS =
@@ -21,7 +22,7 @@ export function HomeWallpaperBubbleFrame({
   children,
 }: HomeWallpaperBubbleFrameProps) {
   return (
-    <section className={`w-full max-w-[23.2rem] ${className}`} aria-label={ariaLabel}>
+    <section className={`w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} ${className}`} aria-label={ariaLabel}>
       <div className="overflow-hidden rounded-[1.15rem] border border-white/55 bg-[rgba(255,255,255,0.28)] shadow-sm backdrop-blur-[2px]">
         <div className="bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3">
           {scrollable ? (

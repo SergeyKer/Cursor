@@ -246,7 +246,7 @@ export function QuickTestPageChrome({
           {compactFooter ? (
             <div className="pointer-events-none box-border flex h-full w-full items-center overflow-hidden">
               <div
-                className={`app-footer-body__row-inner mx-auto flex h-full w-full max-w-[23.2rem] min-w-0 flex-1 items-center px-2 sm:px-3 ${presentation.topLineRowClassName}`}
+                className={`app-footer-body__row-inner mx-auto flex h-full w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} min-w-0 flex-1 items-center px-2 sm:px-3 ${presentation.topLineRowClassName}`}
               >
                 {topLine ? (
                   <>
@@ -275,7 +275,7 @@ export function QuickTestPageChrome({
             <div className="app-footer-body pointer-events-none">
               <div className="app-footer-body__row app-footer-body__row--top">
                 <div
-                  className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 px-2 sm:px-3 ${presentation.topLineRowClassName}`}
+                  className={`app-footer-body__row-inner mx-auto w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} min-w-0 flex-1 px-2 sm:px-3 ${presentation.topLineRowClassName}`}
                 >
                   {topLine ? (
                     <>
@@ -302,7 +302,7 @@ export function QuickTestPageChrome({
               </div>
               <div className="app-footer-body__row app-footer-body__row--bottom">
                 <div
-                  className={`app-footer-body__row-inner mx-auto w-full max-w-[23.2rem] min-w-0 flex-1 ${presentation.bottomLineRowClassName}`}
+                  className={`app-footer-body__row-inner mx-auto w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} min-w-0 flex-1 ${presentation.bottomLineRowClassName}`}
                 >
                   <QuickTestFooterProgress
                     current={progressCurrent}

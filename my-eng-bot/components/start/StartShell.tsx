@@ -10,6 +10,7 @@ import {
 } from '@/lib/homeCtaStyles'
 import type { Audience } from '@/lib/types'
 import { mergeBridgeState, type StartBridgeState } from '@/lib/start/startBridge'
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
 
 export type StartShellProps = {
   bridge: StartBridgeState
@@ -32,7 +33,7 @@ export default function StartShell({ bridge, onBridgeChange }: StartShellProps) 
       style={{ scrollPaddingBottom: 'var(--app-footer-chrome-height)' }}
     >
       <div
-        className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-[23.2rem] flex-col items-center pb-2"
+        className={`pointer-events-auto relative z-10 mx-auto flex w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} flex-col items-center pb-2`}
         style={{
           gap: 'clamp(1rem, 2.5vh, 1.75rem)',
           paddingTop: 'clamp(1rem, 2.5vh, 1.75rem)',

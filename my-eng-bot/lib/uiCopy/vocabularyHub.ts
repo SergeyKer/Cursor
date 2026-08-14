@@ -1,6 +1,10 @@
 import type { Audience } from '@/lib/types'
 import type { VocabNowKind } from '@/lib/vocabulary/fuel'
-import { VOCAB_SHELF_IDS, type VocabShelfId } from '@/lib/vocabulary/hubBuckets'
+import {
+  VOCAB_DISPLAY_TILE_IDS,
+  type VocabDisplayTileId,
+  type VocabShelfId,
+} from '@/lib/vocabulary/hubBuckets'
 
 export function vocabHubCopy(audience: Audience) {
   const child = audience === 'child'
@@ -21,7 +25,7 @@ export function vocabHubCopy(audience: Audience) {
     study: 'Учить',
     tempoSprintCta: 'Быстро 3 слова',
     tempoFullCta: 'Учить 5 слов',
-    know: 'Знаю',
+    know: 'Пропускаю',
     studyList: 'Учить этот список',
     start: 'Начать',
     say: 'Сказать боту',
@@ -33,9 +37,10 @@ export function vocabHubCopy(audience: Audience) {
     handoffTranslation: 'Закрепить в переводе',
     handoffCall: 'В звонок',
     catalogScreenTitle: child ? 'Ещё слова' : 'Каталог',
-    masteredEmpty: child ? 'Пока пусто — скажи боту слово.' : 'Пока нет слов в запасе. Скажи боту слова из «В деле».',
-    bankTitle: 'В деле',
+    masteredEmpty: child ? 'Пока пусто — скажи боту слово.' : 'Пока нет слов в запасе. Скажи боту слова, которые ждут речи.',
+    bankTitle: 'Сказать боту',
     studyTitle: 'Учу',
+    pathHint: 'Карточки → сказать боту → умею. «Пропускаю» — без проверки.',
     worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
     importTitle: child ? 'Добавить слова' : 'Залить список',
     importParse: 'Сделать список',
@@ -48,36 +53,49 @@ export function vocabHubCopy(audience: Audience) {
     importNoPairs: 'Нет пар для сохранения.',
     importFound: (found: number) => (child ? `Нашёл ${found} — учим 3.` : `Нашёл ${found}. Проверь перевод.`),
     importAlreadyLine: (mastered: number, inFeed: number) =>
-      [mastered > 0 ? `уже умею: ${mastered}` : '', inFeed > 0 ? `уже в деле: ${inFeed}` : '']
+      [mastered > 0 ? `уже умею: ${mastered}` : '', inFeed > 0 ? `сказать боту: ${inFeed}` : '']
         .filter(Boolean)
         .join('. '),
-    listsDrained: child ? 'Эти слова уже в деле или умею.' : 'Списки уже в обороте.',
-    shelvesTitle: 'ПОЛКИ',
-    shelvesScreenTitle: 'Полки',
-    shelvesBody: 'Учу · Знаю · В деле · Умею · Вернулись · Ошибки',
+    listsDrained: child ? 'Эти слова уже в «Сказать боту» или «Умею».' : 'Списки уже в обороте.',
+    shelvesTitle: 'МОИ СЛОВА',
+    shelvesScreenTitle: 'Мои слова',
+    shelvesBody: 'Учу · Сказать боту · Умею',
     shelvesAll: 'Все',
-    shelfReturned: 'Вернулись',
+    shelfReturned: 'Починить',
     shelfMastered: 'Умею',
-    shelfErrors: 'Ошибки',
-    shelvesFooterStatic: 'Слова | Полки',
-    shelvesFooterDynamic: 'Слова по полкам.',
+    shelfErrors: 'Починить',
+    shelfFix: 'Починить',
+    shelvesFooterStatic: 'Слова | Мои слова',
+    shelvesFooterDynamic: 'Слова по статусу.',
+    feedBrowseTitle: 'Сказать боту',
+    feedBrowseBody: 'Учу · Сказать боту · Умею · Починить',
+    feedTabQueue: 'Учу',
+    feedTabMistakes: 'Починить',
   }
 }
 
-export const VOCAB_SHELF_CHIP_ORDER: VocabShelfId[] = VOCAB_SHELF_IDS
+export const VOCAB_DISPLAY_CHIP_ORDER: VocabDisplayTileId[] = VOCAB_DISPLAY_TILE_IDS
 
 export function vocabShelfLabel(id: VocabShelfId, audience: Audience): string {
   const copy = vocabHubCopy(audience)
-  if (id === 'returned') return copy.shelfReturned
-  if (id === 'errors') return copy.shelfErrors
+  if (id === 'returned' || id === 'errors') return copy.shelfFix
   if (id === 'mastered') return copy.shelfMastered
   if (id === 'in_feed') return copy.bankTitle
   if (id === 'know') return copy.know
   return copy.studyTitle
 }
 
-export function vocabTileLabel(id: VocabShelfId, audience: Audience): string {
-  return vocabShelfLabel(id, audience)
+export function vocabDisplayLabel(id: VocabDisplayTileId, audience: Audience): string {
+  const copy = vocabHubCopy(audience)
+  if (id === 'fix') return copy.shelfFix
+  if (id === 'mastered') return copy.shelfMastered
+  if (id === 'in_feed') return copy.bankTitle
+  if (id === 'know') return copy.know
+  return copy.studyTitle
+}
+
+export function vocabTileLabel(id: VocabDisplayTileId, audience: Audience): string {
+  return vocabDisplayLabel(id, audience)
 }
 
 export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
@@ -113,13 +131,13 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
 export function vocabHubFooter(kind: VocabNowKind): { dynamicText: string; staticText: string } {
   switch (kind) {
     case 'errors-sprint':
-      return { dynamicText: 'Сначала починим ошибки.', staticText: 'Слова | Ошибки' }
+      return { dynamicText: 'Сначала починим ошибки.', staticText: 'Слова | Починить' }
     case 'errors-bridge':
-      return { dynamicText: 'Скажи боту ещё раз.', staticText: 'Слова | Ошибки' }
+      return { dynamicText: 'Скажи боту ещё раз.', staticText: 'Слова | Починить' }
     case 'fresh-sprint':
       return { dynamicText: 'Короткая порция из твоего списка.', staticText: 'Слова | Учить' }
     case 'bank-bridge':
-      return { dynamicText: 'Скажи боту — будет Умею.', staticText: 'Слова | В деле' }
+      return { dynamicText: 'Скажи боту — будет Умею.', staticText: 'Слова | Сказать боту' }
     case 'pause':
       return { dynamicText: 'Начнём с двух слов.', staticText: 'Слова' }
     default:

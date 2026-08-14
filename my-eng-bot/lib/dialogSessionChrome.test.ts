@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   DIALOG_SESSION_COLUMN_CLASS,
@@ -8,6 +10,13 @@ import {
   DIALOG_SESSION_READING_INNER_CLASS,
   usesDialogSessionColumn,
 } from '@/lib/dialogSessionChrome'
+
+function sessionChromeCss(): string {
+  const css = readFileSync(join(process.cwd(), 'app', 'globals.css'), 'utf8')
+  const start = css.indexOf('.dialog-session-gutter.chat-shell-x')
+  expect(start).toBeGreaterThanOrEqual(0)
+  return css.slice(start)
+}
 
 describe('dialogSessionChrome', () => {
   it('keeps chat-shell-x on the gutter for useAppColumnBounds', () => {
@@ -37,10 +46,23 @@ describe('dialogSessionChrome', () => {
     expect(DIALOG_SESSION_FRAME_CLASS).not.toContain('max-w-[29rem]')
   })
 
-  it('does not round the full-bleed wallpaper frame', () => {
+  it('keeps radius off the Tailwind frame class (CSS owns md postcard)', () => {
     expect(DIALOG_SESSION_FRAME_CLASS).toContain('dialog-session-frame')
     expect(DIALOG_SESSION_FRAME_CLASS).not.toContain('rounded-[1.15rem]')
     expect(DIALOG_SESSION_FRAME_CLASS).not.toContain('lg:rounded-[1.15rem]')
+    expect(DIALOG_SESSION_FRAME_CLASS).not.toContain('md:rounded')
+  })
+
+  it('restores postcard from 768px and keeps iOS dialog flush', () => {
+    const css = sessionChromeCss()
+    expect(css).toMatch(/@media \(min-width: 768px\)/)
+    expect(css).toMatch(/border-radius:\s*1\.15rem/)
+    expect(css).toMatch(/max-width:\s*29rem/)
+    expect(css).toMatch(/\.flex-1\s*\{[^}]*padding-top:\s*0\.5rem/)
+    expect(css).toMatch(/html\[data-ios-safari-dialog\] \.dialog-session-gutter\.chat-shell-x\.flex-1/)
+    expect(css).toMatch(/html\[data-ios-safari-dialog\] \.dialog-session-frame/)
+    expect(css).toMatch(/html\[data-ios-webkit-dialog\] \.dialog-session-frame/)
+    expect(css).not.toContain('lg:rounded')
   })
 
   it('uses dialog column for my plan and progress without dialogStarted', () => {

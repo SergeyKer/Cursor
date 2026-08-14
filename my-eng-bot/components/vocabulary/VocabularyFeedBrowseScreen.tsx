@@ -9,6 +9,7 @@ import {
   loadVocabularyProgress,
 } from '@/lib/vocabulary/storage'
 import VocabularySpaceScroll from '@/components/vocabulary/VocabularySpaceScroll'
+import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import type {
   NecessaryWord,
   NecessaryWordsCatalog,
@@ -32,6 +33,7 @@ export default function VocabularyFeedBrowseScreen({
   onOpenTranslationWithHandoff,
   onOpenCallWithHandoff,
 }: Props) {
+  const copy = vocabHubCopy('adult')
   const [catalog, setCatalog] = React.useState<NecessaryWordsCatalog | null>(null)
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
   const [tab, setTab] = React.useState<Tab>('in_feed')
@@ -64,12 +66,12 @@ export default function VocabularyFeedBrowseScreen({
 
   React.useEffect(() => {
     onFooterViewChange?.({
-      dynamicText: 'Банк и статусы слов.',
-      staticText: 'Слова в деле',
+      dynamicText: copy.feedBrowseBody,
+      staticText: copy.feedBrowseTitle,
       typingKey: `vocab-feed-${tab}`,
     })
     return () => onFooterViewChange?.(null)
-  }, [onFooterViewChange, tab])
+  }, [copy.feedBrowseBody, copy.feedBrowseTitle, onFooterViewChange, tab])
 
   const activeWords = React.useMemo(
     () => (catalog?.words ?? []).filter((w) => w.status === 'active'),
@@ -160,8 +162,8 @@ export default function VocabularyFeedBrowseScreen({
     <VocabularySpaceScroll>
         <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
           <div>
-            <p className="text-[17px] font-semibold text-[var(--text)]">Слова в деле</p>
-            <p className="text-[13px] text-[var(--text-muted)]">К изучению · В деле · Умею · Из ошибок</p>
+            <p className="text-[17px] font-semibold text-[var(--text)]">{copy.feedBrowseTitle}</p>
+            <p className="text-[13px] text-[var(--text-muted)]">{copy.feedBrowseBody}</p>
           </div>
           <button
             type="button"
@@ -173,10 +175,10 @@ export default function VocabularyFeedBrowseScreen({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          {tabLabel('queue', 'К изучению')}
-          {tabLabel('in_feed', 'В деле')}
-          {tabLabel('mastered', 'Умею')}
-          {tabLabel('mistakes', 'Из ошибок')}
+          {tabLabel('queue', copy.feedTabQueue)}
+          {tabLabel('in_feed', copy.bankTitle)}
+          {tabLabel('mastered', copy.shelfMastered)}
+          {tabLabel('mistakes', copy.feedTabMistakes)}
         </div>
 
         <input

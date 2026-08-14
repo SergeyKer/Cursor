@@ -100,7 +100,7 @@ export const VOCAB_STATUS_TILE =
   'chat-section-surface glass-surface min-w-0 overflow-hidden rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-3 py-2.5 text-center'
 
 export const VOCAB_SHELF_CHIP =
-  'btn-3d-menu chat-section-surface glass-surface inline-flex min-w-0 cursor-pointer touch-manipulation items-center justify-center whitespace-nowrap rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-2 py-1.5 text-center text-[13px] font-semibold leading-tight text-[var(--text-muted)] hover:bg-slate-50 active:bg-slate-100'
+  'btn-3d-menu chat-section-surface glass-surface inline-flex min-w-0 min-h-11 cursor-pointer touch-manipulation items-center justify-center whitespace-normal rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-2 py-1.5 text-center text-[13px] font-semibold leading-tight text-[var(--text-muted)] hover:bg-slate-50 active:bg-slate-100'
 
 export const VOCAB_SHELF_CHIP_ACTIVE =
   'border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] text-[var(--text)] hover:bg-[var(--chat-shell-bg)] active:bg-[var(--chat-shell-bg)]'

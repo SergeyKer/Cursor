@@ -252,13 +252,9 @@ export default function AppFooter({
       aria-hidden={!showFooterContent}
     >
       <div
-        className={`app-footer-body mx-auto w-full min-w-0 ${
-          isDialogSessionColumn
-            ? DIALOG_SESSION_COLUMN_MAX_CLASS
-            : lessonFooterMode
-              ? 'max-w-[23.2rem] max-[420px]:max-w-none'
-              : 'max-w-[23.2rem]'
-        } ${lessonFooterMode ? 'px-1.5 sm:px-3' : 'px-2 sm:px-3'}`}
+        className={`app-footer-body mx-auto w-full min-w-0 ${DIALOG_SESSION_COLUMN_MAX_CLASS} ${
+          lessonFooterMode ? 'px-1.5 sm:px-3' : 'px-2 sm:px-3'
+        }`}
       >
         <div
           className={`${FOOTER_TOP_ROW_CLASS} ${showFooterContent ? '' : 'opacity-0'} ${footerRowPressClassName}`}

@@ -3002,8 +3002,8 @@ html[data-theme='glass3'][data-chat-pattern]:not([data-chat-pattern='none']) .ch
 }
 
 /*
- * Dialog session chrome: keep `.chat-shell-x` on the node for closest(),
- * drop postcard gutter on all widths so wallpaper can go edge-to-edge.
+ * Dialog session chrome: keep `.chat-shell-x` on the node for closest().
+ * Default = mobile flush. From 768px: 29rem postcard + py-2 air. iOS dialog stays flush.
  */
 .dialog-session-gutter.chat-shell-x {
   padding-left: max(0px, env(safe-area-inset-left, 0px), var(--vv-left-inset));
@@ -3013,6 +3013,53 @@ html[data-theme='glass3'][data-chat-pattern]:not([data-chat-pattern='none']) .ch
 }
 
 .dialog-session-frame {
+  border-radius: 0;
+  border-width: 0;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .dialog-session-gutter.chat-shell-x {
+    padding-left: max(0.5rem, env(safe-area-inset-left, 0px), var(--vv-left-inset));
+    padding-right: max(0.5rem, env(safe-area-inset-right, 0px), var(--vv-right-inset));
+  }
+
+  .dialog-session-gutter.chat-shell-x.flex-1 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .dialog-session-frame {
+    max-width: 29rem;
+    margin-left: auto;
+    margin-right: auto;
+    border-radius: 1.15rem;
+    border-width: 1px;
+    border-style: solid;
+    border-color: var(--chat-shell-border);
+    box-shadow: var(--chat-shell-shadow);
+  }
+}
+
+html[data-ios-safari-dialog] .dialog-session-gutter.chat-shell-x,
+html[data-ios-webkit-dialog] .dialog-session-gutter.chat-shell-x {
+  padding-left: max(0px, env(safe-area-inset-left, 0px), var(--vv-left-inset));
+  padding-right: max(0px, env(safe-area-inset-right, 0px), var(--vv-right-inset));
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+html[data-ios-safari-dialog] .dialog-session-gutter.chat-shell-x.flex-1,
+html[data-ios-webkit-dialog] .dialog-session-gutter.chat-shell-x.flex-1 {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+html[data-ios-safari-dialog] .dialog-session-frame,
+html[data-ios-webkit-dialog] .dialog-session-frame {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
   border-radius: 0;
   border-width: 0;
   box-shadow: none;

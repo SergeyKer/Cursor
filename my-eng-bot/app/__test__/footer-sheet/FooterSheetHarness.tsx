@@ -14,6 +14,7 @@ import {
 } from '@/lib/footerSheet'
 import type { LanguageNote } from '@/lib/languageNote/types'
 import type { Theme } from '@/lib/theme'
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
 
 const THEMES: Theme[] = ['basic', 'bubble2', 'glass1']
 
@@ -111,14 +112,14 @@ export default function FooterSheetHarness() {
         style={{ paddingTop: 'var(--app-safe-top-inset)' }}
       >
         <div className="chat-shell-x flex min-h-[var(--app-header-row-height)] items-center px-4">
-          <div ref={appColumnRef} className="relative mx-auto w-full max-w-[23.2rem]">
+          <div ref={appColumnRef} className={`relative mx-auto w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS}`}>
             <h1 className="text-base font-semibold text-[var(--app-header-text)]">Footer sheet harness</h1>
           </div>
         </div>
       </header>
 
       <main
-        className="mx-auto max-w-[23.2rem] px-4"
+        className={`mx-auto ${DIALOG_SESSION_COLUMN_MAX_CLASS} px-4`}
         style={{
           paddingTop: 'calc(var(--app-top-offset) + 1rem)',
           paddingBottom: 'calc(var(--app-footer-chrome-height) + 1rem)',

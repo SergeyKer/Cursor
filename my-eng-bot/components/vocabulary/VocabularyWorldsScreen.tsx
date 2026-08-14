@@ -248,7 +248,7 @@ export default function VocabularyWorldsScreen({
             <>
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-[1rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-3 py-3 shadow-sm">
-                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">В деле</p>
+                  <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">Сказать боту</p>
                   <p className="mt-1 text-[22px] font-bold text-[var(--text)]">
                     {Object.values(progress.words).filter((item) => item.feedStatus === 'in_feed').length}
                   </p>
@@ -282,7 +282,7 @@ export default function VocabularyWorldsScreen({
                           <p className="font-semibold text-[var(--text)]">{formatVocabularySessionRouteTitle(item.route)}</p>
                           <p>
                             {item.reviewedWordIds.length} слов
-                            {item.bankedWordIds?.length != null ? `, ${item.bankedWordIds.length} в деле` : ''}
+                            {item.bankedWordIds?.length != null ? `, ${item.bankedWordIds.length} сказать боту` : ''}
                             , {new Date(item.completedAt).toLocaleDateString('ru-RU')}
                           </p>
                         </div>

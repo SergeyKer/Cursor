@@ -291,7 +291,7 @@ export default function VocabularyThinSession({
             {isFinale ? (
               <ReadingDetachedCard label="Сессия слов завершена" className="lesson-enter">
                 <p className="text-[15px] leading-relaxed text-[var(--text-muted)]">
-                  {session.finaleStats.banked} в деле · {session.finaleStats.stillLearning} ещё
+                  {session.finaleStats.banked} сказать боту · {session.finaleStats.stillLearning} ещё
                 </p>
               </ReadingDetachedCard>
             ) : word && session.step === 'reveal_en' ? (

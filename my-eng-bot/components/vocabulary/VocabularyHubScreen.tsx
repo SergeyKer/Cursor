@@ -16,6 +16,9 @@ import { isPackDrained } from '@/lib/vocabulary/resolveImportRows'
 import {
   VOCAB_CARD_BODY_REASON,
   VOCAB_CARD_BODY_TITLE,
+  VOCAB_CARD_HEADER,
+  VOCAB_CARD_HEADER_TITLE,
+  VOCAB_CARD_SURFACE,
   VOCAB_SHELF_CHIP,
   VOCAB_SHELF_CHIP_ACTIVE,
   VOCAB_STATUS_TILE,
@@ -28,13 +31,11 @@ import {
   type VocabNowKind,
 } from '@/lib/vocabulary/fuel'
 import {
-  hubTiles,
-  listShelvedWords,
-  resolveMistakeWords,
-  shelfIdsForAudience,
+  hubDisplayTiles,
+  listByDisplayFilter,
   uniqueWords,
   type HubTileId,
-  type VocabShelfId,
+  type VocabDisplayFilterId,
 } from '@/lib/vocabulary/hubBuckets'
 import { isWordInProgress } from '@/lib/vocabulary/learned'
 import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
@@ -46,7 +47,7 @@ import {
 } from '@/lib/vocabulary/storage'
 import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
 import { lemmaKeyFromEn, listByFeedStatus, setUserMark } from '@/lib/vocabulary/wordFeed'
-import { vocabHubCopy, vocabHubFooter, vocabNowBody, vocabShelfLabel, vocabTileLabel, VOCAB_SHELF_CHIP_ORDER } from '@/lib/uiCopy/vocabularyHub'
+import { vocabHubCopy, vocabHubFooter, vocabNowBody, vocabDisplayLabel, vocabShelfLabel, vocabTileLabel, VOCAB_DISPLAY_CHIP_ORDER } from '@/lib/uiCopy/vocabularyHub'
 import { PHRASEBOOK_COPY } from '@/lib/uiCopy/phrasebook'
 import { loadActivePhrasebookTopicId, saveActivePhrasebookTopicId } from '@/lib/phrasebook/activeTopic'
 import { PHRASEBOOK_TOPICS, isPhrasebookTopicId, type PhrasebookTopicId } from '@/lib/phrasebook/topics'
@@ -67,8 +68,8 @@ import type {
 
 type HubView = 'hub' | 'catalog' | 'list' | 'import' | 'session' | 'bridge' | 'shelves' | 'phrasebook' | 'phrasebook-list'
 
-/** Equal chip width: one quarter of the row minus three `gap-2` gutters. */
-const SHELF_CHIP_QUARTER_CLASS = 'w-[calc((100%-1.5rem)/4)] shrink-0'
+/** Equal chip width: one third of the row minus two `gap-2` gutters. */
+const SHELF_CHIP_THIRD_CLASS = 'w-full'
 
 function ShelfFilterChip({
   id,
@@ -77,11 +78,11 @@ function ShelfFilterChip({
   widthClass,
   onPick,
 }: {
-  id: VocabShelfId | null
+  id: VocabDisplayFilterId
   label: string
   selected: boolean
   widthClass: string
-  onPick: (id: VocabShelfId | null) => void
+  onPick: (id: VocabDisplayFilterId) => void
 }) {
   return (
     <button
@@ -99,16 +100,54 @@ function countReviewed(words: NecessaryWord[], map: VocabularyProgressState['wor
   return words.filter((word) => isWordInProgress(map[String(word.id)])).length
 }
 
+function HubNavCard({
+  title,
+  ariaLabel,
+  onClick,
+  children,
+}: {
+  title: string
+  ariaLabel: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      className={`${VOCAB_CARD_SURFACE} block w-full min-w-0 cursor-pointer text-left touch-manipulation active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]`}
+      aria-label={ariaLabel}
+      onClick={onClick}
+    >
+      <div className={VOCAB_CARD_HEADER}>
+        <p className={VOCAB_CARD_HEADER_TITLE}>{title}</p>
+      </div>
+      <div className="flex items-center gap-3 border-t border-[var(--chat-section-card-divider)] bg-white px-4 py-2.5">
+        <div className="min-w-0 flex-1 space-y-1.5">{children}</div>
+        <span className="pointer-events-none inline-flex h-5 w-5 shrink-0 items-center justify-center text-[var(--text-muted)]" aria-hidden>
+          <svg
+            className="h-full w-full rotate-90"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            aria-hidden
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2.25}
+              d="M6 14.5 12 8.5l6 6"
+            />
+          </svg>
+        </span>
+      </div>
+    </button>
+  )
+}
+
 type ListKey =
   | { kind: 'world'; worldId: VocabularyWorldId }
-  | { kind: 'errors' }
   | { kind: 'pack'; packId: string }
   | { kind: 'vitrine' }
-  | { kind: 'mastered' }
-  | { kind: 'bank' }
-  | { kind: 'study' }
-  | { kind: 'know' }
-  | { kind: 'returned' }
 
 type Props = {
   audience?: Audience
@@ -145,7 +184,7 @@ export default function VocabularyHubScreen({
   const [sessionKey, setSessionKey] = React.useState(0)
   const [bridgeLemmas, setBridgeLemmas] = React.useState<VocabularyFocusLemma[]>([])
   const [nowKind, setNowKind] = React.useState<VocabNowKind>('empty')
-  const [shelfFilter, setShelfFilter] = React.useState<VocabShelfId | null>(null)
+  const [shelfFilter, setShelfFilter] = React.useState<VocabDisplayFilterId>(null)
   const [shelfQuery, setShelfQuery] = React.useState('')
   const [shelfShown, setShelfShown] = React.useState(20)
 
@@ -167,18 +206,18 @@ export default function VocabularyHubScreen({
   const poolWords = React.useMemo(() => uniqueWords([...activeWords, ...packWords]), [activeWords, packWords])
   const shelvedRows = React.useMemo(
     () =>
-      listShelvedWords({
+      listByDisplayFilter({
         words: poolWords,
         progressMap: progress.words,
         mistakes,
         audience,
-        shelf: shelfFilter,
+        filter: shelfFilter,
       }),
     [audience, mistakes, poolWords, progress.words, shelfFilter]
   )
   const shelvedAllCount = React.useMemo(
     () =>
-      listShelvedWords({
+      listByDisplayFilter({
         words: poolWords,
         progressMap: progress.words,
         mistakes,
@@ -264,7 +303,7 @@ export default function VocabularyHubScreen({
     return () => onFooterViewChange?.(null)
   }, [audience, copy.catalogScreenTitle, copy.shelvesFooterDynamic, copy.shelvesFooterStatic, nowKind, onFooterViewChange, view])
 
-  const tiles = hubTiles({
+  const tiles = hubDisplayTiles({
     audience,
     words: poolWords,
     progressMap: progress.words,
@@ -402,9 +441,10 @@ export default function VocabularyHubScreen({
   }
 
   const openTile = (id: HubTileId) => {
-    if (id === 'in_feed') setListKey({ kind: 'bank' })
-    else setListKey({ kind: id })
-    setView('list')
+    setShelfFilter(id)
+    setShelfQuery('')
+    setShelfShown(20)
+    setView('shelves')
   }
 
   const backToHub = () => {
@@ -438,70 +478,7 @@ export default function VocabularyHubScreen({
         empty: copy.emptyList,
       }
     }
-    const shelf: VocabShelfId | null =
-      listKey.kind === 'bank'
-        ? 'in_feed'
-        : listKey.kind === 'mastered' ||
-            listKey.kind === 'study' ||
-            listKey.kind === 'know' ||
-            listKey.kind === 'returned' ||
-            listKey.kind === 'errors'
-          ? listKey.kind
-          : null
-    if (!shelf) return { title: copy.spaceTitle, words: [], showMarks: false, sticky: null, empty: copy.emptyList }
-    const showMarks = shelf === 'study' || shelf === 'know' || shelf === 'returned' || shelf === 'errors'
-    const sticky =
-      shelf === 'study' || shelf === 'returned' ? copy.studyList : shelf === 'in_feed' || shelf === 'errors' ? copy.say : null
-    return {
-      title: vocabShelfLabel(shelf, audience),
-      words: listShelvedWords({
-        words: poolWords,
-        progressMap: progress.words,
-        mistakes,
-        audience,
-        shelf,
-      }).map((row) => row.word),
-      showMarks,
-      sticky,
-      empty: shelf === 'mastered' ? copy.masteredEmpty : copy.emptyList,
-    }
-  }
-
-  const handoffBank = () => {
-    const bank = listByFeedStatus(poolWords, progress.words, 'in_feed').slice(0, 3)
-    if (bank.length === 0) return
-    writeVocabTranslationHandoff({
-      lemmas: bank.map((word) => ({
-        en: word.en,
-        ru: word.ru,
-        wordId: word.id,
-        lemmaKey: lemmaKeyFromEn(word.en),
-      })),
-      source: 'feed_browse',
-      loadStudying: true,
-    })
-    onOpenTranslationWithHandoff?.()
-  }
-
-  const handoffErrors = (open: 'translation' | 'call') => {
-    const errorWords = resolveMistakeWords(activeWords, packWords, progress.words, mistakes).slice(0, 3)
-    const lemmas =
-      errorWords.length > 0
-        ? errorWords.map((word) => ({
-            en: word.en,
-            ru: word.ru,
-            wordId: word.id,
-            lemmaKey: lemmaKeyFromEn(word.en),
-          }))
-        : mistakes.slice(0, 3).map((item) => ({
-            en: item.en,
-            ru: item.ru ?? '',
-            lemmaKey: item.lemmaKey,
-          }))
-    if (lemmas.length === 0) return
-    writeVocabTranslationHandoff({ lemmas, source: 'feed_browse', loadStudying: true })
-    if (open === 'call') onOpenCallWithHandoff?.()
-    else     onOpenTranslationWithHandoff?.()
+    return { title: copy.spaceTitle, words: [], showMarks: false, sticky: null, empty: copy.emptyList }
   }
 
   const handoffShelfWords = (
@@ -533,17 +510,6 @@ export default function VocabularyHubScreen({
 
   const runListSticky = (bundle: ReturnType<typeof listBundle>) => {
     if (!listKey) return
-    if (listKey.kind === 'bank' || (listKey.kind === 'errors' && nowKind === 'errors-bridge')) {
-      startBridge(
-        bundle.words.slice(0, 3).map((word) => ({
-          en: word.en,
-          ru: word.ru,
-          wordId: word.id,
-          lemmaKey: lemmaKeyFromEn(word.en),
-        }))
-      )
-      return
-    }
     if (listKey.kind === 'world' || listKey.kind === 'vitrine') {
       const worldId = listKey.kind === 'world' ? listKey.worldId : 'home'
       startSession(pickWorldWords(worldId), { kind: 'world', worldId })
@@ -551,10 +517,7 @@ export default function VocabularyHubScreen({
     }
     const fromList = lemmasToWords(fuelLemmas(bundle.words, listKey.kind === 'pack' ? bundle.words : packWords))
     const fallback = bundle.words
-      .filter((word) => {
-        const mark = progress.words[String(word.id)]?.userMark
-        return mark === 'study' || listKey.kind === 'pack' || listKey.kind === 'errors' || listKey.kind === 'study' || listKey.kind === 'returned'
-      })
+      .filter((word) => progress.words[String(word.id)]?.userMark === 'study' || listKey.kind === 'pack')
       .slice(0, tempoSize)
     startSession(
       fromList.length ? fromList : fallback,
@@ -647,35 +610,6 @@ export default function VocabularyHubScreen({
 
   if (view === 'list' && listKey) {
     const bundle = listBundle()
-    const extra =
-      listKey.kind === 'bank' ? (
-        <VocabCardFooterButton
-          variant="expand"
-          label={copy.handoffTranslation}
-          onClick={handoffBank}
-          disabled={bundle.words.length === 0}
-          roundBottom={false}
-        />
-      ) : listKey.kind === 'errors' ? (
-        <div className="space-y-2">
-          <VocabCardFooterButton
-            variant="expand"
-            label={copy.handoffTranslation}
-            onClick={() => handoffErrors('translation')}
-            disabled={bundle.words.length === 0 && mistakes.length === 0}
-            roundBottom={false}
-          />
-          {onOpenCallWithHandoff ? (
-            <VocabCardFooterButton
-              variant="action"
-              label={copy.handoffCall}
-              onClick={() => handoffErrors('call')}
-              disabled={bundle.words.length === 0 && mistakes.length === 0}
-              roundBottom={false}
-            />
-          ) : null}
-        </div>
-      ) : null
     return (
       <VocabHubShell
         key="list"
@@ -693,7 +627,6 @@ export default function VocabularyHubScreen({
           showMarks={bundle.showMarks}
           allowSearch
           emptyText={bundle.empty}
-          extra={extra}
           onStudy={(word) => persistMark(word, 'study')}
           onKnow={(word) => persistMark(word, 'know')}
         />
@@ -710,20 +643,18 @@ export default function VocabularyHubScreen({
       : shelvedRows
     const visible = filtered.slice(0, shelfShown)
     const shelfWords = filtered.map((row) => row.word)
-    const chips = VOCAB_SHELF_CHIP_ORDER.filter((id) => shelfIdsForAudience(audience).includes(id))
-    const chipItems: Array<{ id: VocabShelfId | null; label: string }> = [
+    const chipItems: Array<{ id: VocabDisplayFilterId; label: string }> = [
       { id: null, label: copy.shelvesAll },
-      ...chips.map((id) => ({ id, label: vocabShelfLabel(id, audience) })),
+      ...VOCAB_DISPLAY_CHIP_ORDER.map((id) => ({ id, label: vocabDisplayLabel(id, audience) })),
     ]
-    const topCount = chipItems.length === 7 ? 4 : 3
-    const chipTop = chipItems.slice(0, topCount)
-    const chipBottom = chipItems.slice(topCount)
-    const pickShelfChip = (id: VocabShelfId | null) => {
+    const chipTop = chipItems.slice(0, 3)
+    const chipBottom = chipItems.slice(3)
+    const pickShelfChip = (id: VocabDisplayFilterId) => {
       setShelfFilter(id)
       setShelfShown(20)
     }
     const sticky =
-      shelfFilter === 'study' || shelfFilter === 'returned'
+      shelfFilter === 'study' || shelfFilter === 'fix'
         ? copy.studyList
         : shelfFilter === 'in_feed'
           ? copy.say
@@ -737,7 +668,7 @@ export default function VocabularyHubScreen({
           disabled={shelfWords.length === 0}
           roundBottom={false}
         />
-      ) : shelfFilter === 'errors' ? (
+      ) : shelfFilter === 'fix' ? (
         <div className="space-y-2">
           <VocabCardFooterButton
             variant="expand"
@@ -777,41 +708,26 @@ export default function VocabularyHubScreen({
           className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-[14px] text-[var(--text)] outline-none"
         />
         <div className="rounded-xl border border-[var(--border)] bg-white p-2">
-          {chipItems.length === 7 ? (
-            <div className="grid grid-cols-4 gap-2">
-              {chipTop.map((item) => (
-                <ShelfFilterChip
-                  key={item.id ?? 'all'}
-                  id={item.id}
-                  label={item.label}
-                  selected={shelfFilter === item.id}
-                  widthClass="w-full"
-                  onPick={pickShelfChip}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="flex justify-center gap-2">
-              {chipTop.map((item) => (
-                <ShelfFilterChip
-                  key={item.id ?? 'all'}
-                  id={item.id}
-                  label={item.label}
-                  selected={shelfFilter === item.id}
-                  widthClass={SHELF_CHIP_QUARTER_CLASS}
-                  onPick={pickShelfChip}
-                />
-              ))}
-            </div>
-          )}
-          <div className="mt-2 flex justify-center gap-2">
+          <div className="grid grid-cols-3 gap-2">
+            {chipTop.map((item) => (
+              <ShelfFilterChip
+                key={item.id ?? 'all'}
+                id={item.id}
+                label={item.label}
+                selected={shelfFilter === item.id}
+                widthClass={SHELF_CHIP_THIRD_CLASS}
+                onPick={pickShelfChip}
+              />
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-3 gap-2">
             {chipBottom.map((item) => (
               <ShelfFilterChip
                 key={item.id ?? 'all'}
                 id={item.id}
                 label={item.label}
                 selected={shelfFilter === item.id}
-                widthClass={item.id === 'returned' ? 'w-fit shrink-0' : SHELF_CHIP_QUARTER_CLASS}
+                widthClass={SHELF_CHIP_THIRD_CLASS}
                 onPick={pickShelfChip}
               />
             ))}
@@ -839,7 +755,7 @@ export default function VocabularyHubScreen({
           ) : null}
           {filtered.length === 0 ? (
             <p className="rounded-xl border border-[var(--border)] bg-white px-3 py-4 text-[14px] text-[var(--text-muted)]">
-              {copy.emptyList}
+              {shelfFilter === 'mastered' ? copy.masteredEmpty : copy.emptyList}
             </p>
           ) : null}
         </div>
@@ -966,13 +882,24 @@ export default function VocabularyHubScreen({
 
   return (
     <VocabHubShell key="hub" backLabel={copy.back} onBack={onBackToLessons}>
-      <div className="grid grid-cols-3 gap-2">
-        {tiles.map((tile) => (
-          <button key={tile.id} type="button" className={VOCAB_STATUS_TILE} onClick={() => openTile(tile.id)}>
-            <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">{tile.count}</p>
-            <p className="leading-tight break-words text-[13px] text-[var(--text-muted)]">{vocabTileLabel(tile.id, audience)}</p>
-          </button>
-        ))}
+      <div className="space-y-2">
+        <div className="grid grid-cols-3 gap-2">
+          {tiles.slice(0, 3).map((tile) => (
+            <button key={tile.id} type="button" className={VOCAB_STATUS_TILE} onClick={() => openTile(tile.id)}>
+              <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">{tile.count}</p>
+              <p className="leading-tight break-words text-[13px] text-[var(--text-muted)]">{vocabTileLabel(tile.id, audience)}</p>
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {tiles.slice(3).map((tile) => (
+            <button key={tile.id} type="button" className={VOCAB_STATUS_TILE} onClick={() => openTile(tile.id)}>
+              <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">{tile.count}</p>
+              <p className="leading-tight break-words text-[13px] text-[var(--text-muted)]">{vocabTileLabel(tile.id, audience)}</p>
+            </button>
+          ))}
+        </div>
+        <p className="px-1 text-center text-[12px] leading-snug text-[var(--text-muted)]">{copy.pathHint}</p>
       </div>
 
       <VocabCard
@@ -985,23 +912,17 @@ export default function VocabularyHubScreen({
         <p className={VOCAB_CARD_BODY_REASON}>{nowBody.reason}</p>
       </VocabCard>
 
-      <VocabCard
+      <HubNavCard
         title={copy.shelvesTitle}
-        insetCta={
-          <VocabCardFooterButton
-            placement="inset"
-            variant="expand"
-            label={copy.catalogOpen}
-            onClick={() => {
-              resetShelvesNav()
-              setView('shelves')
-            }}
-          />
-        }
+        ariaLabel={`${copy.shelvesTitle}. ${copy.catalogOpen}`}
+        onClick={() => {
+          resetShelvesNav()
+          setView('shelves')
+        }}
       >
         <p className={VOCAB_CARD_BODY_TITLE}>{String(shelvedAllCount)}</p>
         <p className={VOCAB_CARD_BODY_REASON}>{copy.shelvesBody}</p>
-      </VocabCard>
+      </HubNavCard>
 
       <VocabCard
         title={copy.listsTitle}
@@ -1051,19 +972,13 @@ export default function VocabularyHubScreen({
         ) : null}
       </VocabCard>
 
-      <VocabCard
+      <HubNavCard
         title={copy.catalogTitle}
-        insetCta={
-          <VocabCardFooterButton
-            placement="inset"
-            variant="expand"
-            label={copy.catalogOpen}
-            onClick={() => setView('catalog')}
-          />
-        }
+        ariaLabel={`${copy.catalogTitle}. ${copy.catalogOpen}`}
+        onClick={() => setView('catalog')}
       >
         <p className={VOCAB_CARD_BODY_REASON}>{copy.catalogBody}</p>
-      </VocabCard>
+      </HubNavCard>
     </VocabHubShell>
   )
 }

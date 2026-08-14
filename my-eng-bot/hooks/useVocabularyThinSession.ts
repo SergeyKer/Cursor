@@ -78,7 +78,7 @@ function buildFooter(
   })
 
   if (status === 'completed') {
-    return base('В деле. Дальше — сказать боту.', 'Финал', `vocab-thin-finale-${sessionId}`)
+    return base('Карточки сданы. Дальше — сказать боту.', 'Финал', `vocab-thin-finale-${sessionId}`)
   }
 
   switch (step) {

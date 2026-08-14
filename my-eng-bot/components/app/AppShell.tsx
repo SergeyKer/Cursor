@@ -11189,9 +11189,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               lessonHeaderProgressLabel
                 ? 'grid-cols-[auto_1fr_auto]'
                 : 'grid-cols-[2.5rem_1fr_2.5rem] sm:grid-cols-[2.5rem_1fr_auto]'
-            } ${
-              dialogSessionColumn ? DIALOG_SESSION_COLUMN_MAX_CLASS : 'max-w-[23.2rem]'
-            }`}
+            } ${DIALOG_SESSION_COLUMN_MAX_CLASS}`}
           >
             <div className="relative z-20 col-start-1 row-start-1 flex items-center gap-1 justify-self-start">
               <button
@@ -11395,7 +11393,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           >
             <div
               ref={homeColumnRef}
-              className="pointer-events-auto relative z-10 mx-auto flex w-full max-w-[23.2rem] flex-col items-center pb-2"
+              className={`pointer-events-auto relative z-10 mx-auto flex w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} flex-col items-center pb-2`}
               style={{
                 gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
                 paddingTop:

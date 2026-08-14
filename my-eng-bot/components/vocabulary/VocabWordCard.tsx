@@ -24,7 +24,7 @@ export default function VocabWordCard({
   studyActive = false,
   knowActive = false,
   studyLabel = 'Учить',
-  knowLabel = 'Знаю',
+  knowLabel = 'Пропускаю',
   listenLabel = 'Слушать',
   onStudy,
   onKnow,
