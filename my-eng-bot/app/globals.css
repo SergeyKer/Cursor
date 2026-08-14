@@ -2742,9 +2742,9 @@ html[data-theme='glass3'] {
   input[type="password"] {
     min-height: 44px;
   }
-  /* Р’С‚РѕСЂРѕСЃС‚РµРїРµРЅРЅС‹Рµ С‡РёРїС‹ В«РћР·РІСѓС‡РёС‚СЊВ» / В«РџРµСЂРµРІРѕРґВ»: С‡СѓС‚СЊ РЅРёР¶Рµ 44px, Р±РµР· В«СЂР°Р·РґСѓС‚РѕР№В» РєР°РїСЃСѓР»С‹. */
+  /* Чипы «Озвучить» / «Перевод» и соседние в ряду пузыря: высота как на pointer: fine (py-0.5), не 44/36px. */
   button.chat-assistant-chip-button {
-    min-height: 36px;
+    min-height: auto;
   }
   button.lesson-choice-chip {
     min-height: auto;
