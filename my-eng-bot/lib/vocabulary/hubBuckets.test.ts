@@ -3,7 +3,6 @@ import { createEmptyWordProgress } from '@/lib/vocabulary/srs'
 import {
   hubDisplayTiles,
   listByDisplayFilter,
-  listKnowWords,
   listShelvedWords,
   listStudyWords,
   resolveMistakeWords,
@@ -34,7 +33,7 @@ describe('hubBuckets', () => {
     }
     const tiles = hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes: [] })
     expect(tiles.find((tile) => tile.id === 'mastered')?.count).toBe(1)
-    expect(listKnowWords(words, progressMap).map((row) => row.en)).toEqual(['know'])
+    expect(tiles.find((tile) => tile.id === 'know')?.count).toBe(1)
     expect(listStudyWords(words, progressMap).map((row) => row.en)).toEqual(['study'])
   })
 
@@ -48,7 +47,7 @@ describe('hubBuckets', () => {
         lemmaKey: 'mix',
       },
     }
-    expect(listKnowWords(words, progressMap)).toEqual([])
+    expect(hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes: [] }).find((tile) => tile.id === 'know')?.count).toBe(0)
     expect(hubDisplayTiles({ audience: 'adult', words, progressMap, mistakes: [] }).find((tile) => tile.id === 'mastered')?.count).toBe(1)
   })
 

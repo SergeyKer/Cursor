@@ -16,7 +16,7 @@ import {
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
-import { featureFlags } from '@/lib/featureFlags'
+import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import {
   DIALOG_SESSION_FEED_INNER_CLASS,
@@ -95,6 +95,7 @@ export default function VocabularyThinSession({
   onAgain,
   onExit,
 }: VocabularyThinSessionProps) {
+  const copy = vocabHubCopy(audience)
   const session = useVocabularyThinSession({
     setProgress,
     distractorPool,
@@ -291,7 +292,7 @@ export default function VocabularyThinSession({
             {isFinale ? (
               <ReadingDetachedCard label="Сессия слов завершена" className="lesson-enter">
                 <p className="text-[15px] leading-relaxed text-[var(--text-muted)]">
-                  {session.finaleStats.banked} сказать боту · {session.finaleStats.stillLearning} ещё
+                  {session.finaleStats.banked} сказать Engvo · {session.finaleStats.stillLearning} ещё
                 </p>
               </ReadingDetachedCard>
             ) : word && session.step === 'reveal_en' ? (
@@ -405,7 +406,7 @@ export default function VocabularyThinSession({
                   onClick={handleBridge}
                   className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
                 >
-                  Сказать боту
+                  {copy.say}
                 </button>
               ) : null}
               {session.finaleStats.banked > 0 ? (

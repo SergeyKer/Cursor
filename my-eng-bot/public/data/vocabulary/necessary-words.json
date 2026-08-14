@@ -1,6 +1,6 @@
 {
   "dictionaryVersion": 2,
-  "generatedAt": "2026-05-07T09:06:21.537Z",
+  "generatedAt": "2026-08-14T09:04:21.768Z",
   "sourceFile": "english_words_with_russian.txt + english_words_advanced.txt (30 слов, id с 1001)",
   "worlds": [
     {
@@ -194,7 +194,7 @@
     },
     {
       "id": 5,
-      "en": "Salty,",
+      "en": "Salty",
       "ru": "недовольный, обиженный",
       "transcription": "[ˈsɔːlti], [ˈsɒlti]",
       "source": "5. Salty [ˈsɔːlti], [ˈsɒlti] - недовольный, обиженный",
@@ -652,7 +652,7 @@
     },
     {
       "id": 35,
-      "en": "To troll,",
+      "en": "To troll",
       "ru": "троллить",
       "transcription": "[trɒl], [trəʊl]",
       "source": "35. To troll [trɒl], [trəʊl] - троллить",
@@ -729,7 +729,7 @@
     },
     {
       "id": 40,
-      "en": "The,,",
+      "en": "The",
       "ru": "определённый артикль",
       "transcription": "[ðiː], [ði], [ðə]",
       "source": "40. The [ðiː], [ði], [ðə] - определённый артикль",
@@ -1436,7 +1436,7 @@
     },
     {
       "id": 87,
-      "en": "Yesterday,",
+      "en": "Yesterday",
       "ru": "вчера",
       "transcription": "[ˈjestədeɪ], [ˈjestədi]",
       "source": "87. Yesterday [ˈjestədeɪ], [ˈjestədi] - вчера",
@@ -1706,7 +1706,7 @@
     },
     {
       "id": 105,
-      "en": "Again,",
+      "en": "Again",
       "ru": "снова",
       "transcription": "[əˈɡen], [əˈɡeɪn]",
       "source": "105. Again [əˈɡen], [əˈɡeɪn] - снова",
@@ -2156,7 +2156,7 @@
     },
     {
       "id": 135,
-      "en": "Our,",
+      "en": "Our",
       "ru": "наш",
       "transcription": "[ˈaʊə(r)], [ɑː(r)]",
       "source": "135. Our [ˈaʊə(r)], [ɑː(r)] - наш",
@@ -2276,7 +2276,7 @@
     },
     {
       "id": 143,
-      "en": "His,",
+      "en": "His",
       "ru": "его (чей?)",
       "transcription": "[hɪz], [ɪz]",
       "source": "143. His [hɪz], [ɪz] - его (чей?)",
@@ -2458,7 +2458,7 @@
     },
     {
       "id": 155,
-      "en": "Year,",
+      "en": "Year",
       "ru": "год",
       "transcription": "[jɪə(r)], [jɜː(r)]",
       "source": "155. Year [jɪə(r)], [jɜː(r)] - год",
@@ -2689,7 +2689,7 @@
     },
     {
       "id": 170,
-      "en": "Research,",
+      "en": "Research",
       "ru": "исследование",
       "transcription": "[rɪˈsɜːtʃ], [ˈriːsɜːtʃ]",
       "source": "170. Research [rɪˈsɜːtʃ], [ˈriːsɜːtʃ] - исследование",
@@ -3336,7 +3336,7 @@
     },
     {
       "id": 209,
-      "en": "Decade,",
+      "en": "Decade",
       "ru": "десятилетие",
       "transcription": "[ˈdekeɪd], [dɪˈkeɪd]",
       "source": "209. Decade [ˈdekeɪd], [dɪˈkeɪd] - десятилетие",
@@ -3540,7 +3540,7 @@
     },
     {
       "id": 221,
-      "en": "Room,",
+      "en": "Room",
       "ru": "комната, номер",
       "transcription": "[ruːm], [rʊm]",
       "source": "221. Room [ruːm], [rʊm] - комната, номер",
@@ -5007,7 +5007,7 @@
     },
     {
       "id": 312,
-      "en": "Vacation,",
+      "en": "Vacation",
       "ru": "отпуск",
       "transcription": "[veɪˈkeɪʃn], [vəˈkeɪʃn]",
       "source": "312. Vacation [veɪˈkeɪʃn], [vəˈkeɪʃn] - отпуск",
@@ -5713,7 +5713,7 @@
     },
     {
       "id": 357,
-      "en": "Tourist,",
+      "en": "Tourist",
       "ru": "турист",
       "transcription": "[ˈtʊərɪst], [ˈtɔːrɪst]",
       "source": "357. Tourist [ˈtʊərɪst], [ˈtɔːrɪst] - турист",
@@ -5758,7 +5758,7 @@
     },
     {
       "id": 360,
-      "en": "Cinema,",
+      "en": "Cinema",
       "ru": "кинотеатр",
       "transcription": "[ˈsɪnəmə], [ˈsɪnəmɑː]",
       "source": "360. Cinema [ˈsɪnəmə], [ˈsɪnəmɑː] - кинотеатр",
@@ -6141,7 +6141,7 @@
     },
     {
       "id": 385,
-      "en": "Insurance,",
+      "en": "Insurance",
       "ru": "страховка",
       "transcription": "[ɪnˈʃʊərəns], [ɪnˈʃɔːrəns]",
       "source": "385. Insurance [ɪnˈʃʊərəns], [ɪnˈʃɔːrəns] - страховка",
@@ -6263,7 +6263,7 @@
     },
     {
       "id": 393,
-      "en": "Tour,",
+      "en": "Tour",
       "ru": "тур",
       "transcription": "[tʊə(r)], [tɔː(r)]",
       "source": "393. Tour [tʊə(r)], [tɔː(r)] - тур",
@@ -6767,7 +6767,7 @@
     },
     {
       "id": 426,
-      "en": "Battery,",
+      "en": "Battery",
       "ru": "аккумулятор",
       "transcription": "[ˈbætri], [ˈbætəri]",
       "source": "426. Battery [ˈbætri], [ˈbætəri] - аккумулятор",
@@ -7102,7 +7102,7 @@
     },
     {
       "id": 448,
-      "en": "Financial,",
+      "en": "Financial",
       "ru": "финансовый",
       "transcription": "[faɪˈnænʃl], [fəˈnænʃl]",
       "source": "448. Financial [faɪˈnænʃl], [fəˈnænʃl] - финансовый",
@@ -7884,7 +7884,7 @@
     },
     {
       "id": 500,
-      "en": "Poor,",
+      "en": "Poor",
       "ru": "бедный",
       "transcription": "[pɔː(r)], [pʊə(r)]",
       "source": "500. Poor [pɔː(r)], [pʊə(r)] - бедный",
@@ -8050,7 +8050,7 @@
     {
       "id": 511,
       "en": "Actual",
-      "ru": "актуальный,",
+      "ru": "актуальный",
       "transcription": "[ˈæktʃuəl]",
       "source": "511. Actual [ˈæktʃuəl] - актуальный,",
       "status": "active",
@@ -8859,7 +8859,7 @@
     },
     {
       "id": 565,
-      "en": "Interesting,",
+      "en": "Interesting",
       "ru": "интересный",
       "transcription": "[ˈɪntrəstɪŋ], [ˈɪntrestɪŋ]",
       "source": "565. Interesting [ˈɪntrəstɪŋ], [ˈɪntrestɪŋ] - интересный",
@@ -10324,7 +10324,7 @@
     },
     {
       "id": 661,
-      "en": "Spouse,",
+      "en": "Spouse",
       "ru": "супруг(а)",
       "transcription": "[spaʊs], [spaʊz]",
       "source": "661. Spouse [spaʊs], [spaʊz] - супруг(а)",
@@ -12032,7 +12032,7 @@
     },
     {
       "id": 772,
-      "en": "Romance,",
+      "en": "Romance",
       "ru": "роман, романтика",
       "transcription": "[rəʊˈmæns], [ˈrəʊmæns]",
       "source": "772. Romance [rəʊˈmæns], [ˈrəʊmæns] - роман, романтика",
@@ -12424,8 +12424,8 @@
     },
     {
       "id": 798,
-      "en": "LOL,",
-      "ru": "laughing out loud,",
+      "en": "LOL",
+      "ru": "laughing out loud",
       "transcription": "[lɒl], [ˌel əʊ ˈel]",
       "source": "798. LOL [lɒl], [ˌel əʊ ˈel] - laughing out loud,",
       "status": "excluded",
@@ -12456,7 +12456,7 @@
     {
       "id": 800,
       "en": "Facepalm",
-      "ru": "фейспалм,",
+      "ru": "фейспалм",
       "transcription": "[ˈfeɪspɑːm]",
       "source": "800. Facepalm [ˈfeɪspɑːm] - фейспалм,",
       "status": "excluded",
@@ -12517,7 +12517,7 @@
     {
       "id": 804,
       "en": "ROFL",
-      "ru": "rolling on the floor laughing,",
+      "ru": "rolling on the floor laughing",
       "transcription": "[ˈrɒfl]",
       "source": "804. ROFL [ˈrɒfl] - rolling on the floor laughing,",
       "status": "excluded",
@@ -12699,8 +12699,8 @@
     },
     {
       "id": 816,
-      "en": "ASAP,",
-      "ru": "as soon as possible,",
+      "en": "ASAP",
+      "ru": "as soon as possible",
       "transcription": "[ˌeɪ es eɪ ˈpiː]",
       "source": "816. ASAP [ˌeɪ es eɪ ˈpiː], - as soon as possible,",
       "status": "excluded",
@@ -12730,7 +12730,7 @@
     {
       "id": 818,
       "en": "ETA [ˌiː tiː",
-      "ru": "estimated time of arrival,",
+      "ru": "estimated time of arrival",
       "transcription": "",
       "source": "818. ETA [ˌiː tiː - estimated time of arrival,",
       "status": "excluded",
@@ -13549,7 +13549,7 @@
     },
     {
       "id": 871,
-      "en": "Niche,",
+      "en": "Niche",
       "ru": "ниша",
       "transcription": "[niːʃ], [nɪtʃ]",
       "source": "871. Niche [niːʃ], [nɪtʃ] - ниша",
@@ -14492,7 +14492,7 @@
     },
     {
       "id": 930,
-      "en": "To realise,",
+      "en": "To realise",
       "ru": "понимать",
       "transcription": "[ˈriːəlaɪz], [ˈrɪəlaɪz]",
       "source": "930. To realise [ˈriːəlaɪz], [ˈrɪəlaɪz] - понимать",

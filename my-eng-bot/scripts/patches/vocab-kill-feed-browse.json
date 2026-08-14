@@ -1,0 +1,54 @@
+[
+  [
+    "import VocabularyFeedBrowseScreen from '@/components/vocabulary/VocabularyFeedBrowseScreen'\n",
+    ""
+  ],
+  [
+    "  const [vocabularyFeedActive, setVocabularyFeedActive] = useState(false)\n",
+    ""
+  ],
+  [
+    "    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('hub')\n    setVocabularyWorldsActive(true)",
+    "    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('hub')\n    setVocabularyWorldsActive(true)"
+  ],
+  [
+    "    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('phrasebook')\n    setVocabularyWorldsActive(true)",
+    "    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('phrasebook')\n    setVocabularyWorldsActive(true)"
+  ],
+  [
+    "    setVocabularyWorldsActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)",
+    "    setVocabularyWorldsActive(false)\n    setVocabularyPackId(null)"
+  ],
+  [
+    "  const openVocabularyFeed = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyWorldsActive(false)\n    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabularyFeedActive(true)\n    menuOpenSnapshotRef.current = null\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsFeed' })\n  }, [resetStructuredLessonSession])",
+    "  const openVocabularyFeed = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('hub')\n    setVocabularyWorldsActive(true)\n    menuOpenSnapshotRef.current = null\n    setDialogStarted(true)\n    setMenuOpen(false)\n    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsFeed' })\n  }, [resetStructuredLessonSession])"
+  ],
+  [
+    "      setVocabularyByLevelActive(false)\n      setVocabularyFeedActive(false)\n      setVocabularyPackId(packId)",
+    "      setVocabularyByLevelActive(false)\n      setVocabularyPackId(packId)"
+  ],
+  [
+    "    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setAdaptiveFooterView(null)\n    menuOpenSnapshotRef.current = null",
+    "    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setAdaptiveFooterView(null)\n    menuOpenSnapshotRef.current = null"
+  ],
+  [
+    "    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setAdaptiveFooterView(null)",
+    "    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setAdaptiveFooterView(null)"
+  ],
+  [
+    "    setVocabularyByLevelActive(false)\n    setVocabularyFeedActive(false)\n    setVocabularyPackId(null)\n    setVocabularySessionActive(false)",
+    "    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabularySessionActive(false)"
+  ],
+  [
+    "    vocabularyWorldsActive || vocabularyByLevelActive || vocabularyFeedActive || Boolean(vocabularyPackId)",
+    "    vocabularyWorldsActive || vocabularyByLevelActive || Boolean(vocabularyPackId)"
+  ],
+  [
+    "    vocabularyWorldsActive,\n    vocabularyFeedActive,\n    vocabularyPackId,",
+    "    vocabularyWorldsActive,\n    vocabularyPackId,"
+  ],
+  [
+    "                  ) : vocabularyFeedActive ? (\n                    <VocabularyFeedBrowseScreen\n                      onBack={backToVocabularyMenu}\n                      onFooterViewChange={setVocabularyFooterView}\n                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}\n                      onOpenCallWithHandoff={openCallFromVocabHandoff}\n                    />\n                  ) : (",
+    "                  ) : ("
+  ]
+]

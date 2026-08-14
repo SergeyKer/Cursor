@@ -62,7 +62,7 @@ export function recordFeedUse(
   return recordTranslationLemmaUse(progress, now)
 }
 
-/** Перевод: крепит «Сказать боту», никогда не ставит Умею. */
+/** Перевод: крепит in_feed (ждут речи), никогда не ставит Умею. */
 export function recordTranslationLemmaUse(
   progress: VocabularyWordProgress,
   now: number = Date.now()

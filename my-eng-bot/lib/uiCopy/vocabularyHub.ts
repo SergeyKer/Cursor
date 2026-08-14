@@ -8,6 +8,8 @@ import {
 
 export function vocabHubCopy(audience: Audience) {
   const child = audience === 'child'
+  const inFeedTitle = child ? 'Скажи Engvo' : 'Ждут речи'
+  const say = child ? 'Скажи Engvo' : 'Сказать Engvo'
   return {
     spaceTitle: 'Слова',
     back: '← Назад',
@@ -28,7 +30,7 @@ export function vocabHubCopy(audience: Audience) {
     know: 'Пропускаю',
     studyList: 'Учить этот список',
     start: 'Начать',
-    say: 'Сказать боту',
+    say,
     pick: 'Выбрать слова',
     more: 'ещё',
     searchPlaceholder: 'Поиск…',
@@ -37,10 +39,14 @@ export function vocabHubCopy(audience: Audience) {
     handoffTranslation: 'Закрепить в переводе',
     handoffCall: 'В звонок',
     catalogScreenTitle: child ? 'Ещё слова' : 'Каталог',
-    masteredEmpty: child ? 'Пока пусто — скажи боту слово.' : 'Пока нет слов в запасе. Скажи боту слова, которые ждут речи.',
-    bankTitle: 'Сказать боту',
+    masteredEmpty: child
+      ? 'Пока пусто — скажи Engvo слово.'
+      : 'Пока нет слов в запасе. Скажи Engvo слова, которые ждут речи.',
+    inFeedTitle,
     studyTitle: 'Учу',
-    pathHint: 'Карточки → сказать боту → умею. «Пропускаю» — без проверки.',
+    pathHint: child
+      ? 'Карточки → скажи Engvo → умею.'
+      : 'Учить → ждут речи → умею. «Пропускаю» — без проверки.',
     worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
     importTitle: child ? 'Добавить слова' : 'Залить список',
     importParse: 'Сделать список',
@@ -53,13 +59,17 @@ export function vocabHubCopy(audience: Audience) {
     importNoPairs: 'Нет пар для сохранения.',
     importFound: (found: number) => (child ? `Нашёл ${found} — учим 3.` : `Нашёл ${found}. Проверь перевод.`),
     importAlreadyLine: (mastered: number, inFeed: number) =>
-      [mastered > 0 ? `уже умею: ${mastered}` : '', inFeed > 0 ? `сказать боту: ${inFeed}` : '']
+      [mastered > 0 ? `уже умею: ${mastered}` : '', inFeed > 0 ? `${inFeedTitle}: ${inFeed}` : '']
         .filter(Boolean)
         .join('. '),
-    listsDrained: child ? 'Эти слова уже в «Сказать боту» или «Умею».' : 'Списки уже в обороте.',
+    listsDrained: child
+      ? `Эти слова уже в «${inFeedTitle}» или «Умею».`
+      : 'Списки уже в обороте.',
     shelvesTitle: 'МОИ СЛОВА',
     shelvesScreenTitle: 'Мои слова',
-    shelvesBody: 'Учу · Сказать боту · Умею',
+    shelvesBody: child
+      ? 'Учу · Скажи Engvo · Умею · Пропускаю · Починить'
+      : 'Учу · Ждут речи · Умею · Пропускаю · Починить',
     shelvesAll: 'Все',
     shelfReturned: 'Починить',
     shelfMastered: 'Умею',
@@ -67,10 +77,6 @@ export function vocabHubCopy(audience: Audience) {
     shelfFix: 'Починить',
     shelvesFooterStatic: 'Слова | Мои слова',
     shelvesFooterDynamic: 'Слова по статусу.',
-    feedBrowseTitle: 'Сказать боту',
-    feedBrowseBody: 'Учу · Сказать боту · Умею · Починить',
-    feedTabQueue: 'Учу',
-    feedTabMistakes: 'Починить',
   }
 }
 
@@ -80,7 +86,7 @@ export function vocabShelfLabel(id: VocabShelfId, audience: Audience): string {
   const copy = vocabHubCopy(audience)
   if (id === 'returned' || id === 'errors') return copy.shelfFix
   if (id === 'mastered') return copy.shelfMastered
-  if (id === 'in_feed') return copy.bankTitle
+  if (id === 'in_feed') return copy.inFeedTitle
   if (id === 'know') return copy.know
   return copy.studyTitle
 }
@@ -89,7 +95,7 @@ export function vocabDisplayLabel(id: VocabDisplayTileId, audience: Audience): s
   const copy = vocabHubCopy(audience)
   if (id === 'fix') return copy.shelfFix
   if (id === 'mastered') return copy.shelfMastered
-  if (id === 'in_feed') return copy.bankTitle
+  if (id === 'in_feed') return copy.inFeedTitle
   if (id === 'know') return copy.know
   return copy.studyTitle
 }
@@ -108,7 +114,7 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
     case 'errors-sprint':
       return { title: child ? 'Поймали слово' : 'Поймали слово', reason: 'Почини в короткой порции.', cta: 'start' }
     case 'errors-bridge':
-      return { title: child ? 'Скажи боту ещё раз' : 'Поймали слово', reason: 'Скажи боту ещё раз.', cta: 'say' }
+      return { title: child ? 'Скажи Engvo ещё раз' : 'Поймали слово', reason: 'Скажи Engvo ещё раз.', cta: 'say' }
     case 'fresh-sprint':
       return {
         title: child ? 'Ты отметил' : 'Твой список',
@@ -116,7 +122,7 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
         cta: 'start',
       }
     case 'bank-bridge':
-      return { title: 'Осталось сказать', reason: 'Карточки уже были — скажи боту.', cta: 'say' }
+      return { title: 'Осталось сказать', reason: 'Карточки уже были — скажи Engvo.', cta: 'say' }
     case 'pause':
       return { title: 'С возвращением', reason: 'Два слова, без давления.', cta: 'start' }
     default:
@@ -128,16 +134,20 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
   }
 }
 
-export function vocabHubFooter(kind: VocabNowKind): { dynamicText: string; staticText: string } {
+export function vocabHubFooter(kind: VocabNowKind, audience: Audience = 'adult'): {
+  dynamicText: string
+  staticText: string
+} {
+  const inFeed = vocabHubCopy(audience).inFeedTitle
   switch (kind) {
     case 'errors-sprint':
       return { dynamicText: 'Сначала починим ошибки.', staticText: 'Слова | Починить' }
     case 'errors-bridge':
-      return { dynamicText: 'Скажи боту ещё раз.', staticText: 'Слова | Починить' }
+      return { dynamicText: 'Скажи Engvo ещё раз.', staticText: 'Слова | Починить' }
     case 'fresh-sprint':
       return { dynamicText: 'Короткая порция из твоего списка.', staticText: 'Слова | Учить' }
     case 'bank-bridge':
-      return { dynamicText: 'Скажи боту — будет Умею.', staticText: 'Слова | Сказать боту' }
+      return { dynamicText: 'Скажи Engvo — будет Умею.', staticText: `Слова | ${inFeed}` }
     case 'pause':
       return { dynamicText: 'Начнём с двух слов.', staticText: 'Слова' }
     default:

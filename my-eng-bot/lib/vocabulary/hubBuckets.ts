@@ -62,16 +62,6 @@ export function listStudyWords(
   return words.filter((word) => progressMap[String(word.id)]?.userMark === 'study')
 }
 
-export function listKnowWords(
-  words: NecessaryWord[],
-  progressMap: Record<string, VocabularyWordProgress>
-): NecessaryWord[] {
-  return words.filter((word) => {
-    const row = progressMap[String(word.id)]
-    return row?.userMark === 'know' && row.feedStatus !== 'mastered'
-  })
-}
-
 export function resolveMistakeWords(
   catalog: NecessaryWord[],
   packWords: NecessaryWord[],

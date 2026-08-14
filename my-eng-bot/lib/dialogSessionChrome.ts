@@ -42,13 +42,12 @@ export type DialogSessionColumnInput = {
   isTutorChatSpaceActive?: boolean
   isVocabularyHubActive?: boolean
   vocabularyWorldsActive?: boolean
-  vocabularyFeedActive?: boolean
   vocabularyPackId?: string | null
 }
 
 /**
  * Header/footer use the dialog column when the visible body is session chrome.
- * Vocabulary Worlds / Pack / Feed keep the old 29rem card stack — not this.
+ * Vocabulary Worlds / Pack keep the old 29rem card stack — not this.
  */
 export function usesDialogSessionColumn(input: DialogSessionColumnInput): boolean {
   if (input.isMyPlanSpaceActive || input.isProgressSpaceActive) return true
@@ -63,7 +62,6 @@ export function usesDialogSessionColumn(input: DialogSessionColumnInput): boolea
   if (
     input.isVocabularyHubActive &&
     !input.vocabularyWorldsActive &&
-    !input.vocabularyFeedActive &&
     !input.vocabularyPackId
   ) {
     return true

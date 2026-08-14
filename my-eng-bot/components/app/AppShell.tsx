@@ -564,7 +564,6 @@ import {
   MenuSectionPanels,
   PracticeScreen,
 } from '@/lib/start/appBranchComponents'
-import VocabularyFeedBrowseScreen from '@/components/vocabulary/VocabularyFeedBrowseScreen'
 import VocabularyHubScreen from '@/components/vocabulary/VocabularyHubScreen'
 import VocabularyPackSessionScreen from '@/components/vocabulary/VocabularyPackSessionScreen'
 import { shouldFinalizeTutorLessonOpen } from '@/lib/lessons/tutorLessonInflight'
@@ -1192,7 +1191,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
   const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook'>('hub')
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
-  const [vocabularyFeedActive, setVocabularyFeedActive] = useState(false)
   const [vocabularyPackId, setVocabularyPackId] = useState<string | null>(null)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
   const [vocabularySessionActive, setVocabularySessionActive] = useState(false)
@@ -6332,7 +6330,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyByLevelActive(false)
-    setVocabularyFeedActive(false)
     setVocabularyPackId(null)
     setVocabHubEntry('hub')
     setVocabularyWorldsActive(true)
@@ -6348,7 +6345,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyByLevelActive(false)
-    setVocabularyFeedActive(false)
     setVocabularyPackId(null)
     setVocabHubEntry('phrasebook')
     setVocabularyWorldsActive(true)
@@ -6363,7 +6359,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
-    setVocabularyFeedActive(false)
     setVocabularyPackId(null)
     setVocabularyByLevelActive(true)
     // Сбрасываем снимок меню: намеренный выход в слова по уровню, не «закрыли меню после правок чата».
@@ -6377,10 +6372,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const openVocabularyFeed = useCallback(() => {
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
-    setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
     setVocabularyPackId(null)
-    setVocabularyFeedActive(true)
+    setVocabHubEntry('hub')
+    setVocabularyWorldsActive(true)
     menuOpenSnapshotRef.current = null
     setDialogStarted(true)
     setMenuOpen(false)
@@ -6394,7 +6389,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setAdaptiveFooterView(null)
       setVocabularyWorldsActive(false)
       setVocabularyByLevelActive(false)
-      setVocabularyFeedActive(false)
       setVocabularyPackId(packId)
       menuOpenSnapshotRef.current = null
       setDialogStarted(true)
@@ -6421,7 +6415,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setLoadStudyingPref(packet?.loadStudying ?? true)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
-    setVocabularyFeedActive(false)
     setVocabularyPackId(null)
     setAdaptiveFooterView(null)
     menuOpenSnapshotRef.current = null
@@ -6476,7 +6469,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setLoadStudyingPref(packet?.loadStudying ?? true)
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
-    setVocabularyFeedActive(false)
     setVocabularyPackId(null)
     setAdaptiveFooterView(null)
     void (async () => {
@@ -7704,7 +7696,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     resetStructuredLessonSession()
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
-    setVocabularyFeedActive(false)
     setVocabularyPackId(null)
     setVocabularySessionActive(false)
     vocabularyLeaveHandlerRef.current = null
@@ -8859,7 +8850,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
   const isAccentActive = accentTrainerActive
   const isVocabularyHubActive =
-    vocabularyWorldsActive || vocabularyByLevelActive || vocabularyFeedActive || Boolean(vocabularyPackId)
+    vocabularyWorldsActive || vocabularyByLevelActive || Boolean(vocabularyPackId)
   const isProgressSpaceActive = progressSpaceActive
   const isMyPlanSpaceActive = myPlanSpaceActive
   const isTutorChatSpaceActive = tutorChatSpaceActive
@@ -8896,7 +8887,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     isTutorChatSpaceActive,
     isVocabularyHubActive,
     vocabularyWorldsActive,
-    vocabularyFeedActive,
     vocabularyPackId,
   })
 
@@ -11632,13 +11622,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                         vocabularyLeaveHandlerRef.current = handler
                       }}
                       exitRequestKey={vocabularyExitRequestKey}
-                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
-                      onOpenCallWithHandoff={openCallFromVocabHandoff}
-                    />
-                  ) : vocabularyFeedActive ? (
-                    <VocabularyFeedBrowseScreen
-                      onBack={backToVocabularyMenu}
-                      onFooterViewChange={setVocabularyFooterView}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
                     />

@@ -48,8 +48,8 @@ export function initialStatusForWord(id: number): NecessaryWordStatus {
 
 export function normalizeEnglishText(value: string): string {
   return value
+    .replace(/,/g, ' ')
     .replace(/\s+/g, ' ')
-    .replace(/\s+,/g, ',')
     .replace(/\(\s*\)/g, '')
     .replace(/\s+\)/g, ')')
     .trim()
@@ -62,11 +62,12 @@ export function normalizeTranslationText(id: number, value: string): string {
   let result = value
     .replace(/\s+/g, ' ')
     .replace(/\s+([,.;!?])/g, '$1')
+    .replace(/,+\s*$/g, '')
     .trim()
 
   for (const pattern of TRANSLATION_SUFFIX_PATTERNS) {
     result = result.replace(pattern, '').trim()
   }
 
-  return result
+  return result.replace(/,+\s*$/g, '').trim()
 }

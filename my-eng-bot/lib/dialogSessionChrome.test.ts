@@ -70,19 +70,12 @@ describe('dialogSessionChrome', () => {
     expect(usesDialogSessionColumn({ dialogStarted: false, isProgressSpaceActive: true })).toBe(true)
   })
 
-  it('does not use dialog column for vocabulary worlds/pack/feed', () => {
+  it('does not use dialog column for vocabulary worlds/pack', () => {
     expect(
       usesDialogSessionColumn({
         dialogStarted: false,
         isVocabularyHubActive: true,
         vocabularyWorldsActive: true,
-      })
-    ).toBe(false)
-    expect(
-      usesDialogSessionColumn({
-        dialogStarted: false,
-        isVocabularyHubActive: true,
-        vocabularyFeedActive: true,
       })
     ).toBe(false)
     expect(

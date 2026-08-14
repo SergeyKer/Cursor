@@ -72,12 +72,12 @@ export type VocabularySessionRoute =
   | { kind: 'pack'; packId: string }
   | { kind: 'phrasebook'; topicId: string }
 
-/** WordFeed lifecycle (UI: Учу / Сказать боту / Умею). */
+/** WordFeed lifecycle (UI: Учу / ждут речи / Умею). */
 export type VocabularyFeedStatus = 'none' | 'in_feed' | 'mastered' | 'returned'
 
 export type VocabularyWordSource = 'catalog' | 'mistake' | 'pack'
 
-/** Витрина: учу / знаю (пропуск). null = библиотека, не топливо. */
+/** Витрина: учу / пропускаю. null = библиотека, не топливо. */
 export type VocabularyUserMark = 'study' | 'know'
 
 export type VocabularyTempo = 'sprint' | 'full'

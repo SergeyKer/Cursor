@@ -134,7 +134,7 @@ function HubNavCard({
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
-              strokeWidth={2.25}
+              strokeWidth={1.75}
               d="M6 14.5 12 8.5l6 6"
             />
           </svg>
@@ -293,7 +293,7 @@ export default function VocabularyHubScreen({
       })
       return () => onFooterViewChange?.(null)
     }
-    const footer = vocabHubFooter(nowKind)
+    const footer = vocabHubFooter(nowKind, audience)
     onFooterViewChange?.({
       dynamicText: view === 'shelves' ? copy.shelvesFooterDynamic : footer.dynamicText,
       staticText:
@@ -325,6 +325,11 @@ export default function VocabularyHubScreen({
       mistakeLemmaKeys: new Set(mistakes.map((item) => item.lemmaKey)),
     })
 
+  const nowFocusLine = fuelLemmas()
+    .map((lemma) => lemma.en)
+    .filter((en) => en.trim())
+    .slice(0, 3)
+    .join(' · ')
   const lemmasToWords = (lemmas: VocabularyFocusLemma[]) => {
     const pool = [...activeWords, ...packWords, ...phrasebookWords]
     return lemmas
@@ -810,7 +815,6 @@ export default function VocabularyHubScreen({
           words={phrasebookWords}
           progressMap={progress.words}
           showMarks
-          forceShowKnow
           onStudy={(word) => persistMark(word, 'study')}
           onKnow={(word) => persistMark(word, progress.words[String(word.id)]?.userMark === 'know' ? null : 'know')}
         />
@@ -910,6 +914,7 @@ export default function VocabularyHubScreen({
       >
         <p className={VOCAB_CARD_BODY_TITLE}>{nowBody.title}</p>
         <p className={VOCAB_CARD_BODY_REASON}>{nowBody.reason}</p>
+        {nowFocusLine ? <p className={`${VOCAB_CARD_BODY_REASON} truncate`}>{nowFocusLine}</p> : null}
       </VocabCard>
 
       <HubNavCard
