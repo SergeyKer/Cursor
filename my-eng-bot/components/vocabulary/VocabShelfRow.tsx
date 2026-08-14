@@ -1,7 +1,7 @@
 'use client'
 
 import { playVocabTts, stopVocabTts } from '@/lib/vocabulary/playVocabTts'
-import { VOCAB_CARD_SURFACE } from '@/lib/vocabulary/cardStyles'
+import { VOCAB_CARD_SURFACE, VOCAB_LEMMA_RU, VOCAB_PAIR_EN, VOCAB_PAIR_LINE } from '@/lib/vocabulary/cardStyles'
 
 type Props = {
   en: string
@@ -14,8 +14,8 @@ export default function VocabShelfRow({ en, ru, statusLabel, listenLabel }: Prop
   return (
     <article className={`${VOCAB_CARD_SURFACE} px-3 py-2`}>
       <div className="flex items-start gap-2">
-        <p className="min-w-0 flex-1 break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
-          {en}
+        <p className={`min-w-0 flex-1 ${VOCAB_PAIR_LINE}`}>
+          <span className={VOCAB_PAIR_EN}>{en}</span>
         </p>
         {statusLabel ? (
           <span className="shrink-0 whitespace-nowrap rounded-md border border-[var(--chat-section-neutral-border)] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-[var(--text)] sm:text-[11px]">
@@ -34,7 +34,7 @@ export default function VocabShelfRow({ en, ru, statusLabel, listenLabel }: Prop
           ♪
         </button>
       </div>
-      <p className="mt-0.5 break-words text-[13px] leading-snug text-[var(--text-muted)]">{ru}</p>
+      <p className={`mt-0.5 break-words ${VOCAB_LEMMA_RU}`}>{ru}</p>
     </article>
   )
 }

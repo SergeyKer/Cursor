@@ -8,6 +8,7 @@ import {
   resolveVocabularyTempo,
   saveVocabularyTempo,
   sessionSizeForTempo,
+  VOCAB_CYCLE_SIZE,
   VOCAB_TEMPO_STORAGE_KEY,
 } from '@/lib/vocabulary/srs'
 import type { NecessaryWord } from '@/types/vocabulary'
@@ -141,10 +142,11 @@ describe('vocabulary srs', () => {
     expect(result.map((w) => w.id)).toEqual([3])
   })
 
-  it('resolves sprint/full sizes', () => {
+  it('uses a single cycle size', () => {
+    expect(VOCAB_CYCLE_SIZE).toBe(3)
     expect(sessionSizeForTempo('sprint')).toBe(3)
-    expect(sessionSizeForTempo('full')).toBe(5)
-    expect(sessionSizeForTempo('sprint', true)).toBe(2)
+    expect(sessionSizeForTempo('full')).toBe(3)
+    expect(sessionSizeForTempo('sprint', true)).toBe(3)
   })
 
   it('persists tempo preference in localStorage', () => {

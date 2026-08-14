@@ -37,15 +37,9 @@ export function isVocabSpeakFieldFrozen(params: {
 /** Soft-advance: always may proceed after an attempt; credit only on match. */
 export function resolveVocabSpeakCommit(params: {
   matched: boolean
-  step: 'speak_en' | 'say_phrase' | 'check_fail_say'
+  step: 'speak_en' | 'check_fail_say'
   checkPassed: boolean
-}): { advance: true; speakPassed?: boolean; phrasePassed?: boolean } {
-  if (params.step === 'say_phrase') {
-    return {
-      advance: true,
-      phrasePassed: params.matched ? true : undefined,
-    }
-  }
+}): { advance: true; speakPassed?: boolean } {
   if (params.step === 'speak_en') {
     return {
       advance: true,

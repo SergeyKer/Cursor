@@ -2,6 +2,7 @@
 
 import React from 'react'
 import VocabWordCard from '@/components/vocabulary/VocabWordCard'
+import { VOCAB_SCREEN_TITLE } from '@/lib/vocabulary/cardStyles'
 import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import type { Audience } from '@/lib/types'
 import type { NecessaryWord, VocabularyWordProgress } from '@/types/vocabulary'
@@ -43,7 +44,7 @@ export default function VocabularyListScreen({
 
   return (
     <div className="space-y-2.5">
-      <p className="text-[17px] font-semibold text-[var(--text)]">{title}</p>
+      <p className={VOCAB_SCREEN_TITLE}>{title}</p>
       {allowSearch ? (
         <input
           value={query}

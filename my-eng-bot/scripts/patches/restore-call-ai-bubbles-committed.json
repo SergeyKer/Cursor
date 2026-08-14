@@ -1,0 +1,10 @@
+[
+  [
+    "import {\n  insertEngvoUserMessage,\n  shouldCancelEngvoAssistantOnUserAudioCommitted,\n  shouldInsertEngvoUserBeforeAssistant,\n  updateLastEngvoUserMessage,\n} from '@/lib/engvo/callMessageOrder'",
+    "import {\n  insertEngvoUserMessage,\n  shouldInsertEngvoUserBeforeAssistant,\n  updateLastEngvoUserMessage,\n} from '@/lib/engvo/callMessageOrder'"
+  ],
+  [
+    "        if (parsed.type === 'input_audio_buffer.committed' && typeof parsed.item_id === 'string') {\n          engvoPendingUserItemIdRef.current = parsed.item_id\n          clearEngvoForceCommitTimeout()\n          engvoForceCommitArmedRef.current = true\n          const hasActiveAssistantResponseOnCommit = hasActiveEngvoAssistantResponse({\n            responseId: engvoAssistantResponseIdRef.current,\n            responseDone: engvoAssistantResponseDoneRef.current,\n          })\n          if (shouldCancelEngvoAssistantOnUserAudioCommitted(hasActiveAssistantResponseOnCommit)) {\n            resetEngvoAssistantTurn({ markIgnored: true })\n          }\n        }",
+    "        if (parsed.type === 'input_audio_buffer.committed' && typeof parsed.item_id === 'string') {\n          engvoPendingUserItemIdRef.current = parsed.item_id\n          clearEngvoForceCommitTimeout()\n          engvoForceCommitArmedRef.current = true\n        }"
+  ]
+]

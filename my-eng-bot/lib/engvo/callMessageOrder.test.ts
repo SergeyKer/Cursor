@@ -3,7 +3,6 @@ import { ENGVO_CALL_FINISHED_ASSISTANT_TEXT } from '@/lib/engvo/constants'
 import type { ChatMessage } from '@/lib/types'
 import {
   insertEngvoUserMessage,
-  shouldCancelEngvoAssistantOnUserAudioCommitted,
   shouldInsertEngvoUserBeforeAssistant,
   updateLastEngvoUserMessage,
 } from './callMessageOrder'
@@ -43,11 +42,6 @@ describe('callMessageOrder', () => {
         assistantCommittedBeforeUser: false,
       })
     ).toBe(false)
-  })
-
-  it('cancels in-flight assistant when user audio is committed', () => {
-    expect(shouldCancelEngvoAssistantOnUserAudioCommitted(true)).toBe(true)
-    expect(shouldCancelEngvoAssistantOnUserAudioCommitted(false)).toBe(false)
   })
 
   it('does not reorder before service or finished assistant lines', () => {

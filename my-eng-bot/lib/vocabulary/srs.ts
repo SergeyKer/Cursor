@@ -3,6 +3,8 @@ import { isWordMastered } from '@/lib/vocabulary/learned'
 
 export const SRS_INTERVAL_DAYS = [0, 1, 3, 7, 14, 30] as const
 
+export const VOCAB_CYCLE_SIZE = 3
+
 export const VOCAB_TEMPO_STORAGE_KEY = 'engvo_vocab_tempo'
 
 export function createEmptyWordProgress(wordId: number): VocabularyWordProgress {
@@ -80,9 +82,8 @@ export function saveVocabularyTempo(tempo: VocabularyTempo): void {
   }
 }
 
-export function sessionSizeForTempo(tempo: VocabularyTempo, returnFlow = false): number {
-  if (returnFlow) return 2
-  return tempo === 'sprint' ? 3 : 5
+export function sessionSizeForTempo(_tempo?: VocabularyTempo, _returnFlow = false): number {
+  return VOCAB_CYCLE_SIZE
 }
 
 export function pickNextSessionWords(params: {
@@ -94,7 +95,7 @@ export function pickNextSessionWords(params: {
   /** Include returned even if not due by clock. */
   preferReturned?: boolean
 }): NecessaryWord[] {
-  const size = params.size ?? 5
+  const size = params.size ?? VOCAB_CYCLE_SIZE
   const now = params.now ?? Date.now()
   const maxFresh = params.maxFresh ?? 3
 

@@ -65,7 +65,7 @@ export type TutorComposerProps = {
   onPaperclipClick?: () => void
   chips?: TutorComposerChip[]
   onChipSelect?: (chipId: string) => void
-  /** Post-explain follow-up + topic sheet chips (nav mode; hidden during micro). */
+  /** Post-explain follow-up (and cheatsheet choose titles). Nav mode; hidden during micro. */
   followUpChips?: TutorComposerChip[]
   /** @deprecated Prefer followUpChips; single chip still supported. */
   followUpChip?: TutorComposerChip | null

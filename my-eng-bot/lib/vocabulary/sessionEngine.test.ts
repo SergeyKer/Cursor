@@ -2,10 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
   buildQuizOptions,
   nextStep,
-  phraseWordIndex,
-  shouldIncludePhrase,
   stepAfterSkippingSpeak,
-  stepsForTempo,
+  stepsForWordCycle,
 } from '@/lib/vocabulary/sessionEngine'
 import type { NecessaryWord } from '@/types/vocabulary'
 
@@ -23,48 +21,16 @@ const word = (id: number, en: string, ru: string): NecessaryWord => ({
 })
 
 describe('sessionEngine', () => {
-  it('builds sprint steps with shared intro', () => {
-    expect(stepsForTempo('sprint', false)).toEqual(['reveal_en', 'check', 'produce', 'speak_en', 'done'])
-    expect(stepsForTempo('sprint', true)).toEqual([
-      'reveal_en',
-      'check',
-      'produce',
-      'speak_en',
-      'say_phrase',
-      'done',
-    ])
-  })
-
-  it('builds full steps with shared intro and optional phrase', () => {
-    expect(stepsForTempo('full', true)).toEqual([
-      'reveal_en',
-      'check',
-      'produce',
-      'speak_en',
-      'say_phrase',
-      'done',
-    ])
-    expect(stepsForTempo('full', false)).toEqual(['reveal_en', 'check', 'produce', 'speak_en', 'done'])
-  })
-
-  it('picks middle-ish phrase word index', () => {
-    expect(phraseWordIndex(3)).toBe(1)
-    expect(phraseWordIndex(5)).toBe(2)
-    expect(phraseWordIndex(2)).toBe(0)
+  it('builds lemma cycle without phrase', () => {
+    expect(stepsForWordCycle()).toEqual(['reveal_en', 'check', 'produce', 'speak_en', 'done'])
   })
 
   it('advances and skips speak after fail-say', () => {
-    const steps = stepsForTempo('sprint', true)
+    const steps = stepsForWordCycle()
     expect(nextStep(steps, 'reveal_en')).toBe('check')
     expect(nextStep(steps, 'check')).toBe('produce')
     expect(nextStep(steps, 'done')).toBeNull()
-    expect(stepAfterSkippingSpeak(steps)).toBe('say_phrase')
-  })
-
-  it('includes phrase on every full word and one sprint word', () => {
-    expect(shouldIncludePhrase('full', 0, 5)).toBe(true)
-    expect(shouldIncludePhrase('sprint', 1, 3)).toBe(true)
-    expect(shouldIncludePhrase('sprint', 0, 3)).toBe(false)
+    expect(stepAfterSkippingSpeak(steps)).toBe('done')
   })
 
   it('builds quiz with correct ru and up to 3 distractors', () => {

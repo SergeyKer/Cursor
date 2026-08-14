@@ -1,0 +1,10 @@
+[
+  [
+    "    vocabFocusLemmasRef.current = push.map((lemma) => ({\n      en: lemma.en,\n      ru: lemma.ru,\n      wordId: lemma.wordId,\n    }))\n    setLoadStudyingPref(packet?.loadStudying ?? true)\n    setVocabularyWorldsActive(false)",
+    "    vocabFocusLemmasRef.current = push.map((lemma) => ({\n      en: lemma.en,\n      ru: lemma.ru,\n      wordId: lemma.wordId,\n    }))\n    if (packet?.loadStudying !== false) {\n      setLoadStudyingPref(packet?.loadStudying ?? true)\n    }\n    setVocabularyWorldsActive(false)"
+  ],
+  [
+    "    vocabFocusLemmasRef.current = push.map((lemma) => ({\n      en: lemma.en,\n      ru: lemma.ru,\n      wordId: lemma.wordId,\n    }))\n    setLoadStudyingPref(packet?.loadStudying ?? true)\n    setVocabularyWorldsActive(false)",
+    "    vocabFocusLemmasRef.current = push.map((lemma) => ({\n      en: lemma.en,\n      ru: lemma.ru,\n      wordId: lemma.wordId,\n    }))\n    if (packet?.loadStudying !== false) {\n      setLoadStudyingPref(packet?.loadStudying ?? true)\n    }\n    setVocabularyWorldsActive(false)"
+  ]
+]

@@ -13,13 +13,6 @@ export function isEngvoReorderableAssistantMessage(message: ChatMessage | undefi
   return true
 }
 
-/** Отменить текущий ответ ассистента, когда пользователь уже зафиксировал новую реплику. */
-export function shouldCancelEngvoAssistantOnUserAudioCommitted(
-  hasActiveAssistantResponse: boolean
-): boolean {
-  return hasActiveAssistantResponse
-}
-
 export function shouldInsertEngvoUserBeforeAssistant(params: {
   assistantCommittedBeforeUser: boolean
 }): boolean {

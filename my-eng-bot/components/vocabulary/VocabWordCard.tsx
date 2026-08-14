@@ -1,7 +1,7 @@
 'use client'
 
 import { playVocabTts, stopVocabTts } from '@/lib/vocabulary/playVocabTts'
-import { VOCAB_CARD_SURFACE } from '@/lib/vocabulary/cardStyles'
+import { VOCAB_CARD_SURFACE, VOCAB_LEMMA_RU, VOCAB_PAIR_EN, VOCAB_PAIR_LINE } from '@/lib/vocabulary/cardStyles'
 import type { NecessaryWord } from '@/types/vocabulary'
 
 type Props = {
@@ -24,7 +24,7 @@ export default function VocabWordCard({
   studyActive = false,
   knowActive = false,
   studyLabel = 'Учить',
-  knowLabel = 'Пропускаю',
+  knowLabel = 'Знакомо',
   listenLabel = 'Слушать',
   onStudy,
   onKnow,
@@ -33,8 +33,10 @@ export default function VocabWordCard({
     <article className={`${VOCAB_CARD_SURFACE} px-3 py-3`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[16px] font-bold text-[var(--text)]">{word.en}</p>
-          <p className="text-[14px] text-[var(--text-muted)]">{word.ru}</p>
+          <p className={VOCAB_PAIR_LINE}>
+            <span className={VOCAB_PAIR_EN}>{word.en}</span>
+          </p>
+          <p className={`mt-0.5 ${VOCAB_LEMMA_RU}`}>{word.ru}</p>
         </div>
         <button
           type="button"

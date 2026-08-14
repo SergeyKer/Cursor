@@ -1,13 +1,11 @@
 'use client'
 
 import * as React from 'react'
-import { buildSayPhraseForWord } from '@/lib/vocabulary/phraseTemplates'
 import {
   buildQuizOptions,
   nextStep,
-  shouldIncludePhrase,
   stepAfterSkippingSpeak,
-  stepsForTempo,
+  stepsForWordCycle,
   type WordStep,
 } from '@/lib/vocabulary/sessionEngine'
 import {
@@ -92,8 +90,6 @@ function buildFooter(
       return base('Собери слово из букв.', `Сборка ${progressLabel}`, `vocab-thin-produce-${sessionId}-${wordIndex}`)
     case 'speak_en':
       return base(vocabSpeakFooterHint(audience), `Голос ${progressLabel}`, `vocab-thin-speak-${sessionId}-${wordIndex}`)
-    case 'say_phrase':
-      return base(vocabSpeakFooterHint(audience), `Фраза ${progressLabel}`, `vocab-thin-phrase-${sessionId}-${wordIndex}`)
     case 'done':
       return base('Слово закрыто. Дальше.', `Слово ${progressLabel}`, `vocab-thin-done-${sessionId}-${wordIndex}`)
     default:
@@ -141,7 +137,6 @@ export function useVocabularyThinSession({
   produceAssemblyRef.current = { tiles: produceTiles, selected: produceSelected }
 
   const currentWord = status === 'active' || status === 'completed' ? words[wordIndex] ?? null : null
-  const phraseTarget = currentWord ? buildSayPhraseForWord(currentWord) : ''
 
   const footerView = React.useMemo(() => {
     if (status === 'idle' || status === 'aborted') return null
@@ -158,18 +153,17 @@ export function useVocabularyThinSession({
   }, [onSessionActiveChange, status])
 
   const prepareWord = React.useCallback(
-    (list: NecessaryWord[], index: number, sessionTempo: VocabularyTempo) => {
+    (list: NecessaryWord[], index: number) => {
       const word = list[index]
       if (!word) return
-      const phraseRequired = shouldIncludePhrase(sessionTempo, index, list.length)
-      const nextSteps = stepsForTempo(sessionTempo, phraseRequired)
+      const nextSteps = stepsForWordCycle()
       setSteps(nextSteps)
       setStep(nextSteps[0] ?? 'done')
       setRuntime({
         checkPassed: false,
         speakPassed: false,
         phrasePassed: false,
-        phraseRequired,
+        phraseRequired: false,
       })
       setQuizOptions([])
       const tiles = scrambleProduceLetters(word.en)
@@ -205,7 +199,7 @@ export function useVocabularyThinSession({
       setBankedWordIds([])
       bankedRef.current = []
       setStatus('active')
-      prepareWord(params.words, 0, params.tempo)
+      prepareWord(params.words, 0)
     },
     [prepareWord]
   )
@@ -252,7 +246,6 @@ export function useVocabularyThinSession({
             bankedWordIds: bankedIds,
             coinsEarned: 0,
             promptPreview: '',
-            tempo: tempoRef.current,
           }
           const next = finalizeVocabularySession({ state: prev, historyItem, coinsEarned: 0 })
           saveVocabularyProgress(next)
@@ -263,7 +256,7 @@ export function useVocabularyThinSession({
         return
       }
 
-      prepareWord(list, nextIndex, tempoRef.current)
+      prepareWord(list, nextIndex)
     },
     [prepareWord, setProgress]
   )
@@ -418,20 +411,15 @@ export function useVocabularyThinSession({
   const acceptVoice = React.useCallback(
     (transcript: string) => {
       if (status !== 'active' || !currentWord || !step) return false
-      if (step !== 'check_fail_say' && step !== 'speak_en' && step !== 'say_phrase') return false
+      if (step !== 'check_fail_say' && step !== 'speak_en') return false
 
-      const matched =
-        step === 'say_phrase'
-          ? voiceAccept({ transcript, target: phraseTarget, kind: 'en_phrase' })
-          : voiceAccept({ transcript, target: currentWord.en, kind: 'en_word' })
+      const matched = voiceAccept({ transcript, target: currentWord.en, kind: 'en_word' })
 
       setLastVoiceOk(matched)
 
       // Soft-advance: always proceed after an attempt; credit only on match (no SRS fail).
       const nextFlags = { ...runtime }
-      if (step === 'say_phrase') {
-        if (matched) nextFlags.phrasePassed = true
-      } else if (step === 'speak_en') {
+      if (step === 'speak_en') {
         if (matched) nextFlags.speakPassed = true
       } else if (matched) {
         // check_fail_say: bank Speak✓ only if Check✓ already
@@ -442,12 +430,12 @@ export function useVocabularyThinSession({
       advanceFrom(step, nextFlags)
       return true
     },
-    [advanceFrom, currentWord, phraseTarget, runtime, status, step]
+    [advanceFrom, currentWord, runtime, status, step]
   )
 
   const skipSpeakAccessibility = React.useCallback(() => {
     if (status !== 'active' || !step) return
-    if (step !== 'check_fail_say' && step !== 'speak_en' && step !== 'say_phrase') return
+    if (step !== 'check_fail_say' && step !== 'speak_en') return
     // Accessibility only: advance without speak/phrase credit for bank.
     advanceFrom(step, runtime)
   }, [advanceFrom, runtime, status, step])
@@ -487,7 +475,6 @@ export function useVocabularyThinSession({
     produceTiles,
     produceSelected,
     produceFilled,
-    phraseTarget,
     footerView,
     lastVoiceOk,
     lastProduceOk,

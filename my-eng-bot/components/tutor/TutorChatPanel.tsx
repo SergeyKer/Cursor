@@ -1582,10 +1582,20 @@ export default function TutorChatPanel({
     }
   }, [referenceReturnChipVisible])
 
+  const topicSheetNavChips = useMemo(
+    () => topicSheetChips.filter((chip) => chip.id === 'topic_sheet'),
+    [topicSheetChips]
+  )
+  const topicSheetChooseChips = useMemo(
+    () => topicSheetChips.filter((chip) => chip.id !== 'topic_sheet'),
+    [topicSheetChips]
+  )
+
   const finaleChips: TutorComposerChip[] = [
     ...(microChipVisible
       ? [{ id: 'again', labelRu: TUTOR_CHAT_COPY.chipAgain } satisfies TutorComposerChip]
       : []),
+    ...topicSheetNavChips,
     ...(referenceReturnChip && microPhase === 'finale' ? [referenceReturnChip] : []),
     ...(onDone ? [{ id: 'done', labelRu: TUTOR_CHAT_COPY.chipDone } satisfies TutorComposerChip] : []),
   ]
@@ -1611,6 +1621,7 @@ export default function TutorChatPanel({
                 ...(microChipVisible
                   ? [{ id: 'micro', labelRu: TUTOR_CHAT_COPY.chipMicro } satisfies TutorComposerChip]
                   : []),
+                ...topicSheetNavChips,
                 ...(referenceReturnChip ? [referenceReturnChip] : []),
               ]
             : triageChips
@@ -1756,9 +1767,9 @@ export default function TutorChatPanel({
     if (chipsMode === 'micro') return []
     const chips: TutorComposerChip[] = []
     if (followUpChip) chips.push(followUpChip)
-    chips.push(...topicSheetChips)
+    chips.push(...topicSheetChooseChips)
     return chips
-  }, [chipsMode, followUpChip, topicSheetChips])
+  }, [chipsMode, followUpChip, topicSheetChooseChips])
   const microChoiceFrozen = isTutorMicroChoiceFrozen(microPhase, hasMicroReveal)
   const microWrongChoiceText =
     microReveal && !microReveal.correct ? microReveal.chosenText : null

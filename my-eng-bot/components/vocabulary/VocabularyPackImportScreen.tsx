@@ -12,7 +12,7 @@ import {
   toCustomWordItems,
   type ResolvedImportPair,
 } from '@/lib/vocabulary/resolveImportRows'
-import { VOCAB_INSET_EXPAND_BTN, VOCAB_INSET_LAUNCH_BTN } from '@/lib/vocabulary/cardStyles'
+import { VOCAB_INSET_EXPAND_BTN, VOCAB_INSET_LAUNCH_BTN, VOCAB_SCREEN_TITLE } from '@/lib/vocabulary/cardStyles'
 import { loadVocabularyProgress, saveVocabularyProgress } from '@/lib/vocabulary/storage'
 import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import type { Audience } from '@/lib/types'
@@ -189,7 +189,7 @@ export default function VocabularyPackImportScreen({
 
   return (
     <div className="space-y-2.5">
-      <p className="text-[17px] font-semibold text-[var(--text)]">{copy.importTitle}</p>
+      <p className={VOCAB_SCREEN_TITLE}>{copy.importTitle}</p>
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}

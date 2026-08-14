@@ -409,7 +409,6 @@ import {
 } from '@/lib/engvo/errors'
 import {
   insertEngvoUserMessage,
-  shouldCancelEngvoAssistantOnUserAudioCommitted,
   shouldInsertEngvoUserBeforeAssistant,
   updateLastEngvoUserMessage,
 } from '@/lib/engvo/callMessageOrder'
@@ -3219,13 +3218,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           engvoPendingUserItemIdRef.current = parsed.item_id
           clearEngvoForceCommitTimeout()
           engvoForceCommitArmedRef.current = true
-          const hasActiveAssistantResponseOnCommit = hasActiveEngvoAssistantResponse({
-            responseId: engvoAssistantResponseIdRef.current,
-            responseDone: engvoAssistantResponseDoneRef.current,
-          })
-          if (shouldCancelEngvoAssistantOnUserAudioCommitted(hasActiveAssistantResponseOnCommit)) {
-            resetEngvoAssistantTurn({ markIgnored: true })
-          }
         }
         const transcriptView = getRealtimeTranscriptView(engvoTranscriptStateRef.current)
         setEngvoUserInterimText(transcriptView.interimText)
@@ -6415,7 +6407,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ru: lemma.ru,
       wordId: lemma.wordId,
     }))
-    setLoadStudyingPref(packet?.loadStudying ?? true)
+    if (packet?.loadStudying !== false) {
+      setLoadStudyingPref(packet?.loadStudying ?? true)
+    }
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
     setVocabularyPackId(null)
@@ -6469,7 +6463,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       ru: lemma.ru,
       wordId: lemma.wordId,
     }))
-    setLoadStudyingPref(packet?.loadStudying ?? true)
+    if (packet?.loadStudying !== false) {
+      setLoadStudyingPref(packet?.loadStudying ?? true)
+    }
     setVocabularyWorldsActive(false)
     setVocabularyByLevelActive(false)
     setVocabularyPackId(null)

@@ -1,12 +1,11 @@
 'use client'
 
 import React from 'react'
-import VocabularyTempoToggle from '@/components/vocabulary/VocabularyTempoToggle'
 import VocabularyThinSession from '@/components/vocabulary/VocabularyThinSession'
-import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { isWordInProgress } from '@/lib/vocabulary/learned'
 import { formatVocabularySessionRouteTitle } from '@/lib/vocabulary/sessionRoute'
-import { pickNextSessionWords } from '@/lib/vocabulary/srs'
+import { pickNextSessionWords, VOCAB_CYCLE_SIZE } from '@/lib/vocabulary/srs'
+import { VOCAB_SCREEN_TITLE } from '@/lib/vocabulary/cardStyles'
 import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
@@ -19,14 +18,13 @@ import type {
   VocabularyFooterView,
   VocabularyProgressState,
   VocabularySessionRoute,
-  VocabularyTempo,
   VocabularyWorldId,
 } from '@/types/vocabulary'
 
 type ThinSessionLaunch = {
   words: NecessaryWord[]
   route: VocabularySessionRoute
-  tempo: VocabularyTempo
+  tempo: 'sprint'
   routeTitle: string
   distractorPool: NecessaryWord[]
 }
@@ -68,7 +66,7 @@ export default function VocabularyWorldsScreen({
   onRegisterLeaveHandler,
   exitRequestKey = 0,
   onOpenTranslationWithHandoff,
-  onOpenCallWithHandoff,
+  onOpenCallWithHandoff: _onOpenCallWithHandoff,
 }: VocabularyWorldsScreenProps) {
   const [catalog, setCatalog] = React.useState<NecessaryWordsCatalog | null>(null)
   const [loading, setLoading] = React.useState(true)
@@ -77,7 +75,6 @@ export default function VocabularyWorldsScreen({
   const [session, setSession] = React.useState<ThinSessionLaunch | null>(null)
   const [sessionKey, setSessionKey] = React.useState(0)
   const [showStats, setShowStats] = React.useState(false)
-  const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
   const lastWorldRef = React.useRef<VocabularyWorldId | null>(null)
 
   React.useEffect(() => {
@@ -145,21 +142,21 @@ export default function VocabularyWorldsScreen({
       const plannedWords = pickNextSessionWords({
         words: pool,
         progressMap: progress.words,
-        size: tempoSize,
+        size: VOCAB_CYCLE_SIZE,
       })
       if (plannedWords.length === 0) return
       lastWorldRef.current = worldId
       setSession({
         words: plannedWords,
         route: { kind: 'world', worldId },
-        tempo,
+        tempo: 'sprint',
         routeTitle: getWorldTitle(worldId),
         distractorPool: pool,
       })
       setSessionKey((key) => key + 1)
       setShowStats(false)
     },
-    [progress.words, tempo, tempoSize, worldMap]
+    [progress.words, worldMap]
   )
 
   const handleAgain = React.useCallback(() => {
@@ -174,7 +171,7 @@ export default function VocabularyWorldsScreen({
     const plannedWords = pickNextSessionWords({
       words: pool,
       progressMap: latest.words,
-      size: tempoSize,
+      size: VOCAB_CYCLE_SIZE,
     })
     if (plannedWords.length === 0) {
       setSession(null)
@@ -183,12 +180,12 @@ export default function VocabularyWorldsScreen({
     setSession({
       words: plannedWords,
       route: { kind: 'world', worldId },
-      tempo,
+      tempo: 'sprint',
       routeTitle: getWorldTitle(worldId),
       distractorPool: pool,
     })
     setSessionKey((key) => key + 1)
-  }, [tempo, tempoSize, worldMap])
+  }, [worldMap])
 
   const worldCards = VOCABULARY_WORLDS.map((world) => {
     const words = worldMap[world.id] ?? []
@@ -211,7 +208,6 @@ export default function VocabularyWorldsScreen({
         onFooterViewChange={onFooterViewChange}
         onSessionActiveChange={onSessionActiveChange}
         onHandoffTranslation={() => onOpenTranslationWithHandoff?.()}
-        onHandoffCall={onOpenCallWithHandoff ? () => onOpenCallWithHandoff() : undefined}
         onAgain={handleAgain}
         onExit={() => setSession(null)}
       />
@@ -224,7 +220,7 @@ export default function VocabularyWorldsScreen({
           <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3">
           <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
             <div className="min-w-0">
-              <p className="text-[17px] font-semibold text-[var(--text)]">Самые необходимые слова</p>
+              <p className={VOCAB_SCREEN_TITLE}>Самые необходимые слова</p>
               <p className="text-[13px] text-[var(--text-muted)]">Короткие сессии, миры и мягкое повторение.</p>
             </div>
             <button
@@ -292,15 +288,13 @@ export default function VocabularyWorldsScreen({
                 </div>
               )}
 
-              {!showStats && <VocabularyTempoToggle value={tempo} onChange={setTempo} />}
-
               <div className="space-y-3 overflow-y-auto pb-2">
                 {worldCards.map(({ world, words, reviewed, unlocked }) => {
                   const plannedCount = unlocked
                     ? pickNextSessionWords({
                         words,
                         progressMap: progress.words,
-                        size: tempoSize,
+                        size: VOCAB_CYCLE_SIZE,
                       }).length
                     : 0
                   return (
@@ -314,7 +308,7 @@ export default function VocabularyWorldsScreen({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-[17px] font-semibold text-[var(--text)]">
+                        <p className={VOCAB_SCREEN_TITLE}>
                           {world.badge} {world.title}
                         </p>
                         <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">{world.description}</p>

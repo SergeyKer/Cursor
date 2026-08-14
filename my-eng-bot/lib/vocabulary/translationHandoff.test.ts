@@ -36,4 +36,30 @@ describe('translationHandoff', () => {
     expect(consumed?.lemmas).toHaveLength(1)
     expect(peekVocabTranslationHandoff()).toBeNull()
   })
+
+  it('stores loadStudying false for exclusive cycle handoff', () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => {
+          store.set(k, v)
+        },
+        removeItem: (k: string) => {
+          store.delete(k)
+        },
+      },
+    })
+    writeVocabTranslationHandoff({
+      lemmas: [
+        { en: 'home', ru: 'дом' },
+        { en: 'cat', ru: 'кот' },
+        { en: 'dog', ru: 'собака' },
+      ],
+      source: 'vocab_finale',
+      loadStudying: false,
+    })
+    expect(peekVocabTranslationHandoff()?.loadStudying).toBe(false)
+    expect(peekVocabTranslationHandoff()?.lemmas).toHaveLength(3)
+  })
 })

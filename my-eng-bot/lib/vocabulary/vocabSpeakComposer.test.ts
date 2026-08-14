@@ -35,15 +35,6 @@ describe('resolveVocabSpeakCommit soft-advance', () => {
     ).toEqual({ advance: true, speakPassed: undefined })
   })
 
-  it('credits phrase only on match', () => {
-    expect(
-      resolveVocabSpeakCommit({ matched: true, step: 'say_phrase', checkPassed: false })
-    ).toEqual({ advance: true, phrasePassed: true })
-    expect(
-      resolveVocabSpeakCommit({ matched: false, step: 'say_phrase', checkPassed: false })
-    ).toEqual({ advance: true, phrasePassed: undefined })
-  })
-
   it('check_fail_say match only banks speak if check already passed', () => {
     expect(
       resolveVocabSpeakCommit({ matched: true, step: 'check_fail_say', checkPassed: false })

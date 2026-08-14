@@ -4,14 +4,12 @@
  */
 
 import { LESSON_CARD_RADIUS_CLASS } from '@/components/chat/ChatBubble'
+import { BTN_FONT_MENU } from '@/lib/homeCtaStyles'
 
 const BTN_INTERACTION_BASE =
   'btn-3d-menu shadow-md transition-all duration-200 [@media(hover:hover)]:hover:shadow-lg touch-manipulation'
 
 const BTN_DISABLED_CLASS = 'disabled:cursor-not-allowed disabled:opacity-60'
-
-const BTN_FONT_INLINE =
-  'text-sm font-medium leading-snug antialiased [font-family:system-ui,-apple-system,"Segoe_UI",Roboto,"Noto_Sans",Arial,sans-serif]'
 
 const LAUNCH_SKIN =
   'border border-[#93c5fd] bg-gradient-to-b from-[#dbeafe] to-[#93c5fd] text-[#1e40af] [@media(hover:hover)]:hover:brightness-105 active:brightness-95'
@@ -32,7 +30,12 @@ export const VOCAB_CARD_SURFACE = [
 export const VOCAB_CARD_HEADER = 'px-4 pt-3 pb-1'
 
 export const VOCAB_CARD_HEADER_TITLE =
-  'break-words text-[13px] font-semibold text-[var(--chat-label-main)]'
+  'break-words text-[15px] font-semibold uppercase tracking-[0.02em] text-[var(--chat-label-main)]'
+
+/** Hub nav rows — body, not card header. */
+export const VOCAB_NAV_TITLE = 'break-words text-[15px] font-normal leading-[1.45] text-[var(--text)]'
+
+export const VOCAB_SCREEN_TITLE = 'text-[15px] font-semibold text-[var(--text)]'
 
 export const VOCAB_CARD_BODY = 'space-y-1.5 px-4 py-2.5'
 
@@ -48,9 +51,12 @@ export const VOCAB_CARD_BODY_TITLE =
 export const VOCAB_CARD_BODY_REASON =
   'break-words text-[14px] leading-snug text-[var(--text-muted)]'
 
-/** Session lemmas in hub hero — object of the card, not metadata. */
-export const VOCAB_CARD_BODY_FOCUS =
-  'break-words text-[17px] font-semibold leading-snug text-[var(--text)]'
+export const VOCAB_PAIR_LINE = 'break-words text-[15px] leading-[1.45] text-[var(--text)]'
+export const VOCAB_PAIR_EN = 'font-semibold text-[var(--chat-label-main)]'
+export const VOCAB_PAIR_RU = 'font-normal text-[var(--text)]'
+
+export const VOCAB_LEMMA_EN_DRILL = 'font-semibold text-[var(--chat-label-main)]'
+export const VOCAB_LEMMA_RU = 'text-[15px] leading-[1.45] text-[var(--text)]'
 
 export const VOCAB_CARD_FOOTER_WRAP =
   'border-t border-[var(--chat-section-neutral-border)] bg-white'
@@ -59,7 +65,7 @@ export const VOCAB_CARD_FOOTER_LAUNCH = [
   BTN_INTERACTION_BASE,
   LAUNCH_SKIN,
   'flex w-full min-h-11 items-center justify-center rounded-none px-4 py-2.5 text-center',
-  BTN_FONT_INLINE,
+  BTN_FONT_MENU,
   BTN_DISABLED_CLASS,
 ].join(' ')
 
@@ -69,7 +75,7 @@ const VOCAB_INSET_BTN_BOX =
 export const VOCAB_INSET_LAUNCH_BTN = [
   BTN_INTERACTION_BASE,
   LAUNCH_SKIN,
-  BTN_FONT_INLINE,
+  BTN_FONT_MENU,
   BTN_DISABLED_CLASS,
   VOCAB_INSET_BTN_BOX,
 ].join(' ')
@@ -78,14 +84,14 @@ export const VOCAB_CARD_FOOTER_EXPAND = [
   BTN_INTERACTION_BASE,
   EXPAND_SKIN,
   'flex w-full min-h-11 items-center justify-center rounded-none px-4 py-2.5 text-center',
-  BTN_FONT_INLINE,
+  BTN_FONT_MENU,
   BTN_DISABLED_CLASS,
 ].join(' ')
 
 export const VOCAB_INSET_EXPAND_BTN = [
   BTN_INTERACTION_BASE,
   EXPAND_SKIN,
-  BTN_FONT_INLINE,
+  BTN_FONT_MENU,
   BTN_DISABLED_CLASS,
   VOCAB_INSET_BTN_BOX,
 ].join(' ')
@@ -93,7 +99,7 @@ export const VOCAB_INSET_EXPAND_BTN = [
 export const VOCAB_CARD_FOOTER_ACTION = [
   BTN_INTERACTION_BASE,
   'flex w-full min-h-11 items-center justify-center rounded-none border border-[var(--border)] bg-white px-4 py-2.5 text-center text-[var(--text)] [@media(hover:hover)]:hover:brightness-95 active:brightness-90',
-  BTN_FONT_INLINE,
+  BTN_FONT_MENU,
   BTN_DISABLED_CLASS,
 ].join(' ')
 
@@ -110,14 +116,7 @@ export const VOCAB_FUNNEL_EXCEPTION = [
 ].join(' ')
 
 export const VOCAB_SHELF_CHIP =
-  'btn-3d-menu chat-section-surface glass-surface inline-flex min-w-0 min-h-11 cursor-pointer touch-manipulation items-center justify-center whitespace-normal rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-2 py-1.5 text-center text-[13px] font-semibold leading-tight text-[var(--text-muted)] hover:bg-slate-50 active:bg-slate-100'
+  'btn-3d-menu chat-section-surface glass-surface inline-flex min-w-0 min-h-8 cursor-pointer touch-manipulation items-center justify-center whitespace-normal rounded-[var(--bubble-radius-assistant,1rem)] border border-[var(--chat-section-neutral-border)] bg-white px-2 py-1 text-center text-[13px] font-semibold leading-tight text-[var(--text-muted)] hover:bg-slate-50 active:bg-slate-100'
 
 export const VOCAB_SHELF_CHIP_ACTIVE =
   'border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] text-[var(--text)] hover:bg-[var(--chat-shell-bg)] active:bg-[var(--chat-shell-bg)]'
-
-export const VOCAB_COMPOSER_SECONDARY = [
-  BTN_INTERACTION_BASE,
-  BTN_FONT_INLINE,
-  BTN_DISABLED_CLASS,
-  'inline-flex min-h-11 min-w-0 flex-1 items-center justify-center rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
-].join(' ')

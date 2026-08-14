@@ -1,13 +1,12 @@
 'use client'
 
 import React from 'react'
-import VocabularyTempoToggle from '@/components/vocabulary/VocabularyTempoToggle'
 import VocabularyThinSession from '@/components/vocabulary/VocabularyThinSession'
-import { useVocabularyTempo } from '@/hooks/useVocabularyTempo'
 import { customPackToNecessaryWords } from '@/lib/vocabulary/customPackAdapter'
 import { getCachedNecessaryWords } from '@/lib/vocabulary/catalogCache'
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
-import { pickNextSessionWords } from '@/lib/vocabulary/srs'
+import { pickNextSessionWords, VOCAB_CYCLE_SIZE } from '@/lib/vocabulary/srs'
+import { VOCAB_SCREEN_TITLE } from '@/lib/vocabulary/cardStyles'
 import {
   createEmptyVocabularyProgress,
   loadVocabularyProgress,
@@ -37,11 +36,8 @@ export default function VocabularyPackSessionScreen({
   onRegisterLeaveHandler,
   exitRequestKey = 0,
   onOpenTranslationWithHandoff,
-  onOpenCallWithHandoff,
-  onOpenPracticeTopic,
 }: Props) {
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
-  const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
   const [started, setStarted] = React.useState(false)
   const pack = React.useMemo(() => loadCustomWordPacks().find((item) => item.id === packId) ?? null, [packId])
   const pool = React.useMemo(() => {
@@ -56,9 +52,9 @@ export default function VocabularyPackSessionScreen({
     return pickNextSessionWords({
       words: pool,
       progressMap: progress.words,
-      size: tempoSize,
+      size: VOCAB_CYCLE_SIZE,
     })
-  }, [nonce, pool, progress.words, tempoSize])
+  }, [nonce, pool, progress.words])
 
   React.useEffect(() => {
     setProgress(loadVocabularyProgress())
@@ -77,7 +73,7 @@ export default function VocabularyPackSessionScreen({
   React.useEffect(() => {
     if (started) return
     onFooterViewChange?.({
-      dynamicText: 'Выбери темп и начни порцию из своего списка.',
+      dynamicText: 'Начни порцию из своего списка.',
       staticText: pack ? `Свой список | ${pack.title}` : 'Свой список',
       typingKey: `vocab-pack-preflight-${packId}`,
     })
@@ -111,7 +107,7 @@ export default function VocabularyPackSessionScreen({
         <div className="chat-shell-x mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3 py-3">
           <div className="flex items-center justify-between gap-2 rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)] px-4 py-3 shadow-sm">
             <div className="min-w-0">
-              <p className="text-[17px] font-semibold text-[var(--text)]">{pack.title}</p>
+              <p className={VOCAB_SCREEN_TITLE}>{pack.title}</p>
               <p className="text-[13px] text-[var(--text-muted)]">Свой список · порция до старта</p>
             </div>
             <button
@@ -122,7 +118,6 @@ export default function VocabularyPackSessionScreen({
               Назад
             </button>
           </div>
-          <VocabularyTempoToggle value={tempo} onChange={setTempo} />
           <button
             type="button"
             onClick={() => setStarted(true)}
@@ -141,7 +136,7 @@ export default function VocabularyPackSessionScreen({
       words={words}
       distractorPool={pool}
       route={{ kind: 'pack', packId }}
-      tempo={tempo}
+      tempo="sprint"
       routeTitle={pack.title}
       audience={audience}
       setProgress={setProgress}
@@ -154,7 +149,7 @@ export default function VocabularyPackSessionScreen({
         const next = pickNextSessionWords({
           words: pool,
           progressMap: latest.words,
-          size: tempoSize,
+          size: VOCAB_CYCLE_SIZE,
         })
         if (next.length === 0) {
           setStarted(false)
@@ -163,9 +158,6 @@ export default function VocabularyPackSessionScreen({
         setNonce((n) => n + 1)
       }}
       onHandoffTranslation={() => onOpenTranslationWithHandoff?.()}
-      onHandoffCall={onOpenCallWithHandoff ? () => onOpenCallWithHandoff() : undefined}
-      onOpenPractice={onOpenPracticeTopic ? () => onOpenPracticeTopic(pack.title) : undefined}
-      practiceLabel="Практика"
     />
   )
 }

@@ -9,6 +9,7 @@ import ReadingDetachedCard from '@/components/ReadingDetachedCard'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton, { TextEditIcon } from '@/components/voice/VoiceMicButton'
 import { useVocabularyThinSession } from '@/hooks/useVocabularyThinSession'
+import { VOCAB_LEMMA_EN_DRILL, VOCAB_LEMMA_RU } from '@/lib/vocabulary/cardStyles'
 import {
   CHAT_COMPOSER_FORM_CLASS,
   CHAT_COMPOSER_INPUT_ROW_CLASS,
@@ -16,7 +17,6 @@ import {
   getChatComposerOverlayVerticalClass,
   getChatComposerTextareaVerticalClass,
 } from '@/lib/chatComposerMetrics'
-import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import {
   DIALOG_SESSION_FEED_INNER_CLASS,
@@ -73,12 +73,8 @@ type VocabularyThinSessionProps = {
   onFooterViewChange?: (view: VocabularyFooterView | null) => void
   onSessionActiveChange?: (active: boolean) => void
   onHandoffTranslation: (bankedWords: NecessaryWord[]) => void
-  onHandoffCall?: (bankedWords: NecessaryWord[]) => void
-  onOpenBridge?: (bankedWords: NecessaryWord[]) => void
   onAgain: () => void
   onExit: () => void
-  onOpenPractice?: () => void
-  practiceLabel?: string
 }
 
 export default function VocabularyThinSession({
@@ -92,14 +88,9 @@ export default function VocabularyThinSession({
   onFooterViewChange,
   onSessionActiveChange,
   onHandoffTranslation,
-  onHandoffCall,
-  onOpenBridge,
   onAgain,
   onExit,
-  onOpenPractice,
-  practiceLabel,
 }: VocabularyThinSessionProps) {
-  const copy = vocabHubCopy(audience)
   const session = useVocabularyThinSession({
     setProgress,
     distractorPool,
@@ -120,11 +111,10 @@ export default function VocabularyThinSession({
   const audioDeckRef = React.useRef<AudioDeckHandle | null>(null)
   const textareaRef = React.useRef<HTMLTextAreaElement | null>(null)
 
-  const isVoiceStep =
-    session.step === 'check_fail_say' || session.step === 'speak_en' || session.step === 'say_phrase'
+  const isVoiceStep = session.step === 'check_fail_say' || session.step === 'speak_en'
   const isFinale = session.status === 'completed'
-  const etalonText =
-    session.step === 'say_phrase' ? session.phraseTarget : session.currentWord?.en ?? ''
+  const handingOff = isFinale && session.finaleStats.banked > 0
+  const etalonText = session.currentWord?.en ?? ''
   const audioPlaybackKey = `${session.currentWord?.id ?? 'word'}-${session.step}`
   const voiceInviteKey =
     isVoiceStep && !isFinale && session.currentWord
@@ -143,6 +133,24 @@ export default function VocabularyThinSession({
     session.start({ words, route, tempo })
     // eslint-disable-next-line react-hooks/exhaustive-deps -- start once per mount
   }, [words, route, tempo])
+
+  const handedOffRef = React.useRef(false)
+  React.useEffect(() => {
+    if (session.status !== 'completed' || handedOffRef.current) return
+    if (session.finaleStats.banked === 0) return
+    handedOffRef.current = true
+    writeVocabTranslationHandoff({
+      lemmas: session.words.map((word) => ({
+        en: word.en,
+        ru: word.ru,
+        wordId: word.id,
+        lemmaKey: lemmaKeyFromEn(word.en),
+      })),
+      source: 'vocab_finale',
+      loadStudying: false,
+    })
+    onHandoffTranslation(session.words)
+  }, [onHandoffTranslation, session.finaleStats.banked, session.status, session.words])
 
   React.useEffect(() => {
     if (typeof window === 'undefined') return
@@ -212,44 +220,6 @@ export default function VocabularyThinSession({
     setTextEditUnlocked(false)
   }, [sendEnabled, session, voice])
 
-  const handleHandoff = React.useCallback(() => {
-    const banked = session.bankedWords
-    if (banked.length === 0) return
-    writeVocabTranslationHandoff({
-      lemmas: banked.map((word) => ({
-        en: word.en,
-        ru: word.ru,
-        wordId: word.id,
-        lemmaKey: lemmaKeyFromEn(word.en),
-      })),
-      source: 'vocab_finale',
-      loadStudying: true,
-    })
-    onHandoffTranslation(banked)
-  }, [onHandoffTranslation, session.bankedWords])
-
-  const handleHandoffCall = React.useCallback(() => {
-    const banked = session.bankedWords
-    if (banked.length === 0 || !onHandoffCall) return
-    writeVocabTranslationHandoff({
-      lemmas: banked.map((word) => ({
-        en: word.en,
-        ru: word.ru,
-        wordId: word.id,
-        lemmaKey: lemmaKeyFromEn(word.en),
-      })),
-      source: 'vocab_finale',
-      loadStudying: true,
-    })
-    onHandoffCall(banked)
-  }, [onHandoffCall, session.bankedWords])
-
-  const handleBridge = React.useCallback(() => {
-    const banked = session.bankedWords
-    if (banked.length === 0 || !onOpenBridge) return
-    onOpenBridge(banked)
-  }, [onOpenBridge, session.bankedWords])
-
   const handleMicClick = React.useCallback(() => {
     audioDeckRef.current?.stopTts()
     voice.resetMicAnimation()
@@ -272,7 +242,7 @@ export default function VocabularyThinSession({
     <div className={CHAT_COMPOSER_FORM_CLASS} style={COMPOSER_GLASS_SHADOW}>
       <AudioDeck
         ref={audioDeckRef}
-        text={session.step === 'say_phrase' ? etalonText : word.en}
+        text={etalonText}
         voiceId=""
         ttsMode="vocab"
         playbackKey={audioPlaybackKey}
@@ -293,7 +263,11 @@ export default function VocabularyThinSession({
                 className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper`}
               >
                 <div className={DIALOG_SESSION_FEED_INNER_CLASS}>
-            {isFinale ? (
+            {handingOff ? (
+              <ReadingDetachedCard label="Сессия">
+                <p className="text-[15px] text-[var(--text-muted)]">Дальше — перевод.</p>
+              </ReadingDetachedCard>
+            ) : isFinale ? (
               <ReadingDetachedCard label="Сессия слов завершена" className="lesson-enter">
                 <p className="text-[15px] leading-relaxed text-[var(--text-muted)]">
                   {session.finaleStats.banked} сказать Engvo · {session.finaleStats.stillLearning} ещё
@@ -301,19 +275,19 @@ export default function VocabularyThinSession({
               </ReadingDetachedCard>
             ) : word && session.step === 'reveal_en' ? (
               <ReadingDetachedCard key={`card-${word.id}-reveal`} label="Слово" className="lesson-enter">
-                <p className="text-[15px] text-[var(--text-muted)]">{word.ru}</p>
-                <p className="mt-2 text-[28px] font-bold text-[var(--text)]">{word.en}</p>
+                <p className={VOCAB_LEMMA_RU}>{word.ru}</p>
+                <p className={`mt-2 text-[28px] ${VOCAB_LEMMA_EN_DRILL}`}>{word.en}</p>
                 {word.transcription.trim() ? (
                   <p className="mt-1 text-[14px] text-[var(--text-muted)]">{word.transcription}</p>
                 ) : null}
               </ReadingDetachedCard>
             ) : word && session.step === 'check' ? (
               <ReadingDetachedCard key={`card-${word.id}-check`} label="Проверка" className="lesson-enter">
-                <p className="text-[28px] font-bold text-[var(--text)]">{word.en}</p>
+                <p className={`text-[28px] ${VOCAB_LEMMA_EN_DRILL}`}>{word.en}</p>
               </ReadingDetachedCard>
             ) : word && session.step === 'produce' ? (
               <ReadingDetachedCard key={`card-${word.id}-produce`} label="Собери слово" className="lesson-enter">
-                <p className="text-[15px] text-[var(--text-muted)]">{word.ru}</p>
+                <p className={VOCAB_LEMMA_RU}>{word.ru}</p>
                 <div className="mt-4 flex flex-wrap gap-1.5" aria-label="Слоты слова">
                   {Array.from({ length: word.en.trim().length }, (_, index) => {
                     const letter = session.produceSelected[index]
@@ -368,19 +342,11 @@ export default function VocabularyThinSession({
             ) : word && isVoiceStep ? (
               <ReadingDetachedCard
                 key={`card-${word.id}-${session.step}`}
-                label={
-                  session.step === 'say_phrase'
-                    ? 'Фраза'
-                    : session.step === 'check_fail_say'
-                      ? 'Скажи правильно'
-                      : 'Произнеси'
-                }
+                label={session.step === 'check_fail_say' ? 'Скажи правильно' : 'Произнеси'}
                 className="lesson-enter"
               >
-                <p className="text-[24px] font-bold text-[var(--text)]">
-                  {session.step === 'say_phrase' ? session.phraseTarget : word.en}
-                </p>
-                {session.step !== 'say_phrase' && word.transcription ? (
+                <p className={`text-[24px] ${VOCAB_LEMMA_EN_DRILL}`}>{word.en}</p>
+                {word.transcription ? (
                   <p className="mt-1 text-[14px] text-[var(--text-muted)]">{word.transcription}</p>
                 ) : null}
                 {voiceHint ? (
@@ -402,48 +368,12 @@ export default function VocabularyThinSession({
         </DialogGlassScrollHost>
 
         <DialogComposerStack>
-          {isFinale ? (
+          {handingOff ? null : isFinale ? (
             <div className="flex w-full flex-col gap-2 px-1 pb-1">
-              {onOpenPractice ? (
-                <button
-                  type="button"
-                  onClick={onOpenPractice}
-                  className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
-                >
-                  {practiceLabel ?? copy.start}
-                </button>
-              ) : null}
-              {session.finaleStats.banked > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleHandoff}
-                  className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
-                >
-                  {copy.handoffTranslation}
-                </button>
-              ) : null}
-              {session.finaleStats.banked > 0 && onOpenBridge ? (
-                <button
-                  type="button"
-                  onClick={handleBridge}
-                  className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
-                >
-                  {copy.say}
-                </button>
-              ) : null}
-              {session.finaleStats.banked > 0 && onHandoffCall ? (
-                <button
-                  type="button"
-                  onClick={handleHandoffCall}
-                  className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
-                >
-                  {copy.handoffCall}
-                </button>
-              ) : null}
               <button
                 type="button"
                 onClick={onAgain}
-                className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
+                className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
               >
                 Ещё раз
               </button>

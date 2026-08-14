@@ -7,6 +7,7 @@ import {
 } from '@/lib/vocabulary/applyFocusOutcome'
 import { utteranceHasLemma } from '@/lib/vocabulary/wordFeed'
 import { vocabHubCopy } from '@/lib/uiCopy/vocabularyHub'
+import { VOCAB_LEMMA_EN_DRILL, VOCAB_LEMMA_RU, VOCAB_SCREEN_TITLE } from '@/lib/vocabulary/cardStyles'
 import type { Audience } from '@/lib/types'
 import type { NecessaryWord, VocabularyFocusLemma, VocabularyFooterView } from '@/types/vocabulary'
 
@@ -73,7 +74,7 @@ export default function VocabularyBridgeScreen({ lemmas, audience, onDone, onFoo
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
       <div className="chat-shell-x mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col gap-3 overflow-y-auto py-3">
-        <p className="px-1 text-[17px] font-semibold text-[var(--text)]">{copy.say}</p>
+        <p className={`px-1 ${VOCAB_SCREEN_TITLE}`}>{copy.say}</p>
         {done ? (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--chat-shell-bg)] px-4 py-4">
             <p className="text-[15px] text-[var(--text)]">
@@ -83,8 +84,8 @@ export default function VocabularyBridgeScreen({ lemmas, audience, onDone, onFoo
         ) : (
           <div className="rounded-xl border border-[var(--border)] bg-[var(--chat-shell-bg)] px-4 py-4">
             <p className="text-[14px] text-[var(--text-muted)]">Скажи в ответе:</p>
-            <p className="mt-1 text-[22px] font-bold text-[var(--text)]">{focus?.en}</p>
-            <p className="text-[14px] text-[var(--text-muted)]">{focus?.ru}</p>
+            <p className={`mt-1 text-[22px] ${VOCAB_LEMMA_EN_DRILL}`}>{focus?.en}</p>
+            <p className={VOCAB_LEMMA_RU}>{focus?.ru}</p>
           </div>
         )}
         {!done ? (

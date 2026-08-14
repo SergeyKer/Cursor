@@ -3225,7 +3225,7 @@ export default function MenuSectionPanels({
                 <div className="rounded-lg border border-[var(--border)] bg-[var(--menu-card-bg)] p-3 shadow-[0_1px_4px_rgba(0,0,0,0.07)]">
                   <p className="text-[15px] font-semibold leading-snug text-[var(--text)]">Сказать Engvo</p>
                   <p className="mt-1 text-[13px] leading-relaxed text-[var(--text-muted)]">
-                    Учу · Ждут речи · Умею · Пропускаю · Починить
+                    Учу · Скажи · Умею · Знакомо · Ошибся
                   </p>
                   <button
                     type="button"

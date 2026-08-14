@@ -8,18 +8,20 @@ import {
 
 export function vocabHubCopy(audience: Audience) {
   const child = audience === 'child'
-  const inFeedTitle = child ? 'Скажи Engvo' : 'Ждут речи'
+  const inFeedTitle = 'Скажи'
   const say = child ? 'Скажи Engvo' : 'Сказать Engvo'
   return {
     spaceTitle: 'Слова',
     back: '← Назад',
-    nowTitle: 'Сейчас',
+    nowTitle: 'Быстрый старт',
+    addWordsTitle: 'Внести новые слова',
+    hubEmptyReason: 'Выбери слова ниже',
+    hubFooterDynamic: 'Три слова из списка.',
     listsTitle: child ? 'Мои' : 'Мои списки',
     listsEmpty: child ? 'Можно добавить свои' : 'Залейте список или откройте пакет.',
     listsFilled: (title: string) => title,
     fillList: child ? 'Добавить' : 'Залить список',
-    catalogTitle: child ? 'Ещё слова' : 'Ещё слова',
-    catalogBody: child ? 'Разговорник, необходимые, свои' : 'Разговорник, необходимые, свои списки',
+    catalogTitle: 'Слова',
     catalogOpen: 'Открыть',
     catalogPhrasebookBody: child ? 'Темы для разговора' : 'Темы: кафе, дорога, работа',
     catalogWorldsBody: child ? 'Дом и школа' : 'Миры базовых слов',
@@ -30,9 +32,7 @@ export function vocabHubCopy(audience: Audience) {
     myLists: 'Мои списки',
     tts: 'Озвучка',
     study: 'Учить',
-    tempoSprintCta: 'Быстро 3 слова',
-    tempoFullCta: 'Учить 5 слов',
-    know: 'Пропускаю',
+    know: 'Знакомо',
     studyList: 'Учить этот список',
     start: 'Начать',
     say,
@@ -43,10 +43,10 @@ export function vocabHubCopy(audience: Audience) {
     listen: 'Слушать',
     handoffTranslation: 'В перевод',
     handoffCall: 'В звонок',
-    catalogScreenTitle: child ? 'Ещё слова' : 'Ещё слова',
+    catalogScreenTitle: 'Слова',
     masteredEmpty: child
       ? 'Пока пусто — скажи Engvo слово.'
-      : 'Пока нет слов в запасе. Скажи Engvo слова, которые ждут речи.',
+      : 'Пока нет слов в запасе. Скажи Engvo слово.',
     inFeedTitle,
     studyTitle: 'Учу',
     worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
@@ -67,15 +67,15 @@ export function vocabHubCopy(audience: Audience) {
     listsDrained: child
       ? `Эти слова уже в «${inFeedTitle}» или «Умею».`
       : 'Списки уже в обороте.',
-    shelvesTitle: 'Статусы',
-    shelvesScreenTitle: 'Статусы',
+    shelvesTitle: 'Мои слова',
+    shelvesScreenTitle: 'Мои слова',
     shelvesAll: 'Все',
-    shelfReturned: 'Починить',
+    shelfReturned: 'Ошибся',
     shelfMastered: 'Умею',
-    shelfErrors: 'Починить',
-    shelfFix: 'Починить',
-    shelvesFooterStatic: 'Слова | Статусы',
-    shelvesFooterDynamic: 'Слова по статусу.',
+    shelfErrors: 'Ошибся',
+    shelfFix: 'Ошибся',
+    shelvesFooterStatic: 'Слова | Мои слова',
+    shelvesFooterDynamic: 'Слова по полкам.',
     practice: 'Практика',
     myPlan: 'Мой план',
     practiceNeedWords: 'Сначала слова',
@@ -83,11 +83,14 @@ export function vocabHubCopy(audience: Audience) {
     statsEmpty: 'Пока нет сессий. Пройди короткую порцию.',
     translationEmpty: 'Сначала отметь или пройди порцию.',
     resumePack: (title: string) => `Доучить ${title}`,
-    nowDueLine: (take: number, total: number) => `Повторить ${take} из ${total}`,
   }
 }
 
 export const VOCAB_DISPLAY_CHIP_ORDER: VocabDisplayTileId[] = VOCAB_DISPLAY_TILE_IDS
+
+export function vocabShelfChipLabel(label: string, count: number): string {
+  return `${label} · ${count}`
+}
 
 export function vocabShelfLabel(id: VocabShelfId, audience: Audience): string {
   const copy = vocabHubCopy(audience)
@@ -119,7 +122,7 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
   const child = audience === 'child'
   switch (kind) {
     case 'errors-sprint':
-      return { title: child ? 'Поймали слово' : 'Поймали слово', reason: 'Почини в короткой порции.', cta: 'start' }
+      return { title: child ? 'Поймали слово' : 'Поймали слово', reason: 'Ещё раз в короткой порции.', cta: 'start' }
     case 'errors-bridge':
       return { title: child ? 'Скажи Engvo ещё раз' : 'Поймали слово', reason: 'Скажи Engvo ещё раз.', cta: 'say' }
     case 'fresh-sprint':
@@ -148,9 +151,9 @@ export function vocabHubFooter(kind: VocabNowKind, audience: Audience = 'adult')
   const inFeed = vocabHubCopy(audience).inFeedTitle
   switch (kind) {
     case 'errors-sprint':
-      return { dynamicText: 'Сначала починим ошибки.', staticText: 'Слова | Починить' }
+      return { dynamicText: 'Сначала где ошибся.', staticText: 'Слова | Ошибся' }
     case 'errors-bridge':
-      return { dynamicText: 'Скажи Engvo ещё раз.', staticText: 'Слова | Починить' }
+      return { dynamicText: 'Скажи Engvo ещё раз.', staticText: 'Слова | Ошибся' }
     case 'fresh-sprint':
       return { dynamicText: 'Короткая порция из твоего списка.', staticText: 'Слова | Учить' }
     case 'bank-bridge':

@@ -1,4 +1,4 @@
-import type { NecessaryWord, VocabularyTempo } from '@/types/vocabulary'
+import type { NecessaryWord } from '@/types/vocabulary'
 
 export type WordStep =
   | 'reveal_en'
@@ -6,7 +6,6 @@ export type WordStep =
   | 'check_fail_say'
   | 'produce'
   | 'speak_en'
-  | 'say_phrase'
   | 'done'
 
 function shuffleInPlace<T>(items: T[]): T[] {
@@ -18,17 +17,8 @@ function shuffleInPlace<T>(items: T[]): T[] {
 }
 
 /** Intro is always reveal_en (RU+EN). Produce sits between Check and SpeakEn. */
-export function stepsForTempo(_tempo: VocabularyTempo, phraseOnThisWord: boolean): WordStep[] {
-  const steps: WordStep[] = ['reveal_en', 'check', 'produce', 'speak_en']
-  if (phraseOnThisWord) steps.push('say_phrase')
-  steps.push('done')
-  return steps
-}
-
-/** Middle-ish word for Sprint phrase (~1 per portion). */
-export function phraseWordIndex(sessionSize: number): number {
-  if (sessionSize <= 0) return 0
-  return Math.floor((sessionSize - 1) / 2)
+export function stepsForWordCycle(): WordStep[] {
+  return ['reveal_en', 'check', 'produce', 'speak_en', 'done']
 }
 
 export function nextStep(steps: WordStep[], current: WordStep): WordStep | null {
@@ -52,9 +42,4 @@ export function buildQuizOptions(target: NecessaryWord, pool: NecessaryWord[]): 
   ).slice(0, 3)
 
   return shuffleInPlace([target.ru, ...distractors])
-}
-
-export function shouldIncludePhrase(tempo: VocabularyTempo, wordIndex: number, sessionSize: number): boolean {
-  if (tempo === 'full') return true
-  return wordIndex === phraseWordIndex(sessionSize)
 }
