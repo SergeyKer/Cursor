@@ -1189,7 +1189,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [accentLessonRequestKey, setAccentLessonRequestKey] = useState(0)
   const [accentFooterView, setAccentFooterView] = useState<AccentFooterView | null>(null)
   const [vocabularyWorldsActive, setVocabularyWorldsActive] = useState(false)
-  const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook'>('hub')
+  const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook' | 'feed'>('hub')
   const [vocabularyByLevelActive, setVocabularyByLevelActive] = useState(false)
   const [vocabularyPackId, setVocabularyPackId] = useState<string | null>(null)
   const [vocabularyFooterView, setVocabularyFooterView] = useState<VocabularyFooterView | null>(null)
@@ -6064,6 +6064,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       // Сбрасываем снимок: переход в практику - намеренное действие, не «закрыли меню после правок чата».
       menuOpenSnapshotRef.current = null
       resetStructuredLessonSession()
+      setVocabularyWorldsActive(false)
+      setVocabularyByLevelActive(false)
+      setVocabularyPackId(null)
       firstMessageRequestIdRef.current += 1
       firstMessageInFlightRef.current = false
       suppressSettingsChangeBannerRef.current = true
@@ -6338,7 +6341,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
   }, [resetStructuredLessonSession])
 
   const openVocabularyPhrasebook = useCallback(() => {
@@ -6374,13 +6377,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setAdaptiveFooterView(null)
     setVocabularyByLevelActive(false)
     setVocabularyPackId(null)
-    setVocabHubEntry('hub')
+    setVocabHubEntry('feed')
     setVocabularyWorldsActive(true)
     menuOpenSnapshotRef.current = null
     setDialogStarted(true)
     setMenuOpen(false)
     setHomeMenuView('lessons')
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsFeed' })
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
   }, [resetStructuredLessonSession])
 
   const openVocabularyCustomPack = useCallback(
@@ -6394,7 +6397,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setDialogStarted(true)
       setMenuOpen(false)
       setHomeMenuView('lessons')
-      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsAll' })
+      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
     },
     [resetStructuredLessonSession]
   )
@@ -7699,7 +7702,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setVocabularyPackId(null)
     setVocabularySessionActive(false)
     vocabularyLeaveHandlerRef.current = null
-    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })
+    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })
     restoreLessonMenuOnNextOpenRef.current = true
     setMenuOpen(true)
   }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])
@@ -11624,6 +11627,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       exitRequestKey={vocabularyExitRequestKey}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
+                      onOpenPracticeTopic={openAdaptivePracticeTopic}
                     />
                   ) : (
                     <VocabularyHubScreen
@@ -11639,6 +11643,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                       exitRequestKey={vocabularyExitRequestKey}
                       onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}
                       onOpenCallWithHandoff={openCallFromVocabHandoff}
+                      onOpenPracticeTopic={openAdaptivePracticeTopic}
+                      onOpenMyPlan={openMyPlanSpace}
                     />
                   )
                 ) : isAccentActive ? (

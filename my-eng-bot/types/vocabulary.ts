@@ -142,6 +142,8 @@ export interface VocabularyProgressState {
   }
   words: Record<string, VocabularyWordProgress>
   history: VocabularySessionHistoryItem[]
+  lastSessionRoute?: VocabularySessionRoute | null
+  lastSessionTitle?: string | null
 }
 
 export interface VocabularyFooterView {

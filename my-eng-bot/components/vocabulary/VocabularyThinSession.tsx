@@ -77,6 +77,8 @@ type VocabularyThinSessionProps = {
   onOpenBridge?: (bankedWords: NecessaryWord[]) => void
   onAgain: () => void
   onExit: () => void
+  onOpenPractice?: () => void
+  practiceLabel?: string
 }
 
 export default function VocabularyThinSession({
@@ -94,6 +96,8 @@ export default function VocabularyThinSession({
   onOpenBridge,
   onAgain,
   onExit,
+  onOpenPractice,
+  practiceLabel,
 }: VocabularyThinSessionProps) {
   const copy = vocabHubCopy(audience)
   const session = useVocabularyThinSession({
@@ -400,31 +404,40 @@ export default function VocabularyThinSession({
         <DialogComposerStack>
           {isFinale ? (
             <div className="flex w-full flex-col gap-2 px-1 pb-1">
-              {session.finaleStats.banked > 0 && onOpenBridge ? (
+              {onOpenPractice ? (
                 <button
                   type="button"
-                  onClick={handleBridge}
+                  onClick={onOpenPractice}
                   className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
                 >
-                  {copy.say}
+                  {practiceLabel ?? copy.start}
                 </button>
               ) : null}
               {session.finaleStats.banked > 0 ? (
                 <button
                   type="button"
                   onClick={handleHandoff}
-                  className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
+                  className="btn-3d-menu w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-base font-semibold text-[var(--text)]"
                 >
-                  Закрепить в переводе
+                  {copy.handoffTranslation}
                 </button>
               ) : null}
-              {session.finaleStats.banked > 0 && featureFlags.engvoVoiceV1 && onHandoffCall ? (
+              {session.finaleStats.banked > 0 && onOpenBridge ? (
+                <button
+                  type="button"
+                  onClick={handleBridge}
+                  className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
+                >
+                  {copy.say}
+                </button>
+              ) : null}
+              {session.finaleStats.banked > 0 && onHandoffCall ? (
                 <button
                   type="button"
                   onClick={handleHandoffCall}
                   className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
                 >
-                  В звонок
+                  {copy.handoffCall}
                 </button>
               ) : null}
               <button
@@ -442,7 +455,7 @@ export default function VocabularyThinSession({
                 }}
                 className="w-full px-4 py-2 text-[14px] text-[var(--text-muted)]"
               >
-                К списку
+                К словам
               </button>
             </div>
           ) : session.step === 'check' ? (

@@ -1,0 +1,18 @@
+[
+  [
+    "  const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook'>('hub')",
+    "  const [vocabHubEntry, setVocabHubEntry] = useState<'hub' | 'phrasebook' | 'feed'>('hub')"
+  ],
+  [
+    "  const openVocabularyFeed = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('hub')",
+    "  const openVocabularyFeed = useCallback(() => {\n    resetStructuredLessonSession()\n    setAdaptiveFooterView(null)\n    setVocabularyByLevelActive(false)\n    setVocabularyPackId(null)\n    setVocabHubEntry('feed')"
+  ],
+  [
+    "                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}\n                      onOpenCallWithHandoff={openCallFromVocabHandoff}\n                    />\n                  ) : (\n                    <VocabularyHubScreen",
+    "                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}\n                      onOpenCallWithHandoff={openCallFromVocabHandoff}\n                      onOpenPracticeTopic={openAdaptivePracticeTopic}\n                    />\n                  ) : (\n                    <VocabularyHubScreen"
+  ],
+  [
+    "                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}\n                      onOpenCallWithHandoff={openCallFromVocabHandoff}\n                    />\n                  )\n                ) : isAccentActive ? (",
+    "                      onOpenTranslationWithHandoff={openTranslationFromVocabHandoff}\n                      onOpenCallWithHandoff={openCallFromVocabHandoff}\n                      onOpenPracticeTopic={openAdaptivePracticeTopic}\n                      onOpenMyPlan={openMyPlanSpace}\n                    />\n                  )\n                ) : isAccentActive ? ("
+  ]
+]

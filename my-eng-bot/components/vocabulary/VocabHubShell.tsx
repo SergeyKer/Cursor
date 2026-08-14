@@ -15,6 +15,11 @@ type Props = {
   actionLabel?: string | null
   onAction?: () => void
   actionDisabled?: boolean
+  practiceLabel?: string | null
+  onPractice?: () => void
+  practiceDisabled?: boolean
+  myPlanLabel?: string | null
+  onMyPlan?: () => void
 }
 
 export default function VocabHubShell({
@@ -24,11 +29,19 @@ export default function VocabHubShell({
   actionLabel,
   onAction,
   actionDisabled = false,
+  practiceLabel,
+  onPractice,
+  practiceDisabled = false,
+  myPlanLabel,
+  onMyPlan,
 }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     scrollRef.current?.scrollTo({ top: 0, behavior: 'auto' })
   }, [])
+  const showSticky = Boolean(actionLabel && onAction)
+  const showPractice = Boolean(practiceLabel && onPractice)
+  const showMyPlan = Boolean(myPlanLabel && onMyPlan)
   return (
     <LessonReadingShell
       scrollRef={scrollRef}
@@ -37,11 +50,11 @@ export default function VocabHubShell({
       composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
       composerStyle={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
       composer={
-        <div className="flex w-full items-center gap-1.5">
+        <div className="flex w-full min-w-0 items-center gap-1.5">
           <button type="button" onClick={onBack} className={APP_BTN_TERTIARY_BACK}>
             {backLabel}
           </button>
-          {actionLabel && onAction ? (
+          {showSticky ? (
             <button
               type="button"
               disabled={actionDisabled}
@@ -49,6 +62,21 @@ export default function VocabHubShell({
               className={VOCAB_COMPOSER_SECONDARY}
             >
               {actionLabel}
+            </button>
+          ) : null}
+          {showPractice ? (
+            <button
+              type="button"
+              disabled={practiceDisabled}
+              onClick={onPractice}
+              className={VOCAB_COMPOSER_SECONDARY}
+            >
+              {practiceLabel}
+            </button>
+          ) : null}
+          {showMyPlan ? (
+            <button type="button" onClick={onMyPlan} className={VOCAB_COMPOSER_SECONDARY}>
+              {myPlanLabel}
             </button>
           ) : null}
         </div>

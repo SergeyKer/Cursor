@@ -7,6 +7,7 @@ import {
   listStudyWords,
   resolveMistakeWords,
   shelfOf,
+  splitHubFunnel,
 } from '@/lib/vocabulary/hubBuckets'
 import type { NecessaryWord } from '@/types/vocabulary'
 
@@ -87,6 +88,20 @@ describe('hubBuckets', () => {
     })
     expect(fixRows.map((row) => row.word.en)).toEqual(['back', 'cat'])
     expect(fixRows.map((row) => row.shelf)).toEqual(['returned', 'errors'])
+  })
+
+  it('splitHubFunnel keeps three equal stages and hides empty exceptions', () => {
+    const { funnel, exceptions } = splitHubFunnel([
+      { id: 'study', count: 1 },
+      { id: 'in_feed', count: 4 },
+      { id: 'mastered', count: 0 },
+      { id: 'know', count: 0 },
+      { id: 'fix', count: 2 },
+    ])
+    expect(funnel.map((tile) => tile.id)).toEqual(['study', 'in_feed', 'mastered'])
+    expect(funnel.map((tile) => tile.count)).toEqual([1, 4, 0])
+    expect(exceptions.map((tile) => tile.id)).toEqual(['fix'])
+    expect(exceptions[0]?.count).toBe(2)
   })
 
   it('merges inbox mistakes with returned status', () => {

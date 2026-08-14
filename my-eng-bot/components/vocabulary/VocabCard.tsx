@@ -20,7 +20,7 @@ type VocabCardProps = {
   className?: string
 }
 
-/** Visual parity with ProgressCard v1; do not import Progress. */
+/** Vocab surface (no Progress chrome). Do not import Progress. */
 export default function VocabCard({
   title,
   children,

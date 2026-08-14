@@ -2581,7 +2581,7 @@ export default function Chat({
     ? ''
     : isVoiceActive
     ? ''
-    : 'Reply...'
+    : 'Скажи ответ...'
   const typingIndicatorText =
     engvoBootstrapTypingActive
       ? engvo?.assistantIndicatorText ?? 'Engvo говорит…'

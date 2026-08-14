@@ -25,6 +25,7 @@ type Props = {
   exitRequestKey?: number
   onOpenTranslationWithHandoff?: () => void
   onOpenCallWithHandoff?: () => void
+  onOpenPracticeTopic?: (topic: string) => void
 }
 
 export default function VocabularyPackSessionScreen({
@@ -37,6 +38,7 @@ export default function VocabularyPackSessionScreen({
   exitRequestKey = 0,
   onOpenTranslationWithHandoff,
   onOpenCallWithHandoff,
+  onOpenPracticeTopic,
 }: Props) {
   const [progress, setProgress] = React.useState<VocabularyProgressState>(createEmptyVocabularyProgress())
   const { tempo, setTempo, size: tempoSize } = useVocabularyTempo()
@@ -162,6 +164,8 @@ export default function VocabularyPackSessionScreen({
       }}
       onHandoffTranslation={() => onOpenTranslationWithHandoff?.()}
       onHandoffCall={onOpenCallWithHandoff ? () => onOpenCallWithHandoff() : undefined}
+      onOpenPractice={onOpenPracticeTopic ? () => onOpenPracticeTopic(pack.title) : undefined}
+      practiceLabel="Практика"
     />
   )
 }

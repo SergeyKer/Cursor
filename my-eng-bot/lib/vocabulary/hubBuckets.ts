@@ -155,3 +155,17 @@ export function hubDisplayTiles(params: {
   return VOCAB_DISPLAY_TILE_IDS.map((id) => ({ id, count: counts[id] }))
 }
 
+export const VOCAB_FUNNEL_TILE_IDS: VocabDisplayTileId[] = ['study', 'in_feed', 'mastered']
+
+export const VOCAB_EXCEPTION_TILE_IDS: VocabDisplayTileId[] = ['know', 'fix']
+
+export function splitHubFunnel(tiles: HubTile[]): { funnel: HubTile[]; exceptions: HubTile[] } {
+  const byId = new Map(tiles.map((tile) => [tile.id, tile]))
+  return {
+    funnel: VOCAB_FUNNEL_TILE_IDS.map((id) => byId.get(id) ?? { id, count: 0 }),
+    exceptions: VOCAB_EXCEPTION_TILE_IDS.map((id) => byId.get(id) ?? { id, count: 0 }).filter(
+      (tile) => tile.count > 0
+    ),
+  }
+}
+

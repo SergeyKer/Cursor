@@ -72,6 +72,17 @@ describe('vocabulary storage', () => {
     expect(restored.history[0]?.id).toBe('session-1')
   })
 
+  it('restores lastSessionRoute from storage', () => {
+    withWindowStorage()
+    const progress = createEmptyVocabularyProgress()
+    progress.lastSessionRoute = { kind: 'pack', packId: 'unit-5' }
+    progress.lastSessionTitle = 'Unit 5'
+    saveVocabularyProgress(progress)
+    const restored = loadVocabularyProgress()
+    expect(restored.lastSessionRoute).toEqual({ kind: 'pack', packId: 'unit-5' })
+    expect(restored.lastSessionTitle).toBe('Unit 5')
+  })
+
   it('persists userMark study/know and treats unknown as null', () => {
     withWindowStorage()
     const progress = createEmptyVocabularyProgress()

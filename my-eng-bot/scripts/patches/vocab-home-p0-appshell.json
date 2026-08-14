@@ -1,0 +1,22 @@
+[
+  [
+    "      menuOpenSnapshotRef.current = null\n      resetStructuredLessonSession()\n      firstMessageRequestIdRef.current += 1",
+    "      menuOpenSnapshotRef.current = null\n      resetStructuredLessonSession()\n      setVocabularyWorldsActive(false)\n      setVocabularyByLevelActive(false)\n      setVocabularyPackId(null)\n      firstMessageRequestIdRef.current += 1"
+  ],
+  [
+    "    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'vocabulary' })\n  }, [resetStructuredLessonSession])",
+    "    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })\n  }, [resetStructuredLessonSession])"
+  ],
+  [
+    "    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsFeed' })\n  }, [resetStructuredLessonSession])",
+    "    setHomeMenuView('lessons')\n    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })\n  }, [resetStructuredLessonSession])"
+  ],
+  [
+    "      setHomeMenuView('lessons')\n      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'wordsAll' })\n    },\n    [resetStructuredLessonSession]",
+    "      setHomeMenuView('lessons')\n      setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })\n    },\n    [resetStructuredLessonSession]"
+  ],
+  [
+    "    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'words' })\n    restoreLessonMenuOnNextOpenRef.current = true\n    setMenuOpen(true)\n  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])",
+    "    setLessonMenuContext({ menuView: 'lessons', lessonsPanel: 'summary' })\n    restoreLessonMenuOnNextOpenRef.current = true\n    setMenuOpen(true)\n  }, [bumpFooterSessionContext, cleanupEngvoRuntime, resetStructuredLessonSession])"
+  ]
+]

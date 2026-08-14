@@ -13,14 +13,19 @@ export function vocabHubCopy(audience: Audience) {
   return {
     spaceTitle: 'Слова',
     back: '← Назад',
-    nowTitle: 'СЕЙЧАС',
-    listsTitle: child ? 'МОИ СЛОВА' : 'МОИ СПИСКИ',
+    nowTitle: 'Сейчас',
+    listsTitle: child ? 'Мои' : 'Мои списки',
     listsEmpty: child ? 'Можно добавить свои' : 'Залейте список или откройте пакет.',
     listsFilled: (title: string) => title,
     fillList: child ? 'Добавить' : 'Залить список',
-    catalogTitle: child ? 'ЕЩЁ СЛОВА' : 'КАТАЛОГ',
-    catalogBody: child ? 'Дом, школа…' : 'Миры',
+    catalogTitle: child ? 'Ещё слова' : 'Ещё слова',
+    catalogBody: child ? 'Разговорник, необходимые, свои' : 'Разговорник, необходимые, свои списки',
     catalogOpen: 'Открыть',
+    catalogPhrasebookBody: child ? 'Темы для разговора' : 'Темы: кафе, дорога, работа',
+    catalogWorldsBody: child ? 'Дом и школа' : 'Миры базовых слов',
+    catalogPacksBody: child ? 'Свои слова' : 'Залитые пакеты',
+    worldsTitle: 'Самые необходимые слова',
+    worldsFooterDynamic: 'Выбери мир.',
     vitrine: 'Витрина',
     myLists: 'Мои списки',
     tts: 'Озвучка',
@@ -31,22 +36,19 @@ export function vocabHubCopy(audience: Audience) {
     studyList: 'Учить этот список',
     start: 'Начать',
     say,
-    pick: 'Выбрать слова',
+    pick: child ? 'Выбрать готовые' : 'Выбрать готовые',
     more: 'ещё',
     searchPlaceholder: 'Поиск…',
     emptyList: 'Пока пусто.',
     listen: 'Слушать',
-    handoffTranslation: 'Закрепить в переводе',
+    handoffTranslation: 'В перевод',
     handoffCall: 'В звонок',
-    catalogScreenTitle: child ? 'Ещё слова' : 'Каталог',
+    catalogScreenTitle: child ? 'Ещё слова' : 'Ещё слова',
     masteredEmpty: child
       ? 'Пока пусто — скажи Engvo слово.'
       : 'Пока нет слов в запасе. Скажи Engvo слова, которые ждут речи.',
     inFeedTitle,
     studyTitle: 'Учу',
-    pathHint: child
-      ? 'Карточки → скажи Engvo → умею.'
-      : 'Учить → ждут речи → умею. «Пропускаю» — без проверки.',
     worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
     importTitle: child ? 'Добавить слова' : 'Залить список',
     importParse: 'Сделать список',
@@ -65,18 +67,23 @@ export function vocabHubCopy(audience: Audience) {
     listsDrained: child
       ? `Эти слова уже в «${inFeedTitle}» или «Умею».`
       : 'Списки уже в обороте.',
-    shelvesTitle: 'МОИ СЛОВА',
-    shelvesScreenTitle: 'Мои слова',
-    shelvesBody: child
-      ? 'Учу · Скажи Engvo · Умею · Пропускаю · Починить'
-      : 'Учу · Ждут речи · Умею · Пропускаю · Починить',
+    shelvesTitle: 'Статусы',
+    shelvesScreenTitle: 'Статусы',
     shelvesAll: 'Все',
     shelfReturned: 'Починить',
     shelfMastered: 'Умею',
     shelfErrors: 'Починить',
     shelfFix: 'Починить',
-    shelvesFooterStatic: 'Слова | Мои слова',
+    shelvesFooterStatic: 'Слова | Статусы',
     shelvesFooterDynamic: 'Слова по статусу.',
+    practice: 'Практика',
+    myPlan: 'Мой план',
+    practiceNeedWords: 'Сначала слова',
+    statsTitle: 'Как у меня',
+    statsEmpty: 'Пока нет сессий. Пройди короткую порцию.',
+    translationEmpty: 'Сначала отметь или пройди порцию.',
+    resumePack: (title: string) => `Доучить ${title}`,
+    nowDueLine: (take: number, total: number) => `Повторить ${take} из ${total}`,
   }
 }
 
@@ -128,7 +135,7 @@ export function vocabNowBody(kind: VocabNowKind, audience: Audience): {
     default:
       return {
         title: child ? 'Что учить?' : 'Нет очереди',
-        reason: child ? 'Отметь несколько из дома.' : 'Залейте список или отметьте в витрине.',
+        reason: child ? 'Возьми готовые — дом или школа.' : 'Выбери готовые слова.',
         cta: 'pick',
       }
   }
@@ -151,6 +158,6 @@ export function vocabHubFooter(kind: VocabNowKind, audience: Audience = 'adult')
     case 'pause':
       return { dynamicText: 'Начнём с двух слов.', staticText: 'Слова' }
     default:
-      return { dynamicText: 'Отметь слова — и можно учить.', staticText: 'Слова' }
+      return { dynamicText: 'Выбери готовые или добавь свои.', staticText: 'Слова' }
   }
 }

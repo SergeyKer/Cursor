@@ -70,7 +70,6 @@ import {
   type LessonListDensity,
 } from '@/lib/lessonListDensity'
 import { REFERENCE_COPY } from '@/lib/uiCopy/reference'
-import { PHRASEBOOK_COPY } from '@/lib/uiCopy/phrasebook'
 import { buildReferenceMissTutorPrefill } from '@/lib/reference/buildReferenceMissTutorPrefill'
 import type { CatalogBrowseIntent } from '@/lib/reference/types'
 import { getReferenceLessonTopics, isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
@@ -3079,7 +3078,6 @@ export default function MenuSectionPanels({
                     />
                   ) : null}
                   <MenuNavRow label="Слова" onClick={() => void onOpenVocabularyWorlds?.()} />
-                  <MenuNavRow label={PHRASEBOOK_COPY.menuLabel} onClick={() => void onOpenVocabularyPhrasebook?.()} />
                 </div>
               </div>
             )}
@@ -3088,12 +3086,7 @@ export default function MenuSectionPanels({
               <div className="space-y-3">
                 <div className={MENU_GROUP_OUTER}>
                   <div className={MENU_GROUP_CLASS}>
-                    <MenuNavRow label="Самые необходимые слова" onClick={() => setLessonsPanel('vocabulary')} />
-                    <MenuNavRow
-                      label="Сегодня и мои списки"
-                      onClick={() => setLessonsPanel('wordsAll')}
-                    />
-                    <MenuNavRow label="Сказать Engvo" onClick={() => setLessonsPanel('wordsFeed')} />
+                    <MenuNavRow label="Слова" onClick={() => void onOpenVocabularyWorlds?.()} />
                   </div>
                 </div>
                 {featureFlags.vocabGrokTtsV1 ? (

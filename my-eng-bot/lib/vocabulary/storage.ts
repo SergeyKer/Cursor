@@ -6,6 +6,7 @@ import type {
   VocabularyFeedStatus,
   VocabularyProgressState,
   VocabularySessionHistoryItem,
+  VocabularySessionRoute,
   VocabularyWordProgress,
   VocabularyWordSource,
   VocabularyUserMark,
@@ -32,6 +33,8 @@ export function createEmptyVocabularyProgress(): VocabularyProgressState {
     },
     words: {},
     history: [],
+    lastSessionRoute: null,
+    lastSessionTitle: null,
   }
 }
 
@@ -149,6 +152,20 @@ function normalizeProgress(raw: unknown): VocabularyProgressState {
     },
     words,
     history,
+    lastSessionRoute: normalizeVocabularySessionRoute({ route: source.lastSessionRoute }) ?? null,
+    lastSessionTitle: typeof source.lastSessionTitle === 'string' ? source.lastSessionTitle : null,
+  }
+}
+
+export function rememberLastVocabRoute(
+  state: VocabularyProgressState,
+  route: VocabularySessionRoute,
+  title: string
+): VocabularyProgressState {
+  return {
+    ...state,
+    lastSessionRoute: route,
+    lastSessionTitle: title.trim() || null,
   }
 }
 
@@ -246,6 +263,8 @@ export function finalizeVocabularySession(params: {
       completedSessions: nextCompletedSessions,
     },
     history: [params.historyItem, ...params.state.history].slice(0, MAX_HISTORY),
+    lastSessionRoute: params.historyItem.route,
+    lastSessionTitle: params.state.lastSessionTitle,
   }
 }
 
