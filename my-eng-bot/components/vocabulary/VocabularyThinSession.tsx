@@ -18,7 +18,11 @@ import {
 } from '@/lib/chatComposerMetrics'
 import { featureFlags } from '@/lib/featureFlags'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
-import { READING_COLUMN_MAX_CLASS } from '@/lib/lessonReadingLayout'
+import {
+  DIALOG_SESSION_FEED_INNER_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
 import { isIosChromeBrowser, needsVoiceComposerWebMetrics } from '@/lib/sttClient'
 import type { Audience } from '@/lib/types'
 import { writeVocabTranslationHandoff } from '@/lib/vocabulary/translationHandoff'
@@ -276,17 +280,14 @@ export default function VocabularyThinSession({
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className={`mx-auto flex min-h-0 flex-1 w-full flex-col ${READING_COLUMN_MAX_CLASS}`}>
-          <div
-            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
+      <div className={DIALOG_SESSION_GUTTER_CLASS}>
+          <div className={DIALOG_SESSION_FRAME_CLASS}>
             <DialogGlassScrollHost>
               <div
                 ref={scrollRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper`}
               >
+                <div className={DIALOG_SESSION_FEED_INNER_CLASS}>
             {isFinale ? (
               <ReadingDetachedCard label="Сессия слов завершена" className="lesson-enter">
                 <p className="text-[15px] leading-relaxed text-[var(--text-muted)]">
@@ -391,6 +392,7 @@ export default function VocabularyThinSession({
                 <p className="text-[15px] text-[var(--text-muted)]">Готовлю сессию…</p>
               </ReadingDetachedCard>
             )}
+                </div>
           </div>
         </DialogGlassScrollHost>
 
@@ -589,7 +591,6 @@ export default function VocabularyThinSession({
           ) : null}
         </DialogComposerStack>
           </div>
-        </div>
       </div>
     </div>
   )

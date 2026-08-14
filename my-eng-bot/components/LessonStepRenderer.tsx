@@ -87,6 +87,11 @@ import {
   isWithinRevealEndOverflowSettleWindow,
   resyncLessonFeedScrollNearTail,
 } from '@/lib/lessonFeedScroll'
+import {
+  DIALOG_SESSION_FEED_INNER_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
 import { speak } from '@/lib/speech'
 import { seededShuffle } from '@/lib/shuffleSeeded'
 import {
@@ -1701,16 +1706,12 @@ export default function LessonStepRenderer({
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
-          <div
-            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
+      <div className={DIALOG_SESSION_GUTTER_CLASS}>
+          <div className={DIALOG_SESSION_FRAME_CLASS}>
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper`}
               style={
                 scrollBottomPadding
                   ? {
@@ -1720,6 +1721,7 @@ export default function LessonStepRenderer({
                   : undefined
               }
             >
+              <div className={DIALOG_SESSION_FEED_INNER_CLASS}>
               <div ref={messagesStackRef} className={feedMessagesStackClass}>
                 {lessonMessages.map((message, index) => {
                   const previousRole = lessonMessages[index - 1]?.role as BubbleRole | undefined
@@ -1962,6 +1964,7 @@ export default function LessonStepRenderer({
                     </ChatBubbleFrame>
                   )
                 })}
+              </div>
               </div>
             </div>
             </DialogGlassScrollHost>
@@ -2240,7 +2243,6 @@ export default function LessonStepRenderer({
               </DialogComposerStack>
             )}
           </div>
-        </div>
       </div>
     </div>
   )

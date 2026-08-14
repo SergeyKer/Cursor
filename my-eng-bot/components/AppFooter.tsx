@@ -20,6 +20,10 @@ import type {
   LessonFooterSegment,
 } from '@/lib/lessonFooter'
 import type { Audience } from '@/lib/types'
+import {
+  DIALOG_SESSION_COLUMN_MAX_CLASS,
+  DIALOG_SESSION_FOOTER_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
 
 type FooterRowSheetSource = Exclude<FooterSheetSource, 'language-note' | 'call-review' | 'lesson-hud'>
 
@@ -37,6 +41,7 @@ type AppFooterProps = {
   typingKey?: string | number | null
   isLessonActive?: boolean
   isDialogStarted?: boolean
+  isDialogSessionColumn?: boolean
   showWhenIdle?: boolean
   dynamicTone?: FooterVoiceTone
   dynamicEmphasis?: FooterVoiceEmphasis
@@ -160,6 +165,7 @@ export default function AppFooter({
   typingKey,
   isLessonActive = false,
   isDialogStarted = false,
+  isDialogSessionColumn = isDialogStarted,
   showWhenIdle = false,
   dynamicTone = 'neutral',
   dynamicEmphasis = 'none',
@@ -238,13 +244,17 @@ export default function AppFooter({
 
   return (
     <div
-      className="chat-shell-x app-footer-root pointer-events-none w-full shrink-0"
+      className={
+        isDialogSessionColumn
+          ? DIALOG_SESSION_FOOTER_GUTTER_CLASS
+          : 'chat-shell-x app-footer-root pointer-events-none w-full shrink-0'
+      }
       aria-hidden={!showFooterContent}
     >
       <div
         className={`app-footer-body mx-auto w-full min-w-0 ${
-          isDialogStarted
-            ? 'max-w-[29rem]'
+          isDialogSessionColumn
+            ? DIALOG_SESSION_COLUMN_MAX_CLASS
             : lessonFooterMode
               ? 'max-w-[23.2rem] max-[420px]:max-w-none'
               : 'max-w-[23.2rem]'

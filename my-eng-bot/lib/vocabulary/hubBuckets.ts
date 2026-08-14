@@ -1,11 +1,20 @@
-import { lemmaKeyFromEn, listByFeedStatus } from '@/lib/vocabulary/wordFeed'
+import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
 import type { Audience } from '@/lib/types'
 import type { NecessaryWord, VocabularyWordProgress } from '@/types/vocabulary'
 import type { VocabMistakeItem } from '@/lib/vocabulary/mistakesList'
 
-export type HubTileId = 'mastered' | 'in_feed' | 'errors' | 'study'
-
 export type VocabShelfId = 'returned' | 'errors' | 'mastered' | 'in_feed' | 'know' | 'study'
+
+export type HubTileId = VocabShelfId
+
+export const VOCAB_SHELF_IDS: VocabShelfId[] = [
+  'study',
+  'know',
+  'in_feed',
+  'mastered',
+  'returned',
+  'errors',
+]
 
 export type HubTile = {
   id: HubTileId
@@ -76,9 +85,8 @@ export function shelfOf(
   return null
 }
 
-export function shelfIdsForAudience(audience: Audience): VocabShelfId[] {
-  if (audience === 'child') return ['returned', 'errors', 'mastered', 'in_feed', 'study']
-  return ['returned', 'errors', 'mastered', 'in_feed', 'know', 'study']
+export function shelfIdsForAudience(_audience: Audience): VocabShelfId[] {
+  return VOCAB_SHELF_IDS
 }
 
 export function listShelvedWords(params: {
@@ -106,20 +114,9 @@ export function hubTiles(params: {
   progressMap: Record<string, VocabularyWordProgress>
   mistakes: VocabMistakeItem[]
 }): HubTile[] {
-  const mastered = listByFeedStatus(params.words, params.progressMap, 'mastered')
-  const inFeed = listByFeedStatus(params.words, params.progressMap, 'in_feed')
-  const errors = resolveMistakeWords(params.words, [], params.progressMap, params.mistakes)
-  const study = listStudyWords(params.words, params.progressMap)
-  if (params.audience === 'child') {
-    return [
-      { id: 'mastered', count: mastered.length },
-      { id: 'study', count: study.length },
-      { id: 'errors', count: errors.length },
-    ]
+  const counts = Object.fromEntries(VOCAB_SHELF_IDS.map((id) => [id, 0])) as Record<VocabShelfId, number>
+  for (const row of listShelvedWords({ ...params, shelf: null })) {
+    counts[row.shelf] += 1
   }
-  return [
-    { id: 'mastered', count: mastered.length },
-    { id: 'in_feed', count: inFeed.length },
-    { id: 'errors', count: errors.length },
-  ]
+  return VOCAB_SHELF_IDS.map((id) => ({ id, count: counts[id] }))
 }

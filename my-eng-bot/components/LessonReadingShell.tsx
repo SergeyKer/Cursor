@@ -8,7 +8,12 @@ import {
 } from 'react'
 import DialogComposerStack from '@/components/DialogComposerStack'
 import { DialogGlassScrollHost } from '@/components/DialogGlassScrollHost'
-import { READING_COLUMN_MAX_CLASS } from '@/lib/lessonReadingLayout'
+import {
+  DIALOG_SESSION_COLUMN_MAX_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+  DIALOG_SESSION_READING_INNER_CLASS,
+} from '@/lib/dialogSessionChrome'
 
 type LessonReadingShellProps = {
   children: ReactNode
@@ -24,7 +29,7 @@ type LessonReadingShellProps = {
 
 /**
  * Shared chrome for reading screens (intro / reference / briefing / tips).
- * Keeps dialog-flex / glass / iOS composer chain; same column width as Chat (`29rem`).
+ * Wallpaper full width; reading cards fill `max-w-[29rem]`.
  */
 const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
   function LessonReadingShell(
@@ -42,18 +47,16 @@ const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
   ) {
     return (
       <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-        <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-          <div className={`mx-auto flex min-h-0 w-full flex-1 flex-col ${READING_COLUMN_MAX_CLASS}`}>
-            <div
-              className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-              style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-            >
+        <div className={DIALOG_SESSION_GUTTER_CLASS}>
+          <div className={DIALOG_SESSION_FRAME_CLASS}>
               <DialogGlassScrollHost showChatWallpaper={showChatWallpaper}>
                 <div
                   ref={scrollRef}
-                  className={`px-3 sm:px-4 ${scrollClassName}`.trim()}
+                  className={scrollClassName.trim()}
                 >
-                  {children}
+                  <div className={DIALOG_SESSION_READING_INNER_CLASS}>
+                    {children}
+                  </div>
                 </div>
               </DialogGlassScrollHost>
 
@@ -61,11 +64,10 @@ const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
                 ref={composerStackRef}
                 className={composerClassName}
                 style={composerStyle}
-                contentMaxWidthClass={READING_COLUMN_MAX_CLASS}
+                contentMaxWidthClass={DIALOG_SESSION_COLUMN_MAX_CLASS}
               >
                 <div className="w-full px-0 sm:px-0">{composer}</div>
               </DialogComposerStack>
-            </div>
           </div>
         </div>
       </div>

@@ -18,6 +18,10 @@ import { resolveFooterPresentation } from '@/lib/footerPresentation'
 import type { FooterVoiceTone } from '@/lib/footerVoice'
 import { useAppColumnBounds } from '@/hooks/useAppColumnBounds'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
+import {
+  DIALOG_SESSION_COLUMN_MAX_CLASS,
+  DIALOG_SESSION_HEADER_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
 
 const LOGO_SRC = '/engvo-logo-1024-bars-vfix.png'
 const QUICK_TEST_PATTERN: ChatPatternId = 'study-doodles'
@@ -176,10 +180,10 @@ export function QuickTestPageChrome({
         className="app-header-surface fixed left-0 right-0 top-0 z-[65] border-b border-[var(--app-header-border)]"
         style={{ paddingTop: 'var(--app-safe-top-inset)' }}
       >
-        <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
+        <div className={DIALOG_SESSION_HEADER_GUTTER_CLASS}>
           <div
             ref={appColumnRef}
-            className="relative mx-auto grid w-full max-w-[29rem] grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto]"
+            className={`relative mx-auto grid w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[2.5rem_1fr_auto]`}
           >
             <button
               type="button"

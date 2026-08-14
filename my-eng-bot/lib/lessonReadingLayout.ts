@@ -1,7 +1,8 @@
 /**
- * Reading family (intro / reference / briefing / tips) shares the dialog column
- * with Chat/header/footer: `max-w-[29rem]`. Wider than that sprawls on PC and
- * misaligns with chrome. “Full width” means cards fill this column (no bubble 90%).
+ * Reading family shares the dialog content column with Chat/header/footer.
+ * Wallpaper is full width; cards fill `max-w-[29rem]` (no bubble 90%).
  */
-export const READING_COLUMN_MAX_CLASS = 'max-w-[29rem]' as const
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
+
+export const READING_COLUMN_MAX_CLASS = DIALOG_SESSION_COLUMN_MAX_CLASS
 

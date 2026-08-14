@@ -48,19 +48,23 @@ describe('hubBuckets', () => {
       },
     }
     expect(listKnowWords(words, progressMap)).toEqual([])
-    expect(hubTiles({ audience: 'adult', words, progressMap, mistakes: [] })[0]?.count).toBe(1)
+    expect(hubTiles({ audience: 'adult', words, progressMap, mistakes: [] }).find((tile) => tile.id === 'mastered')?.count).toBe(1)
   })
 
-  it('child tiles are mastered / study / errors, not in_feed', () => {
-    const words = [word(1, 'a'), word(2, 'b'), word(3, 'c')]
+  it('same six tiles for child and adult, returned not in errors', () => {
+    const words = [word(1, 'a'), word(2, 'b'), word(3, 'c'), word(4, 'd')]
     const progressMap = {
       '1': { ...createEmptyWordProgress(1), feedStatus: 'mastered' as const },
       '2': { ...createEmptyWordProgress(2), userMark: 'study' as const },
       '3': { ...createEmptyWordProgress(3), feedStatus: 'returned' as const },
+      '4': { ...createEmptyWordProgress(4), userMark: 'know' as const, lemmaKey: 'd' },
     }
-    const tiles = hubTiles({ audience: 'child', words, progressMap, mistakes: [] })
-    expect(tiles.map((tile) => tile.id)).toEqual(['mastered', 'study', 'errors'])
-    expect(tiles.map((tile) => tile.count)).toEqual([1, 1, 1])
+    const child = hubTiles({ audience: 'child', words, progressMap, mistakes: [] })
+    const adult = hubTiles({ audience: 'adult', words, progressMap, mistakes: [] })
+    expect(child.map((tile) => tile.id)).toEqual(['study', 'know', 'in_feed', 'mastered', 'returned', 'errors'])
+    expect(adult.map((tile) => tile.id)).toEqual(child.map((tile) => tile.id))
+    expect(child.map((tile) => tile.count)).toEqual([1, 1, 0, 1, 1, 0])
+    expect(adult.map((tile) => tile.count)).toEqual(child.map((tile) => tile.count))
   })
 
   it('merges inbox mistakes with returned status', () => {
@@ -97,7 +101,7 @@ describe('shelfOf', () => {
     expect(shelfOf(word(1, 'cat'), createEmptyWordProgress(1), mistakeKeys(['cat']))).toBe('errors')
   })
 
-  it('listShelvedWords drops unmarked catalog and child know', () => {
+  it('listShelvedWords drops unmarked catalog and keeps know for child', () => {
     const words = [word(1, 'plain'), word(2, 'know'), word(3, 'study')]
     const progressMap = {
       '2': { ...createEmptyWordProgress(2), userMark: 'know' as const, lemmaKey: 'know' },
@@ -106,6 +110,6 @@ describe('shelfOf', () => {
     const adult = listShelvedWords({ words, progressMap, mistakes: [], audience: 'adult' })
     const child = listShelvedWords({ words, progressMap, mistakes: [], audience: 'child' })
     expect(adult.map((row) => row.word.en)).toEqual(['know', 'study'])
-    expect(child.map((row) => row.word.en)).toEqual(['study'])
+    expect(child.map((row) => row.word.en)).toEqual(['know', 'study'])
   })
 })

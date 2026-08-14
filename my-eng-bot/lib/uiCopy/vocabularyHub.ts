@@ -1,6 +1,6 @@
 import type { Audience } from '@/lib/types'
 import type { VocabNowKind } from '@/lib/vocabulary/fuel'
-import type { HubTileId, VocabShelfId } from '@/lib/vocabulary/hubBuckets'
+import { VOCAB_SHELF_IDS, type VocabShelfId } from '@/lib/vocabulary/hubBuckets'
 
 export function vocabHubCopy(audience: Audience) {
   const child = audience === 'child'
@@ -8,10 +8,6 @@ export function vocabHubCopy(audience: Audience) {
     spaceTitle: 'Слова',
     back: '← Назад',
     nowTitle: 'СЕЙЧАС',
-    tileMastered: child ? 'Умею' : 'Запас',
-    tileInFeed: 'В деле',
-    tileErrors: child ? 'Починить' : 'Ошибки',
-    tileStudy: 'Учу',
     listsTitle: child ? 'МОИ СЛОВА' : 'МОИ СПИСКИ',
     listsEmpty: child ? 'Можно добавить свои' : 'Залейте список или откройте пакет.',
     listsFilled: (title: string) => title,
@@ -38,9 +34,7 @@ export function vocabHubCopy(audience: Audience) {
     handoffCall: 'В звонок',
     catalogScreenTitle: child ? 'Ещё слова' : 'Каталог',
     masteredEmpty: child ? 'Пока пусто — скажи боту слово.' : 'Пока нет слов в запасе. Скажи боту слова из «В деле».',
-    errorsTitle: child ? 'Починить' : 'Ошибки',
     bankTitle: 'В деле',
-    masteredTitle: child ? 'Умею' : 'Запас',
     studyTitle: 'Учу',
     worldReviewed: (done: number, total: number) => `Пройдено слов: ${done}/${total}`,
     importTitle: child ? 'Добавить слова' : 'Залить список',
@@ -60,9 +54,7 @@ export function vocabHubCopy(audience: Audience) {
     listsDrained: child ? 'Эти слова уже в деле или умею.' : 'Списки уже в обороте.',
     shelvesTitle: 'ПОЛКИ',
     shelvesScreenTitle: 'Полки',
-    shelvesBody: child
-      ? 'Учу · В деле · Умею · Вернулись · Ошибки'
-      : 'Учу · Знаю · В деле · Умею · Вернулись · Ошибки',
+    shelvesBody: 'Учу · Знаю · В деле · Умею · Вернулись · Ошибки',
     shelvesAll: 'Все',
     shelfReturned: 'Вернулись',
     shelfMastered: 'Умею',
@@ -72,14 +64,7 @@ export function vocabHubCopy(audience: Audience) {
   }
 }
 
-export const VOCAB_SHELF_CHIP_ORDER: VocabShelfId[] = [
-  'study',
-  'know',
-  'in_feed',
-  'mastered',
-  'returned',
-  'errors',
-]
+export const VOCAB_SHELF_CHIP_ORDER: VocabShelfId[] = VOCAB_SHELF_IDS
 
 export function vocabShelfLabel(id: VocabShelfId, audience: Audience): string {
   const copy = vocabHubCopy(audience)
@@ -91,12 +76,8 @@ export function vocabShelfLabel(id: VocabShelfId, audience: Audience): string {
   return copy.studyTitle
 }
 
-export function vocabTileLabel(id: HubTileId, audience: Audience): string {
-  const copy = vocabHubCopy(audience)
-  if (id === 'mastered') return copy.tileMastered
-  if (id === 'in_feed') return copy.tileInFeed
-  if (id === 'errors') return copy.tileErrors
-  return copy.tileStudy
+export function vocabTileLabel(id: VocabShelfId, audience: Audience): string {
+  return vocabShelfLabel(id, audience)
 }
 
 export function vocabNowBody(kind: VocabNowKind, audience: Audience): {

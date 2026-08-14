@@ -2,6 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useRef, type CSSProperties, type ReactNode } from 'react'
 import { CHAT_COMPOSER_STACK_CLASS } from '@/lib/chatComposerMetrics'
+import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
 import { useDialogComposerStackHeight } from '@/hooks/useDialogComposerStackHeight'
 
 export const DIALOG_COMPOSER_DOCK_CLASS = 'dialog-composer-dock'
@@ -15,7 +16,7 @@ type DialogComposerStackProps = {
 
 const DialogComposerStack = forwardRef<HTMLDivElement, DialogComposerStackProps>(
   function DialogComposerStack(
-    { children, className = '', style, contentMaxWidthClass = 'max-w-[29rem]' },
+    { children, className = '', style, contentMaxWidthClass = DIALOG_SESSION_COLUMN_MAX_CLASS },
     ref
   ) {
     const innerRef = useRef<HTMLDivElement>(null)

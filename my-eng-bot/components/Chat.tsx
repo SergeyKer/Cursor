@@ -61,6 +61,11 @@ import {
   scrollLessonFeedMessageRowIntoViewIfNeeded,
 } from '@/lib/lessonFeedScroll'
 import {
+  DIALOG_SESSION_FEED_INNER_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
+import {
   isIosChromeBrowser,
   isIosLikeDevice,
   needsVoiceComposerWebMetrics,
@@ -2590,18 +2595,14 @@ export default function Chat({
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
-          <div
-            ref={appColumnAnchorRef}
-            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
+      <div className={DIALOG_SESSION_GUTTER_CLASS}>
+          <div className={DIALOG_SESSION_FRAME_CLASS}>
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper`}
               >
+              <div ref={appColumnAnchorRef} className={DIALOG_SESSION_FEED_INNER_CLASS}>
               {messages.length === 0 && !isEngvoActive && (
                 isCommunicationFeed ? (
                   <div dir="ltr" className={CHAT_FEED_SERVICE_STATUS_ROW_CLASS}>
@@ -2782,6 +2783,7 @@ export default function Chat({
                     }
                   />
                 ))}
+              </div>
               </div>
             </DialogGlassScrollHost>
             <DialogComposerStack
@@ -3007,7 +3009,6 @@ export default function Chat({
               </div>
             </DialogComposerStack>
           </div>
-        </div>
       </div>
     </div>
   )

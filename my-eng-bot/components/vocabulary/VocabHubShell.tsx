@@ -33,7 +33,7 @@ export default function VocabHubShell({
     <LessonReadingShell
       scrollRef={scrollRef}
       showChatWallpaper={false}
-      scrollClassName={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} space-y-2.5 py-2.5 sm:py-3`}
+      scrollClassName={`${LESSON_SCROLL_VIEWPORT_CLASS} ${LESSON_INTRO_SCROLL_CLASS} py-2.5 sm:py-3`}
       composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
       composerStyle={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
       composer={
@@ -54,7 +54,7 @@ export default function VocabHubShell({
         </div>
       }
     >
-      {children}
+      <div className="w-full min-w-0 space-y-2.5">{children}</div>
     </LessonReadingShell>
   )
 }

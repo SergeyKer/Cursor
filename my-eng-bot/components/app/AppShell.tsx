@@ -4,6 +4,11 @@ import Image from 'next/image'
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
 import {
+  DIALOG_SESSION_COLUMN_MAX_CLASS,
+  DIALOG_SESSION_HEADER_GUTTER_CLASS,
+  usesDialogSessionColumn,
+} from '@/lib/dialogSessionChrome'
+import {
   consumeVocabTranslationHandoff,
   formatFocusLemmasCue,
   peekVocabTranslationHandoff,
@@ -8877,6 +8882,23 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const isLessonTipsActive = Boolean(activeLessonIntro && activeLearningLesson && lessonViewStage === 'tips')
   const isLessonBriefingActive = Boolean(activeStructuredLesson && activeLearningLesson && lessonViewStage === 'briefing')
   const isStructuredLessonActive = Boolean(activeStructuredLesson && activeStructuredLessonStep && lessonViewStage === 'lesson')
+  const dialogSessionColumn = usesDialogSessionColumn({
+    dialogStarted,
+    isMyPlanSpaceActive,
+    isProgressSpaceActive,
+    isReferenceSheetActive,
+    isLessonIntroActive,
+    isLessonTipsActive,
+    isLessonBriefingActive,
+    isStructuredLessonActive,
+    isPracticeActive,
+    isAccentActive,
+    isTutorChatSpaceActive,
+    isVocabularyHubActive,
+    vocabularyWorldsActive,
+    vocabularyFeedActive,
+    vocabularyPackId,
+  })
 
   const translationChatActive =
     dialogStarted &&
@@ -11160,7 +11182,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           paddingTop: 'var(--app-safe-top-inset)',
         }}
       >
-        <div className="chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center">
+        <div className={dialogSessionColumn ? DIALOG_SESSION_HEADER_GUTTER_CLASS : 'chat-shell-x flex w-full min-h-[var(--app-header-row-height)] items-center'}>
           <div
             ref={appColumnRef}
             className={`relative mx-auto grid w-full items-center gap-2 ${
@@ -11168,7 +11190,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 ? 'grid-cols-[auto_1fr_auto]'
                 : 'grid-cols-[2.5rem_1fr_2.5rem] sm:grid-cols-[2.5rem_1fr_auto]'
             } ${
-              dialogStarted ? 'max-w-[29rem]' : 'max-w-[23.2rem]'
+              dialogSessionColumn ? DIALOG_SESSION_COLUMN_MAX_CLASS : 'max-w-[23.2rem]'
             }`}
           >
             <div className="relative z-20 col-start-1 row-start-1 flex items-center gap-1 justify-self-start">
@@ -12044,6 +12066,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             instantDynamicText={engvoVoiceMode}
             isLessonActive={isLessonActive}
             isDialogStarted={dialogStarted}
+            isDialogSessionColumn={dialogSessionColumn}
             showWhenIdle={!dialogStarted}
             lessonFooterLessonTitle={footerDisplayLessonTitle}
             lessonFooterSegments={footerDisplayLessonSegments}

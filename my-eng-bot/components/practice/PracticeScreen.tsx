@@ -79,6 +79,11 @@ import {
   LESSON_FEED_SCROLL_COMPLETE_FALLBACK_MS,
 } from '@/lib/lessonFeedScroll'
 import {
+  DIALOG_SESSION_FEED_INNER_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
+import {
   CHAT_FEED_SERVICE_STATUS_ROW_CLASS,
   CHAT_FEED_SERVICE_STATUS_ROW_PUZZLE_CHECKING_CLASS,
   ChatBubbleFrame,
@@ -1476,16 +1481,12 @@ export default function PracticeScreen({
 
   return (
     <div className="dialog-flex-shell flex min-h-0 flex-1 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 flex-1 w-full max-w-[29rem] flex-col">
-          <div
-            className="glass-surface flex min-h-0 flex-1 w-full flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
+      <div className={DIALOG_SESSION_GUTTER_CLASS}>
+          <div className={DIALOG_SESSION_FRAME_CLASS}>
             <DialogGlassScrollHost>
               <div
                 ref={scrollContainerRef}
-                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper p-2.5 sm:p-3`}
+                className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper`}
                 style={
                   scrollBottomPadding
                     ? {
@@ -1495,6 +1496,7 @@ export default function PracticeScreen({
                     : undefined
                 }
               >
+                <div className={DIALOG_SESSION_FEED_INNER_CLASS}>
                 <div ref={messagesStackRef}>
                   {session.generationNotice ? (
                     <div className="mb-2.5 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] leading-[1.45] text-[var(--status-warning-text)]">
@@ -1765,6 +1767,7 @@ export default function PracticeScreen({
                     )
                   })}
                 </div>
+                </div>
               </div>
             </DialogGlassScrollHost>
 
@@ -1885,7 +1888,6 @@ export default function PracticeScreen({
               ) : null}
             </DialogComposerStack>
           </div>
-        </div>
       </div>
     </div>
   )

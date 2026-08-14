@@ -3000,3 +3000,20 @@ html[data-theme='glass2'][data-chat-pattern]:not([data-chat-pattern='none']) .ch
 html[data-theme='glass3'][data-chat-pattern]:not([data-chat-pattern='none']) .chat-feed-wallpaper::before {
   opacity: var(--chat-pattern-glass-opacity, 0.06);
 }
+
+/*
+ * Dialog session chrome: keep `.chat-shell-x` on the node for closest(),
+ * drop postcard gutter on all widths so wallpaper can go edge-to-edge.
+ */
+.dialog-session-gutter.chat-shell-x {
+  padding-left: max(0px, env(safe-area-inset-left, 0px), var(--vv-left-inset));
+  padding-right: max(0px, env(safe-area-inset-right, 0px), var(--vv-right-inset));
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.dialog-session-frame {
+  border-radius: 0;
+  border-width: 0;
+  box-shadow: none;
+}

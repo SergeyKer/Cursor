@@ -30,7 +30,6 @@ import {
 import {
   hubTiles,
   listShelvedWords,
-  listStudyWords,
   resolveMistakeWords,
   shelfIdsForAudience,
   uniqueWords,
@@ -108,6 +107,8 @@ type ListKey =
   | { kind: 'mastered' }
   | { kind: 'bank' }
   | { kind: 'study' }
+  | { kind: 'know' }
+  | { kind: 'returned' }
 
 type Props = {
   audience?: Audience
@@ -401,10 +402,8 @@ export default function VocabularyHubScreen({
   }
 
   const openTile = (id: HubTileId) => {
-    if (id === 'mastered') setListKey({ kind: 'mastered' })
-    else if (id === 'in_feed') setListKey({ kind: 'bank' })
-    else if (id === 'study') setListKey({ kind: 'study' })
-    else setListKey({ kind: 'errors' })
+    if (id === 'in_feed') setListKey({ kind: 'bank' })
+    else setListKey({ kind: id })
     setView('list')
   }
 
@@ -439,39 +438,32 @@ export default function VocabularyHubScreen({
         empty: copy.emptyList,
       }
     }
-    if (listKey.kind === 'mastered') {
-      return {
-        title: copy.masteredTitle,
-        words: listByFeedStatus(poolWords, progress.words, 'mastered'),
-        showMarks: false,
-        sticky: null,
-        empty: copy.masteredEmpty,
-      }
-    }
-    if (listKey.kind === 'bank') {
-      return {
-        title: copy.bankTitle,
-        words: listByFeedStatus(poolWords, progress.words, 'in_feed'),
-        showMarks: false,
-        sticky: copy.say,
-        empty: copy.emptyList,
-      }
-    }
-    if (listKey.kind === 'study') {
-      return {
-        title: copy.studyTitle,
-        words: listStudyWords(poolWords, progress.words),
-        showMarks: true,
-        sticky: copy.studyList,
-        empty: copy.emptyList,
-      }
-    }
+    const shelf: VocabShelfId | null =
+      listKey.kind === 'bank'
+        ? 'in_feed'
+        : listKey.kind === 'mastered' ||
+            listKey.kind === 'study' ||
+            listKey.kind === 'know' ||
+            listKey.kind === 'returned' ||
+            listKey.kind === 'errors'
+          ? listKey.kind
+          : null
+    if (!shelf) return { title: copy.spaceTitle, words: [], showMarks: false, sticky: null, empty: copy.emptyList }
+    const showMarks = shelf === 'study' || shelf === 'know' || shelf === 'returned' || shelf === 'errors'
+    const sticky =
+      shelf === 'study' || shelf === 'returned' ? copy.studyList : shelf === 'in_feed' || shelf === 'errors' ? copy.say : null
     return {
-      title: copy.errorsTitle,
-      words: resolveMistakeWords(activeWords, packWords, progress.words, mistakes),
-      showMarks: true,
-      sticky: copy.say,
-      empty: copy.emptyList,
+      title: vocabShelfLabel(shelf, audience),
+      words: listShelvedWords({
+        words: poolWords,
+        progressMap: progress.words,
+        mistakes,
+        audience,
+        shelf,
+      }).map((row) => row.word),
+      showMarks,
+      sticky,
+      empty: shelf === 'mastered' ? copy.masteredEmpty : copy.emptyList,
     }
   }
 
@@ -561,7 +553,7 @@ export default function VocabularyHubScreen({
     const fallback = bundle.words
       .filter((word) => {
         const mark = progress.words[String(word.id)]?.userMark
-        return mark === 'study' || listKey.kind === 'pack' || listKey.kind === 'errors' || listKey.kind === 'study'
+        return mark === 'study' || listKey.kind === 'pack' || listKey.kind === 'errors' || listKey.kind === 'study' || listKey.kind === 'returned'
       })
       .slice(0, tempoSize)
     startSession(
@@ -978,7 +970,7 @@ export default function VocabularyHubScreen({
         {tiles.map((tile) => (
           <button key={tile.id} type="button" className={VOCAB_STATUS_TILE} onClick={() => openTile(tile.id)}>
             <p className="mt-0.5 text-[19px] font-semibold tabular-nums text-[var(--text)]">{tile.count}</p>
-            <p className="text-[13px] text-[var(--text-muted)]">{vocabTileLabel(tile.id, audience)}</p>
+            <p className="leading-tight break-words text-[13px] text-[var(--text-muted)]">{vocabTileLabel(tile.id, audience)}</p>
           </button>
         ))}
       </div>

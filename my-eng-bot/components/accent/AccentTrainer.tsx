@@ -14,6 +14,12 @@ import { recordAccentBlockFeedback, subscribeAccentProgress, summarizeAccentProg
 import { RUSSIAN_SPEAKER_GROUPS, ACCENT_SECTIONS, getAccentLessonById } from '@/lib/accent/soundCatalog'
 import { ACCENT_SESSION_PLANS, buildAccentLessonBlocks, getDefaultAccentMode } from '@/lib/accent/sessionPlan'
 import { APP_BTN_SECONDARY_LARGE_BLOCK } from '@/lib/homeCtaStyles'
+import {
+  DIALOG_SESSION_COLUMN_CLASS,
+  DIALOG_SESSION_FEED_INNER_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
 import { ALL_ACCENT_LESSONS } from '@/lib/accent/staticContent'
 import type {
   AccentAudience,
@@ -299,13 +305,10 @@ export default function AccentTrainer({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-[linear-gradient(180deg,var(--chat-wallpaper)_0%,var(--chat-wallpaper-soft)_100%)]">
-      <div className="chat-shell-x flex min-h-0 flex-1 flex-col py-2 sm:py-3">
-        <div className="mx-auto flex min-h-0 w-full max-w-[29rem] flex-1 flex-col">
-          <div
-            className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-            style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-          >
-            <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)] p-2.5 sm:p-3">
+      <div className={DIALOG_SESSION_GUTTER_CLASS}>
+          <div className={DIALOG_SESSION_FRAME_CLASS}>
+            <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden bg-[linear-gradient(180deg,var(--chat-message-wallpaper)_0%,var(--chat-message-wallpaper-soft)_100%)]">
+              <div className={DIALOG_SESSION_FEED_INNER_CLASS}>
               {lesson && blocks && selectedSession ? (
                 <div>
                   <ChatBubbleFrame role="assistant" position="solo" className="lesson-enter" rowClassName="mb-2.5">
@@ -384,7 +387,9 @@ export default function AccentTrainer({
               ) : (
                 <AccentHub onOpenLesson={openLesson} onClose={onClose} mode={mode} onModeChange={setMode} audience={audience} />
               )}
+              </div>
             </div>
+            <div className={DIALOG_SESSION_COLUMN_CLASS}>
             <AccentActionBar
               selectedLesson={Boolean(lesson)}
               interactive={isPracticeReady}
@@ -410,8 +415,8 @@ export default function AccentTrainer({
               speechMessage={speech.constructiveMessage}
               audioMessage={audio.constructiveMessage}
             />
+            </div>
           </div>
-        </div>
       </div>
     </div>
   )

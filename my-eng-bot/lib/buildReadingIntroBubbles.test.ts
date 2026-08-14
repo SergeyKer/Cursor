@@ -148,7 +148,7 @@ describe('reference mirror', () => {
 })
 
 describe('reading layout + labels', () => {
-  it('keeps reading column aligned with dialog max-w-[29rem]', () => {
+  it('keeps reading column aligned with dialog session column', () => {
     expect(READING_COLUMN_MAX_CLASS).toBe('max-w-[29rem]')
   })
 

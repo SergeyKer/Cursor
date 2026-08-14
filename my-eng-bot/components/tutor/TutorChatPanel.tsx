@@ -26,6 +26,11 @@ import {
   DIALOG_COMPOSER_PADDING_BOTTOM,
   getChatComposerStackLayout,
 } from '@/lib/chatComposerMetrics'
+import {
+  DIALOG_SESSION_FEED_INNER_CLASS,
+  DIALOG_SESSION_FRAME_CLASS,
+  DIALOG_SESSION_GUTTER_CLASS,
+} from '@/lib/dialogSessionChrome'
 import { recordTutorMicroWrongSignal } from '@/lib/learningMemory/record'
 import {
   findLessonFeedLastMessageRow,
@@ -1886,8 +1891,8 @@ export default function TutorChatPanel({
           )}
         </>
       ) : null}
-      <div className={`flex min-h-0 flex-1 flex-col ${isIdle ? 'px-0 py-0' : 'chat-shell-x py-2 sm:py-3'}`}>
-        <div className={`mx-auto flex min-h-0 w-full flex-1 flex-col ${isIdle ? 'max-w-none' : 'max-w-[29rem]'}`}>
+      <div className={`flex min-h-0 flex-1 flex-col ${isIdle ? 'px-0 py-0' : DIALOG_SESSION_GUTTER_CLASS}`}>
+        <div className="flex min-h-0 w-full flex-1 flex-col">
           {isIdle ? (
             <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
               {/* Menu root bleeds (-mx-3); keep examples aligned with chat dock px-2.5. */}
@@ -1938,15 +1943,13 @@ export default function TutorChatPanel({
               </DialogComposerStack>
             </div>
           ) : (
-            <div
-              className="glass-surface flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-[1.15rem] border border-[var(--chat-shell-border)] bg-[var(--chat-shell-bg)]"
-              style={{ boxShadow: 'var(--chat-shell-shadow)' }}
-            >
+            <div className={DIALOG_SESSION_FRAME_CLASS}>
               <DialogGlassScrollHost>
                 <div
                   ref={scrollRef}
-                  className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-3`}
+                  className={`${LESSON_SCROLL_VIEWPORT_CLASS} chat-feed-scroll chat-feed-wallpaper min-h-0 flex-1 overflow-y-auto`}
                 >
+                  <div className={DIALOG_SESSION_FEED_INNER_CLASS}>
                   {thread.map((msg, index) => {
                     if (!feedTailEnter.isMessageVisible(msg.id)) return null
                     const position = getBubblePosition(
@@ -1994,6 +1997,7 @@ export default function TutorChatPanel({
                       />
                     </div>
                   ) : null}
+                  </div>
                 </div>
               </DialogGlassScrollHost>
 
