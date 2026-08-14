@@ -409,6 +409,7 @@ import {
 } from '@/lib/engvo/errors'
 import {
   insertEngvoUserMessage,
+  shouldFlushEngvoAssistantBeforeCancel,
   shouldInsertEngvoUserBeforeAssistant,
   updateLastEngvoUserMessage,
 } from '@/lib/engvo/callMessageOrder'
@@ -1880,7 +1881,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const commitEngvoAssistantText = useCallback(
-    (text: string, responseId?: string | null): boolean => {
+    (text: string, responseId?: string | null, options?: { skipReclaim?: boolean }): boolean => {
       const rawText = prepareEngvoAssistantRawText(text)
       let cleanText = guardEngvoAssistantContent(rawText)
       if (!cleanText) return false
@@ -2055,6 +2056,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
 
       resetEngvoAssistantTurn()
+      if (options?.skipReclaim) {
+        setEngvoErrorText(null)
+        return false
+      }
       if (shouldAntiLoopReclaim) {
         const reclaimStarted = maybeReclaimTeacherAntiLoopRef.current()
         if (!reclaimStarted) {
@@ -3218,6 +3223,25 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           engvoPendingUserItemIdRef.current = parsed.item_id
           clearEngvoForceCommitTimeout()
           engvoForceCommitArmedRef.current = true
+          const hasActiveAssistantResponseOnCommit = hasActiveEngvoAssistantResponse({
+            responseId: engvoAssistantResponseIdRef.current,
+            responseDone: engvoAssistantResponseDoneRef.current,
+          })
+          const pendingRaw = (engvoFinalAssistantTextRef.current || engvoAssistantPendingText).trim()
+          const flushText = pendingRaw
+            ? guardEngvoAssistantContent(prepareEngvoAssistantRawText(pendingRaw))
+            : ''
+          if (
+            shouldFlushEngvoAssistantBeforeCancel({
+              hasActiveAssistantResponse: hasActiveAssistantResponseOnCommit,
+              hasPendingText: Boolean(flushText),
+              teacherReclaimInFlight: engvoTeacherReclaimInFlightRef.current,
+            })
+          ) {
+            commitEngvoAssistantText(flushText, engvoAssistantResponseIdRef.current, {
+              skipReclaim: true,
+            })
+          }
         }
         const transcriptView = getRealtimeTranscriptView(engvoTranscriptStateRef.current)
         setEngvoUserInterimText(transcriptView.interimText)
@@ -3542,6 +3566,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       scheduleEngvoForceCommit,
       sendEngvoRealtimeEvent,
       commitEngvoAssistantText,
+      guardEngvoAssistantContent,
+      markEngvoAssistantAheadOfPendingUserTranscript,
       engvoCefrLevel,
       messages,
       engvoAssistantPendingText,

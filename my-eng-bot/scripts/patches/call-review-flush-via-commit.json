@@ -1,0 +1,14 @@
+[
+  [
+    "  const commitEngvoAssistantText = useCallback(\n    (text: string, responseId?: string | null): boolean => {",
+    "  const commitEngvoAssistantText = useCallback(\n    (text: string, responseId?: string | null, options?: { skipReclaim?: boolean }): boolean => {"
+  ],
+  [
+    "      resetEngvoAssistantTurn()\n      if (shouldAntiLoopReclaim) {",
+    "      resetEngvoAssistantTurn()\n      if (options?.skipReclaim) {\n        setEngvoErrorText(null)\n        return false\n      }\n      if (shouldAntiLoopReclaim) {"
+  ],
+  [
+    "          if (\n            shouldFlushEngvoAssistantBeforeCancel({\n              hasActiveAssistantResponse: hasActiveAssistantResponseOnCommit,\n              hasPendingText: Boolean(flushText),\n              teacherReclaimInFlight: engvoTeacherReclaimInFlightRef.current,\n            })\n          ) {\n            const id = engvoAssistantResponseIdRef.current\n            if (id && !engvoCommittedResponseIdsRef.current.has(id)) {\n              engvoCommittedResponseIdsRef.current.add(id)\n              markEngvoAssistantAheadOfPendingUserTranscript()\n              setMessages((prev) => {\n                const withoutDial = prev.filter((m) => !m.engvoServiceLine)\n                return [...withoutDial, { role: 'assistant', content: flushText }]\n              })\n            }\n            resetEngvoAssistantTurn()\n          }",
+    "          if (\n            shouldFlushEngvoAssistantBeforeCancel({\n              hasActiveAssistantResponse: hasActiveAssistantResponseOnCommit,\n              hasPendingText: Boolean(flushText),\n              teacherReclaimInFlight: engvoTeacherReclaimInFlightRef.current,\n            })\n          ) {\n            commitEngvoAssistantText(flushText, engvoAssistantResponseIdRef.current, {\n              skipReclaim: true,\n            })\n          }"
+  ]
+]

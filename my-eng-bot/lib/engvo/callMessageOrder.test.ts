@@ -3,6 +3,7 @@ import { ENGVO_CALL_FINISHED_ASSISTANT_TEXT } from '@/lib/engvo/constants'
 import type { ChatMessage } from '@/lib/types'
 import {
   insertEngvoUserMessage,
+  shouldFlushEngvoAssistantBeforeCancel,
   shouldInsertEngvoUserBeforeAssistant,
   updateLastEngvoUserMessage,
 } from './callMessageOrder'
@@ -40,6 +41,37 @@ describe('callMessageOrder', () => {
     expect(
       shouldInsertEngvoUserBeforeAssistant({
         assistantCommittedBeforeUser: false,
+      })
+    ).toBe(false)
+  })
+
+  it('flushes pending assistant text only when the turn is still active', () => {
+    expect(
+      shouldFlushEngvoAssistantBeforeCancel({
+        hasActiveAssistantResponse: true,
+        hasPendingText: true,
+      })
+    ).toBe(true)
+
+    expect(
+      shouldFlushEngvoAssistantBeforeCancel({
+        hasActiveAssistantResponse: true,
+        hasPendingText: false,
+      })
+    ).toBe(false)
+
+    expect(
+      shouldFlushEngvoAssistantBeforeCancel({
+        hasActiveAssistantResponse: false,
+        hasPendingText: true,
+      })
+    ).toBe(false)
+
+    expect(
+      shouldFlushEngvoAssistantBeforeCancel({
+        hasActiveAssistantResponse: true,
+        hasPendingText: true,
+        teacherReclaimInFlight: true,
       })
     ).toBe(false)
   })

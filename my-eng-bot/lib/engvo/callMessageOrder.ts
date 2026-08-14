@@ -13,6 +13,16 @@ export function isEngvoReorderableAssistantMessage(message: ChatMessage | undefi
   return true
 }
 
+/** Сбросить накопленный текст в ленту, если ход ещё жив — не ждать response.done. */
+export function shouldFlushEngvoAssistantBeforeCancel(params: {
+  hasActiveAssistantResponse: boolean
+  hasPendingText: boolean
+  teacherReclaimInFlight?: boolean
+}): boolean {
+  if (params.teacherReclaimInFlight) return false
+  return params.hasActiveAssistantResponse && params.hasPendingText
+}
+
 export function shouldInsertEngvoUserBeforeAssistant(params: {
   assistantCommittedBeforeUser: boolean
 }): boolean {
