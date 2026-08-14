@@ -39,6 +39,10 @@ import {
   stabilizeInterimAcrossTicks,
   useVoiceComposer,
 } from '@/lib/voice/useVoiceComposer'
+import {
+  showVoiceComposerOverlay,
+  voiceComposerOverlayText,
+} from '@/lib/voice/voiceComposerStatus'
 import type { Audience } from '@/lib/types'
 import {
   showVoiceCorrectionComposer,
@@ -292,7 +296,7 @@ export default function PracticeQuestionRenderer({
   const [voiceListening, setVoiceListening] = useState(false)
   const choiceVoiceActive = voiceListening || isChoiceVoiceActive
   const choiceComposerText = isChoiceVoiceActive ? '' : draft
-  const showChoiceVoiceOverlay = isVoiceFirstComposer && choiceVoicePhase === 'recording'
+  const showChoiceVoiceOverlay = isVoiceFirstComposer && showVoiceComposerOverlay(choiceVoicePhase)
   const choiceVoiceWebMetricsActive = isChoiceVoiceActive && voiceWebMetricsClient
   const [textFallbackUnlocked, setTextFallbackUnlocked] = useState(false)
   const [choiceTapHintVisible, setChoiceTapHintVisible] = useState(false)
@@ -870,7 +874,10 @@ export default function PracticeQuestionRenderer({
             </p>
           ) : null}
           {showChoiceVoiceOverlay ? (
-            <VoiceComposerOverlay webTextMetricsFix={voiceWebMetricsClient} />
+            <VoiceComposerOverlay
+              statusText={voiceComposerOverlayText(choiceVoicePhase)}
+              webTextMetricsFix={voiceWebMetricsClient}
+            />
           ) : null}
           {showChoiceInviteOverlay ? (
             <>

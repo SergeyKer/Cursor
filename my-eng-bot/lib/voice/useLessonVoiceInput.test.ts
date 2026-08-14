@@ -34,7 +34,7 @@ describe('useLessonVoiceInput helpers', () => {
         voicePhase: 'recording',
         statusMessage: null,
       })
-    ).toBe('Голосовой ввод...')
+    ).toBe('Слушаю...')
   })
 
   it('uses a default finalizing message when lesson stt is still resolving', () => {

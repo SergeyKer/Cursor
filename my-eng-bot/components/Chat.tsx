@@ -119,6 +119,10 @@ import {
   stabilizeInterimAcrossTicks,
   useVoiceComposer,
 } from '@/lib/voice/useVoiceComposer'
+import {
+  showVoiceComposerOverlay,
+  voiceComposerOverlayText,
+} from '@/lib/voice/voiceComposerStatus'
 
 const SR_ONLY_STYLE: React.CSSProperties = {
   position: 'absolute',
@@ -1402,7 +1406,7 @@ export default function Chat({
   const [isIosChromeClient, setIsIosChromeClient] = useState(false)
   const [voiceWebMetricsClient, setVoiceWebMetricsClient] = useState(false)
   const composerText = isVoiceActive ? '' : input
-  const showVoiceOverlay = voicePhase === 'recording'
+  const showVoiceOverlay = showVoiceComposerOverlay(voicePhase)
   const voiceWebMetricsActive = isVoiceActive && voiceWebMetricsClient
   const showVoicePlaybackButton =
     !isVoiceActive &&
@@ -2892,6 +2896,7 @@ export default function Chat({
                     <div className="relative min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
+                          statusText={voiceComposerOverlayText(voicePhase)}
                           webTextMetricsFix={voiceWebMetricsClient}
                         />
                       )}

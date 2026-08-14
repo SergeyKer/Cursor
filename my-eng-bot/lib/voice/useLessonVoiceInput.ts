@@ -11,6 +11,10 @@ import {
   type VoicePhase,
 } from '@/lib/voice/useVoiceComposer'
 import {
+  VOICE_COMPOSER_FINALIZING_STATUS,
+  VOICE_COMPOSER_LISTENING_STATUS,
+} from '@/lib/voice/voiceComposerStatus'
+import {
   isIosChromeBrowser,
   isIosLikeDevice,
   pickRecordingMimeType,
@@ -38,9 +42,9 @@ export function getLessonVoiceStatusMessage(params: {
   voicePhase: VoicePhase
   statusMessage: string | null
 }): string | null {
-  if (params.listening) return 'Голосовой ввод...'
+  if (params.listening) return VOICE_COMPOSER_LISTENING_STATUS
   if (params.voicePhase === 'finalizing') {
-    return params.statusMessage ?? 'Распознаю речь...'
+    return params.statusMessage ?? VOICE_COMPOSER_FINALIZING_STATUS
   }
   return params.statusMessage
 }

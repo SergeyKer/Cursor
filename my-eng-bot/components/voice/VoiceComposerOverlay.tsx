@@ -1,7 +1,6 @@
 import React from 'react'
 import { getChatComposerOverlayVerticalClass } from '@/lib/chatComposerMetrics'
-
-export const VOICE_COMPOSER_LISTENING_STATUS = 'Голосовой ввод...'
+import { VOICE_COMPOSER_LISTENING_STATUS } from '@/lib/voice/voiceComposerStatus'
 
 type VoiceComposerOverlayProps = {
   statusText?: string | null
@@ -17,7 +16,7 @@ export default function VoiceComposerOverlay({
   return (
     <div
       aria-hidden="true"
-      className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-nowrap rounded-2xl px-4 font-sans text-base text-[var(--text-muted)] ${
+      className={`pointer-events-none absolute inset-0 z-[2] overflow-hidden whitespace-nowrap rounded-2xl px-4 font-sans text-base text-[var(--text-muted)] ${
         webTextMetricsFix
           ? getChatComposerOverlayVerticalClass(true)
           : `${getChatComposerOverlayVerticalClass(false)} leading-[1.45rem]`

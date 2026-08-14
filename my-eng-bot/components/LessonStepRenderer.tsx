@@ -96,6 +96,12 @@ import {
 } from '@/lib/sttClient'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
+import {
+  showVoiceComposerOverlay,
+  voiceComposerOverlayText,
+  VOICE_COMPOSER_FINALIZING_STATUS,
+  VOICE_COMPOSER_LISTENING_STATUS,
+} from '@/lib/voice/voiceComposerStatus'
 import type { Bubble, Exercise, LessonIntroBlock, PostLessonAction } from '@/types/lesson'
 import { validateAnswer } from '@/utils/validateAnswer'
 import { useLessonSectionReveal } from '@/hooks/useLessonSectionReveal'
@@ -227,8 +233,8 @@ const lessonStatusCardClassByTone: Record<'service' | 'success' | 'error', strin
 import { CHOICE_REOPEN_DELAY_MS } from '@/lib/lessonChoiceHighlight'
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
-  'Голосовой ввод...',
-  'Распознаю речь...',
+  VOICE_COMPOSER_LISTENING_STATUS,
+  VOICE_COMPOSER_FINALIZING_STATUS,
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 
@@ -680,7 +686,7 @@ export default function LessonStepRenderer({
 
   const composerText = lessonVoiceInput.isVoiceActive ? '' : lessonVoiceInput.draftText
   const inputValue = composerText
-  const showVoiceOverlay = lessonVoiceInput.voicePhase === 'recording'
+  const showVoiceOverlay = showVoiceComposerOverlay(lessonVoiceInput.voicePhase)
   const voiceWebMetricsActive = lessonVoiceInput.isVoiceActive && voiceWebMetricsClient
   const showVoicePlaybackButton =
     isTextInputAvailable &&
@@ -2115,6 +2121,7 @@ export default function LessonStepRenderer({
                     <div className="relative isolate min-w-0 flex-1">
                       {showVoiceOverlay && (
                         <VoiceComposerOverlay
+                          statusText={voiceComposerOverlayText(lessonVoiceInput.voicePhase)}
                           webTextMetricsFix={voiceWebMetricsClient}
                         />
                       )}

@@ -16,6 +16,7 @@ import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import VoiceComposerOverlay from '@/components/voice/VoiceComposerOverlay'
 import VoiceMicButton from '@/components/voice/VoiceMicButton'
 import type { MicVisualState } from '@/lib/voice/useMicInviteAnimation'
+import { voiceComposerOverlayText } from '@/lib/voice/voiceComposerStatus'
 
 const INPUT_MAX_HEIGHT_PX = 260
 
@@ -249,7 +250,10 @@ export default function TutorComposer({
 
         <div className="relative isolate min-w-0 flex-1">
           {showVoiceOverlay ? (
-            <VoiceComposerOverlay webTextMetricsFix={voiceWebMetricsClient} />
+            <VoiceComposerOverlay
+              statusText={voiceComposerOverlayText(finalizing ? 'finalizing' : 'recording')}
+              webTextMetricsFix={voiceWebMetricsClient}
+            />
           ) : null}
           {iosChromeVoiceStatusMessage ? (
             <>

@@ -13,6 +13,7 @@ import {
   shouldShowChoiceCorrectionInviteOverlay,
   shouldShowMicOffInlineButton,
 } from '@/lib/practice/choiceCorrectionComposer'
+import { showVoiceComposerOverlay } from '@/lib/voice/voiceComposerStatus'
 
 describe('choiceCorrectionComposer', () => {
   it('uses muted frozen display after voice until text edit unlock', () => {
@@ -156,8 +157,20 @@ describe('choiceCorrectionComposer', () => {
       'Распознаю речь...'
     )
     expect(choiceCorrectionVoiceStatusMessage({ voiceListening: true, voicePhase: 'recording' })).toBe(
-      'Голосовой ввод...'
+      'Слушаю...'
     )
     expect(choiceCorrectionVoiceStatusMessage({ voiceListening: false })).toBeNull()
+  })
+
+  it('hides invite overlay while STT overlay is active including finalizing', () => {
+    expect(showVoiceComposerOverlay('finalizing')).toBe(true)
+    expect(
+      shouldShowChoiceCorrectionInviteOverlay({
+        isFrozenDisplay: true,
+        showVoiceOverlay: showVoiceComposerOverlay('finalizing'),
+        composerText: '',
+        showTapHint: false,
+      })
+    ).toBe(false)
   })
 })

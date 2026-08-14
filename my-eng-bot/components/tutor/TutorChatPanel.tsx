@@ -107,6 +107,11 @@ import {
   needsVoiceComposerWebMetrics,
 } from '@/lib/sttClient'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
+import {
+  showVoiceComposerOverlay,
+  VOICE_COMPOSER_FINALIZING_STATUS,
+  VOICE_COMPOSER_LISTENING_STATUS,
+} from '@/lib/voice/voiceComposerStatus'
 import { useDialogFeedKeyboardScroll } from '@/hooks/useDialogFeedKeyboardScroll'
 import {
   isTutorMicroRevealAborted,
@@ -173,8 +178,8 @@ export type TutorChatPanelProps = {
 }
 
 const LESSON_HIDDEN_VOICE_STATUS_MESSAGES = new Set([
-  'Голосовой ввод...',
-  'Распознаю речь...',
+  VOICE_COMPOSER_LISTENING_STATUS,
+  VOICE_COMPOSER_FINALIZING_STATUS,
   '[Распознавание затянулось. Скажите короче или введите текст с клавиатуры (включая цифры и знаки).]',
 ])
 
@@ -1766,7 +1771,7 @@ export default function TutorChatPanel({
       }
     : undefined
   const composerValue = voice.isVoiceActive || voice.listening ? '' : draft
-  const showVoiceOverlay = voice.voicePhase === 'recording'
+  const showVoiceOverlay = showVoiceComposerOverlay(voice.voicePhase)
   const rawVoiceStatusMessage = voice.voiceStatusMessage ?? ''
   const filteredVoiceStatus = shouldHideVoiceStatusMessage(rawVoiceStatusMessage)
     ? ''

@@ -1,3 +1,7 @@
+import {
+  VOICE_COMPOSER_FINALIZING_STATUS,
+  VOICE_COMPOSER_LISTENING_STATUS,
+} from '@/lib/voice/voiceComposerStatus'
 import type { Audience } from '@/lib/types'
 
 export type PracticeVoiceCapability = 'available' | 'unavailable' | 'permission_denied'
@@ -102,7 +106,7 @@ export function choiceCorrectionVoiceStatusMessage(params: {
   voiceListening: boolean
   voicePhase?: 'idle' | 'recording' | 'finalizing' | 'error'
 }): string | null {
-  if (params.voicePhase === 'finalizing') return 'Распознаю речь...'
-  if (params.voiceListening) return 'Голосовой ввод...'
+  if (params.voicePhase === 'finalizing') return VOICE_COMPOSER_FINALIZING_STATUS
+  if (params.voiceListening) return VOICE_COMPOSER_LISTENING_STATUS
   return null
 }

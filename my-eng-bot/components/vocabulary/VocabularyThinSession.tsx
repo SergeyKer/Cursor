@@ -31,6 +31,10 @@ import {
 import { lemmaKeyFromEn } from '@/lib/vocabulary/wordFeed'
 import { useAutoGrowTextarea } from '@/lib/voice/useAutoGrowTextarea'
 import { useLessonVoiceInput } from '@/lib/voice/useLessonVoiceInput'
+import {
+  showVoiceComposerOverlay,
+  voiceComposerOverlayText,
+} from '@/lib/voice/voiceComposerStatus'
 import type {
   NecessaryWord,
   VocabularyFooterView,
@@ -154,7 +158,7 @@ export default function VocabularyThinSession({
 
   const composerText = voice.isVoiceActive ? '' : voice.draftText
   const inputValue = composerText
-  const showVoiceOverlay = voice.voicePhase === 'recording'
+  const showVoiceOverlay = showVoiceComposerOverlay(voice.voicePhase)
   const voiceWebMetricsActive = voice.isVoiceActive && voiceWebMetricsClient
   const iosChromeVoiceStatusMessage = !isIosChromeClient
     ? null
@@ -498,7 +502,10 @@ export default function VocabularyThinSession({
                   />
                   <div className="relative min-w-0 flex-1">
                     {showVoiceOverlay ? (
-                      <VoiceComposerOverlay webTextMetricsFix={voiceWebMetricsClient} />
+                      <VoiceComposerOverlay
+                        statusText={voiceComposerOverlayText(voice.voicePhase)}
+                        webTextMetricsFix={voiceWebMetricsClient}
+                      />
                     ) : null}
                     {iosChromeVoiceStatusMessage ? (
                       <>
