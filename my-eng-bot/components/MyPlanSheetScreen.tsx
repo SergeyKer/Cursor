@@ -28,6 +28,7 @@ import type { RewardsState } from '@/lib/rewardsState'
 import type { Settings } from '@/lib/types'
 import { myPlanCopy, type MyPlanAudience } from '@/lib/uiCopy/myPlan'
 import type { ProgressLaunchTarget } from '@/lib/progress/progressActions'
+import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 
 export type MyPlanSheetScreenProps = {
   settings: Settings
