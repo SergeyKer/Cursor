@@ -30,6 +30,7 @@ export {
 } from '@/lib/tutor/localFaq/pickFaqForTopic'
 export {
   listShownFaqIds,
+  listShownFaqEntries,
   recordShownFaqIds,
   pruneShownFaqStore,
   clearHalfOldestShown,

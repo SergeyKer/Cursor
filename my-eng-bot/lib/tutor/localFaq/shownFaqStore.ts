@@ -43,6 +43,10 @@ export function listShownFaqIds(nowMs = Date.now()): string[] {
   return readEntries(nowMs).map((e) => e.id)
 }
 
+export function listShownFaqEntries(nowMs = Date.now()): ReadonlyArray<{ id: string; at: number }> {
+  return readEntries(nowMs)
+}
+
 /** Upsert shown ids (idempotent for Strict Mode). */
 export function recordShownFaqIds(ids: readonly string[], nowMs = Date.now()): void {
   if (!ids.length) return
