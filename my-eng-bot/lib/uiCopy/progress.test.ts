@@ -5,8 +5,10 @@ import {
   formatAttentionZoneMeta,
   formatOpportunityBodyLine,
   formatOpportunityTitle,
+  formatRitualDayOf7,
   progressCopy,
   progressOpportunityReason,
+  ritualStatusLine,
   ruRazWord,
   ruZachetWord,
   ruZanyatieWord,
@@ -52,13 +54,9 @@ describe('progress copy', () => {
       c.calendarVocabReviewed,
       c.calendarVocabLearned,
       c.ritualTitle,
-      c.ritualDailySoon,
-      c.ritualStreakSoon,
-      c.ritualRubySoon,
-      c.ritualMilestonesSoon,
-      c.ritualLaterTail,
-      c.balanceRubySoon,
-      c.balanceDiamondSoon,
+      c.ritualClosed,
+      c.ritualOpen,
+      c.balanceEconomyLater,
     ].join(' ')
     for (const term of PROGRESS_CHILD_BANNED_HERO_TERMS) {
       expect(heroBlob.toLowerCase()).not.toContain(term.toLowerCase())
@@ -116,10 +114,10 @@ describe('progress copy', () => {
     expect(progressCopy('child').toMyPlan).toContain('сейчас')
   })
 
-  it('weak zones cta is an action not a plan label', () => {
+  it('weak zones cta is pin not a plan label', () => {
     expect(progressCopy('child').weakZonesTitle).toBe('Тут путаешься')
-    expect(progressCopy('child').weakZonesCta).toBe('Исправить')
-    expect(progressCopy('adult').weakZonesCta).toBe('К заданиям')
+    expect(progressCopy('child').weakZonesCta).toBe('Закрепить')
+    expect(progressCopy('adult').weakZonesCta).toBe('Закрепить')
   })
 
   it('ruRazWord plural forms', () => {
@@ -137,13 +135,20 @@ describe('progress copy', () => {
     expect(ruZanyatieWord(5)).toBe('занятий')
   })
 
-  it('ritual stubs have no fake 0/7 counters', () => {
+  it('ritual copy is live status, not soon stubs', () => {
     for (const audience of ['child', 'adult'] as const) {
       const c = progressCopy(audience)
-      const blob = [c.ritualDailySoon, c.ritualStreakSoon, c.ritualRubySoon, c.ritualMilestonesSoon].join(' ')
-      expect(blob).not.toMatch(/0\s*[/из]\s*7/)
-      expect(blob.toLowerCase()).not.toContain('закрыт')
+      expect(c.ritualClosed).toBe('Закрыт')
+      expect(c.ritualOpen).toBe('Не закрыт')
+      expect(ritualStatusLine(true, c)).toBe('Закрыт')
+      expect(ritualStatusLine(false, c)).toBe('Не закрыт')
+      expect(c.gemsLabel.toLowerCase()).not.toContain('рубин')
+      expect(c.ticketsLabel.toLowerCase()).not.toContain('алмаз')
+      expect(c.balanceEconomyLater).toBe('Рубин/Алмаз — позже')
     }
+    expect(formatRitualDayOf7(0)).toBe('День 0 из 7')
+    expect(formatRitualDayOf7(3)).toBe('День 3 из 7')
+    expect(formatRitualDayOf7(7)).toBe('День 7 из 7')
   })
 
   it('formatAttentionZoneMeta joins hint and count', () => {

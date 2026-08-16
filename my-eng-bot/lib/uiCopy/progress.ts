@@ -1,3 +1,4 @@
+import { DAILY_STAR_SERIES_TARGET } from '@/lib/dailyStar/types'
 import { PRACTICE_RING_MAX } from '@/lib/practice/practiceGlyphs'
 
 export type ProgressAudience = 'child' | 'adult'
@@ -56,9 +57,8 @@ const SECTIONS = {
     toGoalsMyPlanAria: 'Открыть Мой план',
     weakZonesTitle: 'Тут путаешься',
     weakZonesEmpty: 'Пока тихо — слабых мест нет',
-    weakZoneRepeat: 'Повторить',
-    weakZonesCta: 'Исправить',
-    weakZonesCtaAria: 'Открыть Мой план',
+    weakZonesCta: 'Закрепить',
+    weakZonesCtaAria: 'Закрепить',
     remarksTitle: 'Что поправить',
     remarksMore: 'Ещё',
     remarksReview: 'Ещё',
@@ -97,13 +97,9 @@ const SECTIONS = {
     modesTutor: 'Репетитор',
     modesPronunciation: 'Произношение',
     ritualTitle: 'Звезда дня',
-    ritualDailySoon: 'Звезда дня — скоро',
-    ritualStreakSoon: '7 дней подряд — скоро',
-    ritualRubySoon: 'Рубин за серию — скоро',
-    ritualMilestonesSoon: 'Вехи 10 · 50 · 100 · 365 — скоро',
-    ritualLaterTail: 'Награды за уровень — позже',
-    balanceRubySoon: 'Рубин — скоро',
-    balanceDiamondSoon: 'Алмаз — скоро',
+    ritualClosed: 'Закрыт',
+    ritualOpen: 'Не закрыт',
+    balanceEconomyLater: 'Рубин/Алмаз — позже',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
     spaceTitle: 'Прогресс',
@@ -161,9 +157,8 @@ const SECTIONS = {
     toGoalsMyPlanAria: 'Открыть Мой план',
     weakZonesTitle: 'На что обратить внимание',
     weakZonesEmpty: 'Пока тихо — слабых мест нет',
-    weakZoneRepeat: 'Повторить',
-    weakZonesCta: 'К заданиям',
-    weakZonesCtaAria: 'Открыть Мой план',
+    weakZonesCta: 'Закрепить',
+    weakZonesCtaAria: 'Закрепить',
     remarksTitle: 'Недавние ошибки',
     remarksMore: 'Ещё',
     remarksReview: 'К теме',
@@ -202,13 +197,9 @@ const SECTIONS = {
     modesTutor: 'Репетитор',
     modesPronunciation: 'Произношение',
     ritualTitle: 'Звезда дня',
-    ritualDailySoon: 'Дейлик — скоро',
-    ritualStreakSoon: '7 дней подряд — скоро',
-    ritualRubySoon: 'Рубин за серию — скоро',
-    ritualMilestonesSoon: 'Вехи 10 · 50 · 100 · 365 — скоро',
-    ritualLaterTail: 'Награды за уровень и лимиты — позже',
-    balanceRubySoon: 'Рубин — скоро',
-    balanceDiamondSoon: 'Алмаз — скоро',
+    ritualClosed: 'Закрыт',
+    ritualOpen: 'Не закрыт',
+    balanceEconomyLater: 'Рубин/Алмаз — позже',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
     spaceTitle: 'Прогресс',
@@ -231,6 +222,16 @@ export const REMARKS_BODY = {
 
 export function progressCopy(audience: ProgressAudience = 'adult'): ProgressCopy {
   return SECTIONS[audience === 'child' ? 'child' : 'adult']
+}
+
+export function formatRitualDayOf7(dayX: number, target = DAILY_STAR_SERIES_TARGET): string {
+  const x = Math.max(0, Math.floor(dayX))
+  const t = Math.max(1, Math.floor(target))
+  return `День ${x} из ${t}`
+}
+
+export function ritualStatusLine(closedToday: boolean, copy: ProgressCopy): string {
+  return closedToday ? copy.ritualClosed : copy.ritualOpen
 }
 
 function ruCountWord(n: number, one: string, few: string, many: string): string {

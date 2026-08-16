@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { BLUE_SECONDARY_SKIN } from '@/lib/homeCtaStyles'
-import { mapAttentionZoneToTarget } from '@/lib/progress/progressActions'
+import { mapAttentionZoneToTarget, PROGRESS_SCREEN_ZONE_LIMIT } from '@/lib/progress/progressActions'
 import type { AttentionZone } from '@/lib/learningMemory/types'
 
 /** Frozen snapshot — accidental secondary edits must fail this test. */
@@ -30,6 +30,25 @@ describe('progressActions', () => {
       mode: 'balanced',
     })
     expect(mapAttentionZoneToTarget(without)).toEqual({ kind: 'my_plan' })
+  })
+
+  it('tutor source → tutor, even with a lesson id', () => {
+    expect(
+      mapAttentionZoneToTarget({
+        skillTagId: 'a',
+        title: 'A',
+        errorCount: 2,
+        sourceHint: 'У репетитора',
+        lessonId: '1',
+        chipActive: true,
+        suggestionLine: '',
+        score: 8,
+      })
+    ).toEqual({ kind: 'tutor' })
+  })
+
+  it('progress screen zone cap is 2, not a second ranker', () => {
+    expect(PROGRESS_SCREEN_ZONE_LIMIT).toBe(2)
   })
 
   it('keeps zone map independent from new mode launch kinds', () => {

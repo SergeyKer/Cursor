@@ -46,6 +46,7 @@ import {
 } from '@/lib/progress/formatLearningSignalForUser'
 import {
   mapAttentionZoneToTarget,
+  PROGRESS_SCREEN_ZONE_LIMIT,
   type ProgressDetailKind,
   type ProgressLaunchTarget,
 } from '@/lib/progress/progressActions'
@@ -57,7 +58,9 @@ import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
 import {
   formatAttentionZoneMeta,
+  formatRitualDayOf7,
   progressCopy,
+  ritualStatusLine,
   type ProgressAudience,
 } from '@/lib/uiCopy/progress'
 import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
@@ -166,14 +169,6 @@ const ZONES_CARD_CLASS = `${STATUS_TILE_CLASS} !p-0`
 const ZONES_HEADER_TITLE =
   'break-words text-[15px] font-semibold uppercase tracking-[0.02em] text-[var(--chat-label-main)]'
 
-const ZONES_LAUNCH_BTN = [
-  BTN_INTERACTION_BASE,
-  CARD_LAUNCH_SKIN,
-  BTN_FONT_INLINE,
-  BTN_DISABLED_CLASS,
-  'flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
-].join(' ')
-
 const ZONES_INSET_LAUNCH_BTN = [
   BTN_INTERACTION_BASE,
   CARD_LAUNCH_SKIN,
@@ -241,7 +236,11 @@ export default function ProgressSheetScreen({
   }, [audience, copy, rewardsState, shelf.medals, shelf.nearestBadge, shelf.practiceBadgeStats, refreshKey])
 
   const attentionZones = useMemo(
-    () => getAttentionZones(listLearningSignals(), loadSkillMasteryMap()),
+    () =>
+      getAttentionZones(listLearningSignals(), loadSkillMasteryMap()).slice(
+        0,
+        PROGRESS_SCREEN_ZONE_LIMIT
+      ),
     [detail, rewardsState, refreshKey]
   )
 
@@ -478,15 +477,15 @@ export default function ProgressSheetScreen({
         </div>
       ) : null}
 
-      {/* TODO(0.20): канон Дейлик v2 — слот «скоро», без фейкового счётчика */}
       <div className={ZONES_CARD_CLASS}>
         <p className={`px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>{copy.ritualTitle}</p>
         <div className="space-y-1.5 px-4 pb-3 pt-2.5">
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualDailySoon}</p>
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualStreakSoon}</p>
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualRubySoon}</p>
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualMilestonesSoon}</p>
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualLaterTail}</p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text)]">
+            {ritualStatusLine(shelf.dailyStar.dailyClosedToday, copy)}
+          </p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+            {formatRitualDayOf7(shelf.dailyStar.dayXOf7)}
+          </p>
         </div>
       </div>
 
@@ -500,7 +499,6 @@ export default function ProgressSheetScreen({
           <ul className="space-y-4 px-4 pt-2.5">
             {attentionZones.map((z, index) => {
               const target = mapAttentionZoneToTarget(z)
-              const isLaunch = target.kind !== 'my_plan'
               return (
                 <li key={z.skillTagId} className="min-w-0">
                   <p className="flex min-w-0 items-start gap-2">
@@ -514,39 +512,28 @@ export default function ProgressSheetScreen({
                   <p className="mt-0.5 break-words pl-7 text-[14px] leading-snug text-[var(--text-muted)]">
                     {formatAttentionZoneMeta(z.sourceHint, z.errorCount)}
                   </p>
-                  {isLaunch ? (
-                    <button
-                      type="button"
-                      className={ZONES_INSET_LAUNCH_BTN}
-                      disabled={practiceBusy}
-                      onClick={() => {
-                        trackProgressEvent('progress_zone_launch', {
-                          audience,
-                          surface: 'zone',
-                          variant: 'launch',
-                          lessonId: z.lessonId ?? undefined,
-                        })
-                        launch(target, 'zone')
-                      }}
-                    >
-                      <span className="min-w-0 break-words">{copy.weakZoneRepeat}</span>
-                    </button>
-                  ) : null}
+                  <button
+                    type="button"
+                    className={ZONES_INSET_LAUNCH_BTN}
+                    aria-label={copy.weakZonesCtaAria}
+                    disabled={practiceBusy}
+                    onClick={() => {
+                      trackProgressEvent('progress_zone_launch', {
+                        audience,
+                        surface: 'zone',
+                        variant: 'launch',
+                        lessonId: z.lessonId ?? undefined,
+                      })
+                      launch(target, 'zone')
+                    }}
+                  >
+                    <span className="min-w-0 break-words">{copy.weakZonesCta}</span>
+                  </button>
                 </li>
               )
             })}
           </ul>
         )}
-        <div className="px-2.5 pt-3 pb-2.5 sm:px-3">
-          <button
-            type="button"
-            className={ZONES_LAUNCH_BTN}
-            aria-label={copy.weakZonesCtaAria}
-            onClick={goMyPlan}
-          >
-            <span className="min-w-0 break-words">{copy.weakZonesCta}</span>
-          </button>
-        </div>
       </div>
 
       <div className={ZONES_CARD_CLASS}>
@@ -558,15 +545,6 @@ export default function ProgressSheetScreen({
               title={row.label}
               metric={row.metric}
               ariaLabel={`${row.label} · ${row.metric}`}
-              disabled={practiceBusy}
-              onClick={() => {
-                trackProgressEvent('progress_mode_strip_click', {
-                  audience,
-                  surface: 'today',
-                  mode: row.id,
-                })
-                launch(row.target, 'today')
-              }}
             />
           ))}
         </div>
@@ -747,8 +725,7 @@ export default function ProgressSheetScreen({
               : `${usage.used}`}
         </p>
         <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.premiumCue}</p>
-        <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.balanceRubySoon}</p>
-        <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.balanceDiamondSoon}</p>
+        <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.balanceEconomyLater}</p>
       </ProgressCard>
     </div>
   )

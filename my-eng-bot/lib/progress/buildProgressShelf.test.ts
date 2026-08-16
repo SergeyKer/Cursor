@@ -28,6 +28,9 @@ describe('buildProgressShelf', () => {
     expect(shelf.topicAwardRows.length).toBeGreaterThanOrEqual(4)
     expect(shelf.currencies.coins).toBeGreaterThanOrEqual(0)
     expect(shelf.opportunity).toBeNull()
+    expect(shelf.dailyStar.dailyClosedToday).toBe(false)
+    expect(shelf.dailyStar.dayXOf7).toBe(0)
+    expect(shelf.dailyStar.rubyAwarded).toBe(false)
   })
 
   it('reflects streak and level from rewards', () => {

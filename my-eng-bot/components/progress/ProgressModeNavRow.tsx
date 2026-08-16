@@ -5,7 +5,7 @@ type ProgressModeNavRowProps = {
   metric?: string
   ariaLabel: string
   disabled?: boolean
-  onClick: () => void
+  onClick?: () => void
 }
 
 export default function ProgressModeNavRow({
@@ -15,6 +15,26 @@ export default function ProgressModeNavRow({
   disabled = false,
   onClick,
 }: ProgressModeNavRowProps) {
+  const body = (
+    <div className="min-w-0 flex-1">
+      <p className="break-words text-[15px] font-normal leading-[1.45] text-[var(--text)]">{title}</p>
+      {metric?.trim() ? (
+        <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{metric}</p>
+      ) : null}
+    </div>
+  )
+
+  if (!onClick) {
+    return (
+      <div
+        className="flex w-full min-h-[44px] min-w-0 items-center gap-3 px-4 py-2.5 text-left"
+        aria-label={ariaLabel}
+      >
+        {body}
+      </div>
+    )
+  }
+
   return (
     <button
       type="button"
@@ -23,12 +43,7 @@ export default function ProgressModeNavRow({
       disabled={disabled}
       onClick={onClick}
     >
-      <div className="min-w-0 flex-1">
-        <p className="break-words text-[15px] font-normal leading-[1.45] text-[var(--text)]">{title}</p>
-        {metric?.trim() ? (
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{metric}</p>
-        ) : null}
-      </div>
+      {body}
       <span
         className="pointer-events-none inline-flex h-5 w-5 shrink-0 items-center justify-center text-[var(--text-muted)]"
         aria-hidden

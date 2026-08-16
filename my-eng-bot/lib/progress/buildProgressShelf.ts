@@ -1,3 +1,4 @@
+import { syncDailyStarFromStores, type DailyStarSnapshot } from '@/lib/dailyStar'
 import { featureFlags } from '@/lib/featureFlags'
 import { getLessonBadgeDefinition } from '@/lib/lessonBadges'
 import { getLessonTopicById } from '@/lib/lessonCatalog'
@@ -71,6 +72,7 @@ export type ProgressShelf = {
   lessonRows: ProgressLessonRow[]
   topicAwardRows: ProgressTopicAwardRow[]
   currencies: { coins: number; gems: number; tickets: number }
+  dailyStar: DailyStarSnapshot
   opportunity: PracticeRewardOpportunity | null
   isEmptyShelf: boolean
   cupsEnabled: boolean
@@ -183,6 +185,7 @@ export function buildProgressShelf(
       gems: state.currencies.gems,
       tickets: state.currencies.tickets,
     },
+    dailyStar: syncDailyStarFromStores(today).snapshot,
     opportunity,
     isEmptyShelf,
     cupsEnabled,
