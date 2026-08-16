@@ -18,6 +18,7 @@ import { applyFocusLemmasOutcome } from '@/lib/vocabulary/applyFocusOutcome'
 import { getLoadStudyingPref, setLoadStudyingPref } from '@/lib/vocabulary/loadStudyingPref'
 import { resolveSmartMixFocusLemmas } from '@/lib/vocabulary/resolveSmartMix'
 import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
+import type { ProgressLaunchTarget } from '@/lib/progress/progressActions'
 import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
 import { lemmaKeyFromEn, listByFeedStatus } from '@/lib/vocabulary/wordFeed'
 import { loadActiveNecessaryWords } from '@/lib/vocabulary/catalogCache'
@@ -6813,11 +6814,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const launchFromProgress = useCallback(
-    async (target: {
-      kind: string
-      lessonId?: string
-      mode?: 'relaxed' | 'balanced' | 'challenge'
-    }) => {
+    async (target: ProgressLaunchTarget) => {
       if (progressPracticeBusy) return
       if (target.kind === 'my_plan') {
         openMyPlanFromProgress()
@@ -6839,6 +6836,29 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       if (target.kind === 'vocabulary') {
         setProgressSpaceActive(false)
         openVocabularyWorlds()
+        return
+      }
+      if (target.kind === 'translation') {
+        setProgressSpaceActive(false)
+        setSettings((s) => ({ ...s, mode: 'translation' }))
+        setDialogStarted(true)
+        setMenuOpen(false)
+        return
+      }
+      if (target.kind === 'dialogue') {
+        setProgressSpaceActive(false)
+        setSettings((s) => ({ ...s, mode: 'dialogue' }))
+        setDialogStarted(true)
+        setMenuOpen(false)
+        return
+      }
+      if (target.kind === 'tutor') {
+        openTutorChat()
+        return
+      }
+      if (target.kind === 'pronunciation') {
+        setProgressSpaceActive(false)
+        openAccentTrainer()
         return
       }
       if (target.kind === 'lesson' && target.lessonId) {
@@ -6899,10 +6919,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
     },
     [
+      openAccentTrainer,
       openLearningLesson,
       openMyPlanFromProgress,
       openPracticeSession,
       openReferenceTopic,
+      openTutorChat,
       openVocabularyWorlds,
       progressPracticeBusy,
       settings.level,

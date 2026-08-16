@@ -115,6 +115,27 @@ export function summarizeAccentProgress(lessonId: string): AccentProgressSummary
   }
 }
 
+export type AccentAllProgressSummary = {
+  lessonCount: number
+  attempts: number
+  bestScore: number
+}
+
+export function summarizeAllAccentProgress(): AccentAllProgressSummary {
+  const map = readMap()
+  let lessonCount = 0
+  let attempts = 0
+  let bestScore = 0
+  for (const lessonId of Object.keys(map)) {
+    const progress = getAccentLessonProgress(lessonId)
+    if (progress.attempts <= 0 && progress.bestScore <= 0) continue
+    lessonCount += 1
+    attempts += progress.attempts
+    bestScore = Math.max(bestScore, progress.bestScore)
+  }
+  return { lessonCount, attempts, bestScore }
+}
+
 export function recordAccentBlockFeedback(feedback: AccentBlockFeedback): AccentLessonProgress {
   const map = readMap()
   const previous = getAccentLessonProgress(feedback.lessonId)

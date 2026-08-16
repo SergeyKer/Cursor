@@ -38,7 +38,7 @@ export default function ProgressCard({
         <p className={headerTitleClass}>{title}</p>
       </div>
       {children != null ? (
-        <div className="space-y-1.5 border-t border-[var(--chat-section-card-divider)] bg-white px-4 py-2.5">
+        <div className="space-y-1.5 bg-white px-4 py-2.5">
           {children}
         </div>
       ) : null}

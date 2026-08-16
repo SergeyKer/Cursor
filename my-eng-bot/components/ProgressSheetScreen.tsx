@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import LessonReadingShell from '@/components/LessonReadingShell'
+import ProgressAwardsStats from '@/components/progress/ProgressAwardsStats'
 import ProgressCard from '@/components/progress/ProgressCard'
 import ProgressFooterButton from '@/components/progress/ProgressFooterButton'
+import ProgressModeNavRow from '@/components/progress/ProgressModeNavRow'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import {
@@ -11,6 +13,7 @@ import {
   BTN_DISABLED_CLASS,
   BTN_FONT_INLINE,
   BTN_INTERACTION_BASE,
+  CARD_EXPAND_SKIN,
   CARD_LAUNCH_SKIN,
 } from '@/lib/homeCtaStyles'
 import { LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
@@ -19,6 +22,8 @@ import { getAttentionZones, listLearningSignals, loadSkillMasteryMap } from '@/l
 import { featureFlags } from '@/lib/featureFlags'
 import { buildMonthActivityGrid, lastSevenDayActivity } from '@/lib/progress/activityCalendar'
 import { setProgressAnalyticsSink, trackProgressEvent } from '@/lib/progress/analytics'
+import { summarizeAllAccentProgress } from '@/lib/accent/progressStorage'
+import { buildProgressModeRows, countVocabProgressMarks } from '@/lib/progress/buildProgressModeRows'
 import { buildProgressShelf } from '@/lib/progress/buildProgressShelf'
 import { listLearningSignalFeed } from '@/lib/progress/formatLearningSignalForUser'
 import {
@@ -32,7 +37,9 @@ import ProgressTopicAwardsList from '@/components/progress/ProgressTopicAwardsLi
 import type { PracticeRewardOpportunity } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
-import { progressCopy, type ProgressAudience } from '@/lib/uiCopy/progress'
+import { progressCopy, formatAttentionZoneMeta, type ProgressAudience } from '@/lib/uiCopy/progress'
+import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
+import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
 
 export type ProgressSheetScreenProps = {
   rewardsState: RewardsState | undefined
@@ -72,17 +79,36 @@ const STATUS_INSET_LAUNCH_BTN = [
   'mt-3 flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
 ].join(' ')
 
-const NEAR_REWARD_CARD_CLASS = `${STATUS_TILE_CLASS} !p-0`
+/** Inset expand: same rounded-xl as opportunity; wrap cancels ProgressCard px-4. */
+const STATUS_INSET_EXPAND_WRAP = '-mx-4 px-2.5 pt-3 sm:px-3'
 
-const NEAR_REWARD_HEADER_TITLE =
+const STATUS_INSET_EXPAND_BTN = [
+  BTN_INTERACTION_BASE,
+  CARD_EXPAND_SKIN,
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+  'flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
+].join(' ')
+
+const ZONES_CARD_CLASS = `${STATUS_TILE_CLASS} !p-0`
+
+const ZONES_HEADER_TITLE =
   'break-words text-[15px] font-semibold uppercase tracking-[0.02em] text-[var(--chat-label-main)]'
 
-const NEAR_REWARD_LAUNCH_BTN = [
+const ZONES_LAUNCH_BTN = [
   BTN_INTERACTION_BASE,
   CARD_LAUNCH_SKIN,
   BTN_FONT_INLINE,
   BTN_DISABLED_CLASS,
   'flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
+].join(' ')
+
+const ZONES_INSET_LAUNCH_BTN = [
+  BTN_INTERACTION_BASE,
+  CARD_LAUNCH_SKIN,
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+  'mt-1 flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
 ].join(' ')
 
 export default function ProgressSheetScreen({
@@ -115,6 +141,32 @@ export default function ProgressSheetScreen({
       }),
     [rewardsState, copy, audience, shelf.cupsEnabled, shelf.opportunity, refreshKey]
   )
+
+  const modeRows = useMemo(() => {
+    const vocab = countVocabProgressMarks(
+      loadVocabularyProgress().words,
+      loadVocabMistakes().length
+    )
+    const tutor = rewardsState?.tutorSession
+    return buildProgressModeRows({
+      copy,
+      audience,
+      flags: {
+        engvoVoiceV1: featureFlags.engvoVoiceV1,
+        practiceEngineV1: featureFlags.practiceEngineV1,
+        tutorChatV1: featureFlags.tutorChatV1,
+        accentTrainerV1: featureFlags.accentTrainerV1,
+      },
+      rewardsState,
+      medals: shelf.medals,
+      practiceBadgeStats: shelf.practiceBadgeStats,
+      nearestBadge: shelf.nearestBadge,
+      vocab,
+      tutorTodayCount:
+        (tutor?.awardedExplainKeys.length ?? 0) + (tutor?.awardedMicroKeys.length ?? 0),
+      accent: summarizeAllAccentProgress(),
+    })
+  }, [audience, copy, rewardsState, shelf.medals, shelf.nearestBadge, shelf.practiceBadgeStats, refreshKey])
 
   const attentionZones = useMemo(
     () => getAttentionZones(listLearningSignals(), loadSkillMasteryMap()),
@@ -281,7 +333,7 @@ export default function ProgressSheetScreen({
               <span className="min-w-0">{status.streakStatusHeadline}</span>
             </p>
             {status.streakStatusBody ? (
-              <p className="mt-2 text-[15px] leading-snug text-[var(--text)]">{status.streakStatusBody}</p>
+              <p className="mt-2 text-[14px] leading-snug text-[var(--text-muted)]">{status.streakStatusBody}</p>
             ) : null}
           </div>
           <button
@@ -297,136 +349,162 @@ export default function ProgressSheetScreen({
       </div>
 
       {status.opportunity && shelf.opportunity ? (
-        <div className={NEAR_REWARD_CARD_CLASS}>
-          <p className={`px-4 pt-3 pb-1 ${NEAR_REWARD_HEADER_TITLE}`}>{copy.nearRewardTitle}</p>
-          <div className="min-w-0 space-y-1.5 px-4 pt-2.5">
-            <p className="break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
+        <div className={STATUS_STREAK_TILE_CLASS}>
+          <div className="min-w-0">
+            <p className="break-words text-[17px] font-semibold leading-snug text-[var(--text)]">
               {status.opportunity.label}
             </p>
-            <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+            <p className="mt-2 break-words text-[14px] leading-snug text-[var(--text-muted)]">
               {status.opportunity.reasonLine}
             </p>
           </div>
-          <div className="px-2.5 pt-3 pb-2.5 sm:px-3">
-            <button
-              type="button"
-              className={NEAR_REWARD_LAUNCH_BTN}
-              disabled={practiceBusy || !onOpenNearReward}
-              onClick={() => {
-                if (!shelf.opportunity || !onOpenNearReward) return
-                trackProgressEvent('progress_near_reward_click', {
-                  audience,
-                  lessonId: shelf.opportunity.lessonId,
-                  reason: shelf.opportunity.reason,
-                  surface: 'near',
-                  variant: 'launch',
-                })
-                void onOpenNearReward(shelf.opportunity)
-              }}
-            >
-              <span className="min-w-0 break-words">{status.opportunity.ctaLabel}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            className={STATUS_INSET_LAUNCH_BTN}
+            aria-label={`${copy.nearRewardTitle} — ${status.opportunity.ctaLabel}`}
+            disabled={practiceBusy || !onOpenNearReward}
+            onClick={() => {
+              if (!shelf.opportunity || !onOpenNearReward) return
+              trackProgressEvent('progress_near_reward_click', {
+                audience,
+                lessonId: shelf.opportunity.lessonId,
+                reason: shelf.opportunity.reason,
+                surface: 'near',
+                variant: 'launch',
+              })
+              void onOpenNearReward(shelf.opportunity)
+            }}
+          >
+            <span className="min-w-0 break-words">{status.opportunity.ctaLabel}</span>
+          </button>
         </div>
       ) : null}
 
-      <ProgressCard
-        title={copy.weakZonesTitle}
-        footer={
-          attentionZones.length === 0 ? (
-            <ProgressFooterButton
-              variant="action"
-              label={copy.toGoalsMyPlan}
-              ariaLabel={copy.toGoalsMyPlanAria}
-              onClick={goMyPlan}
-            />
-          ) : null
-        }
-      >
+      {/* TODO(0.20): канон Дейлик v2 — слот «скоро», без фейкового счётчика */}
+      <div className={ZONES_CARD_CLASS}>
+        <p className={`px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>{copy.ritualTitle}</p>
+        <div className="space-y-1.5 px-4 pb-3 pt-2.5">
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualDailySoon}</p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualStreakSoon}</p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualRubySoon}</p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualMilestonesSoon}</p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.ritualLaterTail}</p>
+        </div>
+      </div>
+
+      <div className={ZONES_CARD_CLASS}>
+        <p className={`px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>{copy.weakZonesTitle}</p>
         {attentionZones.length === 0 ? (
-          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+          <p className="break-words px-4 pt-2.5 text-[14px] leading-snug text-[var(--text-muted)]">
             {copy.weakZonesEmpty}
           </p>
         ) : (
-          <ul className="space-y-2">
-            {attentionZones.map((z) => {
+          <ul className="space-y-4 px-4 pt-2.5">
+            {attentionZones.map((z, index) => {
               const target = mapAttentionZoneToTarget(z)
               const isLaunch = target.kind !== 'my_plan'
               return (
-                <li key={z.skillTagId} className="min-w-0 space-y-1">
-                  <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
-                    {z.title} · {z.sourceHint}
-                    {z.errorCount > 0 ? ` · ${z.errorCount}` : ''}
+                <li key={z.skillTagId} className="min-w-0">
+                  <p className="flex min-w-0 items-start gap-2">
+                    <span className="w-5 shrink-0 text-[15px] font-medium tabular-nums leading-[1.45] text-[var(--text-muted)]">
+                      {index + 1}.
+                    </span>
+                    <span className="min-w-0 break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
+                      {z.title}
+                    </span>
                   </p>
-                  <ProgressFooterButton
-                    variant={isLaunch ? 'launch' : 'action'}
-                    label={isLaunch ? copy.weakZoneRepeat : copy.toGoalsMyPlan}
-                    disabled={practiceBusy && isLaunch}
-                    roundBottom={false}
-                    onClick={() => {
-                      trackProgressEvent('progress_zone_launch', {
-                        audience,
-                        surface: 'zone',
-                        variant: isLaunch ? 'launch' : 'action',
-                        lessonId: z.lessonId ?? undefined,
-                      })
-                      launch(target, 'zone')
-                    }}
-                  />
+                  <p className="mt-0.5 break-words pl-7 text-[14px] leading-snug text-[var(--text-muted)]">
+                    {formatAttentionZoneMeta(z.sourceHint, z.errorCount)}
+                  </p>
+                  {isLaunch ? (
+                    <button
+                      type="button"
+                      className={ZONES_INSET_LAUNCH_BTN}
+                      disabled={practiceBusy}
+                      onClick={() => {
+                        trackProgressEvent('progress_zone_launch', {
+                          audience,
+                          surface: 'zone',
+                          variant: 'launch',
+                          lessonId: z.lessonId ?? undefined,
+                        })
+                        launch(target, 'zone')
+                      }}
+                    >
+                      <span className="min-w-0 break-words">{copy.weakZoneRepeat}</span>
+                    </button>
+                  ) : null}
                 </li>
               )
             })}
           </ul>
         )}
-      </ProgressCard>
+        <div className="px-2.5 pt-3 pb-2.5 sm:px-3">
+          <button
+            type="button"
+            className={ZONES_LAUNCH_BTN}
+            aria-label={copy.weakZonesCtaAria}
+            onClick={goMyPlan}
+          >
+            <span className="min-w-0 break-words">{copy.weakZonesCta}</span>
+          </button>
+        </div>
+      </div>
 
-      <ProgressCard
-        title={copy.todayTitle}
-        footer={
-          <ProgressFooterButton
-            variant="action"
-            label={copy.toGoalsMyPlan}
-            ariaLabel={copy.toGoalsMyPlanAria}
-            onClick={() => {
-              trackProgressEvent('progress_footer_click', {
-                audience,
-                surface: 'today',
-                variant: 'action',
-              })
-              goMyPlan()
-            }}
-          />
-        }
-      >
-        {status.modeGoals.map((goal) => (
-          <div key={goal.mode}>
-            <p className="break-words text-[15px] leading-[1.45] text-[var(--text)]">{goal.line}</p>
-            <p className="text-[13px] text-[var(--text-muted)]">{goal.statusLabel}</p>
+      <div className={ZONES_CARD_CLASS}>
+        <p className={`px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>{copy.todayTitle}</p>
+        <div className="divide-y divide-[var(--chat-section-neutral-border)] pb-1">
+          {modeRows.map((row) => (
+            <ProgressModeNavRow
+              key={row.id}
+              title={row.label}
+              metric={row.metric}
+              ariaLabel={`${row.label} · ${row.metric}`}
+              disabled={practiceBusy}
+              onClick={() => {
+                trackProgressEvent('progress_mode_strip_click', {
+                  audience,
+                  surface: 'today',
+                  mode: row.id,
+                })
+                launch(row.target, 'today')
+              }}
+            />
+          ))}
+        </div>
+      </div>
+
+      <ProgressCard title={copy.awardsTitle}>
+        <div>
+          <div className="space-y-1.5">
+            {shelf.isEmptyShelf ? (
+              <>
+                <p className="break-words text-[15px] font-semibold text-[var(--text)]">{copy.emptyTitle}</p>
+                <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.emptyBody}</p>
+              </>
+            ) : (
+              <ProgressAwardsStats
+                gold={shelf.medals.gold}
+                silver={shelf.medals.silver}
+                bronze={shelf.medals.bronze}
+                cups={shelf.cupStats ? shelf.cupStats.cups : null}
+                lessonBadgesEarned={shelf.lessonBadgesEarned}
+                lessonBadgesSummary={copy.lessonBadgesSummary}
+                ariaLabel={awardsSummary ?? ''}
+              />
+            )}
           </div>
-        ))}
-      </ProgressCard>
-
-      <ProgressCard
-        title={copy.awardsTitle}
-        footer={
-          <ProgressFooterButton
-            variant="expand"
-            label={copy.awardsOpen}
-            ariaLabel={copy.awardsOpenAria}
-            onClick={() => launch({ kind: 'detail', detail: 'awards' }, 'awards')}
-          />
-        }
-      >
-        {shelf.isEmptyShelf ? (
-          <>
-            <p className="break-words text-[15px] font-semibold text-[var(--text)]">{copy.emptyTitle}</p>
-            <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{copy.emptyBody}</p>
-          </>
-        ) : (
-          <p className="emoji-line break-words text-[15px] leading-[1.45] text-[var(--text)]">
-            {awardsSummary}
-          </p>
-        )}
+          <div className={STATUS_INSET_EXPAND_WRAP}>
+            <button
+              type="button"
+              className={STATUS_INSET_EXPAND_BTN}
+              aria-label={copy.awardsOpenAria}
+              onClick={() => launch({ kind: 'detail', detail: 'awards' }, 'awards')}
+            >
+              <span className="min-w-0 break-words">{copy.awardsOpen}</span>
+            </button>
+          </div>
+        </div>
       </ProgressCard>
 
       {activeDays.length > 0 ? (
@@ -539,51 +617,9 @@ export default function ProgressSheetScreen({
               : `${usage.used}`}
         </p>
         <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.premiumCue}</p>
+        <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.balanceRubySoon}</p>
+        <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{copy.balanceDiamondSoon}</p>
       </ProgressCard>
-
-      <nav
-        className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 px-1 py-1 text-[13px] text-[var(--text-muted)]"
-        aria-label="Режимы"
-      >
-        {(
-          [
-            { label: copy.modesLesson, target: { kind: 'lesson' as const, lessonId: '' }, mode: 'lesson' },
-            { label: copy.modesPractice, target: { kind: 'quick_practice' as const }, mode: 'practice' },
-            { label: copy.modesChat, target: { kind: 'communication' as const }, mode: 'communication' },
-            { label: copy.modesCall, target: { kind: 'engvo' as const }, mode: 'engvo' },
-            { label: copy.modesPlan, target: { kind: 'my_plan' as const }, mode: 'plan' },
-            ...(featureFlags.referenceV1
-              ? [{ label: copy.modesReference, target: { kind: 'my_plan' as const }, mode: 'reference' }]
-              : []),
-          ] as const
-        ).map((item, idx, arr) => (
-          <span key={item.mode} className="inline-flex items-center gap-2">
-            <button
-              type="button"
-              className="touch-manipulation font-medium text-[var(--text)] underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
-              onClick={() => {
-                trackProgressEvent('progress_mode_strip_click', {
-                  audience,
-                  surface: 'strip',
-                  mode: item.mode,
-                })
-                if (item.mode === 'lesson') {
-                  void onLaunchTarget?.({ kind: 'my_plan' })
-                  return
-                }
-                if (item.mode === 'reference') {
-                  void onLaunchTarget?.({ kind: 'my_plan' })
-                  return
-                }
-                launch(item.target, 'strip')
-              }}
-            >
-              {item.label}
-            </button>
-            {idx < arr.length - 1 ? <span aria-hidden>·</span> : null}
-          </span>
-        ))}
-      </nav>
     </div>
   )
 

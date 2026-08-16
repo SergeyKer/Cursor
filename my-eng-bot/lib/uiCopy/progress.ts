@@ -52,9 +52,11 @@ const SECTIONS = {
     awardsOpenAria: 'Открыть прогресс по урокам и практике',
     toGoalsMyPlan: 'К Моему плану →',
     toGoalsMyPlanAria: 'Открыть Мой план',
-    weakZonesTitle: 'На что обратить внимание',
+    weakZonesTitle: 'Тут путаешься',
     weakZonesEmpty: 'Пока тихо — слабых мест нет',
     weakZoneRepeat: 'Повторить',
+    weakZonesCta: 'Исправить',
+    weakZonesCtaAria: 'Открыть Мой план',
     remarksTitle: 'Недавние замечания',
     remarksMore: 'Ещё',
     remarksReview: 'Разобрать',
@@ -76,6 +78,19 @@ const SECTIONS = {
     modesCall: 'Звонок',
     modesPlan: 'План',
     modesReference: 'Справка',
+    modesTranslation: 'Перевод',
+    modesDialogue: 'Диалог',
+    modesVocabulary: 'Слова',
+    modesTutor: 'Репетитор',
+    modesPronunciation: 'Произношение',
+    ritualTitle: 'Звезда дня',
+    ritualDailySoon: 'Звезда дня — скоро',
+    ritualStreakSoon: '7 дней подряд — скоро',
+    ritualRubySoon: 'Рубин за серию — скоро',
+    ritualMilestonesSoon: 'Вехи 10 · 50 · 100 · 365 — скоро',
+    ritualLaterTail: 'Награды за уровень — позже',
+    balanceRubySoon: 'Рубин — скоро',
+    balanceDiamondSoon: 'Алмаз — скоро',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
     spaceTitle: 'Прогресс',
@@ -134,6 +149,8 @@ const SECTIONS = {
     weakZonesTitle: 'На что обратить внимание',
     weakZonesEmpty: 'Пока тихо — слабых мест нет',
     weakZoneRepeat: 'Повторить',
+    weakZonesCta: 'К заданиям',
+    weakZonesCtaAria: 'Открыть Мой план',
     remarksTitle: 'Недавние замечания',
     remarksMore: 'Ещё',
     remarksReview: 'Разобрать',
@@ -155,6 +172,19 @@ const SECTIONS = {
     modesCall: 'Звонок',
     modesPlan: 'План',
     modesReference: 'Справка',
+    modesTranslation: 'Перевод',
+    modesDialogue: 'Диалог',
+    modesVocabulary: 'Слова',
+    modesTutor: 'Репетитор',
+    modesPronunciation: 'Произношение',
+    ritualTitle: 'Звезда дня',
+    ritualDailySoon: 'Дейлик — скоро',
+    ritualStreakSoon: '7 дней подряд — скоро',
+    ritualRubySoon: 'Рубин за серию — скоро',
+    ritualMilestonesSoon: 'Вехи 10 · 50 · 100 · 365 — скоро',
+    ritualLaterTail: 'Награды за уровень и лимиты — позже',
+    balanceRubySoon: 'Рубин — скоро',
+    balanceDiamondSoon: 'Алмаз — скоро',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
     spaceTitle: 'Прогресс',
@@ -165,6 +195,24 @@ export type ProgressCopy = (typeof SECTIONS)[ProgressAudience]
 
 export function progressCopy(audience: ProgressAudience = 'adult'): ProgressCopy {
   return SECTIONS[audience === 'child' ? 'child' : 'adult']
+}
+
+/** 1 раз / 2 раза / 5 раз / 11 раз / 21 раз / 22 раза */
+export function ruRazWord(n: number): string {
+  const abs = Math.abs(Math.floor(n))
+  const mod100 = abs % 100
+  const mod10 = abs % 10
+  if (mod100 >= 11 && mod100 <= 14) return 'раз'
+  if (mod10 === 1) return 'раз'
+  if (mod10 >= 2 && mod10 <= 4) return 'раза'
+  return 'раз'
+}
+
+export function formatAttentionZoneMeta(sourceHint: string, errorCount: number): string {
+  const hint = sourceHint.trim()
+  if (errorCount <= 0) return hint
+  const count = `${errorCount} ${ruRazWord(errorCount)}`
+  return hint ? `${hint} · ${count}` : count
 }
 
 export function progressOpportunityReason(

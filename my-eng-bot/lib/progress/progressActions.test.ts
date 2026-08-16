@@ -31,4 +31,19 @@ describe('progressActions', () => {
     })
     expect(mapAttentionZoneToTarget(without)).toEqual({ kind: 'my_plan' })
   })
+
+  it('keeps zone map independent from new mode launch kinds', () => {
+    const kinds = ['translation', 'dialogue', 'tutor', 'pronunciation'] as const
+    expect(kinds).toHaveLength(4)
+    expect(mapAttentionZoneToTarget({
+      skillTagId: 'a',
+      title: 'A',
+      errorCount: 1,
+      sourceHint: '',
+      lessonId: null,
+      chipActive: false,
+      suggestionLine: '',
+      score: 1,
+    }).kind).toBe('my_plan')
+  })
 })

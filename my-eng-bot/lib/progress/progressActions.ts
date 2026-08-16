@@ -14,6 +14,10 @@ export type ProgressLaunchTarget =
   | { kind: 'engvo' }
   | { kind: 'vocabulary' }
   | { kind: 'quick_practice' }
+  | { kind: 'translation' }
+  | { kind: 'dialogue' }
+  | { kind: 'tutor' }
+  | { kind: 'pronunciation' }
 
 /** Повторить по зоне → практика; иначе Мой план. */
 export function mapAttentionZoneToTarget(zone: AttentionZone): ProgressLaunchTarget {
