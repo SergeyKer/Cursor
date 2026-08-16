@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
 import { pickQuickStartPracticeTopic, type LessonCatalogLevel } from '@/lib/lessonCatalog'
-import type { AttentionZone, LearningSignal } from '@/lib/learningMemory/types'
+import { MAX_ATTENTION_ZONES, type AttentionZone, type LearningSignal } from '@/lib/learningMemory/types'
 import {
   clearLearningSignals,
   clearSkillMasteryMap,
@@ -575,7 +575,7 @@ export default function MyPlanPanel({
     </MyPlanCard>
   )
 
-  const shownZones = attentionZones.slice(0, 2)
+  const shownZones = attentionZones.slice(0, MAX_ATTENTION_ZONES)
   const mainSkill = mainZoneSkillId(resolvedMain)
   const growthBlock = (
     <MyPlanCard

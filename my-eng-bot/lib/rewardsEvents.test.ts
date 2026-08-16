@@ -53,6 +53,10 @@ describe('applyRewardsEvent', () => {
     expect(state.communicationSession.status).toBe('completed')
     expect(state.modeGoals.communication.completed).toBe(true)
     expect(state.ui.lastReward?.reason).toBe('communication_session_completed')
+    expect(state.communicationSession.completedAt).toBe(getTodayDateString())
+    const abandoned = applyRewardsEvent(state, { type: 'communication_session_abandoned' })
+    expect(abandoned.communicationSession.status).toBe('abandoned')
+    expect(abandoned.communicationSession.completedAt).toBe(getTodayDateString())
   })
 
   it('records coins_spent without awarding xp', () => {

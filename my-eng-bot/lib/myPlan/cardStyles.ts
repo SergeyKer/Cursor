@@ -38,7 +38,7 @@ export const MY_PLAN_CARD_BODY_FLUSH =
   'border-t border-[var(--chat-section-card-divider)] bg-white p-0'
 
 export const MY_PLAN_CARD_BODY_TITLE =
-  'break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]'
+  'emoji-line break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]'
 
 export const MY_PLAN_CARD_BODY_REASON =
   'break-words text-[14px] leading-snug text-[var(--text-muted)]'

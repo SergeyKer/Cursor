@@ -11,5 +11,13 @@ export {
 } from '@/lib/dailyStar/types'
 export { collectDailyStarActivity, dayKeyFromUnknown, dayQualifiesForDailyStar } from '@/lib/dailyStar/activity'
 export { closeDailyStarDay, evaluateDailyStar } from '@/lib/dailyStar/evaluate'
+export { stampDailyStarClose } from '@/lib/dailyStar/stamp'
 export { DAILY_STAR_STORAGE_KEY, loadDailyStarState, saveDailyStarState } from '@/lib/dailyStar/storage'
-export { readDailyStarActivity, syncDailyStarFromStores } from '@/lib/dailyStar/fromStores'
+export {
+  communicationCloseStamp,
+  dialogueCloseStamp,
+  engvoCloseStamp,
+  readDailyStarActivity,
+  syncDailyStarFromStores,
+  translationCloseStamp,
+} from '@/lib/dailyStar/fromStores'

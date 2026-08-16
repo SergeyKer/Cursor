@@ -1,3 +1,4 @@
+import { stampDailyStarClose } from '@/lib/dailyStar/stamp'
 import { capLessonMedalForRun } from '@/lib/lessonAntiFarm'
 import {
   computeCorePercent,
@@ -120,6 +121,8 @@ export function mergeLessonProgressOnComplete(
   const bestTotalXp = Math.max(previous?.bestTotalXp ?? 0, totalXp)
   const mergedMedal = upgradeMedal(previous?.medal ?? null, medal)
   const mergedMaxCombo = Math.max(previous?.maxCombo ?? 0, session.maxCombo)
+
+  stampDailyStarClose('lesson')
 
   return migrateUserLessonProgress(
     {

@@ -1,7 +1,7 @@
-import type { AttentionZone } from '@/lib/learningMemory/types'
+import { MAX_ATTENTION_ZONES, type AttentionZone } from '@/lib/learningMemory/types'
 
-/** Экран Прогресс показывает не больше двух зон; глобальный ранкер не режем. */
-export const PROGRESS_SCREEN_ZONE_LIMIT = 2
+/** Витрина Прогресс = тот же топ, что ранкер. Не второй скорер. */
+export const PROGRESS_SCREEN_ZONE_LIMIT = MAX_ATTENTION_ZONES
 
 export type ProgressCtaVariant = 'launch' | 'expand' | 'action'
 

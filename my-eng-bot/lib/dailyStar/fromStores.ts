@@ -4,7 +4,32 @@ import { loadDailyStarState, saveDailyStarState } from '@/lib/dailyStar/storage'
 import type { DailyStarActivity, DailyStarSnapshot, DailyStarState } from '@/lib/dailyStar/types'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { practiceStorage } from '@/lib/practice/storage/practiceStorage'
-import { getTodayDateString, loadRewardsState } from '@/lib/rewardsState'
+import { getTodayDateString, loadRewardsState, type RewardsState } from '@/lib/rewardsState'
+
+function sessionCloseStamp(completedAt: string | null | undefined): string | null {
+  return completedAt ?? null
+}
+
+/** Live session meter can be wiped on leave; modeGoals stamp survives. */
+export function communicationCloseStamp(rewards: RewardsState): string | null {
+  return (
+    sessionCloseStamp(rewards.communicationSession.completedAt) ??
+    rewards.modeGoals.communication.sessionCompletedAt ??
+    null
+  )
+}
+
+export function translationCloseStamp(rewards: RewardsState): string | null {
+  return sessionCloseStamp(rewards.translationSession.completedAt)
+}
+
+export function dialogueCloseStamp(rewards: RewardsState): string | null {
+  return sessionCloseStamp(rewards.dialogueSession.completedAt)
+}
+
+export function engvoCloseStamp(rewards: RewardsState): string | null {
+  return rewards.modeGoals.engvo.sessionCompletedAt ?? null
+}
 
 export function readDailyStarActivity(today: string = getTodayDateString()): DailyStarActivity {
   const rewards = loadRewardsState()
@@ -16,10 +41,10 @@ export function readDailyStarActivity(today: string = getTodayDateString()): Dai
   }))
   return collectDailyStarActivity(
     {
-      communicationCompletedAt: rewards.communicationSession.completedAt,
-      translationCompletedAt: rewards.translationSession.completedAt,
-      dialogueCompletedAt: rewards.dialogueSession.completedAt,
-      engvoCompletedAt: rewards.modeGoals.engvo.sessionCompletedAt,
+      communicationCompletedAt: communicationCloseStamp(rewards),
+      translationCompletedAt: translationCloseStamp(rewards),
+      dialogueCompletedAt: dialogueCloseStamp(rewards),
+      engvoCompletedAt: engvoCloseStamp(rewards),
       lessons,
       practiceSessions,
     },

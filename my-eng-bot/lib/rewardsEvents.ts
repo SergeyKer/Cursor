@@ -22,6 +22,7 @@ import {
   tutorExplainKey,
   tutorMicroKey,
 } from '@/lib/tutor/tutorSessionEconomy'
+import { stampDailyStarClose } from '@/lib/dailyStar/stamp'
 import {
   abandonCommunicationSessionState,
   abandonDialogueSessionState,
@@ -130,16 +131,14 @@ function applyTranslationStepResolved(
 
   const reason = completedNow ? 'translation_session_completed' : 'translation_step_resolved'
   if (totalActual > 0) {
-    return awardGlobalXp(next, totalActual, reason, {
+    next = awardGlobalXp(next, totalActual, reason, {
       ticker: completedNow
         ? `Цель перевода 8/8. +${totalActual}.`
         : `Перевод: +${totalActual}.`,
     })
-  }
-
-  if (completedNow) {
+  } else if (completedNow) {
     const rewardAt = new Date().toISOString()
-    return {
+    next = {
       ...next,
       ui: {
         ...next.ui,
@@ -153,6 +152,7 @@ function applyTranslationStepResolved(
     }
   }
 
+  if (completedNow) stampDailyStarClose('translation')
   return next
 }
 
@@ -208,16 +208,14 @@ function applyDialogueStepResolved(
 
   const reason = completedNow ? 'dialogue_session_completed' : 'dialogue_step_resolved'
   if (totalActual > 0) {
-    return awardGlobalXp(next, totalActual, reason, {
+    next = awardGlobalXp(next, totalActual, reason, {
       ticker: completedNow
         ? `Цель диалога 8/8. +${totalActual}.`
         : `Диалог: +${totalActual}.`,
     })
-  }
-
-  if (completedNow) {
+  } else if (completedNow) {
     const rewardAt = new Date().toISOString()
-    return {
+    next = {
       ...next,
       ui: {
         ...next.ui,
@@ -231,6 +229,7 @@ function applyDialogueStepResolved(
     }
   }
 
+  if (completedNow) stampDailyStarClose('dialogue')
   return next
 }
 
@@ -311,16 +310,14 @@ function applyCommunicationStepResolved(
 
   const reason = completedNow ? 'communication_session_completed' : 'communication_step_resolved'
   if (totalActual > 0) {
-    return awardGlobalXp(next, totalActual, reason, {
+    next = awardGlobalXp(next, totalActual, reason, {
       ticker: completedNow
         ? `Цель общения 8/8. +${totalActual}.`
         : `Общение: +${totalActual}.`,
     })
-  }
-
-  if (completedNow) {
+  } else if (completedNow) {
     const rewardAt = new Date().toISOString()
-    return {
+    next = {
       ...next,
       ui: {
         ...next.ui,
@@ -334,6 +331,7 @@ function applyCommunicationStepResolved(
     }
   }
 
+  if (completedNow) stampDailyStarClose('communication')
   return next
 }
 
@@ -429,6 +427,7 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       })
     }
     case 'practice_completed': {
+      stampDailyStarClose('practice')
       const amount = Math.max(0, Math.floor(event.amount))
       if (amount <= 0) return state
       return awardGlobalXp(state, amount, event.type, {
@@ -452,10 +451,14 @@ export function applyRewardsEvent(state: RewardsState, event: RewardsEvent): Rew
       return startCommunicationSessionState(state)
     case 'communication_session_abandoned':
       return abandonCommunicationSessionState(state)
-    case 'engvo_turn_completed':
-      return incrementModeGoal(state, 'engvo', {
+    case 'engvo_turn_completed': {
+      const wasDone = state.modeGoals.engvo.completed
+      const next = incrementModeGoal(state, 'engvo', {
         completionXp: 35,
       })
+      if (!wasDone && next.modeGoals.engvo.completed) stampDailyStarClose('engvo')
+      return next
+    }
     case 'coins_spent': {
       const amount = Math.max(0, Math.floor(event.amount))
       if (amount <= 0) return state

@@ -1,3 +1,4 @@
+import { dailyStarLabel } from '@/lib/gamificationGlyphs'
 import { formatRitualDayOf7 } from '@/lib/uiCopy/progress'
 
 export type MyPlanAudience = 'child' | 'adult'
@@ -65,9 +66,9 @@ const SECTIONS = {
     zonesEmptyCta: 'Подтянуть аспект',
     zonesRepeat: 'Повторить',
     zonesAlreadyNow: 'Это уже в «Сейчас»',
-    recClosed: 'Звезда сегодня есть. Календарь — в Прогрессе',
-    recOpen: 'Звезды ещё нет — это слот Сейчас',
-    starClosesWithThis: 'Если дойдёшь до конца — будет Звезда дня.',
+    recClosed: dailyStarLabel('Звезда сегодня есть. Календарь — в Прогрессе'),
+    recOpen: dailyStarLabel('Звезды ещё нет — это слот Сейчас'),
+    starClosesWithThis: `Если дойдёшь до конца — будет ${dailyStarLabel('Звезда дня')}.`,
     modesMore: 'Ещё',
     modesHide: 'Свернуть',
     modesHint: 'Чат, звонок и другие режимы — в «Ещё».',
@@ -99,9 +100,9 @@ const SECTIONS = {
     zonesEmptyCta: 'Подтянуть аспект',
     zonesRepeat: 'Повторить',
     zonesAlreadyNow: 'Это уже в «Сейчас»',
-    recClosed: 'Звезда сегодня есть. Календарь — в Прогрессе',
-    recOpen: 'Звезды ещё нет — это слот Сейчас',
-    starClosesWithThis: 'Если дойдёте до конца — будет Звезда дня.',
+    recClosed: dailyStarLabel('Звезда сегодня есть. Календарь — в Прогрессе'),
+    recOpen: dailyStarLabel('Звезды ещё нет — это слот Сейчас'),
+    starClosesWithThis: `Если дойдёте до конца — будет ${dailyStarLabel('Звезда дня')}.`,
     modesMore: 'Ещё',
     modesHide: 'Свернуть',
     modesHint: 'Чат, звонок и остальные режимы — в «Ещё».',
@@ -124,7 +125,7 @@ const INVITE: Record<MyPlanInviteKind, Record<MyPlanAudience, string>> = {
   weak_spot: { child: 'Подтянем слабое?', adult: 'Подтянем слабое место?' },
   open_chat: { child: 'Поговорим в чате?', adult: 'Поговорим в чате?' },
   open_call: { child: 'Начнём звонок?', adult: 'Начнём звонок?' },
-    daily: { child: 'Звезда дня', adult: 'Звезда дня' },
+    daily: { child: dailyStarLabel('Звезда дня'), adult: dailyStarLabel('Звезда дня') },
   empty: { child: 'С чего начнём?', adult: 'С чего начнём?' },
 }
 

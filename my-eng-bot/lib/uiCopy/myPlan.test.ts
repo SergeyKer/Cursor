@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { DAILY_STAR_GLYPH } from '@/lib/gamificationGlyphs'
 import {
   buildIdleNowCardView,
   buildMoreEmptyCardView,
@@ -25,7 +26,7 @@ describe('myPlan copy dictionary', () => {
     expect(c.sectionGrowth).toBe('Точки роста')
     expect(c.sectionModes).toBe('С Engvo')
     expect(c.sectionRecommendation).toBe('Рекомендация')
-    expect(c.recOpen).toBe('Звезды ещё нет — это слот Сейчас')
+    expect(c.recOpen).toBe(`${DAILY_STAR_GLYPH} Звезды ещё нет — это слот Сейчас`)
     expect(c.modesMore).toBe('Ещё')
     expect(c.referenceLink).toBe('Справочник')
   })
@@ -96,7 +97,7 @@ describe('myPlan copy dictionary', () => {
     )
     expect(myPlanInviteFromGoalType(undefined)).toBe('С чего начнём?')
     expect(myPlanInviteFromGoalType('open_chat')).toBe('Поговорим в чате?')
-    expect(myPlanInviteFromGoalType('daily')).toBe('Звезда дня')
+    expect(myPlanInviteFromGoalType('daily')).toBe(`${DAILY_STAR_GLYPH} Звезда дня`)
     expect(myPlanButton('play', 'child')).toBe('Играть')
   })
 
@@ -144,12 +145,12 @@ describe('myPlan copy dictionary', () => {
   it('recommendation slot shows live daily status, not a stub', () => {
     const open = buildRecommendationCardView({ audience: 'adult', dailyClosedToday: false, dayXOf7: 2 })
     expect(open.headerTitle).toBe('Рекомендация')
-    expect(open.bodyTitle).toBe('Звезды ещё нет — это слот Сейчас')
+    expect(open.bodyTitle).toBe(`${DAILY_STAR_GLYPH} Звезды ещё нет — это слот Сейчас`)
     expect(open.bodyReason).toBe('День 2 из 7')
     expect(open.footer).toBeNull()
 
     const closed = buildRecommendationCardView({ audience: 'child', dailyClosedToday: true, dayXOf7: 1 })
-    expect(closed.bodyTitle).toBe('Звезда сегодня есть. Календарь — в Прогрессе')
+    expect(closed.bodyTitle).toBe(`${DAILY_STAR_GLYPH} Звезда сегодня есть. Календарь — в Прогрессе`)
     expect(closed.bodyReason).toBe('День 1 из 7')
   })
 })

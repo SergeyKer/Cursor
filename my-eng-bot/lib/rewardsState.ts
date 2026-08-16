@@ -281,6 +281,14 @@ function normalizeSessionCompletedAt(raw: unknown): string | null {
   return getTodayDateString(new Date(parsed))
 }
 
+function closeStampForSessionStatus(
+  status: 'not_started' | 'in_progress' | 'completed' | 'abandoned',
+  raw: unknown
+): string | null {
+  if (status !== 'completed' && status !== 'abandoned') return null
+  return normalizeSessionCompletedAt(raw)
+}
+
 export function calculateLevel(totalXP: number): Pick<GlobalProgressState, 'level' | 'currentLevelXP' | 'xpToNextLevel'> {
   return calculateLevelFromTotalXp(totalXP)
 }
@@ -453,7 +461,6 @@ function abandonTranslationSessionSlice(session: TranslationSessionState): Trans
     sessionXpAwarded: 0,
     status: 'abandoned',
     sessionStartedAt: null,
-    completedAt: null,
     lastAwardedAssistantKey: null,
   }
 }
@@ -489,7 +496,7 @@ export function normalizeTranslationSession(
       sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
       status,
       sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
-      completedAt: status === 'completed' ? normalizeSessionCompletedAt(src.completedAt) : null,
+      completedAt: closeStampForSessionStatus(status, src.completedAt),
       lastAwardedAssistantKey:
         typeof src.lastAwardedAssistantKey === 'string' ? src.lastAwardedAssistantKey : null,
       dailyXpAwarded:
@@ -562,7 +569,6 @@ function abandonDialogueSessionSlice(session: DialogueSessionState): DialogueSes
     sessionXpAwarded: 0,
     status: 'abandoned',
     sessionStartedAt: null,
-    completedAt: null,
     lastAwardedAssistantKey: null,
   }
 }
@@ -601,7 +607,7 @@ export function normalizeDialogueSession(
       sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
       status,
       sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
-      completedAt: status === 'completed' ? normalizeSessionCompletedAt(src.completedAt) : null,
+      completedAt: closeStampForSessionStatus(status, src.completedAt),
       lastAwardedAssistantKey:
         typeof src.lastAwardedAssistantKey === 'string' ? src.lastAwardedAssistantKey : null,
       dailyXpAwarded:
@@ -676,7 +682,6 @@ function abandonCommunicationSessionSlice(
     sessionXpAwarded: 0,
     status: 'abandoned',
     sessionStartedAt: null,
-    completedAt: null,
     lastAwardedAssistantKey: null,
     englishAttemptCount: 0,
     lastStepAwardedXp: 0,
@@ -719,7 +724,7 @@ export function normalizeCommunicationSession(
       sessionXpAwarded: status === 'abandoned' ? 0 : sessionXpAwarded,
       status,
       sessionStartedAt: typeof src.sessionStartedAt === 'string' ? src.sessionStartedAt : null,
-      completedAt: status === 'completed' ? normalizeSessionCompletedAt(src.completedAt) : null,
+      completedAt: closeStampForSessionStatus(status, src.completedAt),
       lastAwardedAssistantKey:
         typeof src.lastAwardedAssistantKey === 'string' ? src.lastAwardedAssistantKey : null,
       dailyXpAwarded:

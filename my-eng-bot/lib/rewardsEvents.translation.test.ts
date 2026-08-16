@@ -129,5 +129,6 @@ describe('translation session rewards', () => {
     expect(state.translationSession.status).toBe('abandoned')
     expect(state.translationSession.progress).toBe(0)
     expect(state.translationSession.dailyXpAwarded).toBe(daily)
+    expect(state.translationSession.completedAt).toBe(getTodayDateString())
   })
 })

@@ -6,7 +6,7 @@ import ProgressAwardsStats from '@/components/progress/ProgressAwardsStats'
 import ProgressCard from '@/components/progress/ProgressCard'
 import ProgressFooterButton from '@/components/progress/ProgressFooterButton'
 import ProgressModeNavRow from '@/components/progress/ProgressModeNavRow'
-import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
+import { DAILY_STAR_GLYPH, DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { CHAT_COMPOSER_STACK_TOP_CLASS, DIALOG_COMPOSER_PADDING_BOTTOM } from '@/lib/chatComposerMetrics'
 import {
   APP_BTN_TERTIARY_BACK,
@@ -479,7 +479,12 @@ export default function ProgressSheetScreen({
       ) : null}
 
       <div className={ZONES_CARD_CLASS}>
-        <p className={`px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>{copy.ritualTitle}</p>
+        <p className={`flex items-center gap-2 px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>
+          <span className="emoji-glyph shrink-0 text-[20px] leading-none" aria-hidden>
+            {DAILY_STAR_GLYPH}
+          </span>
+          <span>{copy.ritualTitle}</span>
+        </p>
         <div className="space-y-1.5 px-4 pb-3 pt-2.5">
           <p className="break-words text-[14px] leading-snug text-[var(--text)]">
             {ritualStatusLine(shelf.dailyStar.dailyClosedToday, copy)}
@@ -507,11 +512,11 @@ export default function ProgressSheetScreen({
       <div className={ZONES_CARD_CLASS}>
         <p className={`px-4 pt-3 pb-1 ${ZONES_HEADER_TITLE}`}>{copy.weakZonesTitle}</p>
         {attentionZones.length === 0 ? (
-          <p className="break-words px-4 pt-2.5 text-[14px] leading-snug text-[var(--text-muted)]">
+          <p className="break-words px-4 pb-3 pt-2.5 text-[14px] leading-snug text-[var(--text-muted)]">
             {copy.weakZonesEmpty}
           </p>
         ) : (
-          <ul className="space-y-4 px-4 pt-2.5">
+          <ul className="space-y-4 px-4 pb-3 pt-2.5">
             {attentionZones.map((z, index) => {
               const target = mapAttentionZoneToTarget(z)
               return (
@@ -560,6 +565,15 @@ export default function ProgressSheetScreen({
               title={row.label}
               metric={row.metric}
               ariaLabel={`${row.label} · ${row.metric}`}
+              disabled={practiceBusy}
+              onClick={() => {
+                trackProgressEvent('progress_mode_strip_click', {
+                  audience,
+                  surface: 'today',
+                  mode: row.id,
+                })
+                launch(row.target, 'today')
+              }}
             />
           ))}
         </div>
@@ -791,7 +805,7 @@ export default function ProgressSheetScreen({
               shelf.dailyStar.history.find((row) => row.date === dayCard.date)?.closedBy,
               copy
             ) ? (
-              <p className="mt-1 break-words text-[14px] leading-snug text-[var(--text)]">
+              <p className="emoji-line mt-1 break-words text-[14px] leading-snug text-[var(--text)]">
                 {formatDailyStarClosedBy(
                   shelf.dailyStar.history.find((row) => row.date === dayCard.date)?.closedBy,
                   copy

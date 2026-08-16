@@ -47,8 +47,8 @@ describe('progressActions', () => {
     ).toEqual({ kind: 'tutor' })
   })
 
-  it('progress screen zone cap is 2, not a second ranker', () => {
-    expect(PROGRESS_SCREEN_ZONE_LIMIT).toBe(2)
+  it('progress screen zone cap matches ranker, not a second scorer', () => {
+    expect(PROGRESS_SCREEN_ZONE_LIMIT).toBe(3)
   })
 
   it('keeps zone map independent from new mode launch kinds', () => {

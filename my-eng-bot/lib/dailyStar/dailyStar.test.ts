@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { collectDailyStarActivity, dayQualifiesForDailyStar } from '@/lib/dailyStar/activity'
 import { closeDailyStarDay, evaluateDailyStar } from '@/lib/dailyStar/evaluate'
+import { communicationCloseStamp } from '@/lib/dailyStar/fromStores'
+import { stampDailyStarClose } from '@/lib/dailyStar/stamp'
+import { loadDailyStarState } from '@/lib/dailyStar/storage'
 import {
   createEmptyDailyStarState,
   emptyDailyStarActivity,
@@ -8,6 +11,7 @@ import {
   type DailyStarClosedBy,
   type DailyStarStoreSlices,
 } from '@/lib/dailyStar/types'
+import { createDefaultRewardsState } from '@/lib/rewardsState'
 
 const TODAY = '2026-08-16'
 const YESTERDAY = '2026-08-15'
@@ -150,5 +154,54 @@ describe('Daily Star lite', () => {
       TODAY
     )
     expect(activity.closedByToday).toBe('practice')
+  })
+})
+
+describe('Daily Star close stamps', () => {
+  const memory: Record<string, string> = {}
+
+  beforeEach(() => {
+    for (const key of Object.keys(memory)) delete memory[key]
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => memory[key] ?? null,
+      setItem: (key: string, value: string) => {
+        memory[key] = value
+      },
+      removeItem: (key: string) => {
+        delete memory[key]
+      },
+      clear: () => {
+        for (const key of Object.keys(memory)) delete memory[key]
+      },
+      key: () => null,
+      length: 0,
+    })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('читает ISO modeGoals, если live-сессия уже сброшена', () => {
+    const rewards = createDefaultRewardsState()
+    rewards.communicationSession.completedAt = null
+    rewards.communicationSession.status = 'abandoned'
+    rewards.modeGoals.communication.sessionCompletedAt = `${TODAY}T18:00:00.000Z`
+    expect(communicationCloseStamp(rewards)).toBe(`${TODAY}T18:00:00.000Z`)
+    expect(collectDailyStarActivity(emptySlices({ communicationCompletedAt: communicationCloseStamp(rewards) }), TODAY).closedByToday).toBe(
+      'communication'
+    )
+  })
+
+  it('штамп 8/8 переживает последующую пустую оценку', () => {
+    const kinds = ['communication', 'translation', 'dialogue', 'engvo', 'practice', 'lesson'] as const
+    for (const closedBy of kinds) {
+      for (const key of Object.keys(memory)) delete memory[key]
+      stampDailyStarClose(closedBy, TODAY)
+      const later = evaluateDailyStar(loadDailyStarState(), emptyDailyStarActivity(), TODAY)
+      expect(later.snapshot.dailyClosedToday, closedBy).toBe(true)
+      expect(later.snapshot.todayClosedBy, closedBy).toBe(closedBy)
+      expect(later.snapshot.rubyAwarded, closedBy).toBe(false)
+    }
   })
 })

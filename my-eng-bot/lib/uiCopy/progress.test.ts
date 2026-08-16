@@ -149,6 +149,9 @@ describe('progress copy', () => {
     expect(formatRitualDayOf7(0)).toBe('День 0 из 7')
     expect(formatRitualDayOf7(3)).toBe('День 3 из 7')
     expect(formatRitualDayOf7(7)).toBe('День 7 из 7')
+    expect(progressCopy('adult').starByLesson.startsWith('\u{1F31F}')).toBe(true)
+    expect(progressCopy('adult').starByLesson).toContain('Звезда дня')
+    expect(progressCopy('adult').ritualTitle).toBe('Звезда дня')
   })
 
   it('formatAttentionZoneMeta joins hint and count', () => {

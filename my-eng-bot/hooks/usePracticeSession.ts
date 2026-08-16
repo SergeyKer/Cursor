@@ -17,6 +17,7 @@ import { resolvePracticeRetryPolicy } from '@/lib/practice/practiceRetryPolicy'
 import type { Audience } from '@/lib/types'
 import { recordPracticeWrongSignal } from '@/lib/learningMemory'
 import { getLessonTopicCatalog } from '@/lib/lessonCatalog'
+import { stampDailyStarClose } from '@/lib/dailyStar/stamp'
 import { practiceStorage, type PracticeStorage } from '@/lib/practice/storage/practiceStorage'
 import { resolvePracticeFlowStateForSession } from '@/lib/practice/practiceSessionFlow'
 import {
@@ -314,6 +315,7 @@ export function usePracticeSession(options: UsePracticeSessionOptions = {}): Pra
       const completed = applyStatus(current, 'completed')
       storage.saveCompletedSession(completed)
       storage.clearActiveSession()
+      stampDailyStarClose('practice')
       setState('completed')
       return completed
     })

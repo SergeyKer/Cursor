@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyRewardsEvent } from './rewardsEvents'
-import { createDefaultRewardsState } from './rewardsState'
+import { createDefaultRewardsState, getTodayDateString } from './rewardsState'
 
 describe('dialogue session rewards', () => {
   it('awards success steps and completes atomically at 8/8', () => {
@@ -90,5 +90,19 @@ describe('dialogue session rewards', () => {
     expect(state.dialogueSession.status).toBe('abandoned')
     expect(state.dialogueSession.progress).toBe(0)
     expect(state.dialogueSession.dailyXpAwarded).toBe(daily)
+  })
+
+  it('keeps Daily Star close stamp after 8/8 abandon', () => {
+    let state = applyRewardsEvent(createDefaultRewardsState(), { type: 'dialogue_session_started' })
+    for (let i = 0; i < 8; i += 1) {
+      state = applyRewardsEvent(state, {
+        type: 'dialogue_step_resolved',
+        outcome: 'success',
+        assistantKey: `star-${i}`,
+      })
+    }
+    state = applyRewardsEvent(state, { type: 'dialogue_session_abandoned' })
+    expect(state.dialogueSession.status).toBe('abandoned')
+    expect(state.dialogueSession.completedAt).toBe(getTodayDateString())
   })
 })

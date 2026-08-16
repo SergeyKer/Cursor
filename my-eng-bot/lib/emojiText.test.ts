@@ -14,6 +14,7 @@ describe('splitLeadingEmoji', () => {
     expect(splitLeadingEmoji('🎯0%')).toEqual({ emoji: '🎯', rest: '0%' })
     expect(splitLeadingEmoji('🔥×0')).toEqual({ emoji: '🔥', rest: '×0' })
     expect(splitLeadingEmoji('⭐0 XP')).toEqual({ emoji: '⭐', rest: '0 XP' })
+    expect(splitLeadingEmoji('\u{1F31F} Звезда дня')).toEqual({ emoji: '\u{1F31F}', rest: ' Звезда дня' })
   })
 
   it('returns null when there is no leading emoji', () => {
