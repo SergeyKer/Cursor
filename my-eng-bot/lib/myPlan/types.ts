@@ -36,6 +36,7 @@ export type NowGoalType =
   | 'incomplete'
   | 'reinforce'
   | 'practice_after_theory'
+  | 'daily'
   | 'next_lesson'
   | 'improve_medal'
   | 'soft_return'
@@ -127,6 +128,9 @@ export interface MyPlanInput {
   /** Лестница чат→звонок (13.08); только вне ступеней 1–3. */
   hadChat?: boolean
   hadCall?: boolean
+  /** Daily Star lite: тот же снимок, что Прогресс. undefined = не вмешиваться в ранкер. */
+  dailyClosedToday?: boolean
+  dayXOf7?: number
 }
 
 export interface MyPlanStatusSlice {
@@ -146,6 +150,8 @@ export interface NowGoalResult {
   tutorTask: MyPlanRecommendation | null
   /** До 3 чипов слота 4; tutorTask = первый. */
   tutorTasks: MyPlanRecommendation[]
+  dailyClosedToday: boolean
+  dayXOf7: number
 }
 
 /** Пороги v1 selectNowGoal. */

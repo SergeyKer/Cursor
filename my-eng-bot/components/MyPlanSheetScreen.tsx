@@ -115,6 +115,8 @@ export default function MyPlanSheetScreen({
         unstartedCount: now.unstartedCount,
         tutorTask: now.tutorTask,
         tutorTasks: now.tutorTasks,
+        dailyClosedToday: now.dailyClosedToday,
+        dayXOf7: now.dayXOf7,
         flat,
       }
     }
@@ -166,6 +168,8 @@ export default function MyPlanSheetScreen({
           unstartedCount={planNow.unstartedCount}
           tutorTask={planNow.tutorTask}
           tutorTasks={planNow.tutorTasks}
+          dailyClosedToday={planNow.dailyClosedToday}
+          dayXOf7={planNow.dayXOf7}
           anchorLevel={settings.level}
           attentionZones={attentionZones}
           modeGap={modeGap}

@@ -68,6 +68,8 @@ export interface MyPlanPanelProps {
   programTask?: MyPlanRecommendation | null
   programStatus?: ProgramStatus
   unstartedCount?: number
+  dailyClosedToday?: boolean
+  dayXOf7?: number
   anchorLevel?: string
   attentionZones?: AttentionZone[]
   modeGap?: { skillTagId: string; title: string } | null
@@ -110,6 +112,8 @@ export default function MyPlanPanel({
   programTask = null,
   programStatus = 'no_catalog',
   unstartedCount = 0,
+  dailyClosedToday = false,
+  dayXOf7 = 0,
   anchorLevel,
   attentionZones = [],
   settings,
@@ -131,6 +135,7 @@ export default function MyPlanPanel({
   const [practiceBusy, setPracticeBusy] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
   const [debugSignals, setDebugSignals] = useState<LearningSignal[]>([])
+  const [modesOpen, setModesOpen] = useState(false)
   const showDebug = isLearningMemoryDebugEnabled()
   const audience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
@@ -740,52 +745,43 @@ export default function MyPlanPanel({
   )
 
   const modesBlock = (
-    <MyPlanCard title={copy.sectionModes}>
-      <div className="space-y-2">
-        {modeDoors.map((row) => (
-          <MyPlanCardFooterButton
-            key={row.id}
-            variant="expand"
-            label={row.label}
-            ariaLabel={row.label}
-            disabled={practiceBusy}
-            onClick={() => void handleModeDoor(row.target)}
-          />
-        ))}
-      </div>
+    <MyPlanCard
+      title={copy.sectionModes}
+      footer={
+        <MyPlanCardFooterButton
+          variant="expand"
+          label={modesOpen ? copy.modesHide : copy.modesMore}
+          ariaLabel={modesOpen ? copy.modesHide : copy.modesMore}
+          onClick={() => setModesOpen((open) => !open)}
+        />
+      }
+    >
+      {modesOpen ? (
+        <div className="space-y-2">
+          {modeDoors.map((row) => (
+            <MyPlanCardFooterButton
+              key={row.id}
+              variant="expand"
+              label={row.label}
+              ariaLabel={row.label}
+              disabled={practiceBusy}
+              onClick={() => void handleModeDoor(row.target)}
+            />
+          ))}
+        </div>
+      ) : (
+        <p className={MY_PLAN_CARD_BODY_REASON}>{copy.modesHint}</p>
+      )}
     </MyPlanCard>
   )
 
-  const recFallback = programTask
-    ? {
-        title: programTask.title,
-        reasonLine: programTask.reasonLine,
-        buttonLabel: programTask.buttonLabel,
-        ariaLabel: programTask.ariaLabel,
-      }
-    : null
-  const recView = buildRecommendationCardView({ audience, fallback: recFallback })
+  const recView = buildRecommendationCardView({
+    audience,
+    dailyClosedToday,
+    dayXOf7,
+  })
   const recBlock = (
-    <MyPlanCard
-      title={recView.headerTitle}
-      footer={
-        recView.footer ? (
-          <MyPlanCardFooterButton
-            variant={recView.footer.variant}
-            label={recView.footer.label}
-            ariaLabel={recView.footer.ariaLabel}
-            disabled={practiceBusy}
-            onClick={() => {
-              if (programTask) {
-                void handleAction(programTask.action, 'secondary')
-                return
-              }
-              void handleAction({ kind: 'quick_practice', entrySource: 'my_plan' }, 'secondary')
-            }}
-          />
-        ) : null
-      }
-    >
+    <MyPlanCard title={recView.headerTitle}>
       <p className={MY_PLAN_CARD_BODY_TITLE}>{recView.bodyTitle}</p>
       <p className={MY_PLAN_CARD_BODY_REASON}>{recView.bodyReason}</p>
     </MyPlanCard>

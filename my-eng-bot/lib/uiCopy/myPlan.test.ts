@@ -25,6 +25,8 @@ describe('myPlan copy dictionary', () => {
     expect(c.sectionGrowth).toBe('Точки роста')
     expect(c.sectionModes).toBe('С Engvo')
     expect(c.sectionRecommendation).toBe('Рекомендация')
+    expect(c.recOpen).toBe('День ещё не закрыт')
+    expect(c.modesMore).toBe('Ещё')
     expect(c.referenceLink).toBe('Справочник')
   })
 
@@ -94,6 +96,7 @@ describe('myPlan copy dictionary', () => {
     )
     expect(myPlanInviteFromGoalType(undefined)).toBe('С чего начнём?')
     expect(myPlanInviteFromGoalType('open_chat')).toBe('Поговорим в чате?')
+    expect(myPlanInviteFromGoalType('daily')).toBe('Закроем день?')
     expect(myPlanButton('play', 'child')).toBe('Играть')
   })
 
@@ -138,10 +141,15 @@ describe('myPlan copy dictionary', () => {
     expect(cont.footer?.label).toBe('Продолжить')
   })
 
-  it('recommendation slot is expand stub', () => {
-    const rec = buildRecommendationCardView({ audience: 'adult' })
-    expect(rec.headerTitle).toBe('Рекомендация')
-    expect(rec.bodyTitle).toContain('скоро')
-    expect(rec.footer?.variant).toBe('expand')
+  it('recommendation slot shows live daily status, not a stub', () => {
+    const open = buildRecommendationCardView({ audience: 'adult', dailyClosedToday: false, dayXOf7: 2 })
+    expect(open.headerTitle).toBe('Рекомендация')
+    expect(open.bodyTitle).toBe('День ещё не закрыт')
+    expect(open.bodyReason).toBe('День 2 из 7')
+    expect(open.footer).toBeNull()
+
+    const closed = buildRecommendationCardView({ audience: 'child', dailyClosedToday: true, dayXOf7: 1 })
+    expect(closed.bodyTitle).toBe('Сегодня закрыт')
+    expect(closed.bodyReason).toBe('День 1 из 7')
   })
 })

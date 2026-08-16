@@ -1,3 +1,5 @@
+import { formatRitualDayOf7 } from '@/lib/uiCopy/progress'
+
 export type MyPlanAudience = 'child' | 'adult'
 
 export type MyPlanWhyKind =
@@ -10,6 +12,7 @@ export type MyPlanWhyKind =
   | 'weak_spot'
   | 'open_chat'
   | 'open_call'
+  | 'daily'
   | 'empty'
 
 export type MyPlanInviteKind =
@@ -22,6 +25,7 @@ export type MyPlanInviteKind =
   | 'weak_spot'
   | 'open_chat'
   | 'open_call'
+  | 'daily'
   | 'empty'
 
 export type MyPlanTopicKind = 'lesson' | 'practice' | 'topic' | 'words' | 'lessons'
@@ -61,9 +65,11 @@ const SECTIONS = {
     zonesEmptyCta: 'Подтянуть аспект',
     zonesRepeat: 'Повторить',
     zonesAlreadyNow: 'Это уже в «Сейчас»',
-    recSoon: 'Дейлик — скоро',
-    recReason: 'Пока без отдельной награды — можно продолжить программу.',
-    recCta: 'Открыть урок',
+    recClosed: 'Сегодня закрыт',
+    recOpen: 'День ещё не закрыт',
+    modesMore: 'Ещё',
+    modesHide: 'Свернуть',
+    modesHint: 'Чат, звонок и другие режимы — в «Ещё».',
     growthEmptyHint: 'Позанимайся — тут появятся живые темы.',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
@@ -92,9 +98,11 @@ const SECTIONS = {
     zonesEmptyCta: 'Подтянуть аспект',
     zonesRepeat: 'Повторить',
     zonesAlreadyNow: 'Это уже в «Сейчас»',
-    recSoon: 'Дейлик — скоро',
-    recReason: 'Пока без отдельной награды — можно продолжить программу.',
-    recCta: 'Открыть урок',
+    recClosed: 'Сегодня закрыт',
+    recOpen: 'День ещё не закрыт',
+    modesMore: 'Ещё',
+    modesHide: 'Свернуть',
+    modesHint: 'Чат, звонок и остальные режимы — в «Ещё».',
     growthEmptyHint: 'Позанимайтесь — здесь появятся живые темы.',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
@@ -114,11 +122,15 @@ const INVITE: Record<MyPlanInviteKind, Record<MyPlanAudience, string>> = {
   weak_spot: { child: 'Подтянем слабое?', adult: 'Подтянем слабое место?' },
   open_chat: { child: 'Поговорим в чате?', adult: 'Поговорим в чате?' },
   open_call: { child: 'Начнём звонок?', adult: 'Начнём звонок?' },
+  daily: { child: 'Закроем день?', adult: 'Закроем день?' },
   empty: { child: 'С чего начнём?', adult: 'С чего начнём?' },
 }
 
 const WHY: Record<
-  Exclude<MyPlanWhyKind, 'reinforce' | 'incomplete' | 'improve_medal' | 'practice_after_theory'>,
+  Exclude<
+    MyPlanWhyKind,
+    'reinforce' | 'incomplete' | 'improve_medal' | 'practice_after_theory' | 'daily'
+  >,
   Record<MyPlanAudience, string>
 > = {
   next: {
@@ -247,6 +259,8 @@ export function myPlanInviteFromGoalType(
       return myPlanNowInvite('open_chat', audience)
     case 'open_call':
       return myPlanNowInvite('open_call', audience)
+    case 'daily':
+      return myPlanNowInvite('daily', audience)
     default:
       return myPlanNowInvite('empty', audience)
   }
@@ -276,6 +290,7 @@ export type MyPlanWhyExtras = {
   zoneLabel?: string
   anchorLevel?: string
   incompleteCount?: number
+  dayXOf7?: number
 }
 
 export function myPlanWhy(
@@ -343,6 +358,13 @@ export function myPlanWhy(
     return a === 'child'
       ? 'Тут часто ошибаешься — поправим.'
       : 'Много ошибок по теме — стоит закрепить.'
+  }
+
+  if (kind === 'daily') {
+    const dayLine = formatRitualDayOf7(extras?.dayXOf7 ?? 0)
+    return a === 'child'
+      ? `Сегодня ещё не закрыт. ${dayLine}`
+      : `День ещё не закрыт. ${dayLine}`
   }
 
   return WHY[kind][a]
@@ -579,25 +601,17 @@ export function buildIdleNowCardView(params?: {
 
 export function buildRecommendationCardView(params: {
   audience?: MyPlanAudience
-  fallback?: {
-    title: string
-    reasonLine: string
-    buttonLabel: string
-    ariaLabel: string
-  } | null
+  dailyClosedToday?: boolean
+  dayXOf7?: number
 }): ProgramCardView {
   const audience = params.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
-  const fallback = params.fallback
+  const closed = params.dailyClosedToday === true
   return {
     headerTitle: copy.sectionRecommendation,
-    bodyTitle: copy.recSoon,
-    bodyReason: fallback?.reasonLine ? `${copy.recReason} ${fallback.reasonLine}` : copy.recReason,
-    footer: {
-      variant: 'expand',
-      label: fallback?.buttonLabel ?? copy.recCta,
-      ariaLabel: fallback?.ariaLabel ?? copy.recCta,
-    },
+    bodyTitle: closed ? copy.recClosed : copy.recOpen,
+    bodyReason: formatRitualDayOf7(params.dayXOf7 ?? 0),
+    footer: null,
   }
 }
 

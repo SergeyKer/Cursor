@@ -390,6 +390,43 @@ function buildOpenCall(audience: MyPlanAudience): MyPlanRecommendation {
   }
 }
 
+function buildDaily(
+  input: MyPlanInput,
+  audience: MyPlanAudience,
+  nextLesson: MyPlanCatalogTopic | null
+): MyPlanRecommendation {
+  const invite = myPlanNowInvite('daily', audience)
+  const reasonLine = myPlanWhy('daily', audience, { dayXOf7: input.dayXOf7 ?? 0 })
+  if (nextLesson) {
+    const title = myPlanTopicLine('lesson', nextLesson.title)
+    return {
+      id: 'daily-star',
+      priority: 4,
+      goalType: 'daily',
+      title,
+      subtitle: '',
+      reasonLine,
+      action: { kind: 'open_lesson', lessonId: nextLesson.id },
+      buttonLabel: myPlanButton('next', audience),
+      ariaLabel: `${invite}: ${nextLesson.title}`,
+      timeLabel: myPlanTimeLabel('medium', audience),
+    }
+  }
+  const title = myPlanTopicLine('practice', MY_PLAN_COPY.softPracticeTopic)
+  return {
+    id: 'daily-star',
+    priority: 4,
+    goalType: 'daily',
+    title,
+    subtitle: '',
+    reasonLine,
+    action: { kind: 'quick_practice', entrySource: 'my_plan' },
+    buttonLabel: myPlanButton('soft_return', audience),
+    ariaLabel: invite,
+    timeLabel: myPlanTimeLabel('short', audience),
+  }
+}
+
 type ModePick = { main: MyPlanRecommendation | null; secondary: MyPlanRecommendation[] }
 
 /** Лестница 13.08: только если нет пожара на ступенях 1–3. */
@@ -526,6 +563,17 @@ function pickByModes(input: MyPlanInput, nowMs: number): ModePick {
     return { main, secondary: dedupeSecondary(main, secondary) }
   }
 
+  // Дейлик lite: не третий ранкер. Только если нет RESCUE/REPAIR (и не CLOSE_LOOP).
+  if (input.dailyClosedToday === false) {
+    const picked = pickProgramLesson({
+      catalog: input.catalog,
+      lessons: input.lessons,
+      anchorLevel: input.anchorLevel,
+    })
+    const nextLesson = picked.status === 'active' && picked.lesson ? picked.lesson : null
+    return { main: buildDaily(input, audience, nextLesson), secondary: [] }
+  }
+
   // 4. Лестница чат→звонок (только вне пожара 1–3)
   const ladder = pickCommunicationLadder(input, audience)
   if (ladder) return ladder
@@ -544,7 +592,7 @@ function pickByModes(input: MyPlanInput, nowMs: number): ModePick {
 
 /**
  * Единый ранкер «что делать сейчас»: 1 main + ≤2 secondary + program compass + status.
- * Modes: RESCUE → REPAIR → CLOSE_LOOP → MASTER.
+ * Modes: RESCUE → REPAIR → CLOSE_LOOP → daily (if open) → ladder → MASTER.
  */
 export function selectNowGoal(input: MyPlanInput): NowGoalResult {
   const nowMs = input.nowMs ?? Date.now()
@@ -576,6 +624,8 @@ export function selectNowGoal(input: MyPlanInput): NowGoalResult {
     unstartedCount: picked.unstartedCount,
     tutorTask: tutorTasks[0] ?? null,
     tutorTasks,
+    dailyClosedToday: input.dailyClosedToday === true,
+    dayXOf7: input.dayXOf7 ?? 0,
     status: {
       dailyStreak: input.rewards.dailyStreak,
       level: input.rewards.level ?? 1,

@@ -430,4 +430,72 @@ describe('selectNowGoal', () => {
     const { mainTask } = selectNowGoal(input)
     expect(mainTask?.goalType).toBe('soft_return')
   })
+
+  it('день не закрыт без RESCUE/REPAIR → Дейлик в «Сейчас», не лестница', () => {
+    const input = emptyInput({
+      dailyClosedToday: false,
+      dayXOf7: 2,
+      hadChat: false,
+      hadCall: false,
+    })
+    const { mainTask, dailyClosedToday } = selectNowGoal(input)
+    expect(dailyClosedToday).toBe(false)
+    expect(mainTask?.goalType).toBe('daily')
+    expect(mainTask?.id).toBe('daily-star')
+    expect(mainTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
+  })
+
+  it('день не закрыт не бьёт RESCUE', () => {
+    const input = emptyInput({
+      dailyClosedToday: false,
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'To be',
+          completedSteps: [1],
+          lastCompleted: '',
+          mistakesCount: 0,
+        },
+      },
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('incomplete')
+  })
+
+  it('день не закрыт не бьёт REPAIR', () => {
+    const input = emptyInput({
+      dailyClosedToday: false,
+      attentionZones: [zone()],
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('reinforce')
+  })
+
+  it('день не закрыт не бьёт CLOSE_LOOP', () => {
+    const input = emptyInput({
+      dailyClosedToday: false,
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'To be',
+          completedSteps: [1, 2, 3],
+          lastCompleted: '2026-05-14T10:00:00.000Z',
+          mistakesCount: 0,
+        },
+      },
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('practice_after_theory')
+  })
+
+  it('день закрыт → лестница жива', () => {
+    const input = emptyInput({
+      catalog: [],
+      dailyClosedToday: true,
+      hadChat: false,
+      hadCall: false,
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('open_chat')
+  })
 })

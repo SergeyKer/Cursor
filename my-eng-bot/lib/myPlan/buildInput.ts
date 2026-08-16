@@ -1,4 +1,5 @@
 import { buildLearnerSnapshot } from '@/lib/adaptiveRetention/learnerSnapshot'
+import { syncDailyStarFromStores } from '@/lib/dailyStar'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { getLessonTopicCatalog } from '@/lib/lessonCatalog'
 import type { RewardsState } from '@/lib/rewardsState'
@@ -84,9 +85,12 @@ export function buildMyPlanLiveInput(
   const rewards = rewardsProp ?? loadRewardsState()
   const snapshot = buildLearnerSnapshot(settings)
   const weakSpots = snapshot.weakSpots.map((w) => ({ id: w.id, label: w.label }))
+  const daily = syncDailyStarFromStores().snapshot
 
   return {
     todayDate: getTodayDateString(),
+    dailyClosedToday: daily.dailyClosedToday,
+    dayXOf7: daily.dayXOf7,
     catalog: getLessonTopicCatalog().map((t) => ({
       id: t.id,
       title: t.title,

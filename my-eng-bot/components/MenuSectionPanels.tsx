@@ -1743,6 +1743,8 @@ export default function MenuSectionPanels({
         unstartedCount: 0,
         tutorTask: null as ReturnType<typeof selectNowGoal>['tutorTask'],
         tutorTasks: [] as ReturnType<typeof selectNowGoal>['tutorTasks'],
+        dailyClosedToday: false,
+        dayXOf7: 0,
         flat: [] as ReturnType<typeof getMyPlanRecommendations>,
       }
     }
@@ -1767,6 +1769,8 @@ export default function MenuSectionPanels({
         unstartedCount: now.unstartedCount,
         tutorTask: now.tutorTask,
         tutorTasks: now.tutorTasks,
+        dailyClosedToday: now.dailyClosedToday,
+        dayXOf7: now.dayXOf7,
         flat,
       }
     }
@@ -5419,6 +5423,8 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             unstartedCount={myPlanNow.unstartedCount}
             tutorTask={myPlanNow.tutorTask}
             tutorTasks={myPlanNow.tutorTasks}
+            dailyClosedToday={myPlanNow.dailyClosedToday}
+            dayXOf7={myPlanNow.dayXOf7}
             anchorLevel={settings.level}
             attentionZones={myPlanAttentionZones}
             modeGap={myPlanModeGap}
