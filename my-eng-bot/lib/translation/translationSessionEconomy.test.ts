@@ -55,6 +55,7 @@ describe('translationSessionEconomy', () => {
       sessionXpAwarded: 0,
       status: 'not_started',
       sessionStartedAt: null,
+      completedAt: null,
       lastAwardedAssistantKey: null,
       dailyXpAwarded: 0,
       dailyXpDate: null,

@@ -26,6 +26,7 @@ import {
   myPlanWhy,
   type MyPlanAudience,
 } from '@/lib/uiCopy/myPlan'
+import { dailyStarActionTitle, pickDailyStarAction } from '@/lib/myPlan/pickDailyStarAction'
 import { catalogLevelToLevelId } from '@/lib/lessonCatalog'
 import { selectTutorTasks } from '@/lib/tutor/selectTutorTask'
 
@@ -390,40 +391,29 @@ function buildOpenCall(audience: MyPlanAudience): MyPlanRecommendation {
   }
 }
 
-function buildDaily(
-  input: MyPlanInput,
-  audience: MyPlanAudience,
-  nextLesson: MyPlanCatalogTopic | null
-): MyPlanRecommendation {
+function buildDaily(input: MyPlanInput, audience: MyPlanAudience): MyPlanRecommendation {
+  const action = pickDailyStarAction(input.dailyStar)
   const invite = myPlanNowInvite('daily', audience)
-  const reasonLine = myPlanWhy('daily', audience, { dayXOf7: input.dayXOf7 ?? 0 })
-  if (nextLesson) {
-    const title = myPlanTopicLine('lesson', nextLesson.title)
-    return {
-      id: 'daily-star',
-      priority: 4,
-      goalType: 'daily',
-      title,
-      subtitle: '',
-      reasonLine,
-      action: { kind: 'open_lesson', lessonId: nextLesson.id },
-      buttonLabel: myPlanButton('next', audience),
-      ariaLabel: `${invite}: ${nextLesson.title}`,
-      timeLabel: myPlanTimeLabel('medium', audience),
-    }
-  }
-  const title = myPlanTopicLine('practice', MY_PLAN_COPY.softPracticeTopic)
+  const modeTitle = dailyStarActionTitle(action)
+  const reasonLine = `${modeTitle}. ${myPlanWhy('daily', audience, { dayXOf7: input.dayXOf7 ?? 0 })}`
+  const buttonKind =
+    action.kind === 'open_engvo' ? 'open_call' : action.kind === 'quick_practice' ? 'soft_return' : 'open_chat'
   return {
     id: 'daily-star',
     priority: 4,
     goalType: 'daily',
-    title,
+    title: invite,
     subtitle: '',
     reasonLine,
-    action: { kind: 'quick_practice', entrySource: 'my_plan' },
-    buttonLabel: myPlanButton('soft_return', audience),
-    ariaLabel: invite,
-    timeLabel: myPlanTimeLabel('short', audience),
+    action,
+    buttonLabel:
+      action.kind === 'open_translation' || action.kind === 'open_dialogue'
+        ? audience === 'child'
+          ? 'Добить 8/8'
+          : 'Закрыть 8/8'
+        : myPlanButton(buttonKind, audience),
+    ariaLabel: `${invite}: ${modeTitle}`,
+    timeLabel: myPlanTimeLabel('medium', audience),
   }
 }
 
@@ -565,13 +555,7 @@ function pickByModes(input: MyPlanInput, nowMs: number): ModePick {
 
   // Дейлик lite: не третий ранкер. Только если нет RESCUE/REPAIR (и не CLOSE_LOOP).
   if (input.dailyClosedToday === false) {
-    const picked = pickProgramLesson({
-      catalog: input.catalog,
-      lessons: input.lessons,
-      anchorLevel: input.anchorLevel,
-    })
-    const nextLesson = picked.status === 'active' && picked.lesson ? picked.lesson : null
-    return { main: buildDaily(input, audience, nextLesson), secondary: [] }
+    return { main: buildDaily(input, audience), secondary: [] }
   }
 
   // 4. Лестница чат→звонок (только вне пожара 1–3)

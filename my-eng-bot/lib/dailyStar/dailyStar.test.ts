@@ -3,17 +3,26 @@ import { collectDailyStarActivity, dayQualifiesForDailyStar } from '@/lib/dailyS
 import { closeDailyStarDay, evaluateDailyStar } from '@/lib/dailyStar/evaluate'
 import {
   createEmptyDailyStarState,
-  DAILY_STAR_TUTOR_FAQ_MIN,
   emptyDailyStarActivity,
   type DailyStarActivity,
+  type DailyStarClosedBy,
+  type DailyStarStoreSlices,
 } from '@/lib/dailyStar/types'
 
 const TODAY = '2026-08-16'
 const YESTERDAY = '2026-08-15'
 const TOMORROW = '2026-08-17'
 
-function lessonActivity(count = 1): DailyStarActivity {
-  return { ...emptyDailyStarActivity(), lessonCount: count }
+function closed(closedByToday: DailyStarClosedBy): DailyStarActivity {
+  return { closedByToday }
+}
+
+function emptySlices(overrides: Partial<DailyStarStoreSlices> = {}): DailyStarStoreSlices {
+  return {
+    lessons: [],
+    practiceSessions: [],
+    ...overrides,
+  }
 }
 
 function atNoon(date: string): number {
@@ -27,51 +36,58 @@ describe('Daily Star lite', () => {
     expect(snapshot.dayXOf7).toBe(0)
     expect(snapshot.seriesToward7).toBe(0)
     expect(snapshot.rubyAwarded).toBe(false)
+    expect(snapshot.lifetimeStars).toBe(0)
+    expect(snapshot.history).toEqual([])
     expect(state).toEqual(createEmptyDailyStarState())
   })
 
-  it('один урок → день закрыт, день 1 из 7, рубин не начисляется', () => {
-    const { state, snapshot } = evaluateDailyStar(createEmptyDailyStarState(), lessonActivity(1), TODAY)
+  it('один урок с датой сдачи → день закрыт, день 1 из 7, рубин не начисляется', () => {
+    const { state, snapshot } = evaluateDailyStar(createEmptyDailyStarState(), closed('lesson'), TODAY)
     expect(snapshot.dailyClosedToday).toBe(true)
     expect(snapshot.dayXOf7).toBe(1)
     expect(snapshot.seriesToward7).toBe(1)
     expect(snapshot.lastClosedDate).toBe(TODAY)
     expect(snapshot.seriesCollected).toBe(false)
     expect(snapshot.rubyAwarded).toBe(false)
+    expect(snapshot.lifetimeStars).toBe(1)
+    expect(snapshot.todayClosedBy).toBe('lesson')
     expect(state.lastClosedDate).toBe(TODAY)
+    expect(state.history).toEqual([{ date: TODAY, closedBy: 'lesson' }])
   })
 
-  it('два закрытия в один день ≠ две звезды', () => {
-    const first = evaluateDailyStar(createEmptyDailyStarState(), lessonActivity(1), TODAY)
-    const second = evaluateDailyStar(first.state, lessonActivity(2), TODAY)
+  it('два закрытия в один день ≠ две звезды и closedBy не переписывается', () => {
+    const first = evaluateDailyStar(createEmptyDailyStarState(), closed('communication'), TODAY)
+    const second = evaluateDailyStar(first.state, closed('translation'), TODAY)
     expect(second.snapshot.dailyClosedToday).toBe(true)
     expect(second.snapshot.dayXOf7).toBe(1)
     expect(second.snapshot.seriesToward7).toBe(1)
+    expect(second.snapshot.todayClosedBy).toBe('communication')
     expect(second.state).toEqual(first.state)
-    expect(closeDailyStarDay(first.state, TODAY)).toBe(first.state)
+    expect(closeDailyStarDay(first.state, TODAY, 'translation')).toBe(first.state)
   })
 
   it('смена даты без активности → новый день не закрыт, серия жива', () => {
-    const closed = evaluateDailyStar(createEmptyDailyStarState(), lessonActivity(1), TODAY)
-    const nextMorning = evaluateDailyStar(closed.state, emptyDailyStarActivity(), TOMORROW)
+    const closedDay = evaluateDailyStar(createEmptyDailyStarState(), closed('lesson'), TODAY)
+    const nextMorning = evaluateDailyStar(closedDay.state, emptyDailyStarActivity(), TOMORROW)
     expect(nextMorning.snapshot.dailyClosedToday).toBe(false)
     expect(nextMorning.snapshot.lastClosedDate).toBe(TODAY)
     expect(nextMorning.snapshot.dayXOf7).toBe(1)
     expect(nextMorning.snapshot.seriesToward7).toBe(1)
-    expect(nextMorning.state).toEqual(closed.state)
+    expect(nextMorning.state).toEqual(closedDay.state)
   })
 
   it('смена даты + урок → серия +1, всё ещё один зачёт за день', () => {
-    const day1 = evaluateDailyStar(createEmptyDailyStarState(), lessonActivity(1), TODAY)
-    const day2 = evaluateDailyStar(day1.state, lessonActivity(1), TOMORROW)
+    const day1 = evaluateDailyStar(createEmptyDailyStarState(), closed('lesson'), TODAY)
+    const day2 = evaluateDailyStar(day1.state, closed('lesson'), TOMORROW)
     expect(day2.snapshot.dailyClosedToday).toBe(true)
     expect(day2.snapshot.dayXOf7).toBe(2)
+    expect(day2.snapshot.lifetimeStars).toBe(2)
     expect(day2.snapshot.rubyAwarded).toBe(false)
   })
 
   it('разрыв в датах сбрасывает серию к 1', () => {
-    const day1 = evaluateDailyStar(createEmptyDailyStarState(), lessonActivity(1), YESTERDAY)
-    const afterGap = evaluateDailyStar(day1.state, lessonActivity(1), TOMORROW)
+    const day1 = evaluateDailyStar(createEmptyDailyStarState(), closed('lesson'), YESTERDAY)
+    const afterGap = evaluateDailyStar(day1.state, closed('lesson'), TOMORROW)
     expect(afterGap.snapshot.seriesToward7).toBe(1)
     expect(afterGap.snapshot.dayXOf7).toBe(1)
   })
@@ -80,39 +96,59 @@ describe('Daily Star lite', () => {
     let state = createEmptyDailyStarState()
     for (let day = 1; day <= 7; day += 1) {
       const date = `2026-08-${String(day).padStart(2, '0')}`
-      const result = evaluateDailyStar(state, lessonActivity(1), date)
+      const result = evaluateDailyStar(state, closed('lesson'), date)
       state = result.state
       expect(result.snapshot.rubyAwarded).toBe(false)
     }
     expect(state.seriesToward7).toBe(7)
     expect(state.seriesCollected).toBe(true)
+    expect(state.lifetimeStars).toBe(7)
   })
 
-  it('практика / слова / произношение / 3 FAQ закрывают день, 2 FAQ — нет', () => {
-    expect(dayQualifiesForDailyStar({ ...emptyDailyStarActivity(), practiceCount: 1 })).toBe(true)
-    expect(dayQualifiesForDailyStar({ ...emptyDailyStarActivity(), vocabCount: 1 })).toBe(true)
-    expect(dayQualifiesForDailyStar({ ...emptyDailyStarActivity(), pronunciationCount: 1 })).toBe(true)
-    expect(dayQualifiesForDailyStar({ ...emptyDailyStarActivity(), tutorFaqCount: DAILY_STAR_TUTOR_FAQ_MIN - 1 })).toBe(
-      false
-    )
-    expect(dayQualifiesForDailyStar({ ...emptyDailyStarActivity(), tutorFaqCount: DAILY_STAR_TUTOR_FAQ_MIN })).toBe(true)
+  it('практика закрывает день; слова / FAQ / шаг урока — нет', () => {
+    expect(dayQualifiesForDailyStar(closed('practice'))).toBe(true)
+    expect(dayQualifiesForDailyStar(emptyDailyStarActivity())).toBe(false)
+    expect(
+      collectDailyStarActivity(
+        emptySlices({ lessons: [{ lessonCompletedAt: null }] }),
+        TODAY
+      ).closedByToday
+    ).toBeNull()
   })
 
-  it('collect считает только события выбранного дня', () => {
+  it('8/8 общения сегодня закрывает; leftover completed вчера — нет', () => {
+    expect(
+      collectDailyStarActivity(emptySlices({ communicationCompletedAt: TODAY }), TODAY).closedByToday
+    ).toBe('communication')
+    expect(
+      collectDailyStarActivity(emptySlices({ communicationCompletedAt: YESTERDAY }), TODAY).closedByToday
+    ).toBeNull()
+  })
+
+  it('перевод 8/8 и звонок 7/7 закрывают; порядок closedBy — общение раньше перевода', () => {
+    expect(
+      collectDailyStarActivity(emptySlices({ translationCompletedAt: TODAY }), TODAY).closedByToday
+    ).toBe('translation')
+    expect(
+      collectDailyStarActivity(emptySlices({ engvoCompletedAt: `${TODAY}T18:00:00.000Z` }), TODAY).closedByToday
+    ).toBe('engvo')
+    expect(
+      collectDailyStarActivity(
+        emptySlices({ communicationCompletedAt: TODAY, translationCompletedAt: TODAY }),
+        TODAY
+      ).closedByToday
+    ).toBe('communication')
+  })
+
+  it('collect считает только закрытия выбранного дня', () => {
     const activity = collectDailyStarActivity(
-      {
-        lessons: [{ lastCompleted: `${TODAY}T10:00:00.000Z` }, { lastCompleted: `${YESTERDAY}T10:00:00.000Z` }],
+      emptySlices({
+        lessons: [{ lessonCompletedAt: TODAY }, { lessonCompletedAt: YESTERDAY }],
         practiceSessions: [{ completedAt: atNoon(TODAY) }, { completedAt: null }],
-        vocabHistory: [{ completedAt: atNoon(YESTERDAY) }],
-        accent: [{ completedDates: [`${TODAY}T18:00:00.000Z`] }],
-        tutorFaqShown: [{ at: atNoon(TODAY) }, { at: atNoon(TODAY) }, { at: atNoon(YESTERDAY) }],
-      },
+        communicationCompletedAt: YESTERDAY,
+      }),
       TODAY
     )
-    expect(activity.lessonCount).toBe(1)
-    expect(activity.practiceCount).toBe(1)
-    expect(activity.vocabCount).toBe(0)
-    expect(activity.pronunciationCount).toBe(1)
-    expect(activity.tutorFaqCount).toBe(2)
+    expect(activity.closedByToday).toBe('practice')
   })
 })

@@ -31,6 +31,8 @@ export type MyPlanAction =
     }
   | { kind: 'open_communication' }
   | { kind: 'open_engvo' }
+  | { kind: 'open_translation' }
+  | { kind: 'open_dialogue' }
 
 export type NowGoalType =
   | 'incomplete'
@@ -131,6 +133,8 @@ export interface MyPlanInput {
   /** Daily Star lite: тот же снимок, что Прогресс. undefined = не вмешиваться в ранкер. */
   dailyClosedToday?: boolean
   dayXOf7?: number
+  /** Метры режимов для CTA дейлика. Нет поля → общение 8/8. */
+  dailyStar?: import('@/lib/myPlan/pickDailyStarAction').DailyStarPickInput
 }
 
 export interface MyPlanStatusSlice {

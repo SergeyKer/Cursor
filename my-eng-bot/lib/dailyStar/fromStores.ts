@@ -1,21 +1,30 @@
-import { listAccentLessonProgress } from '@/lib/accent/progressStorage'
 import { collectDailyStarActivity } from '@/lib/dailyStar/activity'
 import { evaluateDailyStar } from '@/lib/dailyStar/evaluate'
 import { loadDailyStarState, saveDailyStarState } from '@/lib/dailyStar/storage'
 import type { DailyStarActivity, DailyStarSnapshot, DailyStarState } from '@/lib/dailyStar/types'
 import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { practiceStorage } from '@/lib/practice/storage/practiceStorage'
-import { getTodayDateString } from '@/lib/rewardsState'
-import { listShownFaqEntries } from '@/lib/tutor/localFaq'
-import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
+import { getTodayDateString, loadRewardsState } from '@/lib/rewardsState'
 
 export function readDailyStarActivity(today: string = getTodayDateString()): DailyStarActivity {
-  const lessons = Object.values(loadLessonProgressMap()).map((row) => ({ lastCompleted: row.lastCompleted }))
-  const practiceSessions = practiceStorage.listCompletedSessions().map((row) => ({ completedAt: row.completedAt }))
-  const vocabHistory = loadVocabularyProgress().history.map((row) => ({ completedAt: row.completedAt }))
-  const accent = listAccentLessonProgress().map((row) => ({ completedDates: row.completedDates }))
-  const tutorFaqShown = listShownFaqEntries().map((row) => ({ at: row.at }))
-  return collectDailyStarActivity({ lessons, practiceSessions, vocabHistory, accent, tutorFaqShown }, today)
+  const rewards = loadRewardsState()
+  const lessons = Object.values(loadLessonProgressMap()).map((row) => ({
+    lessonCompletedAt: row.lessonCompletedAt ?? null,
+  }))
+  const practiceSessions = practiceStorage.listCompletedSessions().map((row) => ({
+    completedAt: row.completedAt,
+  }))
+  return collectDailyStarActivity(
+    {
+      communicationCompletedAt: rewards.communicationSession.completedAt,
+      translationCompletedAt: rewards.translationSession.completedAt,
+      dialogueCompletedAt: rewards.dialogueSession.completedAt,
+      engvoCompletedAt: rewards.modeGoals.engvo.sessionCompletedAt,
+      lessons,
+      practiceSessions,
+    },
+    today
+  )
 }
 
 export function syncDailyStarFromStores(today: string = getTodayDateString()): {

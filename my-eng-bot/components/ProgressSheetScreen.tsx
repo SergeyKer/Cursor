@@ -58,6 +58,7 @@ import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
 import {
   formatAttentionZoneMeta,
+  formatDailyStarClosedBy,
   formatRitualDayOf7,
   progressCopy,
   ritualStatusLine,
@@ -254,9 +255,9 @@ export default function ProgressSheetScreen({
   )
 
   const activeDays = rewardsState?.progress.activeDays ?? []
-  const monthGrid = useMemo(() => buildMonthActivityGrid(activeDays), [activeDays])
+  const starDates = (shelf.dailyStar.history ?? []).map((row) => row.date)
+  const monthGrid = useMemo(() => buildMonthActivityGrid(starDates), [starDates])
   const today = getTodayDateString()
-  const todayActive = activeDays.includes(today)
 
   const dayCard = useMemo((): DayActivityCardModel | null => {
     if (detail !== 'calendar') return null
@@ -486,6 +487,20 @@ export default function ProgressSheetScreen({
           <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
             {formatRitualDayOf7(shelf.dailyStar.dayXOf7)}
           </p>
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
+            {copy.ritualLifetime}: {shelf.dailyStar.lifetimeStars}
+          </p>
+          {!shelf.dailyStar.dailyClosedToday ? (
+            <button
+              type="button"
+              className={STATUS_INSET_LAUNCH_BTN}
+              aria-label={copy.ritualHowToGet}
+              disabled={practiceBusy}
+              onClick={() => launch({ kind: 'my_plan' }, 'status')}
+            >
+              <span className="min-w-0 break-words">{copy.ritualHowToGet}</span>
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -583,22 +598,19 @@ export default function ProgressSheetScreen({
         </div>
       </ProgressCard>
 
-      {activeDays.length > 0 ? (
-        <ProgressCard
-          title={copy.calendarTitle}
-          footer={
-            todayActive ? (
-              <ProgressFooterButton
-                variant="expand"
-                label={copy.calendarOpen}
-                onClick={() => {
-                  setSelectedDate(today)
-                  launch({ kind: 'detail', detail: 'calendar' }, 'calendar')
-                }}
-              />
-            ) : null
-          }
-        >
+      <ProgressCard
+        title={copy.calendarTitle}
+        footer={
+          <ProgressFooterButton
+            variant="expand"
+            label={copy.calendarOpen}
+            onClick={() => {
+              setSelectedDate(today)
+              launch({ kind: 'detail', detail: 'calendar' }, 'calendar')
+            }}
+          />
+        }
+      >
           <div className="grid grid-cols-7 gap-1">
             {monthGrid.cells.map((cell, i) =>
               cell.date && cell.inMonth ? (
@@ -634,26 +646,7 @@ export default function ProgressSheetScreen({
               )
             )}
           </div>
-          {!todayActive ? (
-            <button
-              type="button"
-              className={STATUS_INSET_LAUNCH_BTN}
-              aria-label={copy.calendarDoToday}
-              disabled={practiceBusy}
-              onClick={() => {
-                trackProgressEvent('progress_footer_click', {
-                  audience,
-                  surface: 'calendar',
-                  variant: 'launch',
-                })
-                saveStreak()
-              }}
-            >
-              <span className="min-w-0 break-words">{copy.calendarDoToday}</span>
-            </button>
-          ) : null}
         </ProgressCard>
-      ) : null}
 
       <ProgressCard
         title={copy.remarksTitle}
@@ -794,6 +787,17 @@ export default function ProgressSheetScreen({
             <p className="break-words text-[15px] font-semibold text-[var(--text)]">
               {formatCalendarDayHeading(dayCard.date)}
             </p>
+            {formatDailyStarClosedBy(
+              shelf.dailyStar.history.find((row) => row.date === dayCard.date)?.closedBy,
+              copy
+            ) ? (
+              <p className="mt-1 break-words text-[14px] leading-snug text-[var(--text)]">
+                {formatDailyStarClosedBy(
+                  shelf.dailyStar.history.find((row) => row.date === dayCard.date)?.closedBy,
+                  copy
+                )}
+              </p>
+            ) : null}
             {dayCard.items.length > 0 ? (
               <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
                 {formatDaySessionCount(dayCard.totalCount)}

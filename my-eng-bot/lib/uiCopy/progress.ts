@@ -1,4 +1,4 @@
-import { DAILY_STAR_SERIES_TARGET } from '@/lib/dailyStar/types'
+import { DAILY_STAR_SERIES_TARGET, type DailyStarClosedBy } from '@/lib/dailyStar/types'
 import { PRACTICE_RING_MAX } from '@/lib/practice/practiceGlyphs'
 
 export type ProgressAudience = 'child' | 'adult'
@@ -99,6 +99,15 @@ const SECTIONS = {
     ritualTitle: 'Звезда дня',
     ritualClosed: 'Закрыт',
     ritualOpen: 'Не закрыт',
+    ritualHowToGet: 'Как получить',
+    ritualLifetime: 'Всего',
+    starByCommunication: 'Звезда дня: общение',
+    starByTranslation: 'Звезда дня: перевод',
+    starByDialogue: 'Звезда дня: диалог',
+    starByEngvo: 'Звезда дня: звонок',
+    starByPractice: 'Звезда дня: практика',
+    starByLesson: 'Звезда дня: урок',
+    starByLegacy: 'Звезда дня',
     balanceEconomyLater: 'Рубин/Алмаз — позже',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
@@ -199,6 +208,15 @@ const SECTIONS = {
     ritualTitle: 'Звезда дня',
     ritualClosed: 'Закрыт',
     ritualOpen: 'Не закрыт',
+    ritualHowToGet: 'Как получить',
+    ritualLifetime: 'Всего',
+    starByCommunication: 'Звезда дня: общение',
+    starByTranslation: 'Звезда дня: перевод',
+    starByDialogue: 'Звезда дня: диалог',
+    starByEngvo: 'Звезда дня: звонок',
+    starByPractice: 'Звезда дня: практика',
+    starByLesson: 'Звезда дня: урок',
+    starByLegacy: 'Звезда дня',
     balanceEconomyLater: 'Рубин/Алмаз — позже',
     startLessonRow: 'Открыть урок',
     startPracticeRow: 'Практика',
@@ -232,6 +250,31 @@ export function formatRitualDayOf7(dayX: number, target = DAILY_STAR_SERIES_TARG
 
 export function ritualStatusLine(closedToday: boolean, copy: ProgressCopy): string {
   return closedToday ? copy.ritualClosed : copy.ritualOpen
+}
+
+export function formatDailyStarClosedBy(
+  closedBy: DailyStarClosedBy | null | undefined,
+  copy: ProgressCopy
+): string | null {
+  if (!closedBy) return null
+  switch (closedBy) {
+    case 'communication':
+      return copy.starByCommunication
+    case 'translation':
+      return copy.starByTranslation
+    case 'dialogue':
+      return copy.starByDialogue
+    case 'engvo':
+      return copy.starByEngvo
+    case 'practice':
+      return copy.starByPractice
+    case 'lesson':
+      return copy.starByLesson
+    case 'legacy':
+      return copy.starByLegacy
+    default:
+      return copy.starByLegacy
+  }
 }
 
 function ruCountWord(n: number, one: string, few: string, many: string): string {

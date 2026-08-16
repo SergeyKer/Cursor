@@ -14,6 +14,8 @@ export type CommunicationSessionState = {
   sessionXpAwarded: number
   status: CommunicationSessionStatus
   sessionStartedAt: string | null
+  /** YYYY-MM-DD of 8/8 close; leftover completed without this date does not count. */
+  completedAt: string | null
   lastAwardedAssistantKey: string | null
   dailyXpAwarded: number
   dailyXpDate: string | null
@@ -30,6 +32,7 @@ export function createDefaultCommunicationSession(): CommunicationSessionState {
     sessionXpAwarded: 0,
     status: 'not_started',
     sessionStartedAt: null,
+    completedAt: null,
     lastAwardedAssistantKey: null,
     dailyXpAwarded: 0,
     dailyXpDate: null,

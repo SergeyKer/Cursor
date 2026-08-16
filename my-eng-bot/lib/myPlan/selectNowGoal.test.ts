@@ -442,7 +442,7 @@ describe('selectNowGoal', () => {
     expect(dailyClosedToday).toBe(false)
     expect(mainTask?.goalType).toBe('daily')
     expect(mainTask?.id).toBe('daily-star')
-    expect(mainTask?.action).toEqual({ kind: 'open_lesson', lessonId: '1' })
+    expect(mainTask?.action).toEqual({ kind: 'open_communication' })
   })
 
   it('день не закрыт не бьёт RESCUE', () => {

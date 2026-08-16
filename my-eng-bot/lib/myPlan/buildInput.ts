@@ -4,6 +4,7 @@ import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
 import { getLessonTopicCatalog } from '@/lib/lessonCatalog'
 import type { RewardsState } from '@/lib/rewardsState'
 import { getTodayDateString, loadRewardsState } from '@/lib/rewardsState'
+import { featureFlags } from '@/lib/featureFlags'
 import { practiceStorage } from '@/lib/practice/storage/practiceStorage'
 import type { Settings } from '@/lib/types'
 import { normalizeAnchorLevel } from '@/lib/myPlan/pickProgramLesson'
@@ -72,6 +73,39 @@ function mapPracticeSessions(): MyPlanPracticeSessionSlice[] {
   }))
 }
 
+function meterFromSession(session: {
+  status: string
+  progress: number
+  target: number
+  completedAt?: string | null
+}) {
+  return {
+    status: session.status,
+    progress: session.progress,
+    target: session.target,
+    completedAt: session.completedAt ?? null,
+  }
+}
+
+function mapDailyStar(state: RewardsState): MyPlanInput['dailyStar'] {
+  const engvo = state.modeGoals.engvo
+  const active = practiceStorage.loadActiveSession()
+  return {
+    todayDate: getTodayDateString(),
+    communication: meterFromSession(state.communicationSession),
+    translation: meterFromSession(state.translationSession),
+    dialogue: meterFromSession(state.dialogueSession),
+    engvo: {
+      status: engvo.status,
+      progress: engvo.goalProgress,
+      target: engvo.goalTarget,
+      completedAt: engvo.sessionCompletedAt,
+    },
+    practiceInProgress: active != null && active.status === 'active',
+    engvoVoiceEnabled: featureFlags.engvoVoiceV1,
+  }
+}
+
 /** Сбор входа на клиенте из существующих сторов (без дублирования «бог-состояния»). */
 export function buildMyPlanLiveInput(
   settings: Settings,
@@ -91,6 +125,7 @@ export function buildMyPlanLiveInput(
     todayDate: getTodayDateString(),
     dailyClosedToday: daily.dailyClosedToday,
     dayXOf7: daily.dayXOf7,
+    dailyStar: mapDailyStar(rewards),
     catalog: getLessonTopicCatalog().map((t) => ({
       id: t.id,
       title: t.title,

@@ -23,6 +23,8 @@ export interface UserLessonProgress {
   bestTotalXp: number
   medal: LessonMedalTierOrNull
   lessonCompleted?: boolean
+  /** Local YYYY-MM-DD of lesson submit. Not in CloudLessonProgressV1. */
+  lessonCompletedAt?: string
   lessonBadgeEarned?: boolean
   lessonBadgeEarnedAt?: string
   lessonBadgeCriteriaMet?: string[]

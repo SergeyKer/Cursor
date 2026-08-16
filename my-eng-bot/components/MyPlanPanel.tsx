@@ -262,6 +262,14 @@ export default function MyPlanPanel({
           onMarkOpenedFromMyPlan?.()
           await onLaunchTarget?.({ kind: 'engvo' })
           return
+        case 'open_translation':
+          onMarkOpenedFromMyPlan?.()
+          await onLaunchTarget?.({ kind: 'translation' })
+          return
+        case 'open_dialogue':
+          onMarkOpenedFromMyPlan?.()
+          await onLaunchTarget?.({ kind: 'dialogue' })
+          return
         case 'start_practice':
           await runPractice({
             lessonId: action.lessonId,
@@ -538,6 +546,10 @@ export default function MyPlanPanel({
     >
       <p className={MY_PLAN_CARD_BODY_TITLE}>{nowView.bodyTitle}</p>
       <p className={MY_PLAN_CARD_BODY_REASON}>{nowView.bodyReason}</p>
+      {!dailyClosedToday &&
+      (resolvedMain?.goalType === 'incomplete' || resolvedMain?.goalType === 'practice_after_theory') ? (
+        <p className={MY_PLAN_CARD_BODY_REASON}>{copy.starClosesWithThis}</p>
+      ) : null}
       {extra ? (
         <div className="space-y-1.5 pt-1">
           <p className={MY_PLAN_CARD_BODY_REASON}>

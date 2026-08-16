@@ -6,6 +6,7 @@ import {
   resolveMedalFromCoreXp,
   upgradeMedal,
 } from '@/lib/lessonScore'
+import { getTodayDateString } from '@/lib/rewardsState'
 import type { UserLessonProgress } from '@/types/userProgress'
 
 export function migrateUserLessonProgress(
@@ -77,6 +78,9 @@ export function migrateUserLessonProgress(
         )
       : [],
     lastCompleted: typeof row.lastCompleted === 'string' ? row.lastCompleted : '',
+    ...(typeof row.lessonCompletedAt === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(row.lessonCompletedAt)
+      ? { lessonCompletedAt: row.lessonCompletedAt }
+      : {}),
     ...(typeof row.postLessonChoice === 'string' ? { postLessonChoice: row.postLessonChoice } : {}),
     cycle1Started: row.cycle1Started === true,
     cycle1Closed: row.cycle1Closed === true,
@@ -136,6 +140,7 @@ export function mergeLessonProgressOnComplete(
       bestTotalXp,
       medal: mergedMedal,
       lessonCompleted: true,
+      lessonCompletedAt: getTodayDateString(),
       lastCompleted: new Date().toISOString(),
       mistakes: session.mistakes,
       postLessonChoice: session.postLessonChoice,

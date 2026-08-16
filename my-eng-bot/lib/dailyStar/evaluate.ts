@@ -1,6 +1,22 @@
 import { daysBetweenCalendarDates } from '@/lib/streakStatus'
-import { DAILY_STAR_SERIES_TARGET, type DailyStarActivity, type DailyStarSnapshot, type DailyStarState } from '@/lib/dailyStar/types'
+import {
+  DAILY_STAR_HISTORY_CAP,
+  DAILY_STAR_SERIES_TARGET,
+  type DailyStarActivity,
+  type DailyStarClosedBy,
+  type DailyStarHistoryRow,
+  type DailyStarSnapshot,
+  type DailyStarState,
+} from '@/lib/dailyStar/types'
 import { dayQualifiesForDailyStar } from '@/lib/dailyStar/activity'
+
+function todayClosedBy(history: DailyStarHistoryRow[], today: string): DailyStarClosedBy | null {
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const row = history[i]
+    if (row?.date === today) return row.closedBy
+  }
+  return null
+}
 
 function toSnapshot(state: DailyStarState, today: string): DailyStarSnapshot {
   const dailyClosedToday = state.lastClosedDate === today
@@ -14,10 +30,17 @@ function toSnapshot(state: DailyStarState, today: string): DailyStarSnapshot {
     lastClosedDate: state.lastClosedDate,
     seriesCollected: state.seriesCollected,
     rubyAwarded: false,
+    lifetimeStars: state.lifetimeStars,
+    todayClosedBy: todayClosedBy(state.history, today),
+    history: state.history,
   }
 }
 
-export function closeDailyStarDay(state: DailyStarState, today: string): DailyStarState {
+export function closeDailyStarDay(
+  state: DailyStarState,
+  today: string,
+  closedBy: DailyStarClosedBy = 'legacy'
+): DailyStarState {
   if (state.lastClosedDate === today) return state
 
   const consecutive =
@@ -25,10 +48,13 @@ export function closeDailyStarDay(state: DailyStarState, today: string): DailySt
   let series = consecutive ? state.seriesToward7 + 1 : 1
   if (series > DAILY_STAR_SERIES_TARGET) series = 1
 
+  const history = [...state.history, { date: today, closedBy }].slice(-DAILY_STAR_HISTORY_CAP)
   return {
     lastClosedDate: today,
     seriesToward7: series,
     seriesCollected: state.seriesCollected || series === DAILY_STAR_SERIES_TARGET,
+    history,
+    lifetimeStars: history.length,
   }
 }
 
@@ -37,6 +63,9 @@ export function evaluateDailyStar(
   activity: DailyStarActivity,
   today: string
 ): { state: DailyStarState; snapshot: DailyStarSnapshot } {
-  const next = dayQualifiesForDailyStar(activity) ? closeDailyStarDay(state, today) : state
+  const next =
+    dayQualifiesForDailyStar(activity) && activity.closedByToday
+      ? closeDailyStarDay(state, today, activity.closedByToday)
+      : state
   return { state: next, snapshot: toSnapshot(next, today) }
 }

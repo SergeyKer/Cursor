@@ -1,18 +1,30 @@
 export const DAILY_STAR_SERIES_TARGET = 7
-export const DAILY_STAR_TUTOR_FAQ_MIN = 3
+export const DAILY_STAR_HISTORY_CAP = 400
+
+export type DailyStarClosedBy =
+  | 'communication'
+  | 'translation'
+  | 'dialogue'
+  | 'engvo'
+  | 'practice'
+  | 'lesson'
+  | 'legacy'
+
+export type DailyStarHistoryRow = {
+  date: string
+  closedBy: DailyStarClosedBy
+}
 
 export type DailyStarState = {
   lastClosedDate: string | null
   seriesToward7: number
   seriesCollected: boolean
+  history: DailyStarHistoryRow[]
+  lifetimeStars: number
 }
 
 export type DailyStarActivity = {
-  lessonCount: number
-  practiceCount: number
-  vocabCount: number
-  pronunciationCount: number
-  tutorFaqCount: number
+  closedByToday: DailyStarClosedBy | null
 }
 
 export type DailyStarSnapshot = {
@@ -22,14 +34,18 @@ export type DailyStarSnapshot = {
   lastClosedDate: string | null
   seriesCollected: boolean
   rubyAwarded: false
+  lifetimeStars: number
+  todayClosedBy: DailyStarClosedBy | null
+  history: DailyStarHistoryRow[]
 }
 
 export type DailyStarStoreSlices = {
-  lessons: Array<{ lastCompleted: string }>
+  communicationCompletedAt?: string | null
+  translationCompletedAt?: string | null
+  dialogueCompletedAt?: string | null
+  engvoCompletedAt?: string | null
+  lessons: Array<{ lessonCompletedAt?: string | null }>
   practiceSessions: Array<{ completedAt: number | null | undefined }>
-  vocabHistory: Array<{ completedAt: number }>
-  accent: Array<{ completedDates: string[] }>
-  tutorFaqShown: Array<{ at: number }>
 }
 
 export function createEmptyDailyStarState(): DailyStarState {
@@ -37,15 +53,11 @@ export function createEmptyDailyStarState(): DailyStarState {
     lastClosedDate: null,
     seriesToward7: 0,
     seriesCollected: false,
+    history: [],
+    lifetimeStars: 0,
   }
 }
 
 export function emptyDailyStarActivity(): DailyStarActivity {
-  return {
-    lessonCount: 0,
-    practiceCount: 0,
-    vocabCount: 0,
-    pronunciationCount: 0,
-    tutorFaqCount: 0,
-  }
+  return { closedByToday: null }
 }

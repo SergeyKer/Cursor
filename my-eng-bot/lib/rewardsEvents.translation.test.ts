@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { applyRewardsEvent } from './rewardsEvents'
-import { createDefaultRewardsState } from './rewardsState'
+import { createDefaultRewardsState, getTodayDateString } from './rewardsState'
 
 describe('translation session rewards', () => {
   it('awards success steps and completes atomically at 8/8', () => {
@@ -23,6 +23,7 @@ describe('translation session rewards', () => {
     })
     expect(state.translationSession.progress).toBe(8)
     expect(state.translationSession.status).toBe('completed')
+    expect(state.translationSession.completedAt).toBe(getTodayDateString())
     expect(state.ui.lastReward?.reason).toBe('translation_session_completed')
     // 8*4 + 12 = 44, daily cap 40
     expect(state.translationSession.sessionXpAwarded).toBe(40)
