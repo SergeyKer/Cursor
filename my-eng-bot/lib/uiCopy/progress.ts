@@ -65,6 +65,7 @@ const SECTIONS = {
     back: '← Назад',
     myPlanButton: 'Мой план',
     continuePractice: 'Продолжить практику',
+    startPractice: 'Начать практику',
     lessonsSection: 'Уроки',
     practiceSection: 'Практика',
     medalNotStarted: 'ещё не начат',
@@ -143,6 +144,7 @@ const SECTIONS = {
     back: '← Назад',
     myPlanButton: 'Мой план',
     continuePractice: 'Продолжить практику',
+    startPractice: 'Начать практику',
     lessonsSection: 'Уроки',
     practiceSection: 'Практика',
     medalNotStarted: 'не начат',
@@ -176,9 +178,9 @@ export function progressOpportunityReason(
   }
   if (reason === 'gold_ring') {
     if (cupsEnabled) {
-      return child ? 'Ещё чуть практики — будет кубок.' : 'Золотая медаль и практика по теме — путь к кубку.'
+      return child ? 'Ещё чуть практики — будет кубок.' : 'Золото есть — практика по теме к кубку.'
     }
-    return child ? 'Практика по золотому уроку — путь к камням.' : 'Золотая медаль и практика — путь к камням.'
+    return 'Золото есть — практика даст камни.'
   }
   if (reason === 'tier1_ring') {
     return child ? 'Практика приближает к награде.' : 'Практика по теме приближает к награде.'

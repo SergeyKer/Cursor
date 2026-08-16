@@ -38,7 +38,13 @@ describe('progress copy', () => {
   it('opportunity reasons stay child-friendly', () => {
     const line = progressOpportunityReason('gold_ring', 'child', true)
     expect(line.toLowerCase()).not.toContain('11/12')
+    expect(line.toLowerCase()).not.toContain('путь')
     expect(line).toMatch(/кубок/i)
+  })
+
+  it('gold_ring without cups has no slogan path', () => {
+    expect(progressOpportunityReason('gold_ring', 'adult', false).toLowerCase()).not.toContain('путь')
+    expect(progressOpportunityReason('gold_ring', 'child', false).toLowerCase()).not.toContain('путь')
   })
 
   it('link to my plan exists', () => {

@@ -40,6 +40,7 @@ export type ProgressStatusCopy = {
   opportunity: {
     label: string
     reasonLine: string
+    ctaLabel: string
   } | null
 }
 
@@ -253,6 +254,8 @@ export function buildProgressStatusCopy(params: {
           params.audience,
           params.cupsEnabled
         ),
+        ctaLabel:
+          params.opportunity.ringCount > 0 ? params.copy.continuePractice : params.copy.startPractice,
       }
     : null
 

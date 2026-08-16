@@ -53,10 +53,11 @@ describe('buildProgressStatusCopy', () => {
     expect(status.opportunity).toBeNull()
   })
 
-  it('builds opportunity status without CTA', () => {
+  it('builds opportunity with continue CTA when ringCount > 0', () => {
+    const copy = progressCopy('adult')
     const status = buildProgressStatusCopy({
       rewardsState: createDefaultRewardsState(),
-      copy: progressCopy('adult'),
+      copy,
       audience: 'adult',
       cupsEnabled: true,
       opportunity: {
@@ -73,6 +74,30 @@ describe('buildProgressStatusCopy', () => {
     })
     expect(status.opportunity?.label).toContain('Present')
     expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('открой')
+    expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('путь')
+    expect(status.opportunity?.ctaLabel).toBe(copy.continuePractice)
+  })
+
+  it('builds opportunity with start CTA when ringCount is 0', () => {
+    const copy = progressCopy('adult')
+    const status = buildProgressStatusCopy({
+      rewardsState: createDefaultRewardsState(),
+      copy,
+      audience: 'adult',
+      cupsEnabled: true,
+      opportunity: {
+        lessonId: '1',
+        topic: 'Present',
+        medal: 'gold',
+        tier: 2,
+        ringCount: 0,
+        gemsPending: false,
+        score: 1,
+        label: 'Present: 0/5',
+        reason: 'gold_ring',
+      },
+    })
+    expect(status.opportunity?.ctaLabel).toBe(copy.startPractice)
   })
 
   it('recoverable streak 5: save bonus +15, warning recoverable, CTA Сохранить серию', () => {

@@ -72,6 +72,19 @@ const STATUS_INSET_LAUNCH_BTN = [
   'mt-3 flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
 ].join(' ')
 
+const NEAR_REWARD_CARD_CLASS = `${STATUS_TILE_CLASS} !p-0`
+
+const NEAR_REWARD_HEADER_TITLE =
+  'break-words text-[15px] font-semibold uppercase tracking-[0.02em] text-[var(--chat-label-main)]'
+
+const NEAR_REWARD_LAUNCH_BTN = [
+  BTN_INTERACTION_BASE,
+  CARD_LAUNCH_SKIN,
+  BTN_FONT_INLINE,
+  BTN_DISABLED_CLASS,
+  'flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
+].join(' ')
+
 export default function ProgressSheetScreen({
   rewardsState,
   settings,
@@ -284,32 +297,36 @@ export default function ProgressSheetScreen({
       </div>
 
       {status.opportunity && shelf.opportunity ? (
-        <div className="w-full min-w-0 overflow-hidden rounded-[var(--bubble-radius-assistant,var(--bubble-radius))] border border-[var(--status-info-border)] bg-[var(--status-info-bg)]">
-          <div className="px-4 py-3 text-left">
-            <p className="text-[13px] font-medium text-[var(--status-info-text)]">{copy.nearRewardTitle}</p>
-            <p className="mt-1 break-words text-[17px] font-semibold leading-snug text-[var(--text)]">
+        <div className={NEAR_REWARD_CARD_CLASS}>
+          <p className={`px-4 pt-3 pb-1 ${NEAR_REWARD_HEADER_TITLE}`}>{copy.nearRewardTitle}</p>
+          <div className="min-w-0 space-y-1.5 px-4 pt-2.5">
+            <p className="break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
               {status.opportunity.label}
             </p>
-            <p className="mt-1 break-words text-[13px] leading-snug text-[var(--text-muted)]">
+            <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
               {status.opportunity.reasonLine}
             </p>
           </div>
-          <ProgressFooterButton
-            variant="launch"
-            label={copy.continuePractice}
-            disabled={practiceBusy || !onOpenNearReward}
-            onClick={() => {
-              if (!shelf.opportunity || !onOpenNearReward) return
-              trackProgressEvent('progress_near_reward_click', {
-                audience,
-                lessonId: shelf.opportunity.lessonId,
-                reason: shelf.opportunity.reason,
-                surface: 'near',
-                variant: 'launch',
-              })
-              void onOpenNearReward(shelf.opportunity)
-            }}
-          />
+          <div className="px-2.5 pt-3 pb-2.5 sm:px-3">
+            <button
+              type="button"
+              className={NEAR_REWARD_LAUNCH_BTN}
+              disabled={practiceBusy || !onOpenNearReward}
+              onClick={() => {
+                if (!shelf.opportunity || !onOpenNearReward) return
+                trackProgressEvent('progress_near_reward_click', {
+                  audience,
+                  lessonId: shelf.opportunity.lessonId,
+                  reason: shelf.opportunity.reason,
+                  surface: 'near',
+                  variant: 'launch',
+                })
+                void onOpenNearReward(shelf.opportunity)
+              }}
+            >
+              <span className="min-w-0 break-words">{status.opportunity.ctaLabel}</span>
+            </button>
+          </div>
         </div>
       ) : null}
 
