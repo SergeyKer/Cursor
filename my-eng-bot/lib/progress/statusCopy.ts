@@ -7,8 +7,15 @@ import {
   type RewardsState,
 } from '@/lib/rewardsState'
 import { streakDailyBonusXp } from '@/lib/streakDailyBonus'
-import type { ProgressAudience, ProgressCopy } from '@/lib/uiCopy/progress'
-import { progressOpportunityReason } from '@/lib/uiCopy/progress'
+import { daysBetweenCalendarDates, isStreakExpired } from '@/lib/streakStatus'
+import { getLessonTopicById } from '@/lib/lessonCatalog'
+import {
+  compactOpportunityTopicLabel,
+  formatOpportunityBodyLine,
+  formatOpportunityTitle,
+  type ProgressAudience,
+  type ProgressCopy,
+} from '@/lib/uiCopy/progress'
 import { ruDayWord } from '@/lib/uiCopy/myPlan'
 
 export type ModeGoalStatusLine = {
@@ -38,6 +45,9 @@ export type ProgressStatusCopy = {
   focusGoal: FocusModeGoal | null
   focusPercent: number
   opportunity: {
+    frame: string
+    title: string
+    /** Alias of title for existing callers. */
     label: string
     reasonLine: string
     ctaLabel: string
@@ -50,18 +60,6 @@ function modeStatusLabel(goal: ModeGoalState | undefined, copy: ProgressCopy): s
   if (goal.status === 'in_progress') return copy.statusInProgress
   if (goal.status === 'abandoned') return copy.statusAbandoned
   return copy.statusNotStarted
-}
-
-function daysBetweenDates(fromDate: string, toDate: string): number {
-  const from = new Date(`${fromDate}T12:00:00`)
-  const to = new Date(`${toDate}T12:00:00`)
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return 0
-  const msPerDay = 24 * 60 * 60 * 1000
-  return Math.floor(
-    (Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) -
-      Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) /
-      msPerDay
-  )
 }
 
 function daysPhrase(n: number): string {
@@ -149,13 +147,15 @@ function buildStreakLineAndCta(params: {
     )
   }
 
-  if (params.streakExpired || n > 0) {
+  if (params.streakExpired) {
+    const recordLine =
+      !child && r >= 3 ? ` Лучший результат был ${daysPhrase(r)}.` : ''
     return streakParts(
-      `Прошлый рекорд — ${daysPhrase(r)}.`,
+      child ? 'Занимайся 3 дня подряд' : 'Начните снова сегодня',
       child
-        ? 'Начни новую серию сейчас: с 3 дней будет +10 XP.'
-        : 'Начните новую серию сейчас: с 3 дней будет +10 XP.',
-      'Начать'
+        ? 'Сегодня — первый день. 3 дня подряд — и каждый день +10 очков.'
+        : `3 дня подряд — снова +10 XP.${recordLine}`,
+      child ? 'Заниматься сегодня' : 'К занятиям'
     )
   }
 
@@ -166,6 +166,32 @@ function buildStreakLineAndCta(params: {
       : 'Начните сейчас: через 3 дня подряд откроется +10 XP.',
     'Начать'
   )
+}
+
+function buildOpportunityStatusCopy(
+  opportunity: PracticeRewardOpportunity,
+  copy: ProgressCopy,
+  audience: ProgressAudience,
+  cupsEnabled: boolean
+): NonNullable<ProgressStatusCopy['opportunity']> {
+  const showGoldMedal = opportunity.medal === 'gold' || opportunity.reason === 'gold_ring'
+  const topicLabel = compactOpportunityTopicLabel(
+    getLessonTopicById(opportunity.lessonId)?.title,
+    opportunity.topic
+  )
+  const title = formatOpportunityTitle(topicLabel, showGoldMedal)
+  return {
+    frame: copy.nearRewardTitle,
+    title,
+    label: title,
+    reasonLine: formatOpportunityBodyLine(
+      opportunity.reason,
+      audience,
+      cupsEnabled,
+      opportunity.ringCount
+    ),
+    ctaLabel: opportunity.ringCount > 0 ? copy.continuePractice : copy.startPractice,
+  }
 }
 
 export function buildProgressStatusCopy(params: {
@@ -183,10 +209,9 @@ export function buildProgressStatusCopy(params: {
   const lastActive = state?.progress.lastActiveDate ?? null
   const activeToday = lastActive === today
   const streakEmpty = dailyStreak <= 0
-  const daysSinceLast = lastActive ? daysBetweenDates(lastActive, today) : null
+  const daysSinceLast = lastActive ? daysBetweenCalendarDates(lastActive, today) : null
   const streakRecoverable = !streakEmpty && !activeToday && daysSinceLast === 1
-  const streakExpired =
-    !streakEmpty && !activeToday && (daysSinceLast === null || daysSinceLast >= 2)
+  const streakExpired = isStreakExpired(state, today)
   const streakAtRisk = streakRecoverable
 
   const { streakStatusLine, streakStatusHeadline, streakStatusBody, streakCtaLabel } =
@@ -247,16 +272,12 @@ export function buildProgressStatusCopy(params: {
       : 0
 
   const opportunity = params.opportunity
-    ? {
-        label: params.opportunity.label,
-        reasonLine: progressOpportunityReason(
-          params.opportunity.reason,
-          params.audience,
-          params.cupsEnabled
-        ),
-        ctaLabel:
-          params.opportunity.ringCount > 0 ? params.copy.continuePractice : params.copy.startPractice,
-      }
+    ? buildOpportunityStatusCopy(
+        params.opportunity,
+        params.copy,
+        params.audience,
+        params.cupsEnabled
+      )
     : null
 
   return {

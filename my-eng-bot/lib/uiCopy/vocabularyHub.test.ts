@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatHandoffLemmaLine,
   vocabDisplayLabel,
   vocabHubCopy,
   vocabShelfChipLabel,
@@ -52,5 +53,14 @@ describe('vocabHubCopy status labels', () => {
   it('formats shelf chips with counts including zero', () => {
     expect(vocabShelfChipLabel('Учу', 3)).toBe('Учу · 3')
     expect(vocabShelfChipLabel('Учу', 0)).toBe('Учу · 0')
+  })
+
+  it('names translation handoff as закрепить with lemma line', () => {
+    expect(vocabHubCopy('adult').handoffTranslation).toBe('Закрепить в переводе')
+    expect(vocabHubCopy('child').handoffTranslation).toBe('Закрепить в переводе')
+    expect(vocabHubCopy('adult')).not.toHaveProperty('translationEmpty')
+    expect(formatHandoffLemmaLine(['hi', 'Name'])).toBe('hi · Name')
+    expect(formatHandoffLemmaLine(['  hi  ', '', 'Name'])).toBe('hi · Name')
+    expect(formatHandoffLemmaLine([])).toBe('')
   })
 })

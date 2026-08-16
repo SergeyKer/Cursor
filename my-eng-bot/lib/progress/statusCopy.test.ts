@@ -61,7 +61,7 @@ describe('buildProgressStatusCopy', () => {
       audience: 'adult',
       cupsEnabled: true,
       opportunity: {
-        lessonId: '1',
+        lessonId: 'missing-topic',
         topic: 'Present',
         medal: 'gold',
         tier: 2,
@@ -73,8 +73,14 @@ describe('buildProgressStatusCopy', () => {
       },
     })
     expect(status.opportunity?.label).toContain('Present')
+    expect(status.opportunity?.title).toContain('Present')
+    expect(status.opportunity?.title).toContain('🥇')
+    expect(status.opportunity?.label).not.toMatch(/0\/5|2\/5/)
+    expect(status.opportunity?.reasonLine).toBe('Ещё 3 зачёта — будет кубок.')
     expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('открой')
     expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('путь')
+    expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('золото')
+    expect(status.opportunity?.frame).toBe(copy.nearRewardTitle)
     expect(status.opportunity?.ctaLabel).toBe(copy.continuePractice)
   })
 
@@ -86,7 +92,7 @@ describe('buildProgressStatusCopy', () => {
       audience: 'adult',
       cupsEnabled: true,
       opportunity: {
-        lessonId: '1',
+        lessonId: 'missing-topic',
         topic: 'Present',
         medal: 'gold',
         tier: 2,
@@ -98,6 +104,81 @@ describe('buildProgressStatusCopy', () => {
       },
     })
     expect(status.opportunity?.ctaLabel).toBe(copy.startPractice)
+  })
+
+  it('child opportunity: I am title, remaining times to cup, train CTA', () => {
+    const copy = progressCopy('child')
+    const status = buildProgressStatusCopy({
+      rewardsState: createDefaultRewardsState(),
+      copy,
+      audience: 'child',
+      cupsEnabled: true,
+      opportunity: {
+        lessonId: '4',
+        topic: 'Знакомство',
+        medal: 'gold',
+        tier: 2,
+        ringCount: 0,
+        gemsPending: false,
+        score: 1,
+        label: 'ignored',
+        reason: 'gold_ring',
+      },
+    })
+    expect(status.opportunity?.frame).toBe('Практика')
+    expect(status.opportunity?.title).toBe('I am 🥇')
+    expect(status.opportunity?.title).not.toContain('Знакомство')
+    expect(status.opportunity?.reasonLine).toBe('Ещё 5 раз — будет кубок.')
+    expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('золото')
+    expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('зачёт')
+    expect(status.opportunity?.ctaLabel).toBe('Тренировать')
+  })
+
+  it('gems_pending keeps claim copy and continue CTA when rings already exist', () => {
+    const copy = progressCopy('adult')
+    const status = buildProgressStatusCopy({
+      rewardsState: createDefaultRewardsState(),
+      copy,
+      audience: 'adult',
+      cupsEnabled: false,
+      opportunity: {
+        lessonId: 'missing-topic',
+        topic: 'Present',
+        medal: 'gold',
+        tier: 2,
+        ringCount: 5,
+        gemsPending: true,
+        score: 1,
+        label: 'Present: забрать 💎',
+        reason: 'gems_pending',
+      },
+    })
+    expect(status.opportunity?.reasonLine).toBe('Заберите камень.')
+    expect(status.opportunity?.reasonLine.toLowerCase()).not.toContain('ещё')
+    expect(status.opportunity?.ctaLabel).toBe(copy.continuePractice)
+  })
+
+  it('tier1_ring title has no gold medal', () => {
+    const status = buildProgressStatusCopy({
+      rewardsState: createDefaultRewardsState(),
+      copy: progressCopy('adult'),
+      audience: 'adult',
+      cupsEnabled: true,
+      opportunity: {
+        lessonId: 'missing-topic',
+        topic: 'Present',
+        medal: 'silver',
+        tier: 1,
+        ringCount: 1,
+        gemsPending: false,
+        score: 1,
+        label: 'Present: 1/5',
+        reason: 'tier1_ring',
+      },
+    })
+    expect(status.opportunity?.title).toBe('Present')
+    expect(status.opportunity?.title).not.toContain('🥇')
+    expect(status.opportunity?.reasonLine).toBe('Ещё 4 зачёта — ближе к награде.')
   })
 
   it('recoverable streak 5: save bonus +15, warning recoverable, CTA Сохранить серию', () => {
@@ -159,7 +240,7 @@ describe('buildProgressStatusCopy', () => {
     expect(status.streakCtaLabel).toBe('Продолжить')
   })
 
-  it('expired streak: past record, CTA Начать, no recoverable warning', () => {
+  it('expired streak: restart copy, CTA not Начать, no recoverable warning', () => {
     const state = createDefaultRewardsState()
     state.progress.dailyStreak = 5
     state.progress.bestDailyStreak = 5
@@ -175,9 +256,30 @@ describe('buildProgressStatusCopy', () => {
     expect(status.streakExpired).toBe(true)
     expect(status.streakRecoverable).toBe(false)
     expect(status.streakAtRisk).toBe(false)
-    expect(status.streakStatusLine).toMatch(/прошлый рекорд — 5 дней/i)
-    expect(status.streakStatusLine.toLowerCase()).not.toMatch(/сохрани серию 5|угроз/)
-    expect(status.streakCtaLabel).toBe('Начать')
+    expect(status.streakStatusHeadline).toBe('Занимайся 3 дня подряд')
+    expect(status.streakStatusBody).toMatch(/каждый день \+10/)
+    expect(status.streakStatusLine.toLowerCase()).not.toMatch(/рекорд|серия/)
+    expect(status.streakCtaLabel).toBe('Заниматься сегодня')
+  })
+
+  it('expired adult: restart today, record as second sentence, CTA К занятиям', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 5
+    state.progress.bestDailyStreak = 5
+    state.progress.lastActiveDate = '2026-07-10'
+    const status = buildProgressStatusCopy({
+      rewardsState: state,
+      copy: progressCopy('adult'),
+      audience: 'adult',
+      cupsEnabled: false,
+      opportunity: null,
+      today: '2026-07-18',
+    })
+    expect(status.streakExpired).toBe(true)
+    expect(status.streakStatusHeadline).toBe('Начните снова сегодня')
+    expect(status.streakStatusBody).toMatch(/3 дня подряд — снова \+10 XP/)
+    expect(status.streakStatusBody).toMatch(/лучший результат был 5 дней/i)
+    expect(status.streakCtaLabel).toBe('К занятиям')
   })
 
   it('marks streak empty at zero with start CTA', () => {

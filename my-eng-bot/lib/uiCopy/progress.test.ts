@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   PROGRESS_CHILD_BANNED_HERO_TERMS,
+  compactOpportunityTopicLabel,
   formatAttentionZoneMeta,
+  formatOpportunityBodyLine,
+  formatOpportunityTitle,
   progressCopy,
   progressOpportunityReason,
   ruRazWord,
+  ruZachetWord,
+  ruZanyatieWord,
 } from '@/lib/uiCopy/progress'
 
 describe('progress copy', () => {
@@ -29,11 +34,23 @@ describe('progress copy', () => {
       c.saveStreak,
       c.weakZonesTitle,
       c.weakZonesCta,
+      c.remarksTitle,
+      c.remarksEmpty,
+      c.remarksMore,
       c.modesTranslation,
       c.modesDialogue,
       c.modesVocabulary,
       c.modesTutor,
       c.modesPronunciation,
+      c.calendarTitle,
+      c.calendarDayInStreak,
+      c.calendarDayNoClosed,
+      c.calendarDayEmpty,
+      c.calendarNow,
+      c.calendarMore,
+      c.calendarLessonDone,
+      c.calendarVocabReviewed,
+      c.calendarVocabLearned,
       c.ritualTitle,
       c.ritualDailySoon,
       c.ritualStreakSoon,
@@ -53,15 +70,46 @@ describe('progress copy', () => {
   })
 
   it('opportunity reasons stay child-friendly', () => {
-    const line = progressOpportunityReason('gold_ring', 'child', true)
+    const line = formatOpportunityBodyLine('gold_ring', 'child', true, 0)
     expect(line.toLowerCase()).not.toContain('11/12')
     expect(line.toLowerCase()).not.toContain('путь')
-    expect(line).toMatch(/кубок/i)
+    expect(line.toLowerCase()).not.toContain('золото')
+    expect(line.toLowerCase()).not.toContain('зачёт')
+    expect(line).toBe('Ещё 5 раз — будет кубок.')
   })
 
   it('gold_ring without cups has no slogan path', () => {
-    expect(progressOpportunityReason('gold_ring', 'adult', false).toLowerCase()).not.toContain('путь')
-    expect(progressOpportunityReason('gold_ring', 'child', false).toLowerCase()).not.toContain('путь')
+    expect(formatOpportunityBodyLine('gold_ring', 'adult', false, 0).toLowerCase()).not.toContain('путь')
+    expect(formatOpportunityBodyLine('gold_ring', 'child', false, 0).toLowerCase()).not.toContain('путь')
+    expect(formatOpportunityBodyLine('gold_ring', 'child', false, 0).toLowerCase()).not.toContain('золото')
+    expect(formatOpportunityBodyLine('gold_ring', 'adult', false, 3)).toBe('Ещё 2 зачёта — будут камни.')
+  })
+
+  it('gems_pending asks to claim the gem without gold jargon or remaining count', () => {
+    const line = formatOpportunityBodyLine('gems_pending', 'child', false, 5)
+    expect(line.toLowerCase()).toContain('камень')
+    expect(line.toLowerCase()).not.toContain('золото')
+    expect(line.toLowerCase()).not.toContain('ещё')
+  })
+
+  it('child start CTA is train not start-practice jargon', () => {
+    expect(progressCopy('child').startPractice).toBe('Тренировать')
+    expect(progressCopy('child').nearRewardTitle).toBe('Практика')
+    expect(progressCopy('child').remarksTitle).toBe('Что поправить')
+    expect(progressCopy('adult').remarksTitle).toBe('Недавние ошибки')
+    expect(progressCopy('adult').remarksReview).toBe('К теме')
+    expect(progressCopy('child').remarksReview).toBe('Ещё')
+  })
+
+  it('compact topic label and opportunity title', () => {
+    expect(compactOpportunityTopicLabel('I am / I am from', 'Знакомство')).toBe('I am')
+    expect(compactOpportunityTopicLabel(null, 'Знакомство')).toBe('Знакомство')
+    expect(formatOpportunityTitle('I am', true)).toBe('I am 🥇')
+    expect(formatOpportunityTitle('I am', false)).toBe('I am')
+    expect(formatOpportunityBodyLine('gold_ring', 'adult', true, 0)).toBe('Ещё 5 зачётов — будет кубок.')
+    expect(formatOpportunityBodyLine('gold_ring', 'adult', true, 3)).toBe('Ещё 2 зачёта — будет кубок.')
+    expect(formatOpportunityBodyLine('gold_ring', 'adult', true, 5)).toBe('Следующая практика — кубок.')
+    expect(progressOpportunityReason('gold_ring', 'child', true, 2)).toBe('Ещё 3 раза — будет кубок.')
   })
 
   it('link to my plan exists', () => {
@@ -81,6 +129,12 @@ describe('progress copy', () => {
     expect(ruRazWord(11)).toBe('раз')
     expect(ruRazWord(21)).toBe('раз')
     expect(ruRazWord(22)).toBe('раза')
+    expect(ruZachetWord(1)).toBe('зачёт')
+    expect(ruZachetWord(2)).toBe('зачёта')
+    expect(ruZachetWord(5)).toBe('зачётов')
+    expect(ruZanyatieWord(1)).toBe('занятие')
+    expect(ruZanyatieWord(2)).toBe('занятия')
+    expect(ruZanyatieWord(5)).toBe('занятий')
   })
 
   it('ritual stubs have no fake 0/7 counters', () => {

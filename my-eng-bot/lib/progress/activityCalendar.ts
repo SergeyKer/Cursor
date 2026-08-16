@@ -40,18 +40,3 @@ export function buildMonthActivityGrid(
   return { year, month, cells }
 }
 
-export function lastSevenDayActivity(
-  activeDays: string[],
-  today: string = getTodayDateString()
-): { date: string; active: boolean }[] {
-  const activeSet = new Set(activeDays)
-  const end = new Date(`${today}T12:00:00`)
-  const out: { date: string; active: boolean }[] = []
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(end)
-    d.setDate(end.getDate() - i)
-    const date = getTodayDateString(d)
-    out.push({ date, active: activeSet.has(date) })
-  }
-  return out
-}

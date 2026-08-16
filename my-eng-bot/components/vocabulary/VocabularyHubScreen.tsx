@@ -52,7 +52,7 @@ import {
   resolveHubQuickStartRoute,
   wordsForHubQuickStart,
 } from '@/lib/vocabulary/hubQuickStart'
-import { vocabHubCopy, vocabHubFooter, vocabNowBody, vocabDisplayLabel, vocabShelfChipLabel, vocabShelfLabel, VOCAB_DISPLAY_CHIP_ORDER } from '@/lib/uiCopy/vocabularyHub'
+import { formatHandoffLemmaLine, vocabHubCopy, vocabHubFooter, vocabNowBody, vocabDisplayLabel, vocabShelfChipLabel, vocabShelfLabel, VOCAB_DISPLAY_CHIP_ORDER } from '@/lib/uiCopy/vocabularyHub'
 import { PHRASEBOOK_COPY } from '@/lib/uiCopy/phrasebook'
 import { loadActivePhrasebookTopicId, saveActivePhrasebookTopicId } from '@/lib/phrasebook/activeTopic'
 import { PHRASEBOOK_TOPICS, isPhrasebookTopicId, type PhrasebookTopicId } from '@/lib/phrasebook/topics'
@@ -386,9 +386,10 @@ export default function VocabularyHubScreen({
       .filter((word): word is NecessaryWord => Boolean(word))
   }
 
+  const inFeedHandoffWords = listByFeedStatus(poolWords, progress.words, 'in_feed').slice(0, 3)
   const nowCtaWords = wordsForNowCta(nowKind, {
     fuel: lemmasToWords(fuelLemmas()),
-    inFeed: listByFeedStatus(poolWords, progress.words, 'in_feed').slice(0, 3),
+    inFeed: inFeedHandoffWords,
     pause: pauseSessionWords({ words: activeWords, progressMap: progress.words, n: 2 }),
   })
 
@@ -581,29 +582,36 @@ export default function VocabularyHubScreen({
     return { title: copy.spaceTitle, words: [], showMarks: false, sticky: null, empty: copy.emptyList }
   }
 
+  const shelfHandoffLemmas = (words: NecessaryWord[], allowInboxFallback: boolean): VocabularyFocusLemma[] => {
+    const picked = words.slice(0, 3)
+    if (picked.length > 0) {
+      return picked.map((word) => ({
+        en: word.en,
+        ru: word.ru,
+        wordId: word.id,
+        lemmaKey: lemmaKeyFromEn(word.en),
+      }))
+    }
+    if (!allowInboxFallback) return []
+    return mistakes.slice(0, 3).map((item) => ({
+      en: item.en,
+      ru: item.ru ?? '',
+      lemmaKey: item.lemmaKey,
+    }))
+  }
+
   const handoffShelfWords = (
     words: NecessaryWord[],
     open: 'translation' | 'call',
     allowInboxFallback: boolean
   ) => {
-    const picked = words.slice(0, 3)
-    const lemmas =
-      picked.length > 0
-        ? picked.map((word) => ({
-            en: word.en,
-            ru: word.ru,
-            wordId: word.id,
-            lemmaKey: lemmaKeyFromEn(word.en),
-          }))
-        : allowInboxFallback
-          ? mistakes.slice(0, 3).map((item) => ({
-              en: item.en,
-              ru: item.ru ?? '',
-              lemmaKey: item.lemmaKey,
-            }))
-          : []
+    const lemmas = shelfHandoffLemmas(words, allowInboxFallback)
     if (lemmas.length === 0) return
-    writeVocabTranslationHandoff({ lemmas, source: 'feed_browse', loadStudying: true })
+    writeVocabTranslationHandoff({
+      lemmas,
+      source: 'feed_browse',
+      loadStudying: open !== 'translation',
+    })
     if (open === 'call') onOpenCallWithHandoff?.()
     else onOpenTranslationWithHandoff?.()
   }
@@ -641,24 +649,17 @@ export default function VocabularyHubScreen({
     startSession(fromFuel.length ? fromFuel : words.slice(0, VOCAB_CYCLE_SIZE), { kind: 'world', worldId: 'home' })
   }
 
-  const translationLemmas = () => {
-    const inFeed = listByFeedStatus(poolWords, progress.words, 'in_feed').slice(0, 3)
-    if (inFeed.length > 0) return inFeed
-    return hubQuickStartWords.slice(0, HUB_QUICK_START_SIZE)
-  }
-
   const openHomeTranslation = () => {
-    const words = translationLemmas()
-    if (words.length === 0) return
+    if (inFeedHandoffWords.length === 0) return
     writeVocabTranslationHandoff({
-      lemmas: words.map((word) => ({
+      lemmas: inFeedHandoffWords.map((word) => ({
         en: word.en,
         ru: word.ru,
         wordId: word.id,
         lemmaKey: lemmaKeyFromEn(word.en),
       })),
       source: 'feed_browse',
-      loadStudying: true,
+      loadStudying: false,
     })
     onOpenTranslationWithHandoff?.()
   }
@@ -797,11 +798,18 @@ export default function VocabularyHubScreen({
         : shelfFilter === 'in_feed'
           ? copy.say
           : null
+    const inFeedShelfDetail = formatHandoffLemmaLine(
+      shelfHandoffLemmas(shelfWords, false).map((lemma) => lemma.en)
+    )
+    const fixShelfDetail = formatHandoffLemmaLine(
+      shelfHandoffLemmas(shelfWords, true).map((lemma) => lemma.en)
+    )
     const extra =
       shelfFilter === 'in_feed' ? (
         <VocabCardFooterButton
           variant="expand"
           label={copy.handoffTranslation}
+          detail={inFeedShelfDetail || undefined}
           onClick={() => handoffShelfWords(shelfWords, 'translation', false)}
           disabled={shelfWords.length === 0}
           roundBottom={false}
@@ -811,6 +819,7 @@ export default function VocabularyHubScreen({
           <VocabCardFooterButton
             variant="expand"
             label={copy.handoffTranslation}
+            detail={fixShelfDetail || undefined}
             onClick={() => handoffShelfWords(shelfWords, 'translation', true)}
             disabled={shelfWords.length === 0 && mistakes.length === 0}
             roundBottom={false}
@@ -1062,7 +1071,8 @@ export default function VocabularyHubScreen({
     )
   }
 
-  const showHomeTranslation = nowKind !== 'bank-bridge' && translationLemmas().length > 0
+  const inFeedHandoffPairs = formatVocabFocusPairs(inFeedHandoffWords)
+  const inFeedHandoffDetail = formatHandoffLemmaLine(inFeedHandoffWords.map((word) => word.en))
 
   return (
     <VocabHubShell key="hub" backLabel={copy.back} onBack={onBackToLessons}>
@@ -1096,6 +1106,35 @@ export default function VocabularyHubScreen({
         )}
       </VocabCard>
 
+      {inFeedHandoffWords.length > 0 ? (
+        <VocabCard
+          title={copy.inFeedTitle}
+          insetCta={
+            <VocabCardFooterButton
+              placement="inset"
+              variant="expand"
+              label={copy.handoffTranslation}
+              detail={inFeedHandoffDetail || undefined}
+              onClick={openHomeTranslation}
+            />
+          }
+        >
+          <div className="space-y-1">
+            {inFeedHandoffPairs.map((pair) => (
+              <p key={pair.id} className={VOCAB_PAIR_LINE}>
+                <span className={VOCAB_PAIR_EN}>{pair.en}</span>
+                {pair.ru ? (
+                  <>
+                    {' — '}
+                    <span className={VOCAB_PAIR_RU}>{pair.ru}</span>
+                  </>
+                ) : null}
+              </p>
+            ))}
+          </div>
+        </VocabCard>
+      ) : null}
+
       <HubNavCard
         title={copy.addWordsTitle}
         ariaLabel={`${copy.addWordsTitle}. ${copy.catalogOpen}`}
@@ -1111,12 +1150,6 @@ export default function VocabularyHubScreen({
         ariaLabel={`${copy.catalogTitle}. ${copy.catalogOpen}`}
         onClick={() => setView('catalog')}
       />
-
-      {showHomeTranslation ? (
-        <VocabCardFooterButton variant="expand" label={copy.handoffTranslation} onClick={openHomeTranslation} />
-      ) : nowKind !== 'bank-bridge' && nowKind !== 'empty' ? (
-        <p className={VOCAB_CARD_BODY_REASON}>{copy.translationEmpty}</p>
-      ) : null}
 
       <HubNavCard
         title={copy.shelvesTitle}

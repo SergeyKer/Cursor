@@ -36,12 +36,24 @@ describe('buildProgressShelf', () => {
     state.progress.bestDailyStreak = 12
     state.progress.totalXP = 250
     Object.assign(state.progress, calculateLevel(250), { totalXP: 250 })
-    const shelf = buildProgressShelf(state)
+    state.progress.lastActiveDate = '2026-07-18'
+    const shelf = buildProgressShelf(state, '2026-07-18')
     expect(shelf.dailyStreak).toBe(5)
     expect(shelf.bestDailyStreak).toBe(12)
     expect(shelf.level).toBe(3)
     expect(shelf.currentLevelXP).toBe(30)
     expect(shelf.xpToNextLevel).toBe(140)
+    expect(shelf.isEmptyShelf).toBe(false)
+  })
+
+  it('shows display streak 0 when series expired, keeps best and non-empty shelf', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 5
+    state.progress.bestDailyStreak = 5
+    state.progress.lastActiveDate = '2026-07-10'
+    const shelf = buildProgressShelf(state, '2026-07-18')
+    expect(shelf.dailyStreak).toBe(0)
+    expect(shelf.bestDailyStreak).toBe(5)
     expect(shelf.isEmptyShelf).toBe(false)
   })
 })

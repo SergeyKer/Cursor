@@ -2,6 +2,7 @@ import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import { isStreakDailyBonusClaimed, streakDailyBonusXp } from '@/lib/streakDailyBonus'
+import { isStreakExpired } from '@/lib/streakStatus'
 
 export type StreakSessionMode = 'lesson' | 'practice' | 'communication' | 'engvo' | 'accent' | 'translation'
 
@@ -10,6 +11,7 @@ export function formatStreakSessionHint(
   audience: FooterCopyAudience,
   today: string = getTodayDateString()
 ): string | null {
+  if (isStreakExpired(state, today)) return null
   if (isStreakDailyBonusClaimed(state, today)) return null
   const streak = state.progress.dailyStreak
   const bonus = streakDailyBonusXp(streak)

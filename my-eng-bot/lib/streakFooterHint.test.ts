@@ -17,6 +17,7 @@ describe('streakFooterHint', () => {
   it('shows preview when streak>=3 and bonus not claimed', () => {
     const state = createDefaultRewardsState()
     state.progress.dailyStreak = 4
+    state.progress.lastActiveDate = today
     expect(formatStreakFooterPreview(state, 'adult', today)).toContain('+10')
     expect(shouldShowStreakFooterPreview(state, today)).toBe(true)
   })
@@ -102,18 +103,21 @@ describe('streakFooterHint', () => {
       it(`preview for streak ${streak} mentions +${bonus} on idle`, () => {
         const state = createDefaultRewardsState()
         state.progress.dailyStreak = streak
+        state.progress.lastActiveDate = today
         expect(formatStreakFooterPreview(state, 'adult', today)).toContain(`+${bonus}`)
       })
 
       it(`session hint for streak ${streak} mentions +${bonus}`, () => {
         const state = createDefaultRewardsState()
         state.progress.dailyStreak = streak
+        state.progress.lastActiveDate = today
         expect(formatStreakSessionHint(state, 'adult', today)).toContain(`+${bonus}`)
       })
 
       it(`during lesson streak ${streak} falls back to mode voice after hint consumed`, () => {
         const state = createDefaultRewardsState()
         state.progress.dailyStreak = streak
+        state.progress.lastActiveDate = today
         const preview = formatStreakFooterPreview(state, 'adult', today)
         const lessonVoice = 'Почти. Попробуйте еще раз.'
 
@@ -138,6 +142,7 @@ describe('streakFooterHint', () => {
       it(`during lesson streak ${streak} shows session hint once at entry`, () => {
         const state = createDefaultRewardsState()
         state.progress.dailyStreak = streak
+        state.progress.lastActiveDate = today
         const preview = formatStreakFooterPreview(state, 'adult', today)
         const sessionHint = formatStreakSessionHint(state, 'adult', today)
         const lessonVoice = 'Почти. Попробуйте еще раз.'
@@ -152,6 +157,14 @@ describe('streakFooterHint', () => {
         ).toContain(`+${bonus}`)
       })
     }
+
+    it('hides preview when streak is expired', () => {
+      const state = createDefaultRewardsState()
+      state.progress.dailyStreak = 5
+      state.progress.lastActiveDate = '2020-01-01'
+      expect(formatStreakFooterPreview(state, 'adult', today)).toBeNull()
+      expect(shouldShowStreakFooterPreview(state, today)).toBe(false)
+    })
 
     it('maps tier boundaries through streakDailyBonusXp', () => {
       expect(streakDailyBonusXp(2)).toBe(0)

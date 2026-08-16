@@ -3,6 +3,7 @@ import { isRewardFooterTickerActive, REWARD_FOOTER_TICKER_TTL_MS } from '@/lib/f
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import { isStreakDailyBonusClaimed, streakDailyBonusXp } from '@/lib/streakDailyBonus'
+import { isStreakExpired } from '@/lib/streakStatus'
 
 export { REWARD_FOOTER_TICKER_TTL_MS }
 
@@ -11,6 +12,7 @@ export function formatStreakFooterPreview(
   audience: FooterCopyAudience,
   today: string = getTodayDateString()
 ): string | null {
+  if (isStreakExpired(state, today)) return null
   if (isStreakDailyBonusClaimed(state, today)) return null
   const streak = state.progress.dailyStreak
   const bonus = streakDailyBonusXp(streak)
@@ -80,6 +82,7 @@ export function resolveStreakFooterOverlayLine(params: {
 }
 
 export function shouldShowStreakFooterPreview(state: RewardsState, today: string = getTodayDateString()): boolean {
+  if (isStreakExpired(state, today)) return false
   if (isStreakDailyBonusClaimed(state, today)) return false
   return streakDailyBonusXp(state.progress.dailyStreak) > 0
 }

@@ -27,7 +27,7 @@ export type LearningSignal = {
   rawTopicTitles: string[]
   lessonIdHint: string | null
   skillTagIds: string[]
-  snippet?: { original?: string; corrected?: string }
+  snippet?: { original?: string; corrected?: string; why?: string }
 }
 
 export type SkillMasterySlice = {

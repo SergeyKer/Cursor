@@ -20,6 +20,19 @@ type Props = {
   roundBottom?: boolean
   /** Default flush. Action always uses the action layout (ignores placement). */
   placement?: VocabCardFooterPlacement
+  detail?: string
+}
+
+function ButtonCopy({ label, detail }: { label: string; detail?: string }) {
+  if (!detail) {
+    return <span className="min-w-0 break-words">{label}</span>
+  }
+  return (
+    <span className="flex min-w-0 flex-col items-center gap-0.5 py-0.5">
+      <span className="min-w-0 break-words">{label}</span>
+      <span className="min-w-0 break-words text-[13px] font-normal leading-snug opacity-80">{detail}</span>
+    </span>
+  )
 }
 
 export default function VocabCardFooterButton({
@@ -30,18 +43,21 @@ export default function VocabCardFooterButton({
   ariaLabel,
   roundBottom = true,
   placement = 'flush',
+  detail,
 }: Props) {
+  const resolvedAria = ariaLabel ?? (detail ? `${label}. ${detail}` : label)
+
   if (variant === 'action') {
     const actionInset = roundBottom ? 'mx-3 mb-3 mt-2 rounded-xl' : 'mt-1 rounded-xl'
     return (
       <button
         type="button"
         disabled={disabled}
-        aria-label={ariaLabel ?? label}
+        aria-label={resolvedAria}
         onClick={onClick}
         className={`${VOCAB_CARD_FOOTER_ACTION} ${actionInset}`}
       >
-        <span className="min-w-0 break-words">{label}</span>
+        <ButtonCopy label={label} detail={detail} />
       </button>
     )
   }
@@ -52,11 +68,11 @@ export default function VocabCardFooterButton({
       <button
         type="button"
         disabled={disabled}
-        aria-label={ariaLabel ?? label}
+        aria-label={resolvedAria}
         onClick={onClick}
         className={insetClass}
       >
-        <span className="min-w-0 break-words">{label}</span>
+        <ButtonCopy label={label} detail={detail} />
       </button>
     )
   }
@@ -67,11 +83,11 @@ export default function VocabCardFooterButton({
     <button
       type="button"
       disabled={disabled}
-      aria-label={ariaLabel ?? label}
+      aria-label={resolvedAria}
       onClick={onClick}
       className={`${base} ${round}`}
     >
-      <span className="min-w-0 break-words">{label}</span>
+      <ButtonCopy label={label} detail={detail} />
     </button>
   )
 }

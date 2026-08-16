@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { resetAccentProgressForTests, summarizeAllAccentProgress } from '@/lib/accent/progressStorage'
+import { resetAccentProgressForTests, listAccentLessonProgress, summarizeAllAccentProgress } from '@/lib/accent/progressStorage'
 
 const STORAGE_KEY = 'myeng.accent.progress.v1'
 
@@ -63,5 +63,6 @@ describe('summarizeAllAccentProgress', () => {
       })
     )
     expect(summarizeAllAccentProgress()).toEqual({ lessonCount: 2, attempts: 5, bestScore: 90 })
+    expect(listAccentLessonProgress().map((row) => row.lessonId).sort()).toEqual(['ae-cat', 'th-think'])
   })
 })

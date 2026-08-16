@@ -121,6 +121,10 @@ export type AccentAllProgressSummary = {
   bestScore: number
 }
 
+export function listAccentLessonProgress(): AccentLessonProgress[] {
+  return Object.keys(readMap()).map((lessonId) => getAccentLessonProgress(lessonId))
+}
+
 export function summarizeAllAccentProgress(): AccentAllProgressSummary {
   const map = readMap()
   let lessonCount = 0

@@ -20,12 +20,30 @@ import { LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import { getAttentionZones, listLearningSignals, loadSkillMasteryMap } from '@/lib/learningMemory'
 import { featureFlags } from '@/lib/featureFlags'
-import { buildMonthActivityGrid, lastSevenDayActivity } from '@/lib/progress/activityCalendar'
+import { buildMonthActivityGrid } from '@/lib/progress/activityCalendar'
 import { setProgressAnalyticsSink, trackProgressEvent } from '@/lib/progress/analytics'
-import { summarizeAllAccentProgress } from '@/lib/accent/progressStorage'
+import { listAccentLessonProgress, summarizeAllAccentProgress } from '@/lib/accent/progressStorage'
+import { getAccentLessonById } from '@/lib/accent/soundCatalog'
+import { getLessonTopicById } from '@/lib/lessonCatalog'
+import { loadLessonProgressMap } from '@/lib/lessonProgressStorage'
+import { practiceStorage } from '@/lib/practice/storage/practiceStorage'
+import {
+  buildDayActivityCard,
+  dayActivityKindLabel,
+  formatCalendarDayHeading,
+  formatDayInProgressLine,
+  formatDayItemScore,
+  formatDayOverflow,
+  formatDaySessionCount,
+  type DayActivityCardModel,
+} from '@/lib/progress/buildDayActivityCard'
 import { buildProgressModeRows, countVocabProgressMarks } from '@/lib/progress/buildProgressModeRows'
 import { buildProgressShelf } from '@/lib/progress/buildProgressShelf'
-import { listLearningSignalFeed } from '@/lib/progress/formatLearningSignalForUser'
+import {
+  listLearningSignalFeed,
+  listRemarksPreview,
+  type LearningSignalFeedItem,
+} from '@/lib/progress/formatLearningSignalForUser'
 import {
   mapAttentionZoneToTarget,
   type ProgressDetailKind,
@@ -37,7 +55,11 @@ import ProgressTopicAwardsList from '@/components/progress/ProgressTopicAwardsLi
 import type { PracticeRewardOpportunity } from '@/lib/practice/pickBestPracticeRewardOpportunity'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import type { Settings, UsageInfo } from '@/lib/types'
-import { progressCopy, formatAttentionZoneMeta, type ProgressAudience } from '@/lib/uiCopy/progress'
+import {
+  formatAttentionZoneMeta,
+  progressCopy,
+  type ProgressAudience,
+} from '@/lib/uiCopy/progress'
 import { loadVocabMistakes } from '@/lib/vocabulary/mistakesList'
 import { loadVocabularyProgress } from '@/lib/vocabulary/storage'
 
@@ -90,6 +112,55 @@ const STATUS_INSET_EXPAND_BTN = [
   'flex w-full min-h-11 items-center justify-center rounded-xl px-4 py-2.5 text-center',
 ].join(' ')
 
+function monthDayClass(params: {
+  inMonth: boolean
+  active: boolean
+  isToday: boolean
+  selected: boolean
+  size: 'overview' | 'detail'
+}): string {
+  const sizeClass = params.size === 'overview' ? 'h-7 text-[11px]' : 'min-h-11 text-[12px]'
+  const showRing = params.inMonth && (params.isToday || params.selected)
+  const fill = !params.inMonth
+    ? 'bg-transparent opacity-0'
+    : params.active || params.selected
+      ? 'bg-[var(--accent)]/20 font-semibold text-[var(--text)]'
+      : 'bg-transparent text-[var(--text-muted)]'
+  return `flex w-full items-center justify-center rounded border-0 p-0 tabular-nums touch-manipulation ${sizeClass} ${fill} ${
+    showRing ? 'ring-1 ring-[var(--accent)]' : ''
+  }`
+}
+
+function RemarksFeedList({
+  items,
+  compact,
+}: {
+  items: LearningSignalFeedItem[]
+  compact: boolean
+}) {
+  return (
+    <ul className={compact ? 'space-y-2' : 'space-y-2.5'}>
+      {items.map((item) => (
+        <li key={item.id} className="min-w-0 break-words text-[14px] leading-snug text-[var(--text)]">
+          <p>
+            <span className="text-[var(--text-muted)]">{item.relativeDay}</span>
+            {' · '}
+            {item.contextLine}
+          </p>
+          {item.bodyLines.map((line) => (
+            <p key={line} className="break-words">
+              {line}
+            </p>
+          ))}
+          {item.why ? (
+            <p className="break-words text-[13px] leading-snug text-[var(--text-muted)]">{item.why}</p>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  )
+}
+
 const ZONES_CARD_CLASS = `${STATUS_TILE_CLASS} !p-0`
 
 const ZONES_HEADER_TITLE =
@@ -127,6 +198,7 @@ export default function ProgressSheetScreen({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [detail, setDetail] = useState<ProgressDetailKind | null>(null)
   const [expandedLessonId, setExpandedLessonId] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState(getTodayDateString)
   const [refreshKey, setRefreshKey] = useState(0)
 
   const shelf = useMemo(() => buildProgressShelf(rewardsState), [rewardsState, refreshKey])
@@ -173,16 +245,38 @@ export default function ProgressSheetScreen({
     [detail, rewardsState, refreshKey]
   )
 
-  const remarks = useMemo(
-    () => listLearningSignalFeed(listLearningSignals(), audience, detail === 'remarks' ? 40 : 10),
-    [audience, detail, rewardsState, refreshKey]
+  const remarksPreview = useMemo(
+    () => listRemarksPreview(listLearningSignals(), audience),
+    [audience, rewardsState, refreshKey]
+  )
+  const remarksDetailItems = useMemo(
+    () => listLearningSignalFeed(listLearningSignals(), audience, 40),
+    [audience, rewardsState, refreshKey]
   )
 
   const activeDays = rewardsState?.progress.activeDays ?? []
   const monthGrid = useMemo(() => buildMonthActivityGrid(activeDays), [activeDays])
-  const weekBars = useMemo(() => lastSevenDayActivity(activeDays), [activeDays])
   const today = getTodayDateString()
   const todayActive = activeDays.includes(today)
+
+  const dayCard = useMemo((): DayActivityCardModel | null => {
+    if (detail !== 'calendar') return null
+    const lessonMap = loadLessonProgressMap()
+    return buildDayActivityCard({
+      date: selectedDate,
+      today,
+      activeDays,
+      practiceSessions: practiceStorage.listCompletedSessions(),
+      vocabHistory: loadVocabularyProgress().history,
+      lessons: Object.values(lessonMap),
+      lessonTitleById: (lessonId) => getLessonTopicById(lessonId)?.title ?? null,
+      accent: listAccentLessonProgress(),
+      accentTitleById: (lessonId) => getAccentLessonById(lessonId)?.title ?? null,
+      translationSession: rewardsState?.translationSession,
+      dialogueSession: rewardsState?.dialogueSession,
+      communicationSession: rewardsState?.communicationSession,
+    })
+  }, [detail, selectedDate, today, activeDays, rewardsState, refreshKey])
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
@@ -240,6 +334,7 @@ export default function ProgressSheetScreen({
     if (detail) {
       setDetail(null)
       setExpandedLessonId(null)
+      setSelectedDate(getTodayDateString())
       return
     }
     trackProgressEvent('progress_space_back', { audience })
@@ -351,8 +446,11 @@ export default function ProgressSheetScreen({
       {status.opportunity && shelf.opportunity ? (
         <div className={STATUS_STREAK_TILE_CLASS}>
           <div className="min-w-0">
-            <p className="break-words text-[17px] font-semibold leading-snug text-[var(--text)]">
-              {status.opportunity.label}
+            <p className="break-words text-[13px] font-medium leading-snug text-[var(--text-muted)]">
+              {status.opportunity.frame}
+            </p>
+            <p className="mt-1 break-words text-[17px] font-semibold leading-snug text-[var(--text)]">
+              {status.opportunity.title}
             </p>
             <p className="mt-2 break-words text-[14px] leading-snug text-[var(--text-muted)]">
               {status.opportunity.reasonLine}
@@ -361,7 +459,7 @@ export default function ProgressSheetScreen({
           <button
             type="button"
             className={STATUS_INSET_LAUNCH_BTN}
-            aria-label={`${copy.nearRewardTitle} — ${status.opportunity.ctaLabel}`}
+            aria-label={`${status.opportunity.frame} — ${status.opportunity.ctaLabel}`}
             disabled={practiceBusy || !onOpenNearReward}
             onClick={() => {
               if (!shelf.opportunity || !onOpenNearReward) return
@@ -511,15 +609,60 @@ export default function ProgressSheetScreen({
         <ProgressCard
           title={copy.calendarTitle}
           footer={
-            <ProgressFooterButton
-              variant={todayActive ? 'expand' : 'launch'}
-              label={todayActive ? copy.calendarOpen : copy.calendarDoToday}
-              disabled={practiceBusy && !todayActive}
-              onClick={() => {
-                if (todayActive) {
+            todayActive ? (
+              <ProgressFooterButton
+                variant="expand"
+                label={copy.calendarOpen}
+                onClick={() => {
+                  setSelectedDate(today)
                   launch({ kind: 'detail', detail: 'calendar' }, 'calendar')
-                  return
-                }
+                }}
+              />
+            ) : null
+          }
+        >
+          <div className="grid grid-cols-7 gap-1">
+            {monthGrid.cells.map((cell, i) =>
+              cell.date && cell.inMonth ? (
+                <button
+                  key={cell.date}
+                  type="button"
+                  aria-label={formatCalendarDayHeading(cell.date)}
+                  className={monthDayClass({
+                    inMonth: true,
+                    active: cell.active,
+                    isToday: cell.isToday,
+                    selected: false,
+                    size: 'overview',
+                  })}
+                  onClick={() => {
+                    setSelectedDate(cell.date!)
+                    launch({ kind: 'detail', detail: 'calendar' }, 'calendar')
+                  }}
+                >
+                  {Number(cell.date.slice(8))}
+                </button>
+              ) : (
+                <div
+                  key={`pad-${i}`}
+                  className={monthDayClass({
+                    inMonth: false,
+                    active: false,
+                    isToday: false,
+                    selected: false,
+                    size: 'overview',
+                  })}
+                />
+              )
+            )}
+          </div>
+          {!todayActive ? (
+            <button
+              type="button"
+              className={STATUS_INSET_LAUNCH_BTN}
+              aria-label={copy.calendarDoToday}
+              disabled={practiceBusy}
+              onClick={() => {
                 trackProgressEvent('progress_footer_click', {
                   audience,
                   surface: 'calendar',
@@ -527,44 +670,39 @@ export default function ProgressSheetScreen({
                 })
                 saveStreak()
               }}
-            />
-          }
-        >
-          <div className="grid grid-cols-7 gap-1">
-            {monthGrid.cells.map((cell, i) => (
-              <div
-                key={cell.date ?? `pad-${i}`}
-                className={`flex h-7 items-center justify-center rounded text-[11px] tabular-nums ${
-                  !cell.inMonth
-                    ? 'opacity-0'
-                    : cell.active
-                      ? 'bg-[var(--accent)]/20 font-semibold text-[var(--text)]'
-                      : 'text-[var(--text-muted)]'
-                } ${cell.isToday ? 'ring-1 ring-[var(--accent)]' : ''}`}
-              >
-                {cell.date ? Number(cell.date.slice(8)) : ''}
-              </div>
-            ))}
-          </div>
+            >
+              <span className="min-w-0 break-words">{copy.calendarDoToday}</span>
+            </button>
+          ) : null}
         </ProgressCard>
       ) : null}
 
       <ProgressCard
         title={copy.remarksTitle}
         footer={
-          remarks.length > 0 ? (
+          remarksPreview.length > 0 ? (
             <ProgressFooterButton
               variant={
-                attentionZones[0]?.lessonId && attentionZones[0].chipActive ? 'launch' : 'expand'
+                audience !== 'child' &&
+                attentionZones[0]?.lessonId &&
+                attentionZones[0].chipActive
+                  ? 'launch'
+                  : 'expand'
               }
               label={
-                attentionZones[0]?.lessonId && attentionZones[0].chipActive
+                audience !== 'child' &&
+                attentionZones[0]?.lessonId &&
+                attentionZones[0].chipActive
                   ? copy.remarksReview
                   : copy.remarksMore
               }
               disabled={practiceBusy}
               onClick={() => {
-                if (attentionZones[0]?.lessonId && attentionZones[0].chipActive) {
+                if (
+                  audience !== 'child' &&
+                  attentionZones[0]?.lessonId &&
+                  attentionZones[0].chipActive
+                ) {
                   trackProgressEvent('progress_footer_click', {
                     audience,
                     surface: 'remarks',
@@ -583,20 +721,12 @@ export default function ProgressSheetScreen({
           ) : null
         }
       >
-        {remarks.length === 0 ? (
+        {remarksPreview.length === 0 ? (
           <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
             {copy.remarksEmpty}
           </p>
         ) : (
-          <ul className="space-y-1.5">
-            {remarks.slice(0, 7).map((item) => (
-              <li key={item.id} className="break-words text-[14px] leading-snug text-[var(--text)]">
-                <span className="text-[var(--text-muted)]">{item.relativeDay}</span>
-                {' · '}
-                {item.line}
-              </li>
-            ))}
-          </ul>
+          <RemarksFeedList items={remarksPreview} compact />
         )}
       </ProgressCard>
 
@@ -650,32 +780,115 @@ export default function ProgressSheetScreen({
     <div className="w-full min-w-0 space-y-2.5">
       <ProgressCard title={copy.calendarTitle}>
         <div className="grid grid-cols-7 gap-1">
-          {monthGrid.cells.map((cell, i) => (
-            <div
-              key={cell.date ?? `pad-${i}`}
-              className={`flex h-8 items-center justify-center rounded text-[12px] tabular-nums ${
-                !cell.inMonth
-                  ? 'opacity-0'
-                  : cell.active
-                    ? 'bg-[var(--accent)]/20 font-semibold text-[var(--text)]'
-                    : 'text-[var(--text-muted)]'
-              } ${cell.isToday ? 'ring-1 ring-[var(--accent)]' : ''}`}
-            >
-              {cell.date ? Number(cell.date.slice(8)) : ''}
-            </div>
-          ))}
-        </div>
-        <div className="mt-3 flex items-end gap-1">
-          {weekBars.map((d) => (
-            <div key={d.date} className="flex flex-1 flex-col items-center gap-1">
+          {monthGrid.cells.map((cell, i) =>
+            cell.date && cell.inMonth ? (
+              <button
+                key={cell.date}
+                type="button"
+                aria-pressed={cell.date === selectedDate}
+                aria-label={formatCalendarDayHeading(cell.date)}
+                className={monthDayClass({
+                  inMonth: true,
+                  active: cell.active,
+                  isToday: cell.isToday,
+                  selected: cell.date === selectedDate,
+                  size: 'detail',
+                })}
+                onClick={() => setSelectedDate(cell.date!)}
+              >
+                {Number(cell.date.slice(8))}
+              </button>
+            ) : (
               <div
-                className={`w-full rounded-sm ${d.active ? 'bg-[var(--accent)]' : 'bg-[var(--menu-control-bg)]'}`}
-                style={{ height: d.active ? 28 : 8 }}
+                key={`pad-${i}`}
+                className={monthDayClass({
+                  inMonth: false,
+                  active: false,
+                  isToday: false,
+                  selected: false,
+                  size: 'detail',
+                })}
               />
-              <span className="text-[10px] text-[var(--text-muted)]">{d.date.slice(8)}</span>
-            </div>
-          ))}
+            )
+          )}
         </div>
+        {dayCard ? (
+          <div className="mt-3 border-t border-[var(--chat-section-neutral-border)] pt-3">
+            <p className="break-words text-[15px] font-semibold text-[var(--text)]">
+              {formatCalendarDayHeading(dayCard.date)}
+            </p>
+            {dayCard.items.length > 0 ? (
+              <p className="mt-0.5 text-[13px] text-[var(--text-muted)]">
+                {formatDaySessionCount(dayCard.totalCount)}
+              </p>
+            ) : (
+              <p className="mt-1 break-words text-[14px] leading-snug text-[var(--text-muted)]">
+                {dayCard.inStreak ? copy.calendarDayInStreak : copy.calendarDayEmpty}
+                {dayCard.inStreak && dayCard.items.length === 0 ? (
+                  <>
+                    {'. '}
+                    {copy.calendarDayNoClosed}
+                  </>
+                ) : null}
+              </p>
+            )}
+            {dayCard.items.length > 0 ? (
+              <ul className="mt-3 space-y-3">
+                {dayCard.items.map((item) => {
+                  const score = formatDayItemScore(item, audience, copy)
+                  return (
+                    <li key={item.id} className="min-w-0">
+                      <p className="break-words text-[13px] text-[var(--text-muted)]">
+                        {dayActivityKindLabel(item.kind, copy)}
+                      </p>
+                      {item.title ? (
+                        <p className="break-words text-[15px] font-semibold leading-snug text-[var(--text)]">
+                          {item.title}
+                        </p>
+                      ) : null}
+                      {score ? (
+                        <p className="break-words text-[14px] leading-snug text-[var(--text)]">{score}</p>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : null}
+            {dayCard.totalCount > dayCard.items.length ? (
+              <p className="mt-2 text-[13px] text-[var(--text-muted)]">
+                {formatDayOverflow(dayCard.totalCount - dayCard.items.length, copy)}
+              </p>
+            ) : null}
+            {dayCard.inProgress ? (
+              <p className="mt-3 break-words text-[14px] leading-snug text-[var(--text-muted)]">
+                {dayActivityKindLabel(dayCard.inProgress.kind, copy)}
+                {' · '}
+                {formatDayInProgressLine(dayCard.inProgress, audience, copy)}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {dayCard &&
+        selectedDate === today &&
+        dayCard.items.length === 0 &&
+        !dayCard.inProgress ? (
+          <button
+            type="button"
+            className={STATUS_INSET_LAUNCH_BTN}
+            aria-label={copy.calendarDoToday}
+            disabled={practiceBusy}
+            onClick={() => {
+              trackProgressEvent('progress_footer_click', {
+                audience,
+                surface: 'calendar',
+                variant: 'launch',
+              })
+              saveStreak()
+            }}
+          >
+            <span className="min-w-0 break-words">{copy.calendarDoToday}</span>
+          </button>
+        ) : null}
       </ProgressCard>
     </div>
   )
@@ -683,20 +896,12 @@ export default function ProgressSheetScreen({
   const remarksDetail = (
     <div className="w-full min-w-0 space-y-2.5">
       <ProgressCard title={copy.remarksTitle}>
-        {remarks.length === 0 ? (
+        {remarksDetailItems.length === 0 ? (
           <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
             {copy.remarksEmpty}
           </p>
         ) : (
-          <ul className="space-y-2">
-            {remarks.map((item) => (
-              <li key={item.id} className="break-words text-[15px] leading-[1.45] text-[var(--text)]">
-                <span className="text-[var(--text-muted)]">{item.relativeDay}</span>
-                {' · '}
-                {item.line}
-              </li>
-            ))}
-          </ul>
+          <RemarksFeedList items={remarksDetailItems} compact={false} />
         )}
       </ProgressCard>
     </div>

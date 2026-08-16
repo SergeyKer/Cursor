@@ -2,6 +2,7 @@ import type { FooterCopyAudience } from '@/lib/footerTopLinePhrases'
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import { isStreakDailyBonusClaimed, streakDailyBonusXp } from '@/lib/streakDailyBonus'
+import { isStreakExpired } from '@/lib/streakStatus'
 
 export function shouldShowStreakHomeBanner(
   state: RewardsState,
@@ -9,6 +10,7 @@ export function shouldShowStreakHomeBanner(
   today: string = getTodayDateString()
 ): boolean {
   if (footerPreviewVisible) return false
+  if (isStreakExpired(state, today)) return false
   if (isStreakDailyBonusClaimed(state, today)) return false
   return streakDailyBonusXp(state.progress.dailyStreak) > 0
 }

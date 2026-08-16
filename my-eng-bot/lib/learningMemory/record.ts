@@ -4,7 +4,7 @@ import { mapLearningSource } from '@/lib/learningMemory/mapSource'
 import { getLearningMemoryStoragePort } from '@/lib/learningMemory/port'
 import { RESOLVE_COOLDOWN_MS } from '@/lib/learningMemory/types'
 import { extractTranslationErrorBlocks } from '@/lib/learningMemory/translationErrors'
-import type { LanguageNote } from '@/lib/languageNote/types'
+import { LANGUAGE_NOTE_MAX_REASON_CHARS, type LanguageNote } from '@/lib/languageNote/types'
 import type { AppMode, CommunicationVoiceInputMode } from '@/lib/types'
 import { getLessonTopicCatalog } from '@/lib/lessonCatalog'
 
@@ -22,6 +22,19 @@ function scheduleIdle(fn: () => void): void {
     return
   }
   setTimeout(run, 0)
+}
+
+function languageNoteSnippet(note: LanguageNote): {
+  original: string
+  corrected: string
+  why?: string
+} {
+  const why = note.correctReasons[0]?.trim().slice(0, LANGUAGE_NOTE_MAX_REASON_CHARS)
+  return {
+    original: note.original.slice(0, 120),
+    corrected: note.correct.slice(0, 120),
+    ...(why ? { why } : {}),
+  }
 }
 
 function saveLearningSignal(
@@ -189,10 +202,7 @@ export function recordLanguageNoteSignal(params: {
       rawTopicTitles: note.reviewTopics.map((t) => t.title),
       lessonIdHint: note.lessonId,
       skillTagIds,
-      snippet: {
-        original: note.original.slice(0, 120),
-        corrected: note.correct.slice(0, 120),
-      },
+      snippet: languageNoteSnippet(note),
     })
     clearSkillResolved(skillTagIds)
   })
@@ -218,10 +228,7 @@ export function recordSilentAssessSignal(params: {
       rawTopicTitles: note.reviewTopics.map((t) => t.title),
       lessonIdHint: note.lessonId,
       skillTagIds,
-      snippet: {
-        original: note.original.slice(0, 120),
-        corrected: note.correct.slice(0, 120),
-      },
+      snippet: languageNoteSnippet(note),
     })
     clearSkillResolved(skillTagIds)
   })

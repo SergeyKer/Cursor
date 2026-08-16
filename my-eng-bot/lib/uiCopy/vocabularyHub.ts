@@ -41,7 +41,7 @@ export function vocabHubCopy(audience: Audience) {
     searchPlaceholder: 'Поиск…',
     emptyList: 'Пока пусто.',
     listen: 'Слушать',
-    handoffTranslation: 'В перевод',
+    handoffTranslation: 'Закрепить в переводе',
     handoffCall: 'В звонок',
     catalogScreenTitle: 'Слова',
     masteredEmpty: child
@@ -81,9 +81,15 @@ export function vocabHubCopy(audience: Audience) {
     practiceNeedWords: 'Сначала слова',
     statsTitle: 'Как у меня',
     statsEmpty: 'Пока нет сессий. Пройди короткую порцию.',
-    translationEmpty: 'Сначала отметь или пройди порцию.',
     resumePack: (title: string) => `Доучить ${title}`,
   }
+}
+
+export function formatHandoffLemmaLine(ens: string[]): string {
+  return ens
+    .map((en) => en.trim())
+    .filter(Boolean)
+    .join(' · ')
 }
 
 export const VOCAB_DISPLAY_CHIP_ORDER: VocabDisplayTileId[] = VOCAB_DISPLAY_TILE_IDS

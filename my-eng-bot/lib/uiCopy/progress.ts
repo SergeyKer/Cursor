@@ -1,3 +1,5 @@
+import { PRACTICE_RING_MAX } from '@/lib/practice/practiceGlyphs'
+
 export type ProgressAudience = 'child' | 'adult'
 
 const SECTIONS = {
@@ -14,14 +16,14 @@ const SECTIONS = {
     dialogueCorrect: 'Верных сегодня',
     usageLabel: 'Сообщений',
     premiumCue: 'С ИИ можно глубже',
-    nearRewardTitle: 'Почти награда',
+    nearRewardTitle: 'Практика',
     toMyPlan: 'Что делать сейчас →',
     toMyPlanAria: 'Открыть Мой план',
     emptyTitle: 'Награды пока пустые',
     emptyBody: 'Зайди в Мой план — там первый шаг.',
     streakMore: 'Подробнее о серии',
     streakHide: 'Скрыть про серию',
-    recordLabel: 'Рекорд',
+    recordLabel: 'Лучший результат',
     levelToNext: 'до уровня',
     currentLevelLabel: 'Твой текущий уровень',
     practiceBadgesTitle: 'Бейджи практики',
@@ -57,17 +59,28 @@ const SECTIONS = {
     weakZoneRepeat: 'Повторить',
     weakZonesCta: 'Исправить',
     weakZonesCtaAria: 'Открыть Мой план',
-    remarksTitle: 'Недавние замечания',
+    remarksTitle: 'Что поправить',
     remarksMore: 'Ещё',
-    remarksReview: 'Разобрать',
-    remarksEmpty: 'Пока тихо — замечания появятся после практики и общения',
+    remarksReview: 'Ещё',
+    remarksEmpty: 'Пока пусто — появится после практики и общения',
     calendarTitle: 'Календарь',
     calendarOpen: 'Открыть',
     calendarDoToday: 'Займись сегодня',
+    calendarDayInStreak: 'День в серии',
+    calendarDayNoClosed: 'Закрытых занятий нет',
+    calendarDayEmpty: 'Занятий не было',
+    calendarNow: 'сейчас',
+    calendarMore: 'ещё',
+    calendarLessonDone: 'пройден',
+    calendarMedalGold: 'золото',
+    calendarMedalSilver: 'серебро',
+    calendarMedalBronze: 'бронза',
+    calendarVocabReviewed: 'повторил',
+    calendarVocabLearned: 'выучил',
     back: '← Назад',
     myPlanButton: 'Мой план',
     continuePractice: 'Продолжить практику',
-    startPractice: 'Начать практику',
+    startPractice: 'Тренировать',
     lessonsSection: 'Уроки',
     practiceSection: 'Практика',
     medalNotStarted: 'ещё не начат',
@@ -151,13 +164,24 @@ const SECTIONS = {
     weakZoneRepeat: 'Повторить',
     weakZonesCta: 'К заданиям',
     weakZonesCtaAria: 'Открыть Мой план',
-    remarksTitle: 'Недавние замечания',
+    remarksTitle: 'Недавние ошибки',
     remarksMore: 'Ещё',
-    remarksReview: 'Разобрать',
-    remarksEmpty: 'Пока тихо — замечания появятся после практики и общения',
+    remarksReview: 'К теме',
+    remarksEmpty: 'Пока пусто — сюда попадают ошибки из общения, перевода и заданий',
     calendarTitle: 'Календарь',
     calendarOpen: 'Открыть',
     calendarDoToday: 'Займись сегодня',
+    calendarDayInStreak: 'День в серии',
+    calendarDayNoClosed: 'Закрытых занятий нет',
+    calendarDayEmpty: 'Занятий не было',
+    calendarNow: 'сейчас',
+    calendarMore: 'ещё',
+    calendarLessonDone: 'пройден',
+    calendarMedalGold: 'золото',
+    calendarMedalSilver: 'серебро',
+    calendarMedalBronze: 'бронза',
+    calendarVocabReviewed: 'повторил',
+    calendarVocabLearned: 'выучил',
     back: '← Назад',
     myPlanButton: 'Мой план',
     continuePractice: 'Продолжить практику',
@@ -193,19 +217,45 @@ const SECTIONS = {
 
 export type ProgressCopy = (typeof SECTIONS)[ProgressAudience]
 
+export const REMARKS_GENRE = {
+  phrase: 'разбор фразы',
+  task: 'задание',
+} as const
+
+export const REMARKS_BODY = {
+  chose: 'Выбрал',
+  correct: 'Верно',
+  need: 'Надо',
+  noticed: 'Заметили',
+} as const
+
 export function progressCopy(audience: ProgressAudience = 'adult'): ProgressCopy {
   return SECTIONS[audience === 'child' ? 'child' : 'adult']
 }
 
-/** 1 раз / 2 раза / 5 раз / 11 раз / 21 раз / 22 раза */
-export function ruRazWord(n: number): string {
+function ruCountWord(n: number, one: string, few: string, many: string): string {
   const abs = Math.abs(Math.floor(n))
   const mod100 = abs % 100
   const mod10 = abs % 10
-  if (mod100 >= 11 && mod100 <= 14) return 'раз'
-  if (mod10 === 1) return 'раз'
-  if (mod10 >= 2 && mod10 <= 4) return 'раза'
-  return 'раз'
+  if (mod100 >= 11 && mod100 <= 14) return many
+  if (mod10 === 1) return one
+  if (mod10 >= 2 && mod10 <= 4) return few
+  return many
+}
+
+/** 1 раз / 2 раза / 5 раз / 11 раз / 21 раз / 22 раза */
+export function ruRazWord(n: number): string {
+  return ruCountWord(n, 'раз', 'раза', 'раз')
+}
+
+/** 1 зачёт / 2 зачёта / 5 зачётов */
+export function ruZachetWord(n: number): string {
+  return ruCountWord(n, 'зачёт', 'зачёта', 'зачётов')
+}
+
+/** 1 занятие / 2 занятия / 5 занятий */
+export function ruZanyatieWord(n: number): string {
+  return ruCountWord(n, 'занятие', 'занятия', 'занятий')
 }
 
 export function formatAttentionZoneMeta(sourceHint: string, errorCount: number): string {
@@ -215,25 +265,76 @@ export function formatAttentionZoneMeta(sourceHint: string, errorCount: number):
   return hint ? `${hint} · ${count}` : count
 }
 
-export function progressOpportunityReason(
+export function compactOpportunityTopicLabel(
+  catalogTitle: string | null | undefined,
+  fallback: string
+): string {
+  const raw = (catalogTitle ?? '').trim() || fallback.trim()
+  if (!raw) return fallback.trim()
+  const first = raw.split(' / ')[0]?.trim()
+  return first || raw
+}
+
+export function formatOpportunityTitle(topic: string, showGoldMedal: boolean): string {
+  const name = topic.trim()
+  return showGoldMedal ? `${name} 🥇` : name
+}
+
+function remainingRings(ringCount: number, max = PRACTICE_RING_MAX): number {
+  const rings = Math.max(0, Math.min(max, Math.floor(ringCount)))
+  return Math.max(0, max - rings)
+}
+
+function stillNeedCountPhrase(audience: ProgressAudience, left: number): string {
+  if (audience === 'child') return `Ещё ${left} ${ruRazWord(left)}`
+  return `Ещё ${left} ${ruZachetWord(left)}`
+}
+
+function stillNeedPrizeLine(
+  audience: ProgressAudience,
+  left: number,
+  prizeWhenLeft: string,
+  prizeWhenDone: string
+): string {
+  if (left <= 0) return prizeWhenDone
+  return `${stillNeedCountPhrase(audience, left)} — ${prizeWhenLeft}`
+}
+
+export function formatOpportunityBodyLine(
   reason: 'gems_pending' | 'gold_ring' | 'tier1_ring' | 'tier0_session' | string,
   audience: ProgressAudience,
-  cupsEnabled: boolean
+  cupsEnabled: boolean,
+  ringCount: number
 ): string {
   const child = audience === 'child'
+  const left = remainingRings(ringCount)
   if (reason === 'gems_pending') {
-    return child ? 'Золото есть — практика даст камень.' : 'Золото уже есть — практика закрепит камень.'
+    return child ? 'Забери камень.' : 'Заберите камень.'
   }
   if (reason === 'gold_ring') {
     if (cupsEnabled) {
-      return child ? 'Ещё чуть практики — будет кубок.' : 'Золото есть — практика по теме к кубку.'
+      return stillNeedPrizeLine(audience, left, 'будет кубок.', 'Следующая практика — кубок.')
     }
-    return 'Золото есть — практика даст камни.'
+    return stillNeedPrizeLine(audience, left, 'будут камни.', 'Следующая практика — камни.')
   }
   if (reason === 'tier1_ring') {
-    return child ? 'Практика приближает к награде.' : 'Практика по теме приближает к награде.'
+    return stillNeedPrizeLine(
+      audience,
+      left,
+      'ближе к награде.',
+      'Практика приближает к награде.'
+    )
   }
-  return child ? 'Практика даёт опыт к уровню.' : 'Практика по пройденному уроку даёт XP к уровню.'
+  return child ? 'Практика даёт опыт к уровню.' : 'Практика даёт XP к уровню.'
+}
+
+export function progressOpportunityReason(
+  reason: 'gems_pending' | 'gold_ring' | 'tier1_ring' | 'tier0_session' | string,
+  audience: ProgressAudience,
+  cupsEnabled: boolean,
+  ringCount = 0
+): string {
+  return formatOpportunityBodyLine(reason, audience, cupsEnabled, ringCount)
 }
 
 /** Words that must not appear in child hero / section labels (retention). */

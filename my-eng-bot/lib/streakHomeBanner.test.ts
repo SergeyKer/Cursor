@@ -8,6 +8,7 @@ describe('streakHomeBanner', () => {
   it('shows banner when streak>=3, bonus not claimed, footer preview hidden', () => {
     const state = createDefaultRewardsState()
     state.progress.dailyStreak = 4
+    state.progress.lastActiveDate = today
     expect(shouldShowStreakHomeBanner(state, false, today)).toBe(true)
     expect(formatStreakHomeBannerText(state, 'adult', today)).toContain('+10 XP')
   })
@@ -15,6 +16,7 @@ describe('streakHomeBanner', () => {
   it('hides banner when footer preview visible, bonus claimed, or streak<3', () => {
     const state = createDefaultRewardsState()
     state.progress.dailyStreak = 4
+    state.progress.lastActiveDate = today
     expect(shouldShowStreakHomeBanner(state, true, today)).toBe(false)
 
     const claimed = createDefaultRewardsState()
@@ -25,5 +27,13 @@ describe('streakHomeBanner', () => {
     const low = createDefaultRewardsState()
     low.progress.dailyStreak = 2
     expect(shouldShowStreakHomeBanner(low, false, today)).toBe(false)
+  })
+
+  it('hides banner when streak is expired', () => {
+    const expired = createDefaultRewardsState()
+    expired.progress.dailyStreak = 5
+    expired.progress.lastActiveDate = '2020-01-01'
+    expect(shouldShowStreakHomeBanner(expired, false, today)).toBe(false)
+    expect(formatStreakHomeBannerText(expired, 'child', today)).toBeNull()
   })
 })

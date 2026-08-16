@@ -9,6 +9,7 @@ describe('streakSessionHint', () => {
   it('returns hint when streak>=3 and bonus not claimed', () => {
     const state = createDefaultRewardsState()
     state.progress.dailyStreak = 5
+    state.progress.lastActiveDate = today
     expect(formatStreakSessionHint(state, 'adult', today)).toContain('+15 XP')
     expect(shouldShowStreakSessionHint(state, today)).toBe(true)
   })
@@ -29,8 +30,17 @@ describe('streakSessionHint', () => {
     ] as const) {
       const state = createDefaultRewardsState()
       state.progress.dailyStreak = streak
+      state.progress.lastActiveDate = today
       expect(streakDailyBonusXp(streak)).toBe(bonus)
       expect(formatStreakSessionHint(state, 'adult', today)).toContain(`+${bonus} XP`)
     }
+  })
+
+  it('returns null when streak is expired', () => {
+    const state = createDefaultRewardsState()
+    state.progress.dailyStreak = 5
+    state.progress.lastActiveDate = '2020-01-01'
+    expect(formatStreakSessionHint(state, 'adult', today)).toBeNull()
+    expect(shouldShowStreakSessionHint(state, today)).toBe(false)
   })
 })

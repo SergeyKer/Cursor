@@ -1,6 +1,7 @@
 import { DAILY_STREAK_GLYPH } from '@/lib/gamificationGlyphs'
 import { getTodayDateString, type RewardsState } from '@/lib/rewardsState'
 import { isStreakDailyBonusClaimed, streakDailyBonusXp } from '@/lib/streakDailyBonus'
+import { isStreakExpired } from '@/lib/streakStatus'
 
 export interface StreakProgressCopy {
   bonusTodayLabel: string | null
@@ -13,7 +14,7 @@ export function formatStreakProgressCopy(
   state: RewardsState,
   today: string = getTodayDateString()
 ): StreakProgressCopy {
-  const streak = state.progress.dailyStreak
+  const streak = isStreakExpired(state, today) ? 0 : state.progress.dailyStreak
   const bonus = streakDailyBonusXp(streak)
   const claimed = isStreakDailyBonusClaimed(state, today)
 

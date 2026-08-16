@@ -329,12 +329,14 @@ export default function ProgressPanel({
       {status.opportunity ? (
         <div className="rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-3">
           <p className="text-[13px] font-medium text-[var(--status-info-text)]">
-            {copy.nearRewardTitle}
+            {status.opportunity.frame}
           </p>
           <p className="mt-1 text-[15px] font-semibold text-[var(--text)]">
-            {status.opportunity.label}
+            {status.opportunity.title}
           </p>
-          <p className="mt-1 text-[12px] text-[var(--text-muted)]">{status.opportunity.reasonLine}</p>
+          <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+            {status.opportunity.reasonLine}
+          </p>
         </div>
       ) : null}
 

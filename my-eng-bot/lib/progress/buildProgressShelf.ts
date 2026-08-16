@@ -22,8 +22,10 @@ import { buildProgressTopicAwardRows, type ProgressTopicAwardRow } from '@/lib/p
 import { formatStreakProgressCopy, type StreakProgressCopy } from '@/lib/streakProgressCopy'
 import {
   createDefaultRewardsState,
+  getTodayDateString,
   type RewardsState,
 } from '@/lib/rewardsState'
+import { displayDailyStreak } from '@/lib/streakStatus'
 import type { LessonMedalTierOrNull } from '@/lib/lessonScore'
 import type { UserLessonProgress } from '@/types/userProgress'
 
@@ -80,7 +82,10 @@ function lessonCycleLabel(progress: UserLessonProgress): string {
   return ''
 }
 
-export function buildProgressShelf(rewardsState: RewardsState | undefined): ProgressShelf {
+export function buildProgressShelf(
+  rewardsState: RewardsState | undefined,
+  today: string = getTodayDateString()
+): ProgressShelf {
   const state = rewardsState ?? createDefaultRewardsState()
   const cupsEnabled = featureFlags.practiceTopicCupsV1 === true
   const lessonProgressMap = loadLessonProgressMap()
@@ -155,13 +160,13 @@ export function buildProgressShelf(rewardsState: RewardsState | undefined): Prog
     lessonBadgesEarned === 0
 
   return {
-    dailyStreak: state.progress.dailyStreak,
+    dailyStreak: displayDailyStreak(state, today),
     bestDailyStreak: state.progress.bestDailyStreak ?? state.progress.dailyStreak,
     level: state.progress.level,
     totalXP: state.progress.totalXP,
     currentLevelXP: state.progress.currentLevelXP,
     xpToNextLevel: state.progress.xpToNextLevel,
-    streakCopy: formatStreakProgressCopy(state),
+    streakCopy: formatStreakProgressCopy(state, today),
     medals,
     lessonBadgesEarned,
     lessonBadgeTotal: 4,
