@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { clearTutorStorageMemoryForTests } from '@/lib/tutor/storageAdapter'
 import { clearTutorCuriosityForTests, recordTutorCuriosity } from '@/lib/tutor/curiosityStore'
-import { listTutorQuestionJobs, selectTutorTask } from '@/lib/tutor/selectTutorTask'
+import { listTutorQuestionJobs, selectTutorTask, selectTutorTasks } from '@/lib/tutor/selectTutorTask'
 import {
   clearTutorQuestionStateForTests,
   setCachedTutorQuestion,
@@ -105,6 +105,23 @@ describe('selectTutorTask', () => {
         faqPoolEnabled: true,
       })
     ).toBeNull()
+  })
+
+  it('selectTutorTasks returns up to 3 FAQ chips without a second scorer', () => {
+    const tasks = selectTutorTasks({
+      attentionZones: [
+        zone({ skillTagId: 'present-simple', title: 'Present Simple', errorCount: 2, score: 50 }),
+        zone({ skillTagId: 'articles', title: 'Articles', errorCount: 2, score: 40 }),
+        zone({ skillTagId: 'spoken-fluency', title: 'Живая речь', errorCount: 2, score: 10 }),
+      ],
+      level: 'a1',
+      faqPoolEnabled: true,
+      limit: 3,
+    })
+    expect(tasks.length).toBeGreaterThanOrEqual(1)
+    expect(tasks.length).toBeLessThanOrEqual(3)
+    expect(tasks[0]?.action.kind).toBe('open_tutor')
+    expect(tasks[0]?.action.kind === 'open_tutor' && tasks[0].action.skillTagId).toBe('present-simple')
   })
 })
 

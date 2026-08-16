@@ -27,7 +27,7 @@ import {
   type MyPlanAudience,
 } from '@/lib/uiCopy/myPlan'
 import { catalogLevelToLevelId } from '@/lib/lessonCatalog'
-import { selectTutorTask } from '@/lib/tutor/selectTutorTask'
+import { selectTutorTasks } from '@/lib/tutor/selectTutorTask'
 
 function audienceOf(input: MyPlanInput): MyPlanAudience {
   return input.audience === 'child' ? 'child' : 'adult'
@@ -358,6 +358,52 @@ function buildWeakSpot(
   }
 }
 
+function buildOpenChat(audience: MyPlanAudience): MyPlanRecommendation {
+  const invite = myPlanNowInvite('open_chat', audience)
+  return {
+    id: 'open-chat',
+    priority: 8,
+    goalType: 'open_chat',
+    title: myPlanTopicLine('practice', 'чат'),
+    subtitle: '',
+    reasonLine: myPlanWhy('open_chat', audience),
+    action: { kind: 'open_communication' },
+    buttonLabel: myPlanButton('open_chat', audience),
+    ariaLabel: invite,
+    timeLabel: myPlanTimeLabel('medium', audience),
+  }
+}
+
+function buildOpenCall(audience: MyPlanAudience): MyPlanRecommendation {
+  const invite = myPlanNowInvite('open_call', audience)
+  return {
+    id: 'open-call',
+    priority: 8,
+    goalType: 'open_call',
+    title: myPlanTopicLine('practice', 'звонок'),
+    subtitle: '',
+    reasonLine: myPlanWhy('open_call', audience),
+    action: { kind: 'open_engvo' },
+    buttonLabel: myPlanButton('open_call', audience),
+    ariaLabel: invite,
+    timeLabel: myPlanTimeLabel('short', audience),
+  }
+}
+
+type ModePick = { main: MyPlanRecommendation | null; secondary: MyPlanRecommendation[] }
+
+/** Лестница 13.08: только если нет пожара на ступенях 1–3. */
+function pickCommunicationLadder(input: MyPlanInput, audience: MyPlanAudience): ModePick | null {
+  if (input.hadChat == null && input.hadCall == null) return null
+  const hadChat = Boolean(input.hadChat)
+  const hadCall = Boolean(input.hadCall)
+  if (hadChat && hadCall) return null
+  if (!hadChat) {
+    return { main: buildOpenChat(audience), secondary: [] }
+  }
+  return { main: buildOpenCall(audience), secondary: [buildOpenChat(audience)] }
+}
+
 function pickCloseLoopTheory(input: MyPlanInput): MyPlanLessonProgressSlice | null {
   const latestTheory = pickLatestCompletedTheory(input)
   if (!latestTheory) return null
@@ -434,8 +480,6 @@ function dedupeSecondary(
   return secondary
 }
 
-type ModePick = { main: MyPlanRecommendation | null; secondary: MyPlanRecommendation[] }
-
 function pickByModes(input: MyPlanInput, nowMs: number): ModePick {
   const audience = audienceOf(input)
   const zones = input.attentionZones ?? []
@@ -482,7 +526,11 @@ function pickByModes(input: MyPlanInput, nowMs: number): ModePick {
     return { main, secondary: dedupeSecondary(main, secondary) }
   }
 
-  // 4. MASTER
+  // 4. Лестница чат→звонок (только вне пожара 1–3)
+  const ladder = pickCommunicationLadder(input, audience)
+  if (ladder) return ladder
+
+  // 5. MASTER
   const pool = buildMasterPool(input, audience)
   if (pool.length === 0) return { main: null, secondary: [] }
 
@@ -513,17 +561,21 @@ export function selectNowGoal(input: MyPlanInput): NowGoalResult {
       ? buildNextLesson(picked.lesson, audience, picked.unstartedCount)
       : null
 
+  const tutorTasks = selectTutorTasks({
+    attentionZones: input.attentionZones,
+    level: catalogLevelToLevelId(input.anchorLevel),
+    faqPoolEnabled: featureFlags.tutorFaqPoolV1,
+    limit: 3,
+  })
+
   return {
     mainTask,
     secondary,
     programTask,
     programStatus: picked.status,
     unstartedCount: picked.unstartedCount,
-    tutorTask: selectTutorTask({
-      attentionZones: input.attentionZones,
-      level: catalogLevelToLevelId(input.anchorLevel),
-      faqPoolEnabled: featureFlags.tutorFaqPoolV1,
-    }),
+    tutorTask: tutorTasks[0] ?? null,
+    tutorTasks,
     status: {
       dailyStreak: input.rewards.dailyStreak,
       level: input.rewards.level ?? 1,

@@ -64,6 +64,8 @@ function emptyInput(over: Partial<MyPlanInput> = {}): MyPlanInput {
     audience: 'adult',
     canUseAiReinforce: false,
     nowMs: Date.parse('2026-05-14T12:00:00.000Z'),
+    hadChat: true,
+    hadCall: true,
     ...over,
   }
 }
@@ -345,5 +347,87 @@ describe('selectNowGoal', () => {
     if (mainTask?.action.kind === 'reinforce_skill') {
       expect(mainTask.action.generation).toBe('ai')
     }
+  })
+
+  it('лестница не бьёт CLOSE_LOOP даже без чата', () => {
+    const input = emptyInput({
+      hadChat: false,
+      hadCall: false,
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'To be',
+          completedSteps: [1, 2, 3],
+          lastCompleted: '2026-05-14T10:00:00.000Z',
+          mistakesCount: 0,
+        },
+      },
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('practice_after_theory')
+    expect(mainTask?.action.kind).toBe('start_practice')
+  })
+
+  it('лестница не бьёт RESCUE', () => {
+    const input = emptyInput({
+      hadChat: false,
+      hadCall: false,
+      lessons: {
+        '1': {
+          lessonId: '1',
+          topic: 'To be',
+          completedSteps: [1],
+          lastCompleted: '',
+          mistakesCount: 0,
+        },
+      },
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('incomplete')
+  })
+
+  it('лестница не бьёт REPAIR', () => {
+    const input = emptyInput({
+      hadChat: false,
+      hadCall: false,
+      attentionZones: [zone()],
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('reinforce')
+  })
+
+  it('вне пожара без чата → open_chat', () => {
+    const input = emptyInput({
+      catalog: [],
+      hadChat: false,
+      hadCall: false,
+    })
+    const { mainTask, secondary } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('open_chat')
+    expect(mainTask?.action).toEqual({ kind: 'open_communication' })
+    expect(secondary).toEqual([])
+  })
+
+  it('чат был, звонка не было → open_call + secondary чат', () => {
+    const input = emptyInput({
+      catalog: [],
+      hadChat: true,
+      hadCall: false,
+    })
+    const { mainTask, secondary } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('open_call')
+    expect(mainTask?.action).toEqual({ kind: 'open_engvo' })
+    expect(secondary[0]?.goalType).toBe('open_chat')
+  })
+
+  it('оба режима живые → MASTER, не лестница', () => {
+    const input = emptyInput({
+      catalog: [],
+      hadChat: true,
+      hadCall: true,
+      daysSinceLastActive: 5,
+    })
+    const { mainTask } = selectNowGoal(input)
+    expect(mainTask?.goalType).toBe('soft_return')
   })
 })

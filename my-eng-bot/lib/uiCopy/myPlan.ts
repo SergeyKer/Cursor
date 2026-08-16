@@ -8,6 +8,8 @@ export type MyPlanWhyKind =
   | 'improve_medal'
   | 'soft_return'
   | 'weak_spot'
+  | 'open_chat'
+  | 'open_call'
   | 'empty'
 
 export type MyPlanInviteKind =
@@ -18,6 +20,8 @@ export type MyPlanInviteKind =
   | 'improve_medal'
   | 'soft_return'
   | 'weak_spot'
+  | 'open_chat'
+  | 'open_call'
   | 'empty'
 
 export type MyPlanTopicKind = 'lesson' | 'practice' | 'topic' | 'words' | 'lessons'
@@ -30,21 +34,37 @@ export type MyPlanButtonKind =
   | 'reinforce_ai'
   | 'improve_medal'
   | 'soft_return'
+  | 'open_chat'
+  | 'open_call'
   | 'empty_lessons'
+  | 'play'
 
 const SECTIONS = {
   child: {
     sectionNow: 'Сейчас',
     sectionMore: 'Ещё можно',
     sectionProgram: 'Дальше по программе',
+    sectionGrowth: 'Точки роста',
+    sectionTutor: 'Репетитор',
+    sectionStatus: 'Статус',
+    sectionModes: 'С Engvo',
+    sectionRecommendation: 'Рекомендация',
     emptyTitle: 'Уроки',
     emptyBody: 'Загляни в Уроки — там начало.',
     emptyCta: 'К урокам',
     nowIdleTitle: 'Пока спокойно',
-    nowIdleReason: 'Сверху — путь по программе.',
+    nowIdleReason: 'Можно начать урок по программе.',
     moreEmptyTitle: 'Пока ничего рядом',
     moreEmptyReason: 'Сначала текущее сверху.',
-    statusLink: 'Что я уже сделал →',
+    statusLink: 'Что я уже сделал',
+    zonesEmpty: 'Пока тихо — слабых мест нет',
+    zonesEmptyCta: 'Подтянуть аспект',
+    zonesRepeat: 'Повторить',
+    zonesAlreadyNow: 'Это уже в «Сейчас»',
+    recSoon: 'Дейлик — скоро',
+    recReason: 'Пока без отдельной награды — можно продолжить программу.',
+    recCta: 'Открыть урок',
+    growthEmptyHint: 'Позанимайся — тут появятся живые темы.',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
     spaceTitle: 'Мой план',
@@ -55,14 +75,27 @@ const SECTIONS = {
     sectionNow: 'Сейчас',
     sectionMore: 'Ещё можно',
     sectionProgram: 'Дальше по программе',
+    sectionGrowth: 'Точки роста',
+    sectionTutor: 'Репетитор',
+    sectionStatus: 'Статус',
+    sectionModes: 'С Engvo',
+    sectionRecommendation: 'Рекомендация',
     emptyTitle: 'Уроки',
     emptyBody: 'Откройте Уроки или начните короткую практику.',
     emptyCta: 'К разделу «Уроки»',
     nowIdleTitle: 'Срочного шага нет',
-    nowIdleReason: 'Смотри «Дальше по программе» выше.',
+    nowIdleReason: 'Откройте урок по программе или раздел «Уроки».',
     moreEmptyTitle: 'Дополнительного шага нет',
     moreEmptyReason: 'Сначала текущий или программный шаг.',
-    statusLink: 'Подробнее в «Прогрессе» →',
+    statusLink: 'Подробнее в «Прогрессе»',
+    zonesEmpty: 'Пока тихо — слабых мест нет',
+    zonesEmptyCta: 'Подтянуть аспект',
+    zonesRepeat: 'Повторить',
+    zonesAlreadyNow: 'Это уже в «Сейчас»',
+    recSoon: 'Дейлик — скоро',
+    recReason: 'Пока без отдельной награды — можно продолжить программу.',
+    recCta: 'Открыть урок',
+    growthEmptyHint: 'Позанимайтесь — здесь появятся живые темы.',
     busy: 'Готовим…',
     referenceLink: 'Справочник',
     spaceTitle: 'Мой план',
@@ -79,10 +112,15 @@ const INVITE: Record<MyPlanInviteKind, Record<MyPlanAudience, string>> = {
   improve_medal: { child: 'Улучшим до золота?', adult: 'Улучшим до золота?' },
   soft_return: { child: 'С возвращением?', adult: 'С возвращением?' },
   weak_spot: { child: 'Подтянем слабое?', adult: 'Подтянем слабое место?' },
+  open_chat: { child: 'Поговорим в чате?', adult: 'Поговорим в чате?' },
+  open_call: { child: 'Начнём звонок?', adult: 'Начнём звонок?' },
   empty: { child: 'С чего начнём?', adult: 'С чего начнём?' },
 }
 
-const WHY: Record<Exclude<MyPlanWhyKind, 'reinforce' | 'incomplete' | 'improve_medal' | 'practice_after_theory'>, Record<MyPlanAudience, string>> = {
+const WHY: Record<
+  Exclude<MyPlanWhyKind, 'reinforce' | 'incomplete' | 'improve_medal' | 'practice_after_theory'>,
+  Record<MyPlanAudience, string>
+> = {
   next: {
     child: 'Следующий шаг по программе.',
     adult: 'Следующий урок в программе.',
@@ -94,6 +132,14 @@ const WHY: Record<Exclude<MyPlanWhyKind, 'reinforce' | 'incomplete' | 'improve_m
   weak_spot: {
     child: 'Тут слабое место — подтянем.',
     adult: 'Слабое место — стоит закрепить.',
+  },
+  open_chat: {
+    child: 'Поговорить в чате — живой шаг.',
+    adult: 'Мало живого общения — начните с чата.',
+  },
+  open_call: {
+    child: 'Чат был — можно трубку.',
+    adult: 'Чат уже был — следующий шаг звонок.',
   },
   empty: {
     child: 'Загляни в Уроки — там начало.',
@@ -109,13 +155,16 @@ const BUTTONS: Record<MyPlanButtonKind, Record<MyPlanAudience, string>> = {
   reinforce_ai: { child: 'Персонально с ИИ', adult: 'Персональная практика (ИИ)' },
   improve_medal: { child: 'Повторить урок', adult: 'Повторить урок' },
   soft_return: { child: 'Коротко позаниматься', adult: 'Короткая практика' },
+  open_chat: { child: 'В чат', adult: 'Поговорить в чате' },
+  open_call: { child: 'Позвонить', adult: 'Начать звонок' },
   empty_lessons: { child: 'К урокам', adult: 'К разделу «Уроки»' },
+  play: { child: 'Играть', adult: 'Начать' },
 }
 
 /** Debug / shared strings. */
 export const MY_PLAN_COPY = {
-  zonesTitle: 'Зоны внимания',
-  zonesLead: 'То, что сейчас важнее закрепить (не музей старых ошибок).',
+  zonesTitle: 'Точки роста',
+  zonesLead: 'То, что сейчас важнее закрепить.',
   zonesEmpty: 'Пока тихо: тем для закрепления ещё не накопили.',
   zonesEmptyHint: 'Позанимайтесь — здесь появятся живые зоны.',
   openLesson: 'Открыть урок',
@@ -133,8 +182,38 @@ export const MY_PLAN_COPY = {
   softPracticeTopic: 'короткая',
 } as const
 
+export type MyPlanQuickActionId =
+  | 'communication'
+  | 'engvo'
+  | 'practice'
+  | 'translation'
+  | 'dialogue'
+  | 'vocabulary'
+  | 'tutor'
+  | 'pronunciation'
+  | 'reference'
+
+const QUICK_ACTIONS: Record<MyPlanQuickActionId, Record<MyPlanAudience, string>> = {
+  communication: { child: 'Поговори', adult: 'Поговорить' },
+  engvo: { child: 'Позвони', adult: 'Позвонить' },
+  practice: { child: 'Потренируйся', adult: 'Потренироваться' },
+  translation: { child: 'Переведи', adult: 'Перевести' },
+  dialogue: { child: 'Сыграй диалог', adult: 'Пройти диалог' },
+  vocabulary: { child: 'Открой слова', adult: 'Открыть слова' },
+  tutor: { child: 'Спроси', adult: 'Спросить репетитора' },
+  pronunciation: { child: 'Поправь звуки', adult: 'Потренировать звуки' },
+  reference: { child: 'Справка', adult: 'Открыть справку' },
+}
+
 export function myPlanCopy(audience: MyPlanAudience = 'adult') {
   return SECTIONS[audience === 'child' ? 'child' : 'adult']
+}
+
+export function myPlanQuickActionLabel(
+  id: MyPlanQuickActionId,
+  audience: MyPlanAudience = 'adult'
+): string {
+  return QUICK_ACTIONS[id][audience === 'child' ? 'child' : 'adult']
 }
 
 export function myPlanNowInvite(
@@ -164,6 +243,10 @@ export function myPlanInviteFromGoalType(
       return myPlanNowInvite('soft_return', audience)
     case 'weak_spot':
       return myPlanNowInvite('weak_spot', audience)
+    case 'open_chat':
+      return myPlanNowInvite('open_chat', audience)
+    case 'open_call':
+      return myPlanNowInvite('open_call', audience)
     default:
       return myPlanNowInvite('empty', audience)
   }
@@ -348,7 +431,7 @@ export function buildProgramCardView(params: {
       bodyTitle: params.programTask.title,
       bodyReason,
       footer: {
-        variant: 'launch',
+        variant: 'expand',
         label: params.programTask.buttonLabel,
         ariaLabel: params.programTask.ariaLabel,
       },
@@ -363,7 +446,11 @@ export function buildProgramCardView(params: {
         audience === 'child'
           ? 'Закрой начатый урок — потом откроется следующий.'
           : 'Закройте начатый урок — потом откроется следующий.',
-      footer: null,
+      footer: {
+        variant: 'expand',
+        label: copy.emptyCta,
+        ariaLabel: copy.emptyCta,
+      },
     }
   }
 
@@ -391,7 +478,11 @@ export function buildProgramCardView(params: {
         audience === 'child'
           ? 'Выбери уровень или загляни в Уроки.'
           : 'Выберите уровень или загляните в Уроки.',
-      footer: null,
+      footer: {
+        variant: 'expand',
+        label: copy.emptyCta,
+        ariaLabel: copy.emptyCta,
+      },
     }
   }
 
@@ -402,7 +493,11 @@ export function buildProgramCardView(params: {
       audience === 'child'
         ? 'На уровне нечего открыть как новый.'
         : 'На уровне нечего открыть как новый.',
-    footer: null,
+    footer: {
+      variant: 'expand',
+      label: copy.emptyCta,
+      ariaLabel: copy.emptyCta,
+    },
   }
 }
 
@@ -415,7 +510,10 @@ export function buildNowCardView(params: {
     buttonLabel: string
     ariaLabel: string
     timeLabel?: string | null
+    goalType?: string | null
   } | null
+  /** Hero слота 1: ребёнок «Играть» на старте, не на «Продолжить». */
+  heroStart?: boolean
 }): ProgramCardView {
   const audience = params.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
@@ -424,13 +522,18 @@ export function buildNowCardView(params: {
   if (params.task) {
     const time = params.task.timeLabel?.trim()
     const bodyReason = time ? `${params.task.reasonLine} · ${time}` : params.task.reasonLine
+    const isContinue = params.task.goalType === 'incomplete'
+    const label =
+      params.heroStart && audience === 'child' && !isContinue
+        ? myPlanButton('play', 'child')
+        : params.task.buttonLabel
     return {
       headerTitle,
       bodyTitle: params.task.title,
       bodyReason,
       footer: {
         variant: 'launch',
-        label: params.task.buttonLabel,
+        label,
         ariaLabel: params.task.ariaLabel,
       },
     }
@@ -448,14 +551,53 @@ export function buildNowCardView(params: {
   }
 }
 
-/** Soft empty «Сейчас» when catalog exists but main is absent (no CTA). */
-export function buildIdleNowCardView(audience?: MyPlanAudience): ProgramCardView {
-  const copy = myPlanCopy(audience === 'child' ? 'child' : 'adult')
+/** Soft empty «Сейчас» when catalog exists but main is absent — всегда дверь. */
+export function buildIdleNowCardView(params?: {
+  audience?: MyPlanAudience
+  programTask?: { buttonLabel: string; ariaLabel: string } | null
+}): ProgramCardView {
+  const audience = params?.audience === 'child' ? 'child' : 'adult'
+  const copy = myPlanCopy(audience)
+  const program = params?.programTask
   return {
     headerTitle: copy.sectionNow,
     bodyTitle: copy.nowIdleTitle,
     bodyReason: copy.nowIdleReason,
-    footer: null,
+    footer: program
+      ? {
+          variant: 'expand',
+          label: program.buttonLabel,
+          ariaLabel: program.ariaLabel,
+        }
+      : {
+          variant: 'expand',
+          label: copy.emptyCta,
+          ariaLabel: copy.emptyCta,
+        },
+  }
+}
+
+export function buildRecommendationCardView(params: {
+  audience?: MyPlanAudience
+  fallback?: {
+    title: string
+    reasonLine: string
+    buttonLabel: string
+    ariaLabel: string
+  } | null
+}): ProgramCardView {
+  const audience = params.audience === 'child' ? 'child' : 'adult'
+  const copy = myPlanCopy(audience)
+  const fallback = params.fallback
+  return {
+    headerTitle: copy.sectionRecommendation,
+    bodyTitle: copy.recSoon,
+    bodyReason: fallback?.reasonLine ? `${copy.recReason} ${fallback.reasonLine}` : copy.recReason,
+    footer: {
+      variant: 'expand',
+      label: fallback?.buttonLabel ?? copy.recCta,
+      ariaLabel: fallback?.ariaLabel ?? copy.recCta,
+    },
   }
 }
 

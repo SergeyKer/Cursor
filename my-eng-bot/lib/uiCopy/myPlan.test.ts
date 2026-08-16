@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest'
 import {
   buildIdleNowCardView,
   buildMoreEmptyCardView,
+  buildNowCardView,
+  buildRecommendationCardView,
   myPlanButton,
   myPlanCopy,
   myPlanInviteFromGoalType,
   myPlanLevelLine,
   myPlanNowInvite,
+  myPlanQuickActionLabel,
   myPlanStreakLine,
   myPlanTimeLabel,
   myPlanTopicLine,
@@ -19,6 +22,9 @@ describe('myPlan copy dictionary', () => {
     const c = myPlanCopy('child')
     expect(c.sectionNow).toBe('Сейчас')
     expect(c.statusLink).toContain('сделал')
+    expect(c.sectionGrowth).toBe('Точки роста')
+    expect(c.sectionModes).toBe('С Engvo')
+    expect(c.sectionRecommendation).toBe('Рекомендация')
     expect(c.referenceLink).toBe('Справочник')
   })
 
@@ -32,9 +38,10 @@ describe('myPlan copy dictionary', () => {
     expect(child.nowIdleReason.length).toBeGreaterThan(0)
     expect(adult.moreEmptyReason.length).toBeGreaterThan(0)
 
-    const idle = buildIdleNowCardView('adult')
+    const idle = buildIdleNowCardView({ audience: 'adult' })
     expect(idle.headerTitle).toBe('Сейчас')
-    expect(idle.footer).toBeNull()
+    expect(idle.footer?.variant).toBe('expand')
+    expect(idle.footer?.label).toBeTruthy()
     const more = buildMoreEmptyCardView('child')
     expect(more.headerTitle).toBe('Ещё можно')
     expect(more.footer).toBeNull()
@@ -86,6 +93,8 @@ describe('myPlan copy dictionary', () => {
       myPlanInviteFromGoalType('reinforce')
     )
     expect(myPlanInviteFromGoalType(undefined)).toBe('С чего начнём?')
+    expect(myPlanInviteFromGoalType('open_chat')).toBe('Поговорим в чате?')
+    expect(myPlanButton('play', 'child')).toBe('Играть')
   })
 
   it('topic lines use EN topic name', () => {
@@ -93,5 +102,46 @@ describe('myPlan copy dictionary', () => {
     expect(myPlanTopicLine('practice', 'короткая')).toBe('Практика: короткая')
     expect(myPlanTopicLine('topic', 'Present Simple')).toBe('Тема: Present Simple')
     expect(myPlanTopicLine('lessons')).toBe('Уроки')
+  })
+
+  it('quick actions are verbs, not mode names', () => {
+    expect(myPlanQuickActionLabel('communication', 'child')).toBe('Поговори')
+    expect(myPlanQuickActionLabel('communication', 'adult')).toBe('Поговорить')
+    expect(myPlanQuickActionLabel('engvo', 'adult')).toBe('Позвонить')
+    expect(myPlanQuickActionLabel('vocabulary', 'child')).toBe('Открой слова')
+  })
+
+  it('hero start uses Играть for child, not continue', () => {
+    const start = buildNowCardView({
+      audience: 'child',
+      heroStart: true,
+      task: {
+        title: 'Урок: To be',
+        reasonLine: 'Следующий шаг',
+        buttonLabel: 'Начать',
+        ariaLabel: 'start',
+        goalType: 'next_lesson',
+      },
+    })
+    expect(start.footer?.label).toBe('Играть')
+    const cont = buildNowCardView({
+      audience: 'child',
+      heroStart: true,
+      task: {
+        title: 'Урок: To be',
+        reasonLine: 'Остановился',
+        buttonLabel: 'Продолжить',
+        ariaLabel: 'cont',
+        goalType: 'incomplete',
+      },
+    })
+    expect(cont.footer?.label).toBe('Продолжить')
+  })
+
+  it('recommendation slot is expand stub', () => {
+    const rec = buildRecommendationCardView({ audience: 'adult' })
+    expect(rec.headerTitle).toBe('Рекомендация')
+    expect(rec.bodyTitle).toContain('скоро')
+    expect(rec.footer?.variant).toBe('expand')
   })
 })

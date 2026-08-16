@@ -160,6 +160,7 @@ interface SlideOutMenuProps {
   onOpenAdaptivePracticeTopic?: (topic: string) => void
   /** Сессия из «Мой план» — return loop. */
   onMarkOpenedFromMyPlan?: () => void
+  onLaunchTarget?: (target: import('@/lib/progress/progressActions').ProgressLaunchTarget) => void | Promise<void>
   /** Футер приложения при «Мой путь» в меню уроков. */
   onAdaptiveFooterViewChange?: (view: AdaptiveFooterView | null) => void
   /** Футер Репетитора (menu idle). */
@@ -263,6 +264,7 @@ export default function SlideOutMenu({
   onOpenVocabCustomPack,
   onOpenAdaptivePracticeTopic,
   onMarkOpenedFromMyPlan,
+  onLaunchTarget,
   onAdaptiveFooterViewChange,
   onTutorFooterViewChange,
   tutorSessionXp = 0,
@@ -482,6 +484,7 @@ export default function SlideOutMenu({
         onOpenVocabCustomPack={onOpenVocabCustomPack}
         onOpenAdaptivePracticeTopic={onOpenAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
+        onLaunchTarget={onLaunchTarget}
         onAdaptiveFooterViewChange={onAdaptiveFooterViewChange}
         onTutorFooterViewChange={onTutorFooterViewChange}
         tutorSessionXp={tutorSessionXp}

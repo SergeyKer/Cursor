@@ -29,6 +29,8 @@ export type MyPlanAction =
       source: 'error_prompt' | 'curiosity'
       skillTagId?: string
     }
+  | { kind: 'open_communication' }
+  | { kind: 'open_engvo' }
 
 export type NowGoalType =
   | 'incomplete'
@@ -38,6 +40,8 @@ export type NowGoalType =
   | 'improve_medal'
   | 'soft_return'
   | 'weak_spot'
+  | 'open_chat'
+  | 'open_call'
 
 export interface MyPlanRecommendation {
   id: string
@@ -120,6 +124,9 @@ export interface MyPlanInput {
   nowMs?: number
   /** Soft-focus rotation keys (MASTER); injected from LS outside pure ranker. */
   recentSoftKeys?: string[]
+  /** Лестница чат→звонок (13.08); только вне ступеней 1–3. */
+  hadChat?: boolean
+  hadCall?: boolean
 }
 
 export interface MyPlanStatusSlice {
@@ -137,6 +144,8 @@ export interface NowGoalResult {
   unstartedCount: number
   /** Separate «Репетитор» card; same zones math, different CTA. */
   tutorTask: MyPlanRecommendation | null
+  /** До 3 чипов слота 4; tutorTask = первый. */
+  tutorTasks: MyPlanRecommendation[]
 }
 
 /** Пороги v1 selectNowGoal. */

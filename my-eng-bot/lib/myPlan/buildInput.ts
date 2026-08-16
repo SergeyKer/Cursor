@@ -8,6 +8,13 @@ import type { Settings } from '@/lib/types'
 import { normalizeAnchorLevel } from '@/lib/myPlan/pickProgramLesson'
 import type { MyPlanInput, MyPlanLessonProgressSlice, MyPlanPracticeSessionSlice } from '@/lib/myPlan/types'
 
+function parseTouchIso(raw: string | null | undefined): string | null {
+  const t = raw?.trim()
+  if (!t) return null
+  if (!Number.isFinite(Date.parse(t))) return null
+  return t
+}
+
 function mapLessonProgress(): Record<string, MyPlanLessonProgressSlice> {
   const raw = loadLessonProgressMap()
   const out: Record<string, MyPlanLessonProgressSlice> = {}
@@ -20,10 +27,27 @@ function mapLessonProgress(): Record<string, MyPlanLessonProgressSlice> {
       mistakesCount: Array.isArray(p.mistakes) ? p.mistakes.length : 0,
       medal: p.medal ?? null,
       lessonCompleted: p.lessonCompleted === true,
-      incompleteTouchedAtIso: null,
+      incompleteTouchedAtIso: parseTouchIso(p.lastCompleted),
     }
   }
   return out
+}
+
+function hadChatFromRewards(state: RewardsState): boolean {
+  const s = state.communicationSession
+  if (!s) return false
+  if (s.status && s.status !== 'not_started') return true
+  if ((s.progress ?? 0) > 0) return true
+  if ((s.englishAttemptCount ?? 0) > 0) return true
+  return Boolean(s.sessionStartedAt)
+}
+
+function hadCallFromRewards(state: RewardsState): boolean {
+  const g = state.modeGoals?.engvo
+  if (!g) return false
+  if (g.status && g.status !== 'not_started') return true
+  if ((g.goalProgress ?? 0) > 0) return true
+  return Boolean(g.sessionStartedAt)
 }
 
 function mapRewards(state: RewardsState): MyPlanInput['rewards'] {
@@ -82,5 +106,7 @@ export function buildMyPlanLiveInput(
     attentionZones: extras?.attentionZones,
     canUseAiReinforce: extras?.canUseAiReinforce,
     recentSoftKeys: extras?.recentSoftKeys,
+    hadChat: hadChatFromRewards(rewards),
+    hadCall: hadCallFromRewards(rewards),
   }
 }

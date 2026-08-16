@@ -726,6 +726,7 @@ export interface MenuSectionPanelsProps {
   onOpenVocabCustomPack?: (packId: string) => void
   /** Пометить, что сессия открыта из «Мой план» (return loop). */
   onMarkOpenedFromMyPlan?: () => void
+  onLaunchTarget?: (target: import('@/lib/progress/progressActions').ProgressLaunchTarget) => void | Promise<void>
   /** Сохранить фильтр практики по тегу теории в контексте приложения (страница). */
   onPracticeTheoryTagFilterPersist?: (tagId: string | null) => void
   /** Футер приложения при открытии «Мой путь» (AdaptiveDailyHub). */
@@ -838,6 +839,7 @@ export default function MenuSectionPanels({
   onOpenAdaptivePracticeTopic,
   onOpenVocabCustomPack,
   onMarkOpenedFromMyPlan,
+  onLaunchTarget,
   onAdaptiveFooterViewChange,
   onTutorFooterViewChange,
   tutorSessionXp = 0,
@@ -1740,6 +1742,7 @@ export default function MenuSectionPanels({
         programStatus: 'no_catalog' as const,
         unstartedCount: 0,
         tutorTask: null as ReturnType<typeof selectNowGoal>['tutorTask'],
+        tutorTasks: [] as ReturnType<typeof selectNowGoal>['tutorTasks'],
         flat: [] as ReturnType<typeof getMyPlanRecommendations>,
       }
     }
@@ -1763,6 +1766,7 @@ export default function MenuSectionPanels({
         programStatus: now.programStatus,
         unstartedCount: now.unstartedCount,
         tutorTask: now.tutorTask,
+        tutorTasks: now.tutorTasks,
         flat,
       }
     }
@@ -5414,6 +5418,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             programStatus={myPlanNow.programStatus}
             unstartedCount={myPlanNow.unstartedCount}
             tutorTask={myPlanNow.tutorTask}
+            tutorTasks={myPlanNow.tutorTasks}
             anchorLevel={settings.level}
             attentionZones={myPlanAttentionZones}
             modeGap={myPlanModeGap}
@@ -5439,6 +5444,7 @@ rewardIcons={resolveLessonMenuRewardIconsFromProgress(
             onMenuViewChange={onMenuViewChange}
             onOpenProgressSpace={onOpenProgressSpace}
             onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
+            onLaunchTarget={onLaunchTarget}
           />
         )}
       </div>

@@ -27,7 +27,7 @@ import { readRecentSoftKeys } from '@/lib/myPlan/softFocusRotation'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { Settings } from '@/lib/types'
 import { myPlanCopy, type MyPlanAudience } from '@/lib/uiCopy/myPlan'
-import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
+import type { ProgressLaunchTarget } from '@/lib/progress/progressActions'
 
 export type MyPlanSheetScreenProps = {
   settings: Settings
@@ -56,6 +56,7 @@ export type MyPlanSheetScreenProps = {
   onOpenTranslationVocabNag?: (spotId: string) => void | Promise<void>
   onMarkOpenedFromMyPlan?: () => void
   onOpenTutorChat?: (opts?: { prefill?: string }) => void
+  onLaunchTarget?: (target: ProgressLaunchTarget) => void | Promise<void>
 }
 
 const COMPOSER_PROGRESS = [
@@ -80,6 +81,7 @@ export default function MyPlanSheetScreen({
   onOpenTranslationVocabNag,
   onMarkOpenedFromMyPlan,
   onOpenTutorChat,
+  onLaunchTarget,
 }: MyPlanSheetScreenProps) {
   const audience: MyPlanAudience = settings.audience === 'child' ? 'child' : 'adult'
   const copy = myPlanCopy(audience)
@@ -112,6 +114,7 @@ export default function MyPlanSheetScreen({
         programStatus: now.programStatus,
         unstartedCount: now.unstartedCount,
         tutorTask: now.tutorTask,
+        tutorTasks: now.tutorTasks,
         flat,
       }
     }
@@ -162,6 +165,7 @@ export default function MyPlanSheetScreen({
           programStatus={planNow.programStatus}
           unstartedCount={planNow.unstartedCount}
           tutorTask={planNow.tutorTask}
+          tutorTasks={planNow.tutorTasks}
           anchorLevel={settings.level}
           attentionZones={attentionZones}
           modeGap={modeGap}
@@ -186,6 +190,7 @@ export default function MyPlanSheetScreen({
           }
           onOpenProgressSpace={onOpenProgressSpace}
           onMarkOpenedFromMyPlan={onMarkOpenedFromMyPlan}
+          onLaunchTarget={onLaunchTarget}
         />
       </div>
     </LessonReadingShell>

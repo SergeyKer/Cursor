@@ -2,7 +2,7 @@
 
 type ProgressModeNavRowProps = {
   title: string
-  metric: string
+  metric?: string
   ariaLabel: string
   disabled?: boolean
   onClick: () => void
@@ -25,7 +25,9 @@ export default function ProgressModeNavRow({
     >
       <div className="min-w-0 flex-1">
         <p className="break-words text-[15px] font-normal leading-[1.45] text-[var(--text)]">{title}</p>
-        <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{metric}</p>
+        {metric?.trim() ? (
+          <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">{metric}</p>
+        ) : null}
       </div>
       <span
         className="pointer-events-none inline-flex h-5 w-5 shrink-0 items-center justify-center text-[var(--text-muted)]"

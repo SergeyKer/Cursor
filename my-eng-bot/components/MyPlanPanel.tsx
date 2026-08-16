@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { featureFlags } from '@/lib/featureFlags'
-import { isReferenceLessonId } from '@/lib/reference/getReferenceLessonTopics'
 import { pickQuickStartPracticeTopic, type LessonCatalogLevel } from '@/lib/lessonCatalog'
 import type { AttentionZone, LearningSignal } from '@/lib/learningMemory/types'
 import {
@@ -13,6 +12,7 @@ import {
 import { isLearningMemoryDebugEnabled } from '@/lib/learningMemory/debug'
 import { canUseAiReinforce } from '@/lib/entitlements'
 import { trackMyPlanEvent } from '@/lib/myPlan/analytics'
+import { buildMyPlanModeDoors } from '@/lib/myPlan/buildModeDoors'
 import type {
   MyPlanAction,
   MyPlanRecommendation,
@@ -22,14 +22,13 @@ import type {
 import {
   MY_PLAN_COPY,
   buildIdleNowCardView,
-  buildMoreEmptyCardView,
   buildNowCardView,
   buildProgramCardView,
+  buildRecommendationCardView,
   myPlanCopy,
   myPlanLevelLine,
   myPlanStreakLine,
 } from '@/lib/uiCopy/myPlan'
-import { TUTOR_CHAT_COPY } from '@/lib/uiCopy/tutorChat'
 import { markTutorCardConsumed } from '@/lib/tutor/tutorQuestionCache'
 import { useTutorQuestionPrefetch } from '@/lib/tutor/useTutorQuestionPrefetch'
 import MyPlanCard from '@/components/myPlan/MyPlanCard'
@@ -37,8 +36,11 @@ import MyPlanCardFooterButton from '@/components/myPlan/MyPlanCardFooterButton'
 import {
   MY_PLAN_CARD_BODY_REASON,
   MY_PLAN_CARD_BODY_TITLE,
+  MY_PLAN_INSET_LAUNCH,
+  MY_PLAN_TUTOR_CHIP,
 } from '@/lib/myPlan/cardStyles'
 import { recordSoftFocusShown } from '@/lib/myPlan/softFocusRotation'
+import type { ProgressLaunchTarget } from '@/lib/progress/progressActions'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
 import type { Settings } from '@/lib/types'
 
@@ -50,54 +52,17 @@ function levelToCatalogLevel(level: Settings['level']): LessonCatalogLevel {
   return 'A2'
 }
 
-const CHIP_CLASS =
-  'language-note-topic-chip w-fit max-w-full min-w-0 rounded-lg border px-2.5 py-1.5 text-left font-sans text-[13px] font-normal leading-snug break-words text-[var(--text)]'
-
-const REFERENCE_LINK_CLASS =
-  'mt-1 break-words text-left text-[13px] font-medium text-[var(--text-muted)] underline decoration-[var(--border)] underline-offset-2 touch-manipulation hover:text-[var(--text)] hover:decoration-[var(--text)] disabled:cursor-not-allowed disabled:opacity-60'
-
-function AttentionTopicChip({
-  zone,
-  onOpenLesson,
-}: {
-  zone: AttentionZone
-  onOpenLesson?: (lessonId: string) => void
-}) {
-  const label = `${zone.title} · ${zone.errorCount}`
-  if (zone.chipActive && zone.lessonId && onOpenLesson) {
-    return (
-      <button
-        type="button"
-        className={`${CHIP_CLASS} language-note-topic-chip--button touch-manipulation`}
-        onClick={() => onOpenLesson(zone.lessonId!)}
-        aria-label={`${MY_PLAN_COPY.openLesson}: ${zone.title}`}
-      >
-        {label}
-      </button>
-    )
-  }
-  return <div className={CHIP_CLASS}>{label}</div>
-}
-
-function referenceLessonIdFromAction(action: MyPlanAction): string | null {
-  if (
-    action.kind === 'resume_lesson' ||
-    action.kind === 'open_lesson' ||
-    action.kind === 'start_practice' ||
-    action.kind === 'reinforce_skill' ||
-    action.kind === 'open_reference'
-  ) {
-    return action.lessonId ?? null
-  }
+function mainZoneSkillId(task: MyPlanRecommendation | null): string | null {
+  if (!task) return null
+  if (task.action.kind === 'reinforce_skill') return task.action.skillTagId
   return null
 }
 
 export interface MyPlanPanelProps {
   mainTask?: MyPlanRecommendation | null
   secondary?: MyPlanRecommendation[]
-  /** Separate «Репетитор» card (same zones, open_tutor). */
   tutorTask?: MyPlanRecommendation | null
-  /** Legacy flat list when flag off. */
+  tutorTasks?: MyPlanRecommendation[]
   recommendations?: MyPlanRecommendation[]
   status?: MyPlanStatusSlice
   programTask?: MyPlanRecommendation | null
@@ -132,12 +97,14 @@ export interface MyPlanPanelProps {
   onMenuViewChange?: (view: 'lessons' | 'progress' | 'myPlan') => void
   onOpenProgressSpace?: () => void
   onMarkOpenedFromMyPlan?: () => void
+  onLaunchTarget?: (target: ProgressLaunchTarget) => void | Promise<void>
 }
 
 export default function MyPlanPanel({
   mainTask = null,
   secondary = [],
   tutorTask = null,
+  tutorTasks,
   recommendations,
   status,
   programTask = null,
@@ -145,7 +112,6 @@ export default function MyPlanPanel({
   unstartedCount = 0,
   anchorLevel,
   attentionZones = [],
-  modeGap = null,
   settings,
   nowGoalLayout = true,
   showAdultPaywallHint = false,
@@ -160,6 +126,7 @@ export default function MyPlanPanel({
   onMenuViewChange,
   onOpenProgressSpace,
   onMarkOpenedFromMyPlan,
+  onLaunchTarget,
 }: MyPlanPanelProps) {
   const [practiceBusy, setPracticeBusy] = useState(false)
   const [debugOpen, setDebugOpen] = useState(false)
@@ -182,7 +149,9 @@ export default function MyPlanPanel({
 
   const legacyList = !nowGoalLayout && recommendations ? recommendations : null
   const resolvedMain = legacyList ? legacyList[0] ?? null : mainTask
-  const resolvedSecondary = legacyList ? legacyList.slice(1, 3) : secondary
+  const resolvedSecondary = legacyList ? legacyList.slice(1, 2) : secondary.slice(0, 1)
+  const resolvedTutorTasks =
+    tutorTasks && tutorTasks.length > 0 ? tutorTasks.slice(0, 3) : tutorTask ? [tutorTask] : []
 
   useEffect(() => {
     const programLessonId =
@@ -280,6 +249,14 @@ export default function MyPlanPanel({
           onMarkOpenedFromMyPlan?.()
           onOpenReferenceTopic?.(action.lessonId)
           return
+        case 'open_communication':
+          onMarkOpenedFromMyPlan?.()
+          await onLaunchTarget?.({ kind: 'communication' })
+          return
+        case 'open_engvo':
+          onMarkOpenedFromMyPlan?.()
+          await onLaunchTarget?.({ kind: 'engvo' })
+          return
         case 'start_practice':
           await runPractice({
             lessonId: action.lessonId,
@@ -374,6 +351,7 @@ export default function MyPlanPanel({
     },
     [
       audience,
+      onLaunchTarget,
       onMarkOpenedFromMyPlan,
       onOpenLearningLesson,
       onOpenReferenceTopic,
@@ -387,41 +365,81 @@ export default function MyPlanPanel({
     ]
   )
 
-  const zonesBlock = (
-    <div className="w-full min-w-0 rounded-xl border border-[var(--border)]/60 bg-[var(--menu-card-bg)] px-3 py-2.5 opacity-75">
-      <p className="text-[13px] font-medium text-[var(--text-muted)]">{MY_PLAN_COPY.zonesTitle}</p>
-      <p className="mt-1 break-words text-[12px] leading-snug text-[var(--text-muted)]">
-        {MY_PLAN_COPY.zonesLead}
-      </p>
-      {attentionZones.length === 0 ? (
-        <div className="mt-2 space-y-1">
-          <p className="break-words text-[13px] text-[var(--text-muted)]">{MY_PLAN_COPY.zonesEmpty}</p>
-          <p className="break-words text-[12px] text-[var(--text-muted)]">{MY_PLAN_COPY.zonesEmptyHint}</p>
-        </div>
-      ) : (
-        <ul className="mt-2 flex min-w-0 flex-col gap-2">
-          {attentionZones.map((z) => (
-            <li key={z.skillTagId} className="min-w-0 space-y-0.5">
-              <AttentionTopicChip zone={z} onOpenLesson={onOpenLearningLesson} />
-              <p className="break-words text-[12px] leading-snug text-[var(--text-muted)]">{z.sourceHint}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-      {modeGap ? (
-        <div className="mt-2 border-t border-[var(--border)]/60 pt-2">
-          <p className="text-[13px] font-medium text-[var(--text-muted)]">{MY_PLAN_COPY.gapTitle}</p>
-          <p className="mt-1 break-words text-[12px] leading-snug text-[var(--text-muted)]">
-            {MY_PLAN_COPY.gapReason} ({modeGap.title})
-          </p>
-        </div>
-      ) : null}
-    </div>
+  const handleModeDoor = useCallback(
+    async (target: ProgressLaunchTarget) => {
+      trackMyPlanEvent('my_plan_secondary_cta', { audience, actionKind: `mode:${target.kind}` })
+      onMarkOpenedFromMyPlan?.()
+      if (target.kind === 'quick_practice') {
+        const topic = pickQuickStartPracticeTopic(levelToCatalogLevel(settings.level))
+        if (!topic) return
+        await runPractice({ lessonId: topic.id, mode: 'relaxed', entrySource: 'my_plan' })
+        return
+      }
+      if (target.kind === 'practice') {
+        await runPractice({
+          lessonId: target.lessonId,
+          mode: target.mode,
+          entrySource: 'my_plan',
+        })
+        return
+      }
+      if (target.kind === 'vocabulary') {
+        await onOpenVocabularyWorlds?.()
+        return
+      }
+      if (target.kind === 'tutor') {
+        onOpenTutorChat?.()
+        return
+      }
+      if (target.kind === 'reference') {
+        onOpenReferenceTopic?.(target.lessonId)
+        return
+      }
+      await onLaunchTarget?.(target)
+    },
+    [
+      audience,
+      onLaunchTarget,
+      onMarkOpenedFromMyPlan,
+      onOpenReferenceTopic,
+      onOpenTutorChat,
+      onOpenVocabularyWorlds,
+      runPractice,
+      settings.level,
+    ]
+  )
+
+  const openLessons = useCallback(() => {
+    onMenuViewChange?.('lessons')
+  }, [onMenuViewChange])
+
+  const openProgress = useCallback(() => {
+    trackMyPlanEvent('my_plan_progress_link', { audience })
+    if (onOpenProgressSpace) {
+      onOpenProgressSpace()
+      return
+    }
+    onMenuViewChange?.('progress')
+  }, [audience, onMenuViewChange, onOpenProgressSpace])
+
+  const modeDoors = useMemo(
+    () =>
+      buildMyPlanModeDoors(
+        {
+          engvoVoiceV1: featureFlags.engvoVoiceV1,
+          practiceEngineV1: featureFlags.practiceEngineV1,
+          tutorChatV1: featureFlags.tutorChatV1,
+          accentTrainerV1: featureFlags.accentTrainerV1,
+          referenceV1: featureFlags.referenceV1,
+        },
+        audience
+      ),
+    [audience]
   )
 
   const debugLogBlock =
     showDebug ? (
-      <div className="w-full min-w-0 rounded-lg border border-dashed border-[var(--border)] px-3 py-2.5 opacity-80">
+      <div className="w-full min-w-0 rounded-lg border border-dashed border-[var(--border)] px-3 py-2.5">
         <button
           type="button"
           className="text-[12px] text-[var(--text-muted)] underline"
@@ -464,76 +482,164 @@ export default function MyPlanPanel({
       </div>
     ) : null
 
-  const statusBlock =
-    status ? (
-      <div className="w-full min-w-0 py-0.5">
-        <p className="break-words text-[14px] leading-snug text-[var(--text-muted)]">
-          {myPlanStreakLine(status.dailyStreak, audience)}
-          {' · '}
-          {myPlanLevelLine(status.level, status.totalXP, audience)}
-        </p>
-        {onMenuViewChange || onOpenProgressSpace ? (
-          <button
-            type="button"
-            className="mt-1 min-h-[40px] py-1 text-left text-[15px] font-medium text-[var(--text)] underline decoration-[var(--border)] underline-offset-2 hover:decoration-[var(--text)]"
+  const extra = resolvedSecondary[0] ?? null
+  const nowView = resolvedMain
+    ? buildNowCardView({
+        audience,
+        heroStart: true,
+        task: {
+          title: resolvedMain.title,
+          reasonLine: resolvedMain.reasonLine,
+          buttonLabel: resolvedMain.buttonLabel,
+          ariaLabel: resolvedMain.ariaLabel,
+          timeLabel: resolvedMain.timeLabel,
+          goalType: resolvedMain.goalType,
+        },
+      })
+    : programStatus === 'no_catalog'
+      ? buildNowCardView({ audience, task: null })
+      : buildIdleNowCardView({ audience, programTask })
+
+  const showPaywallHint =
+    showAdultPaywallHint &&
+    audience === 'adult' &&
+    resolvedMain?.goalType === 'reinforce' &&
+    !canUseAiReinforce()
+
+  const nowBlock = (
+    <MyPlanCard
+      title={nowView.headerTitle}
+      footer={
+        nowView.footer ? (
+          <MyPlanCardFooterButton
+            variant={nowView.footer.variant}
+            label={nowView.footer.label}
+            ariaLabel={nowView.footer.ariaLabel}
+            disabled={practiceBusy}
             onClick={() => {
-              trackMyPlanEvent('my_plan_progress_link', { audience })
-              if (onOpenProgressSpace) {
-                onOpenProgressSpace()
+              if (resolvedMain) {
+                void handleAction(resolvedMain.action, 'main')
                 return
               }
-              onMenuViewChange?.('progress')
-            }}
-          >
-            {copy.statusLink}
-          </button>
-        ) : null}
-      </div>
-    ) : null
-
-  const moreEmptyView = buildMoreEmptyCardView(audience)
-  const secondaryBlock =
-    resolvedSecondary.length > 0 ? (
-      <div className="w-full min-w-0 space-y-3">
-        {resolvedSecondary.map((rec) => {
-          const view = buildNowCardView({
-            audience,
-            task: {
-              title: rec.title,
-              reasonLine: rec.reasonLine,
-              buttonLabel: rec.buttonLabel,
-              ariaLabel: rec.ariaLabel,
-              timeLabel: rec.timeLabel,
-            },
-          })
-          return (
-            <MyPlanCard
-              key={rec.id}
-              title={copy.sectionMore}
-              footer={
-                view.footer ? (
-                  <MyPlanCardFooterButton
-                    variant={view.footer.variant}
-                    label={view.footer.label}
-                    ariaLabel={view.footer.ariaLabel}
-                    disabled={practiceBusy}
-                    onClick={() => void handleAction(rec.action, 'secondary')}
-                  />
-                ) : null
+              if (programStatus === 'active' && programTask) {
+                void handleAction(programTask.action, 'secondary')
+                return
               }
-            >
-              <p className={MY_PLAN_CARD_BODY_TITLE}>{view.bodyTitle}</p>
-              <p className={MY_PLAN_CARD_BODY_REASON}>{view.bodyReason}</p>
-            </MyPlanCard>
-          )
-        })}
-      </div>
-    ) : (
-      <MyPlanCard title={moreEmptyView.headerTitle} className="opacity-75">
-        <p className={MY_PLAN_CARD_BODY_TITLE}>{moreEmptyView.bodyTitle}</p>
-        <p className={MY_PLAN_CARD_BODY_REASON}>{moreEmptyView.bodyReason}</p>
-      </MyPlanCard>
-    )
+              openLessons()
+            }}
+          />
+        ) : null
+      }
+    >
+      <p className={MY_PLAN_CARD_BODY_TITLE}>{nowView.bodyTitle}</p>
+      <p className={MY_PLAN_CARD_BODY_REASON}>{nowView.bodyReason}</p>
+      {extra ? (
+        <div className="space-y-1.5 pt-1">
+          <p className={MY_PLAN_CARD_BODY_REASON}>
+            {copy.sectionMore}: {extra.title}
+          </p>
+          <MyPlanCardFooterButton
+            variant="action"
+            label={extra.buttonLabel}
+            ariaLabel={extra.ariaLabel}
+            disabled={practiceBusy}
+            onClick={() => void handleAction(extra.action, 'secondary')}
+          />
+        </div>
+      ) : null}
+      {showPaywallHint ? (
+        <p className="break-words text-[12px] leading-snug text-[var(--text-muted)]">
+          {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
+        </p>
+      ) : null}
+      {practiceBusy ? (
+        <p className="break-words text-[13px] text-[var(--text-muted)]">{copy.busy}</p>
+      ) : null}
+    </MyPlanCard>
+  )
+
+  const shownZones = attentionZones.slice(0, 2)
+  const mainSkill = mainZoneSkillId(resolvedMain)
+  const growthBlock = (
+    <MyPlanCard
+      title={copy.sectionGrowth}
+      footer={
+        shownZones.length === 0 ? (
+          <MyPlanCardFooterButton
+            variant="launch"
+            label={copy.zonesEmptyCta}
+            ariaLabel={copy.zonesEmptyCta}
+            disabled={practiceBusy}
+            onClick={() => {
+              onMarkOpenedFromMyPlan?.()
+              if (onOpenTutorChat) {
+                onOpenTutorChat()
+                return
+              }
+              void handleAction({ kind: 'quick_practice', entrySource: 'my_plan' }, 'secondary')
+            }}
+          />
+        ) : null
+      }
+    >
+      {shownZones.length === 0 ? (
+        <>
+          <p className={MY_PLAN_CARD_BODY_TITLE}>{copy.zonesEmpty}</p>
+          <p className={MY_PLAN_CARD_BODY_REASON}>{copy.growthEmptyHint}</p>
+        </>
+      ) : (
+        <ul className="space-y-4">
+          {shownZones.map((z, index) => {
+            const quieter = Boolean(mainSkill && z.skillTagId === mainSkill)
+            const canPractice = Boolean(z.chipActive && z.lessonId)
+            return (
+              <li key={z.skillTagId} className="min-w-0">
+                <p className="flex min-w-0 items-start gap-2">
+                  <span className="w-5 shrink-0 text-[15px] font-medium tabular-nums leading-[1.45] text-[var(--text-muted)]">
+                    {index + 1}.
+                  </span>
+                  <span className="min-w-0 break-words text-[15px] font-semibold leading-[1.45] text-[var(--text)]">
+                    {z.title}
+                  </span>
+                </p>
+                <p className="mt-0.5 break-words pl-7 text-[14px] leading-snug text-[var(--text-muted)]">
+                  {audience === 'child'
+                    ? `Тут часто спотыкаешься · ${z.errorCount}`
+                    : `${z.sourceHint} · ${z.errorCount}`}
+                </p>
+                {quieter ? (
+                  <p className="mt-1 break-words pl-7 text-[14px] leading-snug text-[var(--text-muted)]">
+                    {copy.zonesAlreadyNow}
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    className={MY_PLAN_INSET_LAUNCH}
+                    disabled={practiceBusy}
+                    onClick={() => {
+                      if (canPractice && z.lessonId) {
+                        void runPractice({
+                          lessonId: z.lessonId,
+                          mode: 'balanced',
+                          entrySource: 'my_plan',
+                        })
+                        return
+                      }
+                      onMarkOpenedFromMyPlan?.()
+                      if (z.skillTagId) markTutorCardConsumed(z.skillTagId)
+                      onOpenTutorChat?.({ prefill: `Разберём: ${z.title}` })
+                    }}
+                  >
+                    {copy.zonesRepeat}
+                  </button>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </MyPlanCard>
+  )
 
   const programView = buildProgramCardView({
     audience,
@@ -558,17 +664,13 @@ export default function MyPlanPanel({
                 programStatus,
                 anchorLevel,
                 lessonId:
-                  programTask?.action.kind === 'open_lesson'
-                    ? programTask.action.lessonId
-                    : undefined,
+                  programTask?.action.kind === 'open_lesson' ? programTask.action.lessonId : undefined,
               })
               if (programStatus === 'active' && programTask) {
                 void handleAction(programTask.action, 'secondary')
                 return
               }
-              if (programStatus === 'level_complete') {
-                onMenuViewChange?.('lessons')
-              }
+              openLessons()
             }}
           />
         ) : null
@@ -579,125 +681,125 @@ export default function MyPlanPanel({
     </MyPlanCard>
   )
 
-  const nowCardFromTask = (task: MyPlanRecommendation, source: 'main' | 'secondary') => {
-    const view = buildNowCardView({
-      audience,
-      task: {
-        title: task.title,
-        reasonLine: task.reasonLine,
-        buttonLabel: task.buttonLabel,
-        ariaLabel: task.ariaLabel,
-        timeLabel: task.timeLabel,
-      },
-    })
-    const refId =
-      source === 'main' && featureFlags.referenceV1 && onOpenReferenceTopic
-        ? (() => {
-            const lessonId = referenceLessonIdFromAction(task.action)
-            return lessonId && isReferenceLessonId(lessonId) ? lessonId : null
-          })()
-        : null
-    const showPaywallHint =
-      source === 'main' &&
-      showAdultPaywallHint &&
-      audience === 'adult' &&
-      task.goalType === 'reinforce' &&
-      !canUseAiReinforce()
-
-    return (
-      <MyPlanCard
-        title={view.headerTitle}
-        footer={
-          view.footer ? (
-            <MyPlanCardFooterButton
-              variant={view.footer.variant}
-              label={view.footer.label}
-              ariaLabel={view.footer.ariaLabel}
-              disabled={practiceBusy}
-              onClick={() => void handleAction(task.action, source)}
-            />
-          ) : null
-        }
-      >
-        <p className={MY_PLAN_CARD_BODY_TITLE}>{view.bodyTitle}</p>
-        <p className={MY_PLAN_CARD_BODY_REASON}>{view.bodyReason}</p>
-        {showPaywallHint ? (
-          <p className="break-words text-[12px] leading-snug text-[var(--text-muted)]">
-            {MY_PLAN_COPY.adultPaywallLead} {MY_PLAN_COPY.adultPaywallLocal}.
-          </p>
-        ) : null}
-        {practiceBusy && source === 'main' ? (
-          <p className="break-words text-[13px] text-[var(--text-muted)]">{copy.busy}</p>
-        ) : null}
-        {refId ? (
-          <button
-            type="button"
-            disabled={practiceBusy}
-            className={REFERENCE_LINK_CLASS}
-            aria-label={copy.referenceLink}
-            onClick={() => void handleAction({ kind: 'open_reference', lessonId: refId }, 'secondary')}
-          >
-            {copy.referenceLink}
-          </button>
-        ) : null}
-      </MyPlanCard>
-    )
-  }
-
-  const emptyNowView = buildNowCardView({ audience, task: null })
-  const idleNowView = buildIdleNowCardView(audience)
-  const nowBlock = resolvedMain ? (
-    nowCardFromTask(resolvedMain, 'main')
-  ) : programStatus === 'no_catalog' ? (
+  const tutorBlock = featureFlags.tutorChatV1 ? (
     <MyPlanCard
-      title={emptyNowView.headerTitle}
+      title={copy.sectionTutor}
       footer={
-        emptyNowView.footer && onMenuViewChange ? (
+        resolvedTutorTasks.length === 0 ? (
           <MyPlanCardFooterButton
-            variant={emptyNowView.footer.variant}
-            label={emptyNowView.footer.label}
-            ariaLabel={emptyNowView.footer.ariaLabel}
-            onClick={() => onMenuViewChange('lessons')}
+            variant="action"
+            label={copy.sectionTutor}
+            ariaLabel={copy.sectionTutor}
+            onClick={() => {
+              onMarkOpenedFromMyPlan?.()
+              onOpenTutorChat?.()
+            }}
           />
         ) : null
       }
     >
-      <p className={MY_PLAN_CARD_BODY_TITLE}>{emptyNowView.bodyTitle}</p>
-      <p className={MY_PLAN_CARD_BODY_REASON}>{emptyNowView.bodyReason}</p>
+      {resolvedTutorTasks.length === 0 ? (
+        <p className={MY_PLAN_CARD_BODY_REASON}>{copy.growthEmptyHint}</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {resolvedTutorTasks.map((task) => (
+            <button
+              key={task.id}
+              type="button"
+              className={MY_PLAN_TUTOR_CHIP}
+              aria-label={task.ariaLabel}
+              onClick={() => void handleAction(task.action, 'secondary')}
+            >
+              {task.title}
+            </button>
+          ))}
+        </div>
+      )}
     </MyPlanCard>
-  ) : (
-    <MyPlanCard title={idleNowView.headerTitle} className="opacity-75">
-      <p className={MY_PLAN_CARD_BODY_TITLE}>{idleNowView.bodyTitle}</p>
-      <p className={MY_PLAN_CARD_BODY_REASON}>{idleNowView.bodyReason}</p>
+  ) : null
+
+  const statusBlock = (
+    <MyPlanCard
+      title={copy.sectionStatus}
+      footer={
+        <MyPlanCardFooterButton
+          variant="action"
+          label={copy.statusLink}
+          ariaLabel={copy.statusLink}
+          onClick={openProgress}
+        />
+      }
+    >
+      <p className={MY_PLAN_CARD_BODY_TITLE}>
+        {myPlanStreakLine(status?.dailyStreak ?? 0, audience)}
+      </p>
+      <p className={MY_PLAN_CARD_BODY_REASON}>
+        {myPlanLevelLine(status?.level ?? 1, status?.totalXP, audience)}
+      </p>
     </MyPlanCard>
   )
 
-  const tutorCardBlock =
-    featureFlags.tutorChatV1 && tutorTask ? (
-      <MyPlanCard
-        title={TUTOR_CHAT_COPY.cardSectionTitle}
-        footer={
+  const modesBlock = (
+    <MyPlanCard title={copy.sectionModes}>
+      <div className="space-y-2">
+        {modeDoors.map((row) => (
           <MyPlanCardFooterButton
-            variant="launch"
-            label={tutorTask.buttonLabel}
-            ariaLabel={tutorTask.ariaLabel}
-            onClick={() => void handleAction(tutorTask.action, 'secondary')}
+            key={row.id}
+            variant="expand"
+            label={row.label}
+            ariaLabel={row.label}
+            disabled={practiceBusy}
+            onClick={() => void handleModeDoor(row.target)}
           />
-        }
-      >
-        <p className={MY_PLAN_CARD_BODY_TITLE}>{tutorTask.title}</p>
-        <p className={MY_PLAN_CARD_BODY_REASON}>{tutorTask.reasonLine}</p>
-      </MyPlanCard>
-    ) : null
+        ))}
+      </div>
+    </MyPlanCard>
+  )
+
+  const recFallback = programTask
+    ? {
+        title: programTask.title,
+        reasonLine: programTask.reasonLine,
+        buttonLabel: programTask.buttonLabel,
+        ariaLabel: programTask.ariaLabel,
+      }
+    : null
+  const recView = buildRecommendationCardView({ audience, fallback: recFallback })
+  const recBlock = (
+    <MyPlanCard
+      title={recView.headerTitle}
+      footer={
+        recView.footer ? (
+          <MyPlanCardFooterButton
+            variant={recView.footer.variant}
+            label={recView.footer.label}
+            ariaLabel={recView.footer.ariaLabel}
+            disabled={practiceBusy}
+            onClick={() => {
+              if (programTask) {
+                void handleAction(programTask.action, 'secondary')
+                return
+              }
+              void handleAction({ kind: 'quick_practice', entrySource: 'my_plan' }, 'secondary')
+            }}
+          />
+        ) : null
+      }
+    >
+      <p className={MY_PLAN_CARD_BODY_TITLE}>{recView.bodyTitle}</p>
+      <p className={MY_PLAN_CARD_BODY_REASON}>{recView.bodyReason}</p>
+    </MyPlanCard>
+  )
 
   return (
     <div className="w-full min-w-0 space-y-3">
-      {programCardBlock}
       {nowBlock}
-      {tutorCardBlock}
-      {secondaryBlock}
+      {growthBlock}
+      {programCardBlock}
+      {tutorBlock}
       {statusBlock}
-      {zonesBlock}
+      {modesBlock}
+      {recBlock}
       {debugLogBlock}
     </div>
   )

@@ -11645,6 +11645,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     onOpenTranslationVocabNag={openTranslationVocabNag}
                     onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
                     onOpenTutorChat={openTutorChat}
+                    onLaunchTarget={async (target) => {
+                      setMyPlanSpaceActive(false)
+                      await launchFromProgress(target)
+                    }}
                   />
                 ) : isProgressSpaceActive ? (
                   <ProgressSheetScreen
@@ -12198,6 +12202,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         onOpenVocabCustomPack={openVocabularyCustomPack}
         onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
         onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
+        onLaunchTarget={launchFromProgress}
         onAdaptiveFooterViewChange={setAdaptiveFooterView}
         onTutorFooterViewChange={handleTutorFooterViewChange}
         tutorSessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
