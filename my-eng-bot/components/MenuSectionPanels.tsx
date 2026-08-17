@@ -2090,14 +2090,15 @@ export default function MenuSectionPanels({
         return
       }
       if (lessonsPanel === 'theory') {
-        if (isReferenceBrowse) {
+        const target = resolveTheoryHubBackTarget(isReferenceBrowse ? 'reference' : 'lesson')
+        if (target === 'root') {
           setCatalogBrowseIntent('lesson')
           setReferenceHubSearchQuery('')
           setMenuReturnView(null)
           onMenuViewChange('root')
           return
         }
-        setLessonsPanel(resolveTheoryHubBackTarget('lesson'))
+        setLessonsPanel(target)
         return
       }
       if (lessonsPanel === 'practiceLevelTopics') {
