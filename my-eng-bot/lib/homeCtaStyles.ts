@@ -205,7 +205,7 @@ export const APP_BTN_NEUTRAL_LARGE = [
 export const APP_BTN_NEUTRAL_WHITE_LARGE = [
   BTN_INTERACTION_BASE,
   'w-full rounded-xl border border-[var(--border)] bg-white px-4 py-3 text-center text-[var(--text)] hover:brightness-95 active:brightness-90',
-  BTN_FONT_INLINE,
+  BTN_FONT_LARGE,
   BTN_DISABLED_CLASS,
 ].join(' ')
 
