@@ -45,12 +45,16 @@ export function openHomeSections(stack: HomeBranchFrame[]): HomeBranchFrame[] {
 
 export function shouldShowHomeBranchBack(input: {
   origin: HomeBranchOrigin
-  frame: HomeBranchFrame
   menuOpen: boolean
+  homeSectionsOpen: boolean
+  dialogStarted: boolean
+  myPlanSpaceActive: boolean
+  progressSpaceActive: boolean
 }): boolean {
   if (input.menuOpen) return false
   if (input.origin !== 'home') return false
-  return input.frame !== 'landing'
+  if (input.myPlanSpaceActive || input.progressSpaceActive) return true
+  return input.homeSectionsOpen && !input.dialogStarted
 }
 
 export function shouldShowHomePlanComposerBack(origin: HomeBranchOrigin = HOME_BRANCH_DEFAULT_ORIGIN): boolean {

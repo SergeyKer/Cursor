@@ -11187,11 +11187,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       return next
     })
   }, [])
-  const homeFrame = peekHomeFrame(homeBranchStack)
   const showHomeBranchBack = shouldShowHomeBranchBack({
     origin: homeBranchOrigin,
-    frame: homeSectionsOpen && !dialogStarted ? 'sections' : homeFrame,
     menuOpen,
+    homeSectionsOpen,
+    dialogStarted,
+    myPlanSpaceActive,
+    progressSpaceActive,
   })
 
   const handleHomeBranchBack = useCallback(() => {

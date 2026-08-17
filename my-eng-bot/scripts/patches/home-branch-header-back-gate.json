@@ -1,0 +1,6 @@
+[
+  [
+    "  const homeFrame = peekHomeFrame(homeBranchStack)\n  const showHomeBranchBack = shouldShowHomeBranchBack({\n    origin: homeBranchOrigin,\n    frame: homeSectionsOpen && !dialogStarted ? 'sections' : homeFrame,\n    menuOpen,\n  })",
+    "  const showHomeBranchBack = shouldShowHomeBranchBack({\n    origin: homeBranchOrigin,\n    menuOpen,\n    homeSectionsOpen,\n    dialogStarted,\n    myPlanSpaceActive,\n    progressSpaceActive,\n  })"
+  ]
+]
