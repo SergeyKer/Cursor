@@ -118,10 +118,13 @@ import {
 import {
   resolveLessonsRootEntryPanel,
   resolveRootLessonsRestorePanel,
+  resolveSkillSectionBackTarget,
   resolveTheoryCefrLevelsBackTarget,
   resolveTheoryHubBackTarget,
 } from '@/lib/menu/lessonsEntry'
 import HubNavCard, { HubNavStack } from '@/components/nav/HubNavCard'
+import { APP_SHELL_HOME_COPY } from '@/lib/uiCopy/appShellCopy'
+import { VOCAB_CARD_BODY_REASON } from '@/lib/vocabulary/cardStyles'
 import { findTheoryTagCandidatesGlobally } from '@/lib/theoryTagSearch'
 import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
@@ -607,6 +610,8 @@ export interface MenuSectionPanelsProps {
   /** Slide-out на всю колонку: горизонтальный отступ у карточек, фон панели без px. */
   edgeToEdge?: boolean
   homeLayout?: boolean
+  /** Подписи корневых разделов. Только ветка Главной («Разделы»), не гамбургер. */
+  showSectionHints?: boolean
   /** Slide-out: закрыть overlay-меню без сброса сессии. */
   onCloseMenu?: () => void
   onStartHomeChat?: () => void
@@ -780,6 +785,7 @@ export default function MenuSectionPanels({
   className,
   edgeToEdge = false,
   homeLayout = false,
+  showSectionHints = false,
   onCloseMenu,
   onStartHomeChat,
   onStartCommunicationChat,
@@ -2142,6 +2148,11 @@ export default function MenuSectionPanels({
         setLessonsPanel('pronunciation')
         return
       }
+      if (lessonsPanel === 'pronunciation') {
+        setMenuReturnView(null)
+        onMenuViewChange(resolveSkillSectionBackTarget())
+        return
+      }
       if (lessonsPanel === 'wordsTtsVoiceSection' || lessonsPanel === 'wordsTtsRotation') {
         setLessonsPanel('wordsTtsVoice')
         return
@@ -2171,7 +2182,8 @@ export default function MenuSectionPanels({
         return
       }
       if (lessonsPanel === 'tutor') {
-        setLessonsPanel('summary')
+        setMenuReturnView(null)
+        onMenuViewChange(resolveSkillSectionBackTarget())
         return
       }
       setLessonsPanel('summary')
@@ -2643,7 +2655,11 @@ export default function MenuSectionPanels({
             <HubNavStack>
               <HubNavCard
                 title="Сейчас"
-                ariaLabel="Сейчас"
+                ariaLabel={
+                  showSectionHints
+                    ? `Сейчас. ${APP_SHELL_HOME_COPY.sectionNowHint}`
+                    : 'Сейчас'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   if (featureFlags.myPlanSpaceV1 && onOpenMyPlanSpace) {
@@ -2652,10 +2668,18 @@ export default function MenuSectionPanels({
                   }
                   onMenuViewChange('myPlan')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionNowHint)}
+              </HubNavCard>
+            </HubNavStack>
+            <HubNavStack>
               <HubNavCard
                 title="Уроки"
-                ariaLabel="Уроки"
+                ariaLabel={
+                  showSectionHints
+                    ? `Уроки. ${APP_SHELL_HOME_COPY.sectionLessonsHint}`
+                    : 'Уроки'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   setCatalogBrowseIntent('lesson')
@@ -2663,29 +2687,99 @@ export default function MenuSectionPanels({
                   setLessonsPanel(resolveLessonsRootEntryPanel())
                   onMenuViewChange('lessons')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionLessonsHint)}
+              </HubNavCard>
               <HubNavCard
                 title="Практика"
-                ariaLabel="Практика"
+                ariaLabel={
+                  showSectionHints
+                    ? `Практика. ${APP_SHELL_HOME_COPY.sectionPracticeHint}`
+                    : 'Практика'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   onMenuViewChange('practice')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionPracticeHint)}
+              </HubNavCard>
               <HubNavCard
                 title="Поговорить"
-                ariaLabel="Поговорить"
+                ariaLabel={
+                  showSectionHints
+                    ? `Поговорить. ${APP_SHELL_HOME_COPY.sectionTalkHint}`
+                    : 'Поговорить'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   onMenuViewChange('communication')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionTalkHint)}
+              </HubNavCard>
             </HubNavStack>
             <HubNavStack>
+              <HubNavCard
+                title="Слова"
+                ariaLabel={
+                  showSectionHints
+                    ? `Слова. ${APP_SHELL_HOME_COPY.sectionWordsHint}`
+                    : 'Слова'
+                }
+                onClick={() => {
+                  clearMenuReturn()
+                  void onOpenVocabularyWorlds?.()
+                }}
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionWordsHint)}
+              </HubNavCard>
+              {featureFlags.accentTrainerV1 ? (
+                <HubNavCard
+                  title="Произношение"
+                  ariaLabel={
+                    showSectionHints
+                      ? `Произношение. ${APP_SHELL_HOME_COPY.sectionPronunciationHint}`
+                      : 'Произношение'
+                  }
+                  onClick={() => {
+                    clearMenuReturn()
+                    setCatalogBrowseIntent('lesson')
+                    setLessonsPanel('pronunciation')
+                    onMenuViewChange('lessons', { lessonsEntry: 'pronunciation' })
+                  }}
+                >
+                  {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionPronunciationHint)}
+                </HubNavCard>
+              ) : (
+                <LessonTopicRow label="Произношение" />
+              )}
+              {featureFlags.tutorChatV1 ? (
+                <HubNavCard
+                  title="Репетитор"
+                  ariaLabel={
+                    showSectionHints
+                      ? `Репетитор. ${APP_SHELL_HOME_COPY.sectionTutorHint}`
+                      : 'Репетитор'
+                  }
+                  onClick={() => {
+                    clearMenuReturn()
+                    setCatalogBrowseIntent('lesson')
+                    setLessonsPanel('tutor')
+                    onMenuViewChange('lessons', { lessonsEntry: 'tutor' })
+                  }}
+                >
+                  {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionTutorHint)}
+                </HubNavCard>
+              ) : null}
               {featureFlags.referenceV1 ? (
                 <HubNavCard
                   title={REFERENCE_COPY.menuRootLabel}
-                  ariaLabel={REFERENCE_COPY.menuRootLabel}
+                  ariaLabel={
+                    showSectionHints
+                      ? `${REFERENCE_COPY.menuRootLabel}. ${APP_SHELL_HOME_COPY.sectionReferenceHint}`
+                      : REFERENCE_COPY.menuRootLabel
+                  }
                   onClick={() => {
                     clearMenuReturn()
                     setCatalogBrowseIntent('reference')
@@ -2694,11 +2788,19 @@ export default function MenuSectionPanels({
                     setLessonsPanel(referenceEntry)
                     onMenuViewChange('lessons', { lessonsEntry: referenceEntry })
                   }}
-                />
+                >
+                  {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionReferenceHint)}
+                </HubNavCard>
               ) : null}
+            </HubNavStack>
+            <HubNavStack>
               <HubNavCard
                 title="Прогресс"
-                ariaLabel="Прогресс"
+                ariaLabel={
+                  showSectionHints
+                    ? `Прогресс. ${APP_SHELL_HOME_COPY.sectionProgressHint}`
+                    : 'Прогресс'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   if (featureFlags.progressSpaceV1 && onOpenProgressSpace) {
@@ -2707,32 +2809,66 @@ export default function MenuSectionPanels({
                   }
                   onMenuViewChange('progress')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionProgressHint)}
+              </HubNavCard>
               <HubNavCard
                 title="Профиль"
-                ariaLabel="Профиль"
+                ariaLabel={
+                  showSectionHints
+                    ? `Профиль. ${APP_SHELL_HOME_COPY.sectionProfileHint}`
+                    : 'Профиль'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   onMenuViewChange('profile')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionProfileHint)}
+              </HubNavCard>
               <HubNavCard
                 title="Настройки"
-                ariaLabel="Настройки"
+                ariaLabel={
+                  showSectionHints
+                    ? `Настройки. ${APP_SHELL_HOME_COPY.sectionSettingsHint}`
+                    : 'Настройки'
+                }
                 onClick={() => {
                   clearMenuReturn()
                   onMenuViewChange('settings')
                 }}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.sectionSettingsHint)}
+              </HubNavCard>
             </HubNavStack>
           </div>
         )}
 
         {menuView === 'communication' && (
           <HubNavStack>
-            <HubNavCard title="Чат" ariaLabel="Чат" onClick={openCommunicationChat} />
+            <HubNavCard
+              title="Чат"
+              ariaLabel={
+                showSectionHints
+                  ? `Чат. ${APP_SHELL_HOME_COPY.nestedChatHint}`
+                  : 'Чат'
+              }
+              onClick={openCommunicationChat}
+            >
+              {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedChatHint)}
+            </HubNavCard>
             {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
-              <HubNavCard title="Звонок" ariaLabel="Звонок" onClick={openCommunicationCall} />
+              <HubNavCard
+                title="Звонок"
+                ariaLabel={
+                  showSectionHints
+                    ? `Звонок. ${APP_SHELL_HOME_COPY.nestedCallHint}`
+                    : 'Звонок'
+                }
+                onClick={openCommunicationCall}
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedCallHint)}
+              </HubNavCard>
             ) : null}
           </HubNavStack>
         )}
@@ -2740,32 +2876,72 @@ export default function MenuSectionPanels({
         {menuView === 'practice' && (
           <HubNavStack>
             {featureFlags.practiceEngineV1 ? (
-              <HubNavCard title="По урокам" ariaLabel="По урокам" onClick={openPracticeByLesson} />
+              <HubNavCard
+                title="По урокам"
+                ariaLabel={
+                  showSectionHints
+                    ? `По урокам. ${APP_SHELL_HOME_COPY.nestedPracticeByLessonHint}`
+                    : 'По урокам'
+                }
+                onClick={openPracticeByLesson}
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedPracticeByLessonHint)}
+              </HubNavCard>
             ) : null}
             <HubNavCard
               title="Диалог"
-              ariaLabel="Диалог"
+              ariaLabel={
+                showSectionHints
+                  ? `Диалог. ${APP_SHELL_HOME_COPY.nestedDialogueHint}`
+                  : 'Диалог'
+              }
               onClick={() => openPracticeChatMode('dialogue')}
-            />
+            >
+              {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedDialogueHint)}
+            </HubNavCard>
             <HubNavCard
               title="Перевод"
-              ariaLabel="Перевод"
+              ariaLabel={
+                showSectionHints
+                  ? `Перевод. ${APP_SHELL_HOME_COPY.nestedTranslationHint}`
+                  : 'Перевод'
+              }
               onClick={() => openPracticeChatMode('translation')}
-            />
+            >
+              {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedTranslationHint)}
+            </HubNavCard>
             {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
               <HubNavCard
                 title="Преподаватель"
-                ariaLabel="Преподаватель"
+                ariaLabel={
+                  showSectionHints
+                    ? `Преподаватель. ${APP_SHELL_HOME_COPY.nestedTeacherHint}`
+                    : 'Преподаватель'
+                }
                 onClick={openPracticeTeacher}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedTeacherHint)}
+              </HubNavCard>
             ) : null}
-            <LessonTopicRow label="Разговорник" />
+            <HubNavCard
+              title="Разговорник"
+              ariaLabel={`Разговорник. ${APP_SHELL_HOME_COPY.nestedPhrasebookHint}`}
+              disabled
+            >
+              {sectionNavHint(true, APP_SHELL_HOME_COPY.nestedPhrasebookHint)}
+            </HubNavCard>
             {featureFlags.quickTestV1 && onOpenQuickTest ? (
               <HubNavCard
                 title="Быстрый тест"
-                ariaLabel="Быстрый тест"
+                ariaLabel={
+                  showSectionHints
+                    ? `Быстрый тест. ${APP_SHELL_HOME_COPY.nestedQuickTestHint}`
+                    : 'Быстрый тест'
+                }
                 onClick={() => onOpenQuickTest()}
-              />
+              >
+                {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedQuickTestHint)}
+              </HubNavCard>
             ) : null}
           </HubNavStack>
         )}
@@ -3106,47 +3282,35 @@ export default function MenuSectionPanels({
               <HubNavStack>
                 <HubNavCard
                   title="По уровню"
-                  ariaLabel="По уровню"
+                  ariaLabel={
+                    showSectionHints
+                      ? `По уровню. ${APP_SHELL_HOME_COPY.nestedByLevelHint}`
+                      : 'По уровню'
+                  }
                   onClick={() => {
                     setCatalogBrowseIntent('lesson')
                     setTheoryLessonSourceNav('cef_levels')
                     setLessonsPanel('theoryCefrLevels')
                   }}
-                />
-                <HubNavCard
-                  title="Слова"
-                  ariaLabel="Слова"
-                  onClick={() => void onOpenVocabularyWorlds?.()}
-                />
-                {featureFlags.accentTrainerV1 ? (
-                  <HubNavCard
-                    title="Произношение"
-                    ariaLabel="Произношение"
-                    onClick={() => setLessonsPanel('pronunciation')}
-                  />
-                ) : (
-                  <LessonTopicRow label="Произношение" />
-                )}
-                {featureFlags.tutorChatV1 ? (
-                  <HubNavCard
-                    title="Репетитор"
-                    ariaLabel="Репетитор"
-                    onClick={() => {
-                      setCatalogBrowseIntent('lesson')
-                      setLessonsPanel('tutor')
-                    }}
-                  />
-                ) : null}
+                >
+                  {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedByLevelHint)}
+                </HubNavCard>
                 <HubNavCard
                   title="По теме"
-                  ariaLabel="Теория по теме"
+                  ariaLabel={
+                    showSectionHints
+                      ? `По теме. ${APP_SHELL_HOME_COPY.nestedByTopicHint}`
+                      : 'Теория по теме'
+                  }
                   onClick={() => {
                     setTheoryTagsSearchQuery('')
                     setTheoryTopicLaunch(null)
                     setSelectedTheoryTopicLessonId(null)
                     setLessonsPanel('theoryGrammarCategories')
                   }}
-                />
+                >
+                  {sectionNavHint(showSectionHints, APP_SHELL_HOME_COPY.nestedByTopicHint)}
+                </HubNavCard>
               </HubNavStack>
             )}
 
@@ -3325,7 +3489,10 @@ export default function MenuSectionPanels({
                   initialPrefill={tutorChatPrefill}
                   embeddedInMenu
                   onPromoteToSpace={onPromoteTutorFromMenu}
-                  onDone={() => setLessonsPanel('summary')}
+                  onDone={() => {
+                    setMenuReturnView(null)
+                    onMenuViewChange(resolveSkillSectionBackTarget())
+                  }}
                   onFooterViewChange={onTutorFooterViewChange}
                   sessionXp={tutorSessionXp}
                   onExplainSuccess={onTutorExplainSuccess}
@@ -6109,6 +6276,11 @@ function TheoryTagMenuRow({
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-[var(--text-muted)]" aria-hidden />
     </button>
   )
+}
+
+function sectionNavHint(enabled: boolean, text: string) {
+  if (!enabled) return null
+  return <p className={VOCAB_CARD_BODY_REASON}>{text}</p>
 }
 
 function MenuNavRow({

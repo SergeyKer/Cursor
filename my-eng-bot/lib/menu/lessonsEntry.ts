@@ -36,11 +36,12 @@ export function shouldForceLessonsSummaryOnRequest(): boolean {
   return false
 }
 
-/** Rows on the Уроки hub (CEFR catalog is one click deeper). */
-export const LESSONS_HUB_ROW_IDS = [
-  'cefrLevels',
-  'words',
-  'pronunciation',
-  'tutor',
-  'theoryByTag',
-] as const
+/** Root tools block between core (Уроки/Практика/Поговорить) and account. */
+export const ROOT_SKILL_ROW_IDS = ['words', 'pronunciation', 'tutor', 'reference'] as const
+
+/** Rows inside Уроки: catalog only. */
+export const LESSONS_HUB_ROW_IDS = ['cefrLevels', 'theoryByTag'] as const
+
+export function resolveSkillSectionBackTarget(): 'root' {
+  return 'root'
+}

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   LESSONS_HUB_ROW_IDS,
+  ROOT_SKILL_ROW_IDS,
   resolveLessonsRootEntryPanel,
   resolveReferenceRootEntryPanel,
   resolveRootLessonsRestorePanel,
+  resolveSkillSectionBackTarget,
   resolveTheoryCefrLevelsBackTarget,
   resolveTheoryHubBackTarget,
   shouldForceLessonsSummaryOnRequest,
@@ -31,13 +33,12 @@ describe('lessonsEntry', () => {
     expect(resolveTheoryHubBackTarget('reference')).toBe('root')
   })
 
-  it('keeps hub row ids with CEFR as the first item', () => {
-    expect([...LESSONS_HUB_ROW_IDS]).toEqual([
-      'cefrLevels',
-      'words',
-      'pronunciation',
-      'tutor',
-      'theoryByTag',
-    ])
+  it('keeps only catalog rows inside Уроки', () => {
+    expect([...LESSONS_HUB_ROW_IDS]).toEqual(['cefrLevels', 'theoryByTag'])
+  })
+
+  it('groups words, pronunciation, tutor, and reference as equal root rows', () => {
+    expect([...ROOT_SKILL_ROW_IDS]).toEqual(['words', 'pronunciation', 'tutor', 'reference'])
+    expect(resolveSkillSectionBackTarget()).toBe('root')
   })
 })

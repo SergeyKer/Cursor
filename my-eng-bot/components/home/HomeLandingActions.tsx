@@ -65,9 +65,11 @@ export default function HomeLandingActions({
       {onOpenSections ? (
         <HubNavCard
           title={APP_SHELL_HOME_COPY.sectionsLabel}
-          ariaLabel={APP_SHELL_HOME_COPY.sectionsLabel}
+          ariaLabel={`${APP_SHELL_HOME_COPY.sectionsLabel}. ${APP_SHELL_HOME_COPY.sectionsHint}`}
           onClick={onOpenSections}
-        />
+        >
+          <p className={VOCAB_CARD_BODY_REASON}>{APP_SHELL_HOME_COPY.sectionsHint}</p>
+        </HubNavCard>
       ) : null}
     </div>
   )

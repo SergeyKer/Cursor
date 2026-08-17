@@ -19,7 +19,7 @@ const EXPAND_SKIN =
 
 /** Hover/press shared with inset CTA brightness — no 3D, no shadow. */
 export const VOCAB_TAP_INTERACTION =
-  'cursor-pointer touch-manipulation transition-all duration-200 [@media(hover:hover)]:hover:brightness-105 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]'
+  'cursor-pointer touch-manipulation transition-[filter] duration-200 [@media(hover:hover)]:hover:brightness-105 active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]'
 
 export const VOCAB_CARD_SURFACE = [
   'chat-section-surface glass-surface border border-[var(--chat-section-neutral-border)] bg-white',

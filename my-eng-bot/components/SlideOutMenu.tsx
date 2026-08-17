@@ -287,6 +287,7 @@ export default function SlideOutMenu({
   practiceProgressRevision = 0,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
+  const [showSectionHints, setShowSectionHints] = React.useState(false)
   /** Восстановить подпанель уроков только при открытии меню из активного урока/практики, не при ручном «Уроки». */
   const [lessonsRestorePanel, setLessonsRestorePanel] = React.useState<LessonsPanel | undefined>(undefined)
   const [forceLessonsSummary, setForceLessonsSummary] = React.useState(false)
@@ -343,6 +344,7 @@ export default function SlideOutMenu({
       setMenuView('root')
       setLessonsRestorePanel(undefined)
       setForceLessonsSummary(false)
+      setShowSectionHints(false)
       if (requestedMenuView) onRequestedMenuViewConsumed?.()
       return
     }
@@ -354,6 +356,7 @@ export default function SlideOutMenu({
       setForceLessonsSummary(false)
       setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
       setMenuView('lessons')
+      setShowSectionHints(false)
       if (requestedMenuView) onRequestedMenuViewConsumed?.()
       return
     }
@@ -367,12 +370,14 @@ export default function SlideOutMenu({
         setForceLessonsSummary(false)
         setLessonsRestorePanel(undefined)
       }
+      setShowSectionHints(requestedMenuView === 'root')
       setMenuView(requestedMenuView)
       onRequestedMenuViewConsumed?.()
       return
     }
     // Defaults only when the panel just opened; ignore request-clear re-runs.
     if (wasOpen) return
+    setShowSectionHints(false)
     if (chatActive && lessonMenuContext?.menuView === 'lessons') {
       setForceLessonsSummary(false)
       setLessonsRestorePanel(lessonMenuContext.lessonsPanel)
@@ -395,6 +400,13 @@ export default function SlideOutMenu({
     requestedMenuView,
     onRequestedMenuViewConsumed,
   ])
+
+  const restorePending = Boolean(
+    open && restoreLessonMenuOnNextOpenRef?.current && lessonMenuContext?.menuView === 'lessons'
+  )
+  const showSectionHintsNow = Boolean(
+    open && !restorePending && (requestedMenuView === 'root' || showSectionHints)
+  )
 
   const menuPanelPaddingClass = 'px-3 pb-3 pt-3'
 
@@ -426,6 +438,7 @@ export default function SlideOutMenu({
         idPrefix="slide-"
         edgeToEdge={false}
         className="flex min-h-0 flex-1 flex-col"
+        showSectionHints={showSectionHintsNow}
         onStartHomeChat={onStartChat}
         onStartCommunicationChat={onStartCommunicationChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
