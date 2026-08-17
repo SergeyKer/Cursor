@@ -11,6 +11,12 @@ export const APP_SHELL_HOME_COPY = {
   startChatLabel: 'Начать чат с Engvo AI',
   startMyPlanLabel: 'Мой план',
   startReferenceLabel: 'Справочник',
+  doorTitle: 'Сейчас',
+  doorBodyChild: 'Один шаг — и урок начнётся.',
+  doorBodyAdult: 'Один шаг — урок или план на сегодня.',
+  doorPlay: 'Играть',
+  doorStart: 'Начать',
+  sectionsLabel: 'Разделы',
 } as const
 
 export const APP_SHELL_ERROR_COPY = {

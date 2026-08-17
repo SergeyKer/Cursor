@@ -115,6 +115,13 @@ import {
   toggleExpandedLevel,
   type CefrMenuLevel,
 } from '@/lib/menu/cefrLevelAccordion'
+import {
+  resolveLessonsRootEntryPanel,
+  resolveRootLessonsRestorePanel,
+  resolveTheoryCefrLevelsBackTarget,
+  resolveTheoryHubBackTarget,
+} from '@/lib/menu/lessonsEntry'
+import HubNavCard, { HubNavStack } from '@/components/nav/HubNavCard'
 import { findTheoryTagCandidatesGlobally } from '@/lib/theoryTagSearch'
 import { ACCENT_SECTIONS, RUSSIAN_SPEAKER_GROUPS, getAccentLessonById, getFirstAccentLessonId } from '@/lib/accent/soundCatalog'
 import AccentProgressBadge from '@/components/accent/AccentProgressBadge'
@@ -588,7 +595,7 @@ const VOICE_DROPDOWN_LANG_PREFIXES: string[] = ['en']
 
 export interface MenuSectionPanelsProps {
   menuView: MenuView
-  onMenuViewChange: (v: MenuView) => void
+  onMenuViewChange: (v: MenuView, opts?: { lessonsEntry?: LessonsPanel }) => void
   settings: Settings
   onSettingsChange: (s: Settings) => void
   usage: UsageInfo
@@ -603,6 +610,7 @@ export interface MenuSectionPanelsProps {
   /** Slide-out: закрыть overlay-меню без сброса сессии. */
   onCloseMenu?: () => void
   onStartHomeChat?: () => void
+  onStartCommunicationChat?: () => void
   onGoHome?: () => void
   onOpenEngvoVoiceChat?: () => void
   engvoProvider?: EngvoProvider
@@ -774,6 +782,7 @@ export default function MenuSectionPanels({
   homeLayout = false,
   onCloseMenu,
   onStartHomeChat,
+  onStartCommunicationChat,
   onGoHome,
   onOpenEngvoVoiceChat,
   engvoProvider = ENGVO_DEFAULT_PROVIDER,
@@ -2062,22 +2071,27 @@ export default function MenuSectionPanels({
         setActiveGrammarCategoryId(null)
         setTheoryTopicLaunch(null)
         setSelectedTheoryTopicLessonId(null)
-        setLessonsPanel('theory')
+        setLessonsPanel(isReferenceBrowse ? 'theory' : 'summary')
         return
       }
       if (lessonsPanel === 'theoryCefrLevels') {
-        setLessonsPanel('theory')
+        const target = resolveTheoryCefrLevelsBackTarget(isReferenceBrowse ? 'reference' : 'lesson')
+        if (target === 'theory') {
+          setLessonsPanel('theory')
+          return
+        }
+        setLessonsPanel('summary')
         return
       }
       if (lessonsPanel === 'theory') {
-        if (catalogBrowseIntent === 'reference') {
+        if (isReferenceBrowse) {
           setCatalogBrowseIntent('lesson')
           setReferenceHubSearchQuery('')
           setMenuReturnView(null)
           onMenuViewChange('root')
           return
         }
-        setLessonsPanel('summary')
+        setLessonsPanel(resolveTheoryHubBackTarget('lesson'))
         return
       }
       if (lessonsPanel === 'practiceLevelTopics') {
@@ -2234,9 +2248,13 @@ export default function MenuSectionPanels({
 
   const openCommunicationChat = () => {
     setCatalogBrowseIntent('lesson')
-    update({ mode: 'communication' })
+    update({ mode: 'communication', topic: 'free_talk' })
     setAiChatPanel('summary')
     setMenuReturnView('communication')
+    if (onStartCommunicationChat) {
+      onStartCommunicationChat()
+      return
+    }
     onMenuViewChange('aiChat')
   }
 
@@ -2381,7 +2399,7 @@ export default function MenuSectionPanels({
       }
       return LESSONS_PANEL_TITLE[lessonsPanel]
     }
-    if (menuView === 'communication') return 'Общение'
+    if (menuView === 'communication') return 'Поговорить'
     if (menuView === 'practice') return 'Практика'
     if (menuView === 'aiChat') {
       if (aiChatPanel === 'summary') return resolveAiChatSummaryTitle(settings.mode)
@@ -2621,57 +2639,11 @@ export default function MenuSectionPanels({
         className={panelScrollAreaClass}
       >
         {menuView === 'root' && !homeLayout && (
-          <div className={MENU_GROUP_OUTER}>
-            <div className={MENU_GROUP_CLASS}>
-              <MenuNavRow
-                label="Общение"
-                onClick={() => {
-                  clearMenuReturn()
-                  onMenuViewChange('communication')
-                }}
-              />
-              <MenuNavRow
-                label="Уроки"
-                onClick={() => {
-                  clearMenuReturn()
-                  setCatalogBrowseIntent('lesson')
-                  setReferenceHubSearchQuery('')
-                  setLessonsPanel('summary')
-                  onMenuViewChange('lessons')
-                }}
-              />
-              <MenuNavRow
-                label="Практика"
-                onClick={() => {
-                  clearMenuReturn()
-                  onMenuViewChange('practice')
-                }}
-              />
-              {featureFlags.referenceV1 ? (
-                <MenuNavRow
-                  label={REFERENCE_COPY.menuRootLabel}
-                  onClick={() => {
-                    clearMenuReturn()
-                    setCatalogBrowseIntent('reference')
-                    setReferenceHubSearchQuery('')
-                    setLessonsPanel('theory')
-                    onMenuViewChange('lessons')
-                  }}
-                />
-              ) : null}
-              <MenuNavRow
-                label="Прогресс"
-                onClick={() => {
-                  clearMenuReturn()
-                  if (featureFlags.progressSpaceV1 && onOpenProgressSpace) {
-                    onOpenProgressSpace()
-                    return
-                  }
-                  onMenuViewChange('progress')
-                }}
-              />
-              <MenuNavRow
-                label="Мой план"
+          <div className="space-y-4">
+            <HubNavStack>
+              <HubNavCard
+                title="Сейчас"
+                ariaLabel="Сейчас"
                 onClick={() => {
                   clearMenuReturn()
                   if (featureFlags.myPlanSpaceV1 && onOpenMyPlanSpace) {
@@ -2681,52 +2653,121 @@ export default function MenuSectionPanels({
                   onMenuViewChange('myPlan')
                 }}
               />
-              <MenuNavRow
-                label="Настройки"
+              <HubNavCard
+                title="Уроки"
+                ariaLabel="Уроки"
                 onClick={() => {
                   clearMenuReturn()
-                  onMenuViewChange('settings')
+                  setCatalogBrowseIntent('lesson')
+                  setReferenceHubSearchQuery('')
+                  setLessonsPanel(resolveLessonsRootEntryPanel())
+                  onMenuViewChange('lessons')
                 }}
               />
-              <MenuNavRow
-                label="Профиль"
+              <HubNavCard
+                title="Практика"
+                ariaLabel="Практика"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('practice')
+                }}
+              />
+              <HubNavCard
+                title="Поговорить"
+                ariaLabel="Поговорить"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('communication')
+                }}
+              />
+            </HubNavStack>
+            <HubNavStack>
+              {featureFlags.referenceV1 ? (
+                <HubNavCard
+                  title={REFERENCE_COPY.menuRootLabel}
+                  ariaLabel={REFERENCE_COPY.menuRootLabel}
+                  onClick={() => {
+                    clearMenuReturn()
+                    setCatalogBrowseIntent('reference')
+                    setReferenceHubSearchQuery('')
+                    const referenceEntry = resolveRootLessonsRestorePanel('reference')
+                    setLessonsPanel(referenceEntry)
+                    onMenuViewChange('lessons', { lessonsEntry: referenceEntry })
+                  }}
+                />
+              ) : null}
+              <HubNavCard
+                title="Прогресс"
+                ariaLabel="Прогресс"
+                onClick={() => {
+                  clearMenuReturn()
+                  if (featureFlags.progressSpaceV1 && onOpenProgressSpace) {
+                    onOpenProgressSpace()
+                    return
+                  }
+                  onMenuViewChange('progress')
+                }}
+              />
+              <HubNavCard
+                title="Профиль"
+                ariaLabel="Профиль"
                 onClick={() => {
                   clearMenuReturn()
                   onMenuViewChange('profile')
                 }}
               />
-            </div>
+              <HubNavCard
+                title="Настройки"
+                ariaLabel="Настройки"
+                onClick={() => {
+                  clearMenuReturn()
+                  onMenuViewChange('settings')
+                }}
+              />
+            </HubNavStack>
           </div>
         )}
 
         {menuView === 'communication' && (
-          <div className={MENU_GROUP_OUTER}>
-            <div className={MENU_GROUP_CLASS}>
-              <MenuNavRow label="Чат" onClick={openCommunicationChat} />
-              {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
-                <MenuNavRow label="Звонок" onClick={openCommunicationCall} />
-              ) : null}
-            </div>
-          </div>
+          <HubNavStack>
+            <HubNavCard title="Чат" ariaLabel="Чат" onClick={openCommunicationChat} />
+            {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
+              <HubNavCard title="Звонок" ariaLabel="Звонок" onClick={openCommunicationCall} />
+            ) : null}
+          </HubNavStack>
         )}
 
         {menuView === 'practice' && (
-          <div className={MENU_GROUP_OUTER}>
-            <div className={MENU_GROUP_CLASS}>
-              {featureFlags.practiceEngineV1 ? (
-                <MenuNavRow label="По урокам" onClick={openPracticeByLesson} />
-              ) : null}
-              <MenuNavRow label="Диалог" onClick={() => openPracticeChatMode('dialogue')} />
-              <MenuNavRow label="Перевод" onClick={() => openPracticeChatMode('translation')} />
-              {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
-                <MenuNavRow label="Преподаватель" onClick={openPracticeTeacher} />
-              ) : null}
-              <LessonTopicRow label="Разговорник" />
-              {featureFlags.quickTestV1 && onOpenQuickTest ? (
-                <MenuNavRow label="Быстрый тест" showChevron={false} onClick={() => onOpenQuickTest()} />
-              ) : null}
-            </div>
-          </div>
+          <HubNavStack>
+            {featureFlags.practiceEngineV1 ? (
+              <HubNavCard title="По урокам" ariaLabel="По урокам" onClick={openPracticeByLesson} />
+            ) : null}
+            <HubNavCard
+              title="Диалог"
+              ariaLabel="Диалог"
+              onClick={() => openPracticeChatMode('dialogue')}
+            />
+            <HubNavCard
+              title="Перевод"
+              ariaLabel="Перевод"
+              onClick={() => openPracticeChatMode('translation')}
+            />
+            {featureFlags.engvoVoiceV1 && onOpenEngvoVoiceChat ? (
+              <HubNavCard
+                title="Преподаватель"
+                ariaLabel="Преподаватель"
+                onClick={openPracticeTeacher}
+              />
+            ) : null}
+            <LessonTopicRow label="Разговорник" />
+            {featureFlags.quickTestV1 && onOpenQuickTest ? (
+              <HubNavCard
+                title="Быстрый тест"
+                ariaLabel="Быстрый тест"
+                onClick={() => onOpenQuickTest()}
+              />
+            ) : null}
+          </HubNavStack>
         )}
 
         {menuView === 'engvo' && (
@@ -3062,32 +3103,51 @@ export default function MenuSectionPanels({
         {menuView === 'lessons' && (
           <>
             {lessonsPanel === 'summary' && (
-              <div className={MENU_GROUP_OUTER}>
-                <div className={MENU_GROUP_CLASS}>
-                  <MenuNavRow
-                    label="Теория"
+              <HubNavStack>
+                <HubNavCard
+                  title="По уровню"
+                  ariaLabel="По уровню"
+                  onClick={() => {
+                    setCatalogBrowseIntent('lesson')
+                    setTheoryLessonSourceNav('cef_levels')
+                    setLessonsPanel('theoryCefrLevels')
+                  }}
+                />
+                <HubNavCard
+                  title="Слова"
+                  ariaLabel="Слова"
+                  onClick={() => void onOpenVocabularyWorlds?.()}
+                />
+                {featureFlags.accentTrainerV1 ? (
+                  <HubNavCard
+                    title="Произношение"
+                    ariaLabel="Произношение"
+                    onClick={() => setLessonsPanel('pronunciation')}
+                  />
+                ) : (
+                  <LessonTopicRow label="Произношение" />
+                )}
+                {featureFlags.tutorChatV1 ? (
+                  <HubNavCard
+                    title="Репетитор"
+                    ariaLabel="Репетитор"
                     onClick={() => {
                       setCatalogBrowseIntent('lesson')
-                      setLessonsPanel('theory')
+                      setLessonsPanel('tutor')
                     }}
                   />
-                  {featureFlags.accentTrainerV1 ? (
-                    <MenuNavRow label="Произношение" onClick={() => setLessonsPanel('pronunciation')} />
-                  ) : (
-                    <LessonTopicRow label="Произношение" />
-                  )}
-                  {featureFlags.tutorChatV1 ? (
-                    <MenuNavRow
-                      label="Репетитор"
-                      onClick={() => {
-                        setCatalogBrowseIntent('lesson')
-                        setLessonsPanel('tutor')
-                      }}
-                    />
-                  ) : null}
-                  <MenuNavRow label="Слова" onClick={() => void onOpenVocabularyWorlds?.()} />
-                </div>
-              </div>
+                ) : null}
+                <HubNavCard
+                  title="По теме"
+                  ariaLabel="Теория по теме"
+                  onClick={() => {
+                    setTheoryTagsSearchQuery('')
+                    setTheoryTopicLaunch(null)
+                    setSelectedTheoryTopicLessonId(null)
+                    setLessonsPanel('theoryGrammarCategories')
+                  }}
+                />
+              </HubNavStack>
             )}
 
             {lessonsPanel === 'words' && (

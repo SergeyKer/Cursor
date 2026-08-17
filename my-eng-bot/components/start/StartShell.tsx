@@ -2,12 +2,10 @@
 
 import { AppIconFrame } from '@/components/AppIconFrame'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
+import HomeLandingActions from '@/components/home/HomeLandingActions'
 import { featureFlags } from '@/lib/featureFlags'
 import { buildCompactGreeting } from '@/lib/homeGreeting'
-import {
-  PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS,
-  PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS,
-} from '@/lib/homeCtaStyles'
+import { saveHomeAudienceChosen } from '@/lib/home/audienceGate'
 import type { Audience } from '@/lib/types'
 import { mergeBridgeState, type StartBridgeState } from '@/lib/start/startBridge'
 import { DIALOG_SESSION_COLUMN_MAX_CLASS } from '@/lib/dialogSessionChrome'
@@ -19,6 +17,7 @@ export type StartShellProps = {
 
 export default function StartShell({ bridge, onBridgeChange }: StartShellProps) {
   const chooseAudience = (audience: Audience) => {
+    saveHomeAudienceChosen(true)
     onBridgeChange(
       mergeBridgeState(bridge, {
         audience,
@@ -49,28 +48,22 @@ export default function StartShell({ bridge, onBridgeChange }: StartShellProps) 
         ) : null}
 
         <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
-          <HomeWelcomeBubble text={buildCompactGreeting()} />
+          <HomeWelcomeBubble
+            text={buildCompactGreeting({
+              audienceChosen: bridge.audienceChosen,
+              audience: bridge.audience ?? 'adult',
+            })}
+          />
 
-          <div className="flex w-full justify-end">
-            <div className="flex w-full flex-col items-end gap-2">
-              <button
-                type="button"
-                onClick={() => chooseAudience('child')}
-                className={PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS}
-                aria-pressed={bridge.audience === 'child'}
-              >
-                Я - ребёнок
-              </button>
-              <button
-                type="button"
-                onClick={() => chooseAudience('adult')}
-                className={PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS}
-                aria-pressed={bridge.audience === 'adult'}
-              >
-                Я - взрослый
-              </button>
-            </div>
-          </div>
+          {!bridge.audienceChosen ? (
+            <HomeLandingActions
+              audienceChosen={false}
+              audience="adult"
+              onChooseChild={() => chooseAudience('child')}
+              onChooseAdult={() => chooseAudience('adult')}
+              onStart={() => undefined}
+            />
+          ) : null}
         </div>
       </div>
     </div>

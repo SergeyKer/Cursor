@@ -31,3 +31,24 @@ export function shouldOpenMyPlanHome(params: {
 }): boolean {
   return params.myPlanHomeEnabled && params.hasAnyHistory
 }
+
+/**
+ * Landing CTA only: ignore lastActiveDate (rewards can stamp it without a lesson).
+ */
+export function hasLandingLearningHistory(params: {
+  lessonProgressCount: number
+  signalCount: number
+}): boolean {
+  return params.lessonProgressCount > 0 || params.signalCount > 0
+}
+
+export function shouldOpenMyPlanHomeFromLanding(params: {
+  myPlanHomeEnabled: boolean
+  lessonProgressCount: number
+  signalCount: number
+}): boolean {
+  return shouldOpenMyPlanHome({
+    myPlanHomeEnabled: params.myPlanHomeEnabled,
+    hasAnyHistory: hasLandingLearningHistory(params),
+  })
+}

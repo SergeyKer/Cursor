@@ -807,6 +807,14 @@ export function getLessonTopicById(lessonId: string): LessonTopicCatalogItem | n
   return getLessonTopicCatalog().find((topic) => topic.id === lessonId) ?? null
 }
 
+/** First playable catalog lesson for the home door (enabled + structured content). */
+export function getFirstEnabledPlayableLessonId(): string | null {
+  const playable = getLessonTopicCatalog().filter(
+    (topic) => topic.enabled && topic.hasTheory && Boolean(getStructuredLessonById(topic.id))
+  )
+  return playable[0]?.id ?? null
+}
+
 export function getLessonTopicBySlug(slug: string): LessonTopicCatalogItem | null {
   const normalized = slug.trim().toLowerCase()
   if (!normalized) return null

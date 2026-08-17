@@ -9,21 +9,19 @@ import VocabCard from '@/components/vocabulary/VocabCard'
 import VocabCardFooterButton from '@/components/vocabulary/VocabCardFooterButton'
 import VocabHubShell from '@/components/vocabulary/VocabHubShell'
 import VocabShelfRow from '@/components/vocabulary/VocabShelfRow'
+import HubNavCard from '@/components/nav/HubNavCard'
 import { loadCustomWordPacks } from '@/lib/adaptiveRetention/customWordPackStorage'
 import { customPackToNecessaryWords } from '@/lib/vocabulary/customPackAdapter'
 import { isPackDrained } from '@/lib/vocabulary/resolveImportRows'
 import {
   VOCAB_CARD_BODY_REASON,
   VOCAB_CARD_BODY_TITLE,
-  VOCAB_CARD_SURFACE,
-  VOCAB_NAV_TITLE,
   VOCAB_PAIR_EN,
   VOCAB_PAIR_LINE,
   VOCAB_PAIR_RU,
   VOCAB_SCREEN_TITLE,
   VOCAB_SHELF_CHIP,
   VOCAB_SHELF_CHIP_ACTIVE,
-  VOCAB_TAP_INTERACTION,
 } from '@/lib/vocabulary/cardStyles'
 import {
   loadPackWords,
@@ -114,48 +112,6 @@ function ShelfFilterChip({
 
 function countReviewed(words: NecessaryWord[], map: VocabularyProgressState['words']): number {
   return words.filter((word) => isWordInProgress(map[String(word.id)])).length
-}
-
-function HubNavCard({
-  title,
-  ariaLabel,
-  onClick,
-  children,
-}: {
-  title: string
-  ariaLabel: string
-  onClick: () => void
-  children?: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      className={`${VOCAB_CARD_SURFACE} ${VOCAB_TAP_INTERACTION} flex w-full min-w-0 items-center gap-3 px-4 py-2.5 text-left`}
-      aria-label={ariaLabel}
-      onClick={onClick}
-    >
-      <div className="min-w-0 flex-1 space-y-1.5">
-        <p className={VOCAB_NAV_TITLE}>{title}</p>
-        {children}
-      </div>
-      <span className="pointer-events-none inline-flex h-5 w-5 shrink-0 items-center justify-center text-[var(--text-muted)]" aria-hidden>
-        <svg
-          className="h-full w-full rotate-90"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          aria-hidden
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.75}
-            d="M6 14.5 12 8.5l6 6"
-          />
-        </svg>
-      </span>
-    </button>
-  )
 }
 
 type ListKey =

@@ -28,6 +28,10 @@ import type { TutorFooterView } from '@/lib/tutor/tutorFooter'
 import type { AppColumnBounds } from '@/hooks/useAppColumnBounds'
 import { resolveAppPanelHorizontalLayout } from '@/lib/appPanelLayout'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
+import {
+  resolveLessonsRootEntryPanel,
+  shouldForceLessonsSummaryOnRequest,
+} from '@/lib/menu/lessonsEntry'
 
 export type { LessonMenuContext, LearningLessonMenuMeta }
 
@@ -45,6 +49,7 @@ interface SlideOutMenuProps {
   hideButton?: boolean
   /** Кнопка «Начать …» в «Чат с MyEng» (старт или новый диалог). */
   onStartChat?: () => void
+  onStartCommunicationChat?: () => void
   onOpenEngvoVoiceChat?: () => void
   engvoProvider?: EngvoProvider
   engvoRealtimeVoice?: EngvoRealtimeVoice
@@ -198,6 +203,7 @@ export default function SlideOutMenu({
   onNewDialog,
   hideButton = false,
   onStartChat,
+  onStartCommunicationChat,
   onOpenEngvoVoiceChat,
   engvoProvider,
   engvoRealtimeVoice,
@@ -316,13 +322,13 @@ export default function SlideOutMenu({
   const panelOpenEdgeClass = 'border-r border-r-[var(--border)]'
 
   const handleMenuViewChange = React.useCallback(
-    (v: MenuView) => {
+    (v: MenuView, opts?: { lessonsEntry?: LessonsPanel }) => {
       if (v === 'root' || v === 'communication' || v === 'practice') {
         setLessonsRestorePanel(undefined)
         setForceLessonsSummary(false)
       } else if (v === 'lessons' && menuView === 'root') {
-        setLessonsRestorePanel(undefined)
-        setForceLessonsSummary(false)
+        setLessonsRestorePanel(opts?.lessonsEntry ?? resolveLessonsRootEntryPanel())
+        setForceLessonsSummary(shouldForceLessonsSummaryOnRequest())
       }
       setMenuView(v)
     },
@@ -353,8 +359,10 @@ export default function SlideOutMenu({
     }
     if (requestedMenuView) {
       if (requestedMenuView === 'lessons') {
-        setForceLessonsSummary(true)
-        setLessonsRestorePanel(undefined)
+        setForceLessonsSummary(shouldForceLessonsSummaryOnRequest())
+        setLessonsRestorePanel(
+          shouldForceLessonsSummaryOnRequest() ? undefined : resolveLessonsRootEntryPanel()
+        )
       } else {
         setForceLessonsSummary(false)
         setLessonsRestorePanel(undefined)
@@ -419,6 +427,7 @@ export default function SlideOutMenu({
         edgeToEdge={false}
         className="flex min-h-0 flex-1 flex-col"
         onStartHomeChat={onStartChat}
+        onStartCommunicationChat={onStartCommunicationChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
         engvoProvider={engvoProvider}
         engvoRealtimeVoice={engvoRealtimeVoice}

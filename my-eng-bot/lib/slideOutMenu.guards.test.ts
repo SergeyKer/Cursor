@@ -37,7 +37,10 @@ describe('SlideOutMenu stacking guards', () => {
       /if \(v === 'root' \|\| v === 'communication' \|\| v === 'practice'\) \{[\s\S]*?setForceLessonsSummary\(false\)/
     )
     expect(source).toMatch(
-      /else if \(v === 'lessons' && menuView === 'root'\) \{[\s\S]*?setForceLessonsSummary\(false\)/
+      /else if \(v === 'lessons' && menuView === 'root'\) \{[\s\S]*?setForceLessonsSummary\(shouldForceLessonsSummaryOnRequest\(\)\)/
+    )
+    expect(source).toMatch(
+      /setLessonsRestorePanel\(opts\?\.lessonsEntry \?\? resolveLessonsRootEntryPanel\(\)\)/
     )
   })
 })

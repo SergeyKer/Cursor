@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  getFirstEnabledPlayableLessonId,
   getLessonTopicById,
   getPracticeLessonTopics,
   getTheoryLessonTopics,
@@ -126,5 +127,9 @@ describe('lessonCatalog', () => {
     const child = PRACTICE_TOPICS_BY_AUDIENCE.child['4']
     expect(child.long).not.toMatch(/\bмы\b/i)
     expect(child.long).toMatch(/кто я/i)
+  })
+
+  it('picks the first enabled structured lesson for the home door', () => {
+    expect(getFirstEnabledPlayableLessonId()).toBe('4')
   })
 })

@@ -32,6 +32,7 @@ import {
 import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
+import HomeLandingActions from '@/components/home/HomeLandingActions'
 import { MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { SessionExitIcon } from '@/components/SessionExitIcon'
 import { CommunicationAutoTtsButton } from '@/components/communication/CommunicationAutoTtsButton'
@@ -131,7 +132,6 @@ import { COIN_ERROR_FORGIVENESS_COST, canSpendCoinsForForgiveness } from '@/lib/
 import { getLessonCoinForgivenessCopy, getLessonCoinForgivenessHelpLines } from '@/lib/lessonCoinForgivenessCopy'
 import {
   APP_SHELL_ERROR_COPY,
-  APP_SHELL_HOME_COPY,
   getMenuGenerationFallbackMessage,
 } from '@/lib/uiCopy/appShellCopy'
 import {
@@ -175,12 +175,6 @@ import type {
   TranslationDrillKind,
   UsageInfo,
 } from '@/lib/types'
-import {
-  PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS,
-  PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS,
-  PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS,
-  PAGE_HOME_START_PRIMARY_BUTTON_CLASS,
-} from '@/lib/homeCtaStyles'
 import { parseCorrection } from '@/lib/parseCorrection'
 import { stripTranslationCanonicalRepeatRefLine } from '@/lib/translationPromptAndRef'
 import {
@@ -228,7 +222,9 @@ import {
   buildTeacherAcceptedNote,
 } from '@/lib/engvo/teacherMatch'
 import { applyTeacherEtalonLock } from '@/lib/languageNote/applyTeacherEtalonLock'
-import { resolveReturningHomeMenuView } from '@/lib/myPlan/returningHome'
+import { resolveReturningHomeMenuView, shouldOpenMyPlanHomeFromLanding } from '@/lib/myPlan/returningHome'
+import { loadHomeAudienceChosen, saveHomeAudienceChosen } from '@/lib/home/audienceGate'
+import { getLearningMemoryStoragePort } from '@/lib/learningMemory/port'
 import {
   findStaticLessonByTopic,
   getLearningLessonActions,
@@ -240,6 +236,7 @@ import {
 import { getStructuredLessonById, loadLessonById } from '@/lib/structuredLessons'
 import {
   catalogLevelToLevelId,
+  getFirstEnabledPlayableLessonId,
   getLessonTopicById,
   getPracticeLessonById,
   pickQuickStartPracticeTopic,
@@ -852,7 +849,7 @@ const STRUCTURED_LESSON_RUNTIME_TIMEOUT_MS = lessonMenuGenerateClientTimeoutMs(
   readPublicLessonProviderTimeoutMs()
 )
 
-const PREFETCH_BRANCH_IDS: BranchId[] = ['hub', 'lesson', 'chat']
+const PREFETCH_BRANCH_IDS: BranchId[] = ['hub', 'lesson', 'chat', 'engvo']
 const MAX_ATTEMPTS = 3
 const RETRY_DELAY_MS = 2500
 /** При 429 OpenRouter даёт 20 запросов в минуту - пауза должна увести попытку в следующую минуту. */
@@ -972,7 +969,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
-  const [homeAudienceChosen, setHomeAudienceChosen] = useState(false)
+  const [homeAudienceChosen, setHomeAudienceChosen] = useState(() => loadHomeAudienceChosen())
   const [requestedMenuView, setRequestedMenuView] = useState<MenuView | null>(null)
   const { ensureBranchMounted, isBranchMounted } = useBranchLoader()
   usePrefetchBranchesOnIdle(PREFETCH_BRANCH_IDS)
@@ -1000,6 +997,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const lessonMenuLaunchSurfaceRef = React.useRef<'slide' | 'home'>('slide')
   /** Session from My Plan: return to myPlan after exit. */
   const openedFromMyPlanRef = React.useRef(false)
+  const chatStartModeOverrideRef = React.useRef<AppMode | null>(null)
   const markOpenedFromMyPlan = React.useCallback(() => {
     openedFromMyPlanRef.current = true
   }, [])
@@ -1718,7 +1716,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       setWelcomeFactLine(cachedFact)
     } else {
       try {
-        const line = consumeNextGreetingFactLine()
+        const factAudience = homeAudienceChosen ? settings.audience : 'child'
+        const line = consumeNextGreetingFactLine(factAudience)
         welcomeFactByNonceRef.current.set(greetingNonce, line)
         setWelcomeFactLine(line)
       } catch {
@@ -1743,7 +1742,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       }
     }
 
-  }, [dialogStarted, greetingNonce])
+  }, [dialogStarted, greetingNonce, homeAudienceChosen, settings.audience])
 
   const openMenuAt = useCallback((view: MenuView) => {
     setHomeMenuView('root')
@@ -4952,18 +4951,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [settings.mode])
 
   const handleStartChatFromMenu = useCallback(() => {
+    const mode = chatStartModeOverrideRef.current ?? settings.mode
+    chatStartModeOverrideRef.current = null
     setComposerSessionKey((k) => k + 1)
     cleanupEngvoRuntime({ markIgnoredCurrent: true })
     setEngvoVoiceMode(false)
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     const kickOff = async () => {
-      if (settings.mode === 'translation') {
+      if (mode === 'translation') {
         await prepareTranslationFocusFromPrefs()
       }
       if (!dialogStarted) {
         resetStructuredLessonSession()
-        if (settings.mode === 'translation') {
+        if (mode === 'translation') {
           startTranslationSession()
         }
         setDialogStarted(true)
@@ -4984,6 +4985,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     settings.mode,
     startTranslationSession,
   ])
+
+  const handleStartCommunicationChatFromMenu = useCallback(() => {
+    chatStartModeOverrideRef.current = 'communication'
+    setSettings((prev) =>
+      normalizeSettingsForAudience({
+        ...prev,
+        mode: 'communication',
+        topic: 'free_talk',
+      })
+    )
+    handleStartChatFromMenu()
+  }, [handleStartChatFromMenu])
 
   const handleOpenEngvoVoiceChat = useCallback(() => {
     engvoRedialWithoutWelcomeRef.current = false
@@ -7648,7 +7661,6 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMessages([])
     setSettingsAtLastSend(null)
     setHomeMenuView('root')
-    setHomeAudienceChosen(false)
     setRequestedMenuView(null)
     setMenuOpen(false)
     setLoading(false)
@@ -7812,8 +7824,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         setSettings(mergedSettings)
         ensureModeSettingsStore(mergedSettings)
         persistActiveModeSlice(mergedSettings)
-        if (entryBridge?.audienceChosen) {
+        if (entryBridge?.audienceChosen || loadHomeAudienceChosen()) {
           setHomeAudienceChosen(true)
+        }
+        if (entryBridge?.audienceChosen) {
           const view = resolveReturningHomeMenuView({
             branchIntent: entryBridge.branchIntent,
           })
@@ -9170,6 +9184,11 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       prefetchBranch('chat')
       return
     }
+    if (menuOpen && requestedMenuView === 'communication') {
+      prefetchBranch('chat')
+      prefetchBranch('engvo')
+      return
+    }
     if (homeMenuView === 'lessons') {
       prefetchBranch('lesson')
       prefetchBranch('practice')
@@ -10197,10 +10216,44 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           audience,
         })
       )
+      saveHomeAudienceChosen(true)
       setHomeAudienceChosen(true)
     },
     []
   )
+
+  const handleStartFromLandingDoor = useCallback(() => {
+    openedFromMyPlanRef.current = false
+    const lessonProgressCount = Object.keys(loadLessonProgressMap()).length
+    let signalCount = 0
+    try {
+      signalCount = getLearningMemoryStoragePort().listSignals().length
+    } catch {
+      signalCount = 0
+    }
+    if (
+      shouldOpenMyPlanHomeFromLanding({
+        myPlanHomeEnabled: featureFlags.myPlanHomeV1,
+        lessonProgressCount,
+        signalCount,
+      })
+    ) {
+      openMyPlanSpace()
+      return
+    }
+    const lessonId = getFirstEnabledPlayableLessonId()
+    if (!lessonId) {
+      openMenuAt('lessons')
+      return
+    }
+    const topic = getLessonTopicById(lessonId)
+    const panel: LessonsPanel =
+      topic?.level === 'A1' ? 'a1' : topic?.level === 'A2' ? 'a2' : 'theoryCefrLevels'
+    void openLearningLesson(lessonId, panel, {
+      catalogBrowseIntent: 'lesson',
+      theoryLessonSource: 'cef_levels',
+    })
+  }, [openLearningLesson, openMenuAt, openMyPlanSpace])
 
   const resolveFooterWithStreakLayer = React.useCallback(
     (
@@ -11454,7 +11507,12 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
             ) : null}
             {homeMenuView === 'root' && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
-                <HomeWelcomeBubble text={buildCompactGreeting({ audienceChosen: homeAudienceChosen })} />
+                <HomeWelcomeBubble
+                  text={buildCompactGreeting({
+                    audienceChosen: homeAudienceChosen,
+                    audience: settings.audience,
+                  })}
+                />
                 {homeStreakBannerText ? (
                   <div className="w-full rounded-lg border border-[var(--status-info-border)] bg-[var(--status-info-bg)] px-3 py-2.5 text-center">
                     <p className="text-[13px] font-medium leading-snug text-[var(--status-info-text)]">
@@ -11462,65 +11520,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     </p>
                   </div>
                 ) : null}
-                <div className="flex w-full justify-end">
-                  <div className="flex w-full flex-col items-end gap-2">
-                    {!homeAudienceChosen ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => completeHomeAudienceChoice('child')}
-                          className={PAGE_HOME_AUDIENCE_CHILD_BUTTON_CLASS}
-                        >
-                          {APP_SHELL_HOME_COPY.audienceChildLabel}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => completeHomeAudienceChoice('adult')}
-                          className={PAGE_HOME_AUDIENCE_ADULT_BUTTON_CLASS}
-                        >
-                          {APP_SHELL_HOME_COPY.audienceAdultLabel}
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="flex w-full items-center justify-between gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setHomeAudienceChosen(false)}
-                            className={PAGE_HOME_BACK_TO_AUDIENCE_BUTTON_CLASS}
-                            aria-label={APP_SHELL_HOME_COPY.homeBackAriaLabel}
-                          >
-                            <span className="mr-1" aria-hidden>
-                              &lt;
-                            </span>
-                            {APP_SHELL_HOME_COPY.homeBackLabel}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => openMenuAt('lessons')}
-                            className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
-                          >
-                            {APP_SHELL_HOME_COPY.lessonsLabel}
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => openMenuAt('practice')}
-                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
-                        >
-                          {APP_SHELL_HOME_COPY.practiceLabel}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openMenuAt('communication')}
-                          className={`${PAGE_HOME_START_PRIMARY_BUTTON_CLASS} shrink-0`}
-                        >
-                          {APP_SHELL_HOME_COPY.communicationLabel}
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+                <HomeLandingActions
+                  audienceChosen={homeAudienceChosen}
+                  audience={settings.audience}
+                  onChooseChild={() => completeHomeAudienceChoice('child')}
+                  onChooseAdult={() => completeHomeAudienceChoice('adult')}
+                  onStart={handleStartFromLandingDoor}
+                  onOpenSections={() => openMenuAt('root')}
+                />
                 {welcomeFactLine?.trim() ? (
                   <HomeEmptyBubble text={welcomeFactLine} className="w-full" />
                 ) : null}
@@ -12134,6 +12141,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         rewardsState={rewardsState}
         onRewardsStateChange={setRewardsState}
         onStartChat={handleStartChatFromMenu}
+        onStartCommunicationChat={handleStartCommunicationChatFromMenu}
         onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
         engvoProvider={engvoProvider}
         engvoRealtimeVoice={engvoRealtimeVoice}

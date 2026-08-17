@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   hasAnyLearningHistory,
+  hasLandingLearningHistory,
   resolveReturningHomeMenuView,
   shouldOpenMyPlanHome,
+  shouldOpenMyPlanHomeFromLanding,
 } from '@/lib/myPlan/returningHome'
 
 describe('returningHome', () => {
@@ -35,5 +37,25 @@ describe('returningHome', () => {
       })
     ).toBe(false)
     expect(resolveReturningHomeMenuView({ branchIntent: null })).toBeNull()
+  })
+
+  it('landing door ignores lastActiveDate-only history', () => {
+    expect(hasLandingLearningHistory({ lessonProgressCount: 0, signalCount: 0 })).toBe(false)
+    expect(hasLandingLearningHistory({ lessonProgressCount: 1, signalCount: 0 })).toBe(true)
+    expect(hasLandingLearningHistory({ lessonProgressCount: 0, signalCount: 2 })).toBe(true)
+    expect(
+      shouldOpenMyPlanHomeFromLanding({
+        myPlanHomeEnabled: true,
+        lessonProgressCount: 0,
+        signalCount: 0,
+      })
+    ).toBe(false)
+    expect(
+      shouldOpenMyPlanHomeFromLanding({
+        myPlanHomeEnabled: true,
+        lessonProgressCount: 1,
+        signalCount: 0,
+      })
+    ).toBe(true)
   })
 })
