@@ -189,6 +189,12 @@ interface SlideOutMenuProps {
   /** Границы колонки приложения (измеряются в шапке). */
   columnBounds?: AppColumnBounds | null
   practiceProgressRevision?: number
+  /** In-page «Разделы» on the landing branch. Overlay chrome stays default. */
+  inline?: boolean
+  inlineMenuView?: MenuView
+  onInlineMenuViewChange?: (v: MenuView, opts?: { lessonsEntry?: LessonsPanel }) => void
+  onHomeNavHandle?: (handle: import('@/components/MenuSectionPanels').HomeSectionNavHandle | null) => void
+  onSectionTitleChange?: (title: string) => void
 }
 
 export default function SlideOutMenu({
@@ -285,6 +291,11 @@ export default function SlideOutMenu({
   bottomOffset = '0px',
   columnBounds = null,
   practiceProgressRevision = 0,
+  inline = false,
+  inlineMenuView,
+  onInlineMenuViewChange,
+  onHomeNavHandle,
+  onSectionTitleChange,
 }: SlideOutMenuProps) {
   const [menuView, setMenuView] = React.useState<MenuView>('root')
   const [showSectionHints, setShowSectionHints] = React.useState(false)
@@ -324,6 +335,10 @@ export default function SlideOutMenu({
 
   const handleMenuViewChange = React.useCallback(
     (v: MenuView, opts?: { lessonsEntry?: LessonsPanel }) => {
+      if (inline) {
+        onInlineMenuViewChange?.(v, opts)
+        return
+      }
       if (v === 'root' || v === 'communication' || v === 'practice') {
         setLessonsRestorePanel(undefined)
         setForceLessonsSummary(false)
@@ -333,10 +348,11 @@ export default function SlideOutMenu({
       }
       setMenuView(v)
     },
-    [menuView]
+    [menuView, inline, onInlineMenuViewChange]
   )
 
   React.useLayoutEffect(() => {
+    if (inline) return
     const wasOpen = prevOpenRef.current
     prevOpenRef.current = open
 
@@ -393,6 +409,7 @@ export default function SlideOutMenu({
     setMenuView(chatActive ? 'aiChat' : 'root')
   }, [
     open,
+    inline,
     chatActive,
     engvoVoiceMode,
     lessonMenuContext,
@@ -427,7 +444,7 @@ export default function SlideOutMenu({
       )}
 
       <MenuSectionPanels
-        menuView={menuView}
+        menuView={inline ? (inlineMenuView ?? 'root') : menuView}
         onMenuViewChange={handleMenuViewChange}
         settings={settings}
         onSettingsChange={onSettingsChange}
@@ -435,10 +452,13 @@ export default function SlideOutMenu({
         dialogueCorrectAnswers={dialogueCorrectAnswers}
         rewardsState={rewardsState}
         onRewardsStateChange={onRewardsStateChange}
-        idPrefix="slide-"
+        idPrefix={inline ? 'home-' : 'slide-'}
         edgeToEdge={false}
         className="flex min-h-0 flex-1 flex-col"
-        showSectionHints={showSectionHintsNow}
+        chrome={inline ? 'home' : 'overlay'}
+        onHomeNavHandle={inline ? onHomeNavHandle : undefined}
+        onSectionTitleChange={inline ? onSectionTitleChange : undefined}
+        showSectionHints={inline ? true : showSectionHintsNow}
         onStartHomeChat={onStartChat}
         onStartCommunicationChat={onStartCommunicationChat}
         onOpenEngvoVoiceChat={onOpenEngvoVoiceChat}
@@ -473,7 +493,7 @@ export default function SlideOutMenu({
         onChatPatternTuningChange={onChatPatternTuningChange}
         onChatPatternTuningReset={onChatPatternTuningReset}
         onGoHome={onGoHome}
-        onCloseMenu={open ? () => onToggle() : undefined}
+        onCloseMenu={inline ? undefined : open ? () => onToggle() : undefined}
         onOpenLearningLesson={onOpenLearningLesson}
         onOpenReferenceTopic={onOpenReferenceTopic}
         onOpenSyllabusTopic={onOpenSyllabusTopic}
@@ -542,13 +562,17 @@ export default function SlideOutMenu({
     </div>
   )
 
+  if (inline) {
+    return menuPanelBody
+  }
+
   return (
     <>
       {!hideButton && (
         <button
           type="button"
           onClick={onToggle}
-          className="btn-3d-menu fixed z-[60] flex h-14 w-14 min-w-[44px] min-h-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--menu-panel-bg)] text-[var(--text)] touch-manipulation left-0 top-0"
+          className="btn-3d-menu fixed z-[60] flex h-14 w-14 min-h-[44px] min-w-[44px] items-center justify-center rounded-r-lg border border-l-0 border-[var(--border)] bg-[var(--menu-panel-bg)] text-[var(--text)] touch-manipulation left-0 top-0"
           style={{ marginLeft: 'env(safe-area-inset-left)', marginTop: 'env(safe-area-inset-top)' }}
           aria-label={open ? 'Меню, открыто' : 'Меню, закрыто'}
           aria-expanded={open}

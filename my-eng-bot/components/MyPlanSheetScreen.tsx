@@ -26,6 +26,7 @@ import { getMyPlanRecommendations, selectNowGoal } from '@/lib/myPlan/selectNowG
 import { readRecentSoftKeys } from '@/lib/myPlan/softFocusRotation'
 import type { RewardsState } from '@/lib/rewardsState'
 import type { Settings } from '@/lib/types'
+import { HOME_BRANCH_DEFAULT_ORIGIN, shouldShowHomePlanComposerBack, type HomeBranchOrigin } from '@/lib/nav/homeBranch'
 import { myPlanCopy, type MyPlanAudience } from '@/lib/uiCopy/myPlan'
 import type { ProgressLaunchTarget } from '@/lib/progress/progressActions'
 import type { PracticeEntrySource, PracticeExerciseType, PracticeMode } from '@/types/practice'
@@ -34,6 +35,7 @@ export type MyPlanSheetScreenProps = {
   settings: Settings
   rewardsState: RewardsState | undefined
   onBack: () => void
+  origin?: HomeBranchOrigin
   onOpenProgressSpace?: () => void
   onOpenLessons?: () => void
   onOpenLearningLesson?: (lessonId: string) => void
@@ -71,6 +73,7 @@ export default function MyPlanSheetScreen({
   settings,
   rewardsState,
   onBack,
+  origin = HOME_BRANCH_DEFAULT_ORIGIN,
   onOpenProgressSpace,
   onOpenLessons,
   onOpenLearningLesson,
@@ -146,16 +149,20 @@ export default function MyPlanSheetScreen({
       composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
       composerStyle={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
       composer={
+        shouldShowHomePlanComposerBack(origin) || onOpenProgressSpace ? (
         <div className="flex w-full items-center gap-1.5">
+          {shouldShowHomePlanComposerBack(origin) ? (
           <button type="button" onClick={handleBack} className={APP_BTN_TERTIARY_BACK}>
             {copy.back}
           </button>
+          ) : null}
           {onOpenProgressSpace ? (
             <button type="button" onClick={goProgress} className={COMPOSER_PROGRESS}>
               {copy.progressButton}
             </button>
           ) : null}
         </div>
+        ) : null
       }
     >
       <div className="w-full min-w-0 space-y-2.5">

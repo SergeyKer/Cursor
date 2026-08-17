@@ -17,7 +17,7 @@ import {
 
 type LessonReadingShellProps = {
   children: ReactNode
-  composer: ReactNode
+  composer?: ReactNode
   scrollRef?: Ref<HTMLDivElement>
   scrollClassName?: string
   composerClassName?: string
@@ -60,6 +60,7 @@ const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
                 </div>
               </DialogGlassScrollHost>
 
+              {composer != null ? (
               <DialogComposerStack
                 ref={composerStackRef}
                 className={composerClassName}
@@ -68,6 +69,7 @@ const LessonReadingShell = forwardRef<HTMLDivElement, LessonReadingShellProps>(
               >
                 <div className="w-full px-0 sm:px-0">{composer}</div>
               </DialogComposerStack>
+              ) : null}
           </div>
         </div>
       </div>

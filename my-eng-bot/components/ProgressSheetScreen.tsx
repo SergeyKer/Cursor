@@ -20,6 +20,11 @@ import { LESSON_INTRO_SCROLL_CLASS } from '@/lib/lessonComposerLayout'
 import { LESSON_SCROLL_VIEWPORT_CLASS } from '@/lib/lessonFeedScroll'
 import { getAttentionZones, listLearningSignals, loadSkillMasteryMap } from '@/lib/learningMemory'
 import { featureFlags } from '@/lib/featureFlags'
+import {
+  HOME_BRANCH_DEFAULT_ORIGIN,
+  shouldShowHomeProgressComposer,
+  type HomeBranchOrigin,
+} from '@/lib/nav/homeBranch'
 import { buildMonthActivityGrid } from '@/lib/progress/activityCalendar'
 import { setProgressAnalyticsSink, trackProgressEvent } from '@/lib/progress/analytics'
 import { listAccentLessonProgress, summarizeAllAccentProgress } from '@/lib/accent/progressStorage'
@@ -73,6 +78,7 @@ export type ProgressSheetScreenProps = {
   usage: UsageInfo
   dialogueCorrectAnswers: number
   onBack: () => void
+  origin?: HomeBranchOrigin
   onOpenMyPlan: () => void
   onOpenNearReward?: (opportunity: PracticeRewardOpportunity) => void | Promise<void>
   onLaunchTarget?: (target: ProgressLaunchTarget) => void | Promise<void>
@@ -184,6 +190,7 @@ export default function ProgressSheetScreen({
   usage,
   dialogueCorrectAnswers,
   onBack,
+  origin = HOME_BRANCH_DEFAULT_ORIGIN,
   onOpenMyPlan,
   onOpenNearReward,
   onLaunchTarget,
@@ -919,6 +926,7 @@ export default function ProgressSheetScreen({
       composerClassName={CHAT_COMPOSER_STACK_TOP_CLASS}
       composerStyle={{ paddingBottom: DIALOG_COMPOSER_PADDING_BOTTOM }}
       composer={
+        shouldShowHomeProgressComposer(origin) ? (
         <div className="flex w-full items-center gap-1.5">
           <button type="button" onClick={handleBack} className={APP_BTN_TERTIARY_BACK}>
             {copy.back}
@@ -929,6 +937,7 @@ export default function ProgressSheetScreen({
             </button>
           ) : null}
         </div>
+        ) : null
       }
     >
       {body}

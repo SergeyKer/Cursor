@@ -18,6 +18,7 @@ export const APP_SHELL_HOME_COPY = {
   doorStart: 'Начать',
   sectionsLabel: 'Разделы',
   sectionsHint: 'Уроки, практика, чат.',
+  headerStepBackAriaLabel: 'Назад',
   sectionNowHint: 'Шаг на сегодня.',
   sectionWordsHint: 'Миры и списки.',
   sectionPronunciationHint: 'Звуки и акцент.',

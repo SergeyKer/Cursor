@@ -33,7 +33,7 @@ import { QUICK_TEST_COPY } from '@/lib/uiCopy/quickTest'
 import HomeWelcomeBubble from '@/components/HomeWelcomeBubble'
 import HomeEmptyBubble from '@/components/HomeEmptyBubble'
 import HomeLandingActions from '@/components/home/HomeLandingActions'
-import { MenuToggleIcon } from '@/components/MenuToggleIcon'
+import { HeaderBackIcon, MenuToggleIcon } from '@/components/MenuToggleIcon'
 import { SessionExitIcon } from '@/components/SessionExitIcon'
 import { CommunicationAutoTtsButton } from '@/components/communication/CommunicationAutoTtsButton'
 import SessionExitConfirm from '@/components/SessionExitConfirm'
@@ -223,6 +223,18 @@ import {
 } from '@/lib/engvo/teacherMatch'
 import { applyTeacherEtalonLock } from '@/lib/languageNote/applyTeacherEtalonLock'
 import { resolveReturningHomeMenuView, shouldOpenMyPlanHomeFromLanding } from '@/lib/myPlan/returningHome'
+import {
+  createHomeBranchStack,
+  isMenuChatActive,
+  openHomeMyPlan,
+  openHomeProgress,
+  openHomeSections,
+  peekHomeFrame,
+  popHomeFrame,
+  shouldShowHomeBranchBack,
+  type HomeBranchOrigin,
+} from '@/lib/nav/homeBranch'
+import { APP_SHELL_HOME_COPY } from '@/lib/uiCopy/appShellCopy'
 import { loadHomeAudienceChosen, saveHomeAudienceChosen } from '@/lib/home/audienceGate'
 import { getLearningMemoryStoragePort } from '@/lib/learningMemory/port'
 import {
@@ -969,6 +981,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   const [initialized, setInitialized] = useState(false)
   const [dialogStarted, setDialogStarted] = useState(false)
   const [homeMenuView, setHomeMenuView] = useState<MenuView>('root')
+  const [homeSectionsOpen, setHomeSectionsOpen] = useState(false)
+  const [homeSectionTitle, setHomeSectionTitle] = useState('')
+  const [homeBranchOrigin, setHomeBranchOrigin] = useState<HomeBranchOrigin>('menu')
+  const [homeBranchStack, setHomeBranchStack] = useState(createHomeBranchStack)
+  const homeBranchStackRef = React.useRef(homeBranchStack)
+  homeBranchStackRef.current = homeBranchStack
+  const homeBranchOriginRef = React.useRef(homeBranchOrigin)
+  homeBranchOriginRef.current = homeBranchOrigin
+  const homeSectionNavRef = React.useRef<import('@/components/MenuSectionPanels').HomeSectionNavHandle | null>(
+    null
+  )
   const [homeAudienceChosen, setHomeAudienceChosen] = useState(() => loadHomeAudienceChosen())
   const [requestedMenuView, setRequestedMenuView] = useState<MenuView | null>(null)
   const { ensureBranchMounted, isBranchMounted } = useBranchLoader()
@@ -5664,7 +5687,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setHomeMenuView('root')
   }, [bumpFooterSessionContext, cleanupEngvoRuntime])
 
-  const openMyPlanSpace = useCallback(() => {
+  const openMyPlanSpace = useCallback((origin: HomeBranchOrigin = 'menu') => {
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
@@ -5673,7 +5696,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMyPlanSpaceActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
-    setHomeMenuView('root')
+    setHomeBranchOrigin(origin)
+    if (origin === 'home') {
+      setHomeBranchStack((stack) => openHomeMyPlan(stack))
+    } else {
+      setHomeSectionsOpen(false)
+      setHomeMenuView('root')
+    }
   }, [resetStructuredLessonSession])
 
   const backFromReferenceToMenu = useCallback(() => {
@@ -6568,7 +6597,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     [openTranslationFromVocabHandoff, openVocabularyFeed]
   )
 
-  const openProgressSpace = useCallback(() => {
+  const openProgressSpace = useCallback((origin: HomeBranchOrigin = 'menu') => {
     resetStructuredLessonSession()
     setAdaptiveFooterView(null)
     setVocabularyWorldsActive(false)
@@ -6577,10 +6606,30 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setProgressSpaceActive(true)
     setDialogStarted(true)
     setMenuOpen(false)
-    setHomeMenuView('root')
+    setHomeBranchOrigin(origin)
+    if (origin === 'home') {
+      setHomeBranchStack((stack) => openHomeProgress(stack))
+    } else {
+      setHomeSectionsOpen(false)
+      setHomeMenuView('root')
+    }
   }, [resetStructuredLessonSession])
 
   const backFromProgressSpace = useCallback(() => {
+    if (homeBranchOriginRef.current === 'home') {
+      const next = popHomeFrame(homeBranchStackRef.current)
+      setHomeBranchStack(next)
+      setProgressSpaceActive(false)
+      const frame = peekHomeFrame(next)
+      if (frame === 'myPlan') {
+        setMyPlanSpaceActive(true)
+        setDialogStarted(true)
+        return
+      }
+      setDialogStarted(false)
+      setHomeMenuView('root')
+      return
+    }
     setProgressSpaceActive(false)
     setDialogStarted(false)
     setHomeMenuView('root')
@@ -6664,6 +6713,20 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const backFromMyPlanSpace = useCallback(() => {
+    if (homeBranchOriginRef.current === 'home') {
+      const next = popHomeFrame(homeBranchStackRef.current)
+      setHomeBranchStack(next)
+      setMyPlanSpaceActive(false)
+      setDialogStarted(false)
+      const frame = peekHomeFrame(next)
+      if (frame === 'sections') {
+        setHomeSectionsOpen(true)
+        return
+      }
+      setHomeSectionsOpen(false)
+      setHomeMenuView('root')
+      return
+    }
     setMyPlanSpaceActive(false)
     setDialogStarted(false)
     setHomeMenuView('root')
@@ -6671,6 +6734,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   }, [])
 
   const openLessonsFromMyPlanSpace = useCallback(() => {
+    if (homeBranchOriginRef.current === 'home') {
+      setMyPlanSpaceActive(false)
+      setDialogStarted(false)
+      setHomeSectionsOpen(true)
+      setHomeMenuView('lessons')
+      setHomeBranchStack((stack) => {
+        const withoutPlan = peekHomeFrame(stack) === 'myPlan' ? popHomeFrame(stack) : stack
+        return peekHomeFrame(withoutPlan) === 'sections' ? withoutPlan : openHomeSections(withoutPlan)
+      })
+      return
+    }
     setMyPlanSpaceActive(false)
     setDialogStarted(false)
     openMenuAt('lessons')
@@ -6799,7 +6873,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
   )
 
   const openMyPlanFromProgress = useCallback(() => {
-    openMyPlanSpace()
+    openMyPlanSpace(homeBranchOriginRef.current)
   }, [openMyPlanSpace])
 
   const openNearRewardFromProgress = useCallback(
@@ -7661,6 +7735,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setMessages([])
     setSettingsAtLastSend(null)
     setHomeMenuView('root')
+    setHomeSectionsOpen(false)
+    setHomeBranchStack(createHomeBranchStack())
+    setHomeBranchOrigin('menu')
     setRequestedMenuView(null)
     setMenuOpen(false)
     setLoading(false)
@@ -7672,6 +7749,8 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     setEngvoCallPhase('idle')
     setEngvoErrorText(null)
     resetStructuredLessonSession()
+    setMyPlanSpaceActive(false)
+    setProgressSpaceActive(false)
     dialogSeedRef.current = createDialogSeed()
     newDialogRef.current = false
     setWelcomeCompact(false)
@@ -10238,12 +10317,17 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         signalCount,
       })
     ) {
-      openMyPlanSpace()
+      setHomeSectionsOpen(false)
+      setHomeBranchStack(createHomeBranchStack())
+      openMyPlanSpace('home')
       return
     }
     const lessonId = getFirstEnabledPlayableLessonId()
     if (!lessonId) {
-      openMenuAt('lessons')
+      setHomeBranchOrigin('home')
+      setHomeSectionsOpen(true)
+      setHomeMenuView('lessons')
+      setHomeBranchStack(openHomeSections(createHomeBranchStack()))
       return
     }
     const topic = getLessonTopicById(lessonId)
@@ -10253,7 +10337,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       catalogBrowseIntent: 'lesson',
       theoryLessonSource: 'cef_levels',
     })
-  }, [openLearningLesson, openMenuAt, openMyPlanSpace])
+  }, [openLearningLesson, openMyPlanSpace])
 
   const resolveFooterWithStreakLayer = React.useCallback(
     (
@@ -11103,6 +11187,41 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
       return next
     })
   }, [])
+  const homeFrame = peekHomeFrame(homeBranchStack)
+  const showHomeBranchBack = shouldShowHomeBranchBack({
+    origin: homeBranchOrigin,
+    frame: homeSectionsOpen && !dialogStarted ? 'sections' : homeFrame,
+    menuOpen,
+  })
+
+  const handleHomeBranchBack = useCallback(() => {
+    if (menuOpen) return
+    if (homeSectionsOpen && !dialogStarted) {
+      const result = homeSectionNavRef.current?.goBack()
+      if (result !== 'section') {
+        setHomeSectionsOpen(false)
+        setHomeMenuView('root')
+        setHomeBranchStack(createHomeBranchStack())
+      }
+      return
+    }
+    if (myPlanSpaceActive) {
+      backFromMyPlanSpace()
+      return
+    }
+    if (progressSpaceActive) {
+      backFromProgressSpace()
+    }
+  }, [
+    backFromMyPlanSpace,
+    backFromProgressSpace,
+    dialogStarted,
+    homeSectionsOpen,
+    menuOpen,
+    myPlanSpaceActive,
+    progressSpaceActive,
+  ])
+
   const headerTitleMaxWidthClass = getAppHeaderTitleMaxWidthClass({
     dialogStarted,
     hasCommunicationControls: hasCommunicationHeaderControls,
@@ -11115,7 +11234,10 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
     hasCommunicationAutoTts: communicationChatActive,
   })
 
-  const pageTitle = !dialogStarted
+  const pageTitle =
+    !dialogStarted && homeSectionsOpen
+    ? homeSectionTitle || APP_SHELL_HOME_COPY.sectionsLabel
+    : !dialogStarted
     ? 'Engvo AI - English Voice'
     : isVocabularyHubActive
       ? 'Слова'
@@ -11276,7 +11398,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
           <div
             ref={appColumnRef}
             className={`relative mx-auto grid w-full items-center gap-2 ${
-              lessonHeaderProgressLabel
+              lessonHeaderProgressLabel || showHomeBranchBack
                 ? 'grid-cols-[auto_1fr_auto]'
                 : 'grid-cols-[2.5rem_1fr_2.5rem] sm:grid-cols-[2.5rem_1fr_auto]'
             } ${DIALOG_SESSION_COLUMN_MAX_CLASS}`}
@@ -11293,6 +11415,18 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               >
                 <MenuToggleIcon />
               </button>
+              {showHomeBranchBack ? (
+                <button
+                  type="button"
+                  onClick={handleHomeBranchBack}
+                  className="app-header-control chat-action-button pointer-events-auto relative flex h-10 w-10 min-h-[36px] min-w-[36px] shrink-0 items-center justify-center border text-[var(--app-header-text)] touch-manipulation"
+                  style={{ borderRadius: 'var(--app-header-control-radius)' }}
+                  aria-label={APP_SHELL_HOME_COPY.headerStepBackAriaLabel}
+                  title={APP_SHELL_HOME_COPY.headerStepBackAriaLabel}
+                >
+                  <HeaderBackIcon />
+                </button>
+              ) : null}
               {dialogStarted && isStructuredLessonActive && lessonHeaderProgressLabel ? (
                 <span
                   className="max-w-[5.5rem] shrink-0 truncate rounded-md border border-[var(--app-header-control-border)] px-1.5 py-0.5 text-[10px] font-semibold tabular-nums leading-none text-[var(--app-header-text)] sm:max-w-none sm:text-[11px]"
@@ -11485,14 +11619,14 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
               ref={homeColumnRef}
               className={`pointer-events-auto relative z-10 mx-auto flex w-full ${DIALOG_SESSION_COLUMN_MAX_CLASS} flex-col items-center pb-2`}
               style={{
-                gap: homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
+                gap: homeMenuView === 'root' && !homeSectionsOpen ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
                 paddingTop:
-                  homeMenuView === 'root' ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
+                  homeMenuView === 'root' && !homeSectionsOpen ? 'clamp(1rem, 2.5vh, 1.75rem)' : 'clamp(0.5rem, 1.5vh, 0.9rem)',
                 paddingBottom:
                   'calc(var(--app-footer-chrome-height) + clamp(1rem, 2.5vh, 1.75rem))',
               }}
             >
-            {homeMenuView === 'root' && featureFlags.homeMascotVisible ? (
+            {homeMenuView === 'root' && !homeSectionsOpen && featureFlags.homeMascotVisible ? (
               <div className="flex w-full shrink-0 justify-center">
                 <div className="w-1/4 max-w-[5.8125rem] shrink-0">
                   <AppIconFrame
@@ -11505,7 +11639,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                 </div>
               </div>
             ) : null}
-            {homeMenuView === 'root' && (
+            {homeMenuView === 'root' && !homeSectionsOpen && (
               <div className="flex w-full flex-col items-center gap-[clamp(1rem,3.2vh,2rem)]">
                 <HomeWelcomeBubble
                   text={buildCompactGreeting({
@@ -11526,13 +11660,110 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   onChooseChild={() => completeHomeAudienceChoice('child')}
                   onChooseAdult={() => completeHomeAudienceChoice('adult')}
                   onStart={handleStartFromLandingDoor}
-                  onOpenSections={() => openMenuAt('root')}
+                  onOpenSections={() => {
+                    setHomeBranchOrigin('home')
+                    setHomeSectionsOpen(true)
+                    setHomeMenuView('root')
+                    setHomeBranchStack(openHomeSections(createHomeBranchStack()))
+                  }}
                 />
                 {welcomeFactLine?.trim() ? (
                   <HomeEmptyBubble text={welcomeFactLine} className="w-full" />
                 ) : null}
               </div>
             )}
+            {homeSectionsOpen ? (
+              <div className="flex w-full min-w-0 flex-col">
+                <SlideOutMenu
+                  inline
+                  open
+                  hideButton
+                  onToggle={() => undefined}
+                  inlineMenuView={homeMenuView}
+                  onInlineMenuViewChange={(view) => setHomeMenuView(view)}
+                  onHomeNavHandle={(handle) => {
+                    homeSectionNavRef.current = handle
+                  }}
+                  onSectionTitleChange={setHomeSectionTitle}
+                  chatActive={false}
+                  settings={settings}
+                  onSettingsChange={(s) => {
+                    setSettings((prev) =>
+                      normalizeSettingsForAudience(applySettingsWithModeSlice(prev, s))
+                    )
+                  }}
+                  usage={usage}
+                  dialogueCorrectAnswers={dialogueCorrectAnswers}
+                  rewardsState={rewardsState}
+                  onRewardsStateChange={setRewardsState}
+                  onStartChat={handleStartChatFromMenu}
+                  onStartCommunicationChat={handleStartCommunicationChatFromMenu}
+                  onOpenEngvoVoiceChat={handleOpenEngvoVoiceChat}
+                  engvoProvider={engvoProvider}
+                  engvoRealtimeVoice={engvoRealtimeVoice}
+                  engvoXaiVoice={engvoXaiVoice}
+                  engvoXaiVoiceRotationMode={engvoXaiVoiceRotationMode}
+                  engvoCefrLevel={engvoCefrLevel}
+                  engvoSpeechSpeedPreset={engvoSpeechSpeedPreset}
+                  onEngvoProviderChange={handleEngvoProviderChange}
+                  onEngvoVoiceChange={handleEngvoVoiceChange}
+                  onEngvoXaiVoiceChange={handleEngvoXaiVoiceChange}
+                  onEngvoXaiVoiceRotationModeChange={handleEngvoXaiVoiceRotationModeChange}
+                  onEngvoLevelChange={handleEngvoLevelChange}
+                  onEngvoSpeechSpeedChange={handleEngvoSpeechSpeedChange}
+                  engvoSessionKind={engvoSessionKind}
+                  engvoTeacherTense={engvoTeacherTense}
+                  engvoTeacherSentenceType={engvoTeacherSentenceType}
+                  engvoTeacherDrillKind={engvoTeacherDrillKind}
+                  engvoTeacherLessonId={engvoTeacherLessonId}
+                  onEngvoSessionKindChange={handleEngvoSessionKindChange}
+                  onEngvoTeacherTenseChange={handleEngvoTeacherTenseChange}
+                  onEngvoTeacherSentenceTypeChange={handleEngvoTeacherSentenceTypeChange}
+                  onEngvoTeacherDrillKindChange={handleEngvoTeacherDrillKindChange}
+                  onEngvoTeacherLessonIdChange={handleEngvoTeacherLessonIdChange}
+                  practiceTtsSpeedDefaultIndex={practiceTtsSpeedDefaultIndex}
+                  onPracticeTtsSpeedDefaultChange={handlePracticeTtsSpeedDefaultChange}
+                  chatPatternId={chatPatternId}
+                  onChatPatternChange={handleChatPatternChange}
+                  chatPatternTuningMap={chatPatternTuningMap}
+                  onChatPatternTuningChange={handleChatPatternTuningChange}
+                  onChatPatternTuningReset={handleChatPatternTuningReset}
+                  onOpenLearningLesson={openOrContinueLearningLesson}
+                  onOpenReferenceTopic={openReferenceTopic}
+                  onOpenSyllabusTopic={openSyllabusTopic}
+                  onGenerateReferenceSheet={generateReferenceFromMenu}
+                  onReferenceSearchSubmit={resolveReferenceSearchFromMenu}
+                  onOpenReferenceSearchCandidate={openReferenceCandidateFromMenu}
+                  onOpenProgressSpace={() => openProgressSpace('home')}
+                  onOpenMyPlanSpace={() => openMyPlanSpace('home')}
+                  onOpenTutorChat={openTutorChat}
+                  onPromoteTutorFromMenu={promoteTutorFromMenu}
+                  tutorChatPrefill={tutorChatPrefill}
+                  tutorChatMountKey={tutorChatMountKey}
+                  onOpenQuickTest={openQuickTest}
+                  onGenerateLearningLesson={openGeneratedLearningLesson}
+                  onOpenPracticeSession={openPracticeSession}
+                  onGeneratePracticeSession={generatePracticeSession}
+                  onOpenAccentTrainer={openAccentTrainer}
+                  onOpenVocabularyWorlds={openVocabularyWorlds}
+                  onOpenVocabularyPhrasebook={openVocabularyPhrasebook}
+                  onOpenVocabularyByLevel={openVocabularyByLevel}
+                  onOpenVocabularyFeed={openVocabularyFeed}
+                  onOpenTranslationVocabNag={openTranslationVocabNag}
+                  onOpenVocabCustomPack={openVocabularyCustomPack}
+                  onOpenAdaptivePracticeTopic={openAdaptivePracticeTopic}
+                  onMarkOpenedFromMyPlan={markOpenedFromMyPlan}
+                  onLaunchTarget={launchFromProgress}
+                  onAdaptiveFooterViewChange={setAdaptiveFooterView}
+                  onTutorFooterViewChange={handleTutorFooterViewChange}
+                  tutorSessionXp={rewardsState.tutorSession?.sessionXpAwarded ?? 0}
+                  onTutorExplainSuccess={bumpTutorExplain}
+                  onTutorMicroFinale={bumpTutorMicroFinale}
+                  onPracticeTheoryTagFilterPersist={persistPracticeTheoryTagFilter}
+                  practiceProgressRevision={practiceProgressRevision}
+                />
+              </div>
+            ) : null}
             </div>
           </div>
         ) : (
@@ -11620,8 +11851,9 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                   <MyPlanSheetScreen
                     rewardsState={rewardsState}
                     settings={settings}
+                    origin={homeBranchOrigin}
                     onBack={backFromMyPlanSpace}
-                    onOpenProgressSpace={openProgressSpace}
+                    onOpenProgressSpace={() => openProgressSpace(homeBranchOrigin)}
                     onOpenLessons={openLessonsFromMyPlanSpace}
                     onOpenLearningLesson={(lessonId) => {
                       setMyPlanSpaceActive(false)
@@ -11663,6 +11895,7 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
                     settings={settings}
                     usage={usage}
                     dialogueCorrectAnswers={dialogueCorrectAnswers}
+                    origin={homeBranchOrigin}
                     onBack={backFromProgressSpace}
                     onOpenMyPlan={openMyPlanFromProgress}
                     onOpenNearReward={openNearRewardFromProgress}
@@ -12128,7 +12361,13 @@ export default function AppShell({ entryBridge = null, onRuntimeReady }: AppShel
         open={menuOpen}
         onToggle={() => setMenuOpen((v) => !v)}
         hideButton
-        chatActive={dialogStarted}
+        chatActive={isMenuChatActive({
+          dialogStarted,
+          isMyPlanSpaceActive,
+          isProgressSpaceActive,
+          isTutorChatSpaceActive,
+          isVocabularyHubActive,
+        })}
         engvoVoiceMode={engvoVoiceMode}
         settings={settings}
         onSettingsChange={(s) => {

@@ -249,6 +249,10 @@ export type MenuView =
   | 'profile'
   | 'engvo'
 
+export type HomeSectionNavHandle = {
+  goBack: () => 'section' | 'landing'
+}
+
 export type { AiChatPanel }
 
 export type TheoryLessonNavigationSource = 'cef_levels' | 'tag_browse'
@@ -610,6 +614,10 @@ export interface MenuSectionPanelsProps {
   /** Slide-out на всю колонку: горизонтальный отступ у карточек, фон панели без px. */
   edgeToEdge?: boolean
   homeLayout?: boolean
+  /** In-page главная: без ряда X/дом, корень карточек виден. Оверлей — default overlay. */
+  chrome?: 'overlay' | 'home'
+  onHomeNavHandle?: (handle: HomeSectionNavHandle | null) => void
+  onSectionTitleChange?: (title: string) => void
   /** Подписи корневых разделов. Только ветка Главной («Разделы»), не гамбургер. */
   showSectionHints?: boolean
   /** Slide-out: закрыть overlay-меню без сброса сессии. */
@@ -785,6 +793,9 @@ export default function MenuSectionPanels({
   className,
   edgeToEdge = false,
   homeLayout = false,
+  chrome = 'overlay',
+  onHomeNavHandle,
+  onSectionTitleChange,
   showSectionHints = false,
   onCloseMenu,
   onStartHomeChat,
@@ -2340,10 +2351,13 @@ export default function MenuSectionPanels({
   const menuNavIconButtonClass =
     'btn-3d-menu flex h-11 min-h-[44px] w-11 min-w-[44px] shrink-0 items-center justify-center rounded-lg border border-[var(--text)]/[0.18] bg-[var(--menu-card-bg)] text-[var(--text)] touch-manipulation focus-visible:outline-none'
 
-  const lessonsUsesTutorChatLayout = !homeLayout && menuView === 'lessons' && lessonsPanel === 'tutor'
+  const isHomeChrome = chrome === 'home'
+  const useHomeLayout = homeLayout || isHomeChrome
+
+  const lessonsUsesTutorChatLayout = !useHomeLayout && menuView === 'lessons' && lessonsPanel === 'tutor'
 
   const rootClass = [
-    className ?? (homeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col'),
+    className ?? (useHomeLayout ? 'flex min-h-0 flex-col' : 'flex min-h-0 flex-1 flex-col'),
     edgeToEdge ? 'pl-0 pr-3' : '',
     // Bleed to aside edges: cancel SlideOutMenu px-3 pb-3 so composer can match chat dock inset.
     lessonsUsesTutorChatLayout ? '-mx-3 -mb-3' : '',
@@ -2426,11 +2440,36 @@ export default function MenuSectionPanels({
     if (menuView === 'progress') return 'Прогресс'
     if (menuView === 'myPlan') return 'Мой план'
     if (menuView === 'profile') return 'Профиль'
-    return !homeLayout ? 'Главная' : ''
+    return 'Главная'
   })()
 
+  React.useEffect(() => {
+    onSectionTitleChange?.(headerTitle)
+  }, [headerTitle, onSectionTitleChange])
+
+  React.useLayoutEffect(() => {
+    if (!isHomeChrome) {
+      onHomeNavHandle?.(null)
+      return
+    }
+    onHomeNavHandle?.({
+      goBack: () => {
+        if (menuView === 'root') return 'landing'
+        handleMenuBack()
+        return 'section'
+      },
+    })
+  })
+
+  React.useEffect(
+    () => () => {
+      onHomeNavHandle?.(null)
+    },
+    [onHomeNavHandle]
+  )
+
   const lessonsUsesInnerScrollLayout =
-    !homeLayout &&
+    !useHomeLayout &&
     menuView === 'lessons' &&
     (lessonsPanel === 'theoryCefrLevels' ||
       lessonsPanel === 'a1' ||
@@ -2457,14 +2496,14 @@ export default function MenuSectionPanels({
     'menu-panel-view-enter pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
   const lessonMenuInnerScrollClass =
     'min-h-0 flex-1 overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
-  const lessonMenuPanelShellClass = homeLayout
+  const lessonMenuPanelShellClass = useHomeLayout
     ? 'flex flex-col gap-2'
     : 'flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-hidden'
-  const lessonMenuListRegionClass = homeLayout ? 'space-y-2' : lessonMenuInnerScrollClass
-  const lessonMenuFooterRegionClass = homeLayout
+  const lessonMenuListRegionClass = useHomeLayout ? 'space-y-2' : lessonMenuInnerScrollClass
+  const lessonMenuFooterRegionClass = useHomeLayout
     ? 'space-y-2 border-t border-[var(--border)]/70 pt-2'
     : 'shrink-0 space-y-2 border-t border-[var(--border)]/70 pt-2'
-  const panelScrollAreaClass = homeLayout
+  const panelScrollAreaClass = useHomeLayout
     ? `${panelScrollAreaEnter} space-y-2.5`
     : lessonsUsesTutorChatLayout
       ? `${panelScrollAreaEnter} flex min-h-0 flex-1 flex-col overflow-hidden pb-0`
@@ -2534,7 +2573,7 @@ export default function MenuSectionPanels({
 
   return (
     <div className={`${rootClass} ${manropeHome.className}`.trim()}>
-      {(menuView !== 'root' || !homeLayout) && (
+      {(!isHomeChrome && (menuView !== 'root' || !homeLayout)) && (
         <div
           className={`mb-1.5 flex shrink-0 items-center justify-between gap-2 border-b border-[var(--border)]/70 pb-1.5 ${
             lessonsUsesTutorChatLayout ? 'px-3' : ''
@@ -2651,7 +2690,7 @@ export default function MenuSectionPanels({
         }
         className={panelScrollAreaClass}
       >
-        {menuView === 'root' && !homeLayout && (
+        {menuView === 'root' && (isHomeChrome || !homeLayout) && (
           <div className="space-y-4">
             <HubNavStack>
               <HubNavCard
@@ -4229,7 +4268,7 @@ export default function MenuSectionPanels({
 
             {lessonsPanel === 'theoryTagLevels' && theoryTopicLaunch && theoryTopicLaunch.tagIds.length > 0 ? (
               <div className={lessonMenuPanelShellClass}>
-                <div className={`${lessonMenuListRegionClass}${homeLayout ? ' flex flex-col gap-2' : ''}`}>
+                <div className={`${lessonMenuListRegionClass}${useHomeLayout ? ' flex flex-col gap-2' : ''}`}>
                   {theoryTopicLessonsFlat.length === 0 ? (
                     <p className="shrink-0 rounded-lg border border-[var(--status-warning-border)] bg-[var(--status-warning-bg)] px-3 py-2 text-[13px] text-[var(--status-warning-text)]">
                       По выбранным темам пока нет уроков с теорией.
